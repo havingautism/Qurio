@@ -123,6 +123,7 @@ const ChatInterface = ({
   onTitleAndSpaceGenerated,
   isSidebarPinned = false,
   isSpaceSelectionLocked = false,
+  MessageListComponent = MessageList,
 }) => {
   const normalizeTitleEmojis = value => {
     if (Array.isArray(value)) {
@@ -222,6 +223,8 @@ const ChatInterface = ({
   const [quotedText, setQuotedText] = useState(null)
   const [quoteContext, setQuoteContext] = useState(null)
   const [editingSeed, setEditingSeed] = useState({ text: '', attachments: [] })
+  const sendInFlightRef = useRef(false)
+  const formSubmitInFlightRef = useRef(false)
   const quoteTextRef = useRef('')
   const quoteSourceRef = useRef('')
   const lastTitleConversationIdRef = useRef(null)
@@ -243,6 +246,7 @@ const ChatInterface = ({
   const [isSearchActive, setIsSearchActive] = useState(false)
   const [isThinkingActive, setIsThinkingActive] = useState(getInitialThinkingPreference)
   const [isExpertMode, setIsExpertMode] = useState(false)
+  const previousExpertModeRef = useRef(false)
   const [searchBackend, setSearchBackend] = useState(null)
   const [selectedSearchTools, setSelectedSearchTools] = useState([])
   const [isSearchMenuOpen, setIsSearchMenuOpen] = useState(false)
@@ -719,6 +723,14 @@ const ChatInterface = ({
   const resolvedModelName = activeModelConfig?.model || effectiveDefaultModel || ''
   const thinkingRule = resolveThinkingToggleRule(effectiveProvider, resolvedModelName)
   const isThinkingLocked = thinkingRule.isLocked
+
+  useEffect(() => {
+    const wasExpertMode = previousExpertModeRef.current
+    if (!wasExpertMode && isExpertMode && !isThinkingLocked) {
+      setIsThinkingActive(true)
+    }
+    previousExpertModeRef.current = isExpertMode
+  }, [isExpertMode, isThinkingLocked])
 
   const resolvedSearchToolIds = useMemo(() => {
     const ids = new Set()
@@ -1492,6 +1504,7 @@ const ChatInterface = ({
 
       if (!textToSend.trim() && attToSend.length === 0) return
       if (isLoading) return
+      if (sendInFlightRef.current) return
       scrollToBottom('auto')
 
       const editingInfo =
@@ -1560,59 +1573,64 @@ const ChatInterface = ({
         }
       }
 
-      await sendMessage({
-        text: textToSend,
-        attachments: attToSend,
-        toggles: {
-          search: searchActive,
-          searchTool,
-          searchBackend: searchBackendValue || null,
-          thinking: thinkingActive,
-          expertMode: expertModeActive,
-          related: relatedActive,
-        },
-        settings,
-        spaceInfo: { selectedSpace: displaySpace || selectedSpace, isManualSpaceSelection },
-        selectedAgent: agentForSend,
-        isAgentAutoMode,
-        agents: appAgents,
-        documentSources: baseDocumentSources,
-        documentSelection: {
-          documents: selectedDocuments,
-          skipRetrieval: skipDocumentRetrieval,
-        },
-        editingInfo,
-        callbacks: {
-          onTitleAndSpaceGenerated,
-          onSpaceResolved: space => {
-            if (isSpaceSelectionLocked) return
-            setSelectedSpace(space)
-            setIsManualSpaceSelection(false)
+      sendInFlightRef.current = true
+      try {
+        await sendMessage({
+          text: textToSend,
+          attachments: attToSend,
+          toggles: {
+            search: searchActive,
+            searchTool,
+            searchBackend: searchBackendValue || null,
+            thinking: thinkingActive,
+            expertMode: expertModeActive,
+            related: relatedActive,
           },
-          onConversationReady: async conversation => {
-            const pendingIds = pendingDocumentIdsRef.current || []
-            if (!conversation?.id || pendingIds.length === 0) return
-            const { error } = await setConversationDocuments(conversation.id, pendingIds)
-            if (error) {
-              console.error('Failed to save conversation documents:', error)
-              toast.error(t('chatInterface.documentsSelectionSaveFailed'))
-            } else {
-              setPendingDocumentIds([])
-            }
+          settings,
+          spaceInfo: { selectedSpace: displaySpace || selectedSpace, isManualSpaceSelection },
+          selectedAgent: agentForSend,
+          isAgentAutoMode,
+          agents: appAgents,
+          documentSources: baseDocumentSources,
+          documentSelection: {
+            documents: selectedDocuments,
+            skipRetrieval: skipDocumentRetrieval,
           },
-          onAgentResolved: agent => {
-            // Only update selected agent if in auto mode
-            // In manual mode, respect user's explicit choice
-            if (isAgentAutoMode) {
-              const nextAgentId = agent?.id || null
-              setPendingAgentId(nextAgentId)
-              setSelectedAgentId(nextAgentId)
-            }
+          editingInfo,
+          callbacks: {
+            onTitleAndSpaceGenerated,
+            onSpaceResolved: space => {
+              if (isSpaceSelectionLocked) return
+              setSelectedSpace(space)
+              setIsManualSpaceSelection(false)
+            },
+            onConversationReady: async conversation => {
+              const pendingIds = pendingDocumentIdsRef.current || []
+              if (!conversation?.id || pendingIds.length === 0) return
+              const { error } = await setConversationDocuments(conversation.id, pendingIds)
+              if (error) {
+                console.error('Failed to save conversation documents:', error)
+                toast.error(t('chatInterface.documentsSelectionSaveFailed'))
+              } else {
+                setPendingDocumentIds([])
+              }
+            },
+            onAgentResolved: agent => {
+              // Only update selected agent if in auto mode
+              // In manual mode, respect user's explicit choice
+              if (isAgentAutoMode) {
+                const nextAgentId = agent?.id || null
+                setPendingAgentId(nextAgentId)
+                setSelectedAgentId(nextAgentId)
+              }
+            },
           },
-        },
-        spaces,
-        quoteContext: quoteContextForSend,
-      })
+          spaces,
+          quoteContext: quoteContextForSend,
+        })
+      } finally {
+        sendInFlightRef.current = false
+      }
     },
     [
       isSearchActive,
@@ -1656,29 +1674,35 @@ const ChatInterface = ({
 
   // Handle interactive form submission
   const handleFormSubmit = useCallback(
-    formSubmission => {
+    async formSubmission => {
+      if (isLoading || formSubmitInFlightRef.current) return
       const agentForSend =
         selectedAgent || (!isAgentAutoMode && initialAgentSelection) || defaultAgent || null
 
       // Use submitInteractiveForm to continue in the same message
-      submitInteractiveForm({
-        formData: formSubmission,
-        settings,
-        toggles: {
-          search: isSearchActive,
-          searchTool: resolvedSearchToolIds,
-          searchBackend,
-          thinking: isThinkingActive,
-          expertMode: isExpertMode,
-          related: isRelatedEnabled,
-        },
-        selectedAgent: agentForSend,
-        agents: appAgents,
-        spaceInfo: { selectedSpace, isManualSpaceSelection },
-        isAgentAutoMode,
-      })
+      formSubmitInFlightRef.current = true
+      try {
+        await submitInteractiveForm({
+          formData: formSubmission,
+          settings,
+          toggles: {
+            search: isSearchActive,
+            searchTool: resolvedSearchToolIds,
+            searchBackend,
+            thinking: isThinkingActive,
+            expertMode: isExpertMode,
+            related: isRelatedEnabled,
+          },
+          selectedAgent: agentForSend,
+          agents: appAgents,
+          spaceInfo: { selectedSpace, isManualSpaceSelection },
+        })
+      } finally {
+        formSubmitInFlightRef.current = false
+      }
     },
     [
+      isLoading,
       isSearchActive,
       resolvedSearchToolIds,
       searchBackend,
@@ -2082,7 +2106,7 @@ const ChatInterface = ({
                 <FancyLoader />
               </div>
             )}
-            <MessageList
+            <MessageListComponent
               apiProvider={effectiveProvider}
               defaultModel={effectiveDefaultModel}
               onRelatedClick={handleRelatedClick}
@@ -2132,7 +2156,10 @@ const ChatInterface = ({
             {showScrollButton && (
               <button
                 onClick={() => scrollToBottom('smooth')}
-                className="animate-in fade-in slide-in-from-bottom-2 absolute -top-14 left-1/2 z-30 -translate-x-1/2 rounded-full border border-gray-200/60 bg-white p-2.5 shadow-lg transition-all duration-300 hover:scale-105 hover:bg-gray-50 active:scale-95 dark:border-zinc-700/60 dark:bg-zinc-800 dark:hover:bg-zinc-700"
+                className={clsx(
+                  'animate-in fade-in slide-in-from-bottom-2 absolute -top-14 left-1/2 z-30 -translate-x-1/2 rounded-full border border-gray-200/60 bg-white p-2.5 shadow-lg transition-all duration-300 hover:scale-105 hover:bg-gray-50 active:scale-95 dark:border-zinc-700/60 dark:bg-zinc-800 dark:hover:bg-zinc-700',
+                  isLoading && 'scroll-to-bottom-breathing border-primary-400/70 dark:border-primary-500/70',
+                )}
               >
                 <ArrowDown size={18} className="text-gray-700 dark:text-gray-300" strokeWidth={2} />
               </button>

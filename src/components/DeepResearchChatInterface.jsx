@@ -92,6 +92,11 @@ const DeepResearchChatInterface = ({
     if (language === 'en') return 'Please respond in English.'
     return ''
   }
+  const getDeepResearchResponseLanguageLabel = language => {
+    if (language === 'zh-CN') return 'Chinese (Simplified)'
+    if (language === 'en') return 'English'
+    return ''
+  }
 
   // Lock body scroll when component mounts (defensive measure for iOS keyboard interactions)
   // useEffect(() => {
@@ -152,7 +157,6 @@ const DeepResearchChatInterface = ({
   const [selectedSearchTools, setSelectedSearchTools] = useState([])
   const [isThinkingActive, setIsThinkingActive] = useState(getInitialThinkingPreference)
   const [isDeepResearchActive, setIsDeepResearchActive] = useState(false)
-  const [isSequentialResearchActive, setIsSequentialResearchActive] = useState(false) // Sequential research
   const [concurrencyLimit, setConcurrencyLimit] = useState(3)
   const togglePrefsHydratedRef = useRef(false)
   const togglePrefsHydrationTimerRef = useRef(null)
@@ -609,9 +613,6 @@ const DeepResearchChatInterface = ({
       if (initialToggles.deepResearch) {
         setIsDeepResearchActive(true)
         setIsThinkingActive(false)
-        if (initialToggles.concurrentResearch !== undefined) {
-          setIsSequentialResearchActive(!initialToggles.concurrentResearch)
-        }
         if (initialToggles.concurrencyLimit) {
           setConcurrencyLimit(initialToggles.concurrencyLimit)
         }
@@ -631,15 +632,7 @@ const DeepResearchChatInterface = ({
 
       // Trigger send immediately
       try {
-        const initialLanguageInstruction =
-          initialToggles?.deepResearch && responseLanguage
-            ? getDeepResearchResponseLanguageInstruction(responseLanguage)
-            : ''
-        const initialMessageWithLanguage = applyLanguageInstructionToText(
-          initialMessage,
-          initialLanguageInstruction,
-        )
-        await handleSendMessage(initialMessageWithLanguage, initialAttachments, initialToggles)
+        await handleSendMessage(initialMessage, initialAttachments, initialToggles)
         if (initialSendKey) {
           sessionStorage.setItem(initialSendKey, '1')
         }
@@ -1209,11 +1202,6 @@ const DeepResearchChatInterface = ({
       const deepResearchActive = togglesOverride
         ? togglesOverride.deepResearch
         : isDeepResearchConversation || isDeepResearchActive
-      const sequentialActive = togglesOverride
-        ? togglesOverride.concurrentResearch !== undefined
-          ? !togglesOverride.concurrentResearch
-          : isSequentialResearchActive
-        : isSequentialResearchActive
       const relatedActive = deepResearchActive
         ? false
         : togglesOverride
@@ -1223,6 +1211,10 @@ const DeepResearchChatInterface = ({
         ? togglesOverride.concurrencyLimit
         : concurrencyLimit
       const resolvedThinkingActive = deepResearchActive ? false : thinkingActive
+      const languageOverrideInstruction =
+        deepResearchActive && responseLanguage
+          ? getDeepResearchResponseLanguageInstruction(responseLanguage)
+          : ''
 
       const isEditing = Boolean(editingInfoOverride || editingIndex !== null)
       if (isDeepResearchFollowUpLocked && !isEditing) return
@@ -1270,23 +1262,47 @@ const DeepResearchChatInterface = ({
         (!isAgentAutoMode && initialAgentSelection) ||
         defaultAgent ||
         null
+      const languageOverrideLabel =
+        deepResearchActive && responseLanguage
+          ? getDeepResearchResponseLanguageLabel(responseLanguage)
+          : ''
+      const agentForSendWithLanguage =
+        languageOverrideLabel && agentForSend
+          ? {
+              ...agentForSend,
+              response_language: languageOverrideLabel,
+              responseLanguage: languageOverrideLabel,
+            }
+          : agentForSend
+      const settingsForSend =
+        deepResearchActive && responseLanguage
+          ? {
+              ...settings,
+              // Deep research modal language must take precedence over global
+              // "follow interface language" setting for this request.
+              followInterfaceLanguage: false,
+            }
+          : settings
       const agentAutoModeForSend = deepResearchActive ? false : isAgentAutoMode
 
       await sendMessage({
-        text: textToSend,
+        text:
+          languageOverrideInstruction && typeof textToSend === 'string'
+            ? applyLanguageInstructionToText(textToSend, languageOverrideInstruction)
+            : textToSend,
         attachments: attToSend,
         toggles: {
           search: searchActive,
           searchTool,
           thinking: resolvedThinkingActive,
           deepResearch: deepResearchActive,
-          sequentialResearch: deepResearchActive ? sequentialActive : false, // Only apply when deepResearch is active
           concurrencyLimit: deepResearchActive ? resolvedConcurrencyLimit : 3,
           related: relatedActive,
+          responseLanguage: deepResearchActive ? responseLanguage : null,
         },
-        settings,
+        settings: settingsForSend,
         spaceInfo: { selectedSpace: displaySpace || selectedSpace, isManualSpaceSelection },
-        selectedAgent: agentForSend,
+        selectedAgent: agentForSendWithLanguage,
         isAgentAutoMode: agentAutoModeForSend,
         agents: appAgents,
         editingInfo,
@@ -1323,6 +1339,7 @@ const DeepResearchChatInterface = ({
       isDeepResearchFollowUpLocked,
       isRelatedEnabled,
       isLoading,
+      responseLanguage,
       editingIndex,
       editingTargetId,
       editingPartnerId,
@@ -1705,7 +1722,10 @@ const DeepResearchChatInterface = ({
         {showScrollButton && (
           <button
             onClick={() => scrollToBottom('smooth')}
-            className="animate-in fade-in slide-in-from-bottom-2 absolute bottom-6 left-1/2 z-30 -translate-x-1/2 rounded-full border border-gray-200/60 bg-white p-2.5 shadow-lg transition-all duration-300 hover:scale-105 hover:bg-gray-50 active:scale-95 sm:bottom-8 dark:border-zinc-700/60 dark:bg-zinc-800 dark:hover:bg-zinc-700"
+            className={clsx(
+              'animate-in fade-in slide-in-from-bottom-2 absolute bottom-6 left-1/2 z-30 -translate-x-1/2 rounded-full border border-gray-200/60 bg-white p-2.5 shadow-lg transition-all duration-300 hover:scale-105 hover:bg-gray-50 active:scale-95 sm:bottom-8 dark:border-zinc-700/60 dark:bg-zinc-800 dark:hover:bg-zinc-700',
+              isLoading && 'scroll-to-bottom-breathing border-primary-400/70 dark:border-primary-500/70',
+            )}
           >
             <ArrowDown size={18} className="text-gray-700 dark:text-gray-300" strokeWidth={2} />
           </button>

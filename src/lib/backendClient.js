@@ -907,7 +907,6 @@ export const streamDeepResearchViaBackend = async params => {
     plan,
     question,
     researchType, // 'general' or 'academic'
-    sequentialExecution, // Enable sequential step execution
     searchProvider,
     tavilyApiKey,
     serpapiApiKey,
@@ -954,7 +953,6 @@ export const streamDeepResearchViaBackend = async params => {
           plan,
           question,
           researchType, // Pass researchType to backend
-          sequentialResearch: sequentialExecution, // Pass sequentialResearch to backend
           concurrencyLimit: concurrencyLimit, // Pass concurrencyLimit to backend
           searchProvider,
           tavilyApiKey,

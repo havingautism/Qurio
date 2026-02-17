@@ -1,4 +1,4 @@
-import { useNavigate } from '@tanstack/react-router'
+﻿import { useNavigate } from '@tanstack/react-router'
 import clsx from 'clsx'
 import {
   ArrowRight,
@@ -209,7 +209,7 @@ const DeepResearchView = () => {
   const resolveConversationEmoji = (conv, fallbackEmoji) => {
     const emojiList = normalizeTitleEmojis(conv?.title_emojis ?? conv?.titleEmojis)
     const resolvedList = emojiList.length > 0 ? emojiList : fallbackEmoji ? [fallbackEmoji] : []
-    if (resolvedList.length === 0) return '💬'
+    if (resolvedList.length === 0) return '🔬'
     return resolvedList[0]
   }
 

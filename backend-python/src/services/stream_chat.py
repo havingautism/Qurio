@@ -1,4 +1,4 @@
-"""
+﻿"""
 Stream chat service implemented with Agno SDK (Agent + tools + DB).
 """
 
@@ -44,9 +44,12 @@ TIME_KEYWORDS_REGEX = re.compile(
 
 MEMORY_OPTIMIZE_THRESHOLD = 50
 MEMORY_OPTIMIZE_INTERVAL_SECONDS = 60 * 60 * 12
-THOUGHT_BLOCK_BREAK_MARKER = "<|thought_block_break|>"
 THINK_TAG_REGEX = re.compile(r"</?(?:think|thought)>", re.IGNORECASE)
-PROTOCOL_TAG_REGEX = re.compile(r"<\|([a-zA-Z0-9_]+)\|>")
+PROTOCOL_TAG_REGEX = re.compile(
+    r"(?:<[|｜](?P<tag>[a-zA-Z0-9_]+)[|｜]>)"
+    r"|(?:<\s*(?P<dsml_close>/?)\s*[|｜]\s*DSML\s*[|｜]\s*(?P<dsml_body>[^>]+)>)",
+    re.IGNORECASE,
+)
 TOOL_TRACE_BEGIN_TAGS = {
     "tool_calls_section_begin",
     "tool_call_begin",
@@ -65,11 +68,12 @@ def _strip_internal_tool_trace(text: str) -> str:
         return ""
     cleaned = str(text)
     cleaned = re.sub(r"</?(?:think|thought)>", "", cleaned, flags=re.IGNORECASE)
-    # Keep this conservative: only strip marker tokens themselves.
-    cleaned = re.sub(r"<\|tool_call_[^|]*\|>", "", cleaned, flags=re.IGNORECASE)
-    cleaned = re.sub(r"<\|tool_calls_section_[^|]*\|>", "", cleaned, flags=re.IGNORECASE)
+    # Strip internal protocol markers/tags so stream_blocks never persist them.
+    cleaned = re.sub(r"<\|[^|>]*\|>", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"</?\s*[|｜]\s*DSML\s*[|｜]\s*[^>]*>", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"</?(?:session_memory|today_local_time)>", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\[SYSTEM INJECTED CONTEXT\]", "", cleaned, flags=re.IGNORECASE)
     return cleaned
-
 
 def _split_content_by_think_tags(text: str, in_think: bool) -> tuple[list[tuple[str, str]], bool]:
     """Split a content chunk into ordered thought/text segments by <think>/<thought> tags."""
@@ -111,8 +115,10 @@ def _strip_inline_tool_protocol(
 
     # Keep trailing incomplete protocol marker for next chunk.
     tail = ""
-    tail_start = combined.rfind("<|")
-    if tail_start != -1 and combined.find("|>", tail_start) == -1:
+    tail_start = -1
+    for m in re.finditer(r"<\s*/?\s*[|｜]", combined):
+        tail_start = m.start()
+    if tail_start != -1 and ">" not in combined[tail_start:]:
         tail = combined[tail_start:]
         combined = combined[:tail_start]
 
@@ -124,9 +130,34 @@ def _strip_inline_tool_protocol(
     depth = max(0, int(tool_trace_depth))
     had_protocol = False
 
+    def _resolve_tag(match: re.Match[str]) -> str | None:
+        direct = match.group("tag")
+        if direct:
+            return direct.lower()
+
+        dsml_body = (match.group("dsml_body") or "").strip()
+        if not dsml_body:
+            return None
+        dsml_close = (match.group("dsml_close") or "") == "/"
+        dsml_name = re.split(r"\s+", dsml_body, maxsplit=1)[0].strip().lower()
+        if not dsml_name:
+            return None
+
+        mapping = {
+            "function_calls": ("tool_calls_section_begin", "tool_calls_section_end"),
+            "invoke": ("tool_call_begin", "tool_call_end"),
+            "parameter": ("tool_call_argument_begin", "tool_call_argument_end"),
+        }
+        mapped = mapping.get(dsml_name)
+        if not mapped:
+            return None
+        return mapped[1] if dsml_close else mapped[0]
+
     for match in PROTOCOL_TAG_REGEX.finditer(combined):
         start, end = match.span()
-        tag = match.group(1).lower()
+        tag = _resolve_tag(match)
+        if not tag:
+            continue
         had_protocol = True
         if depth == 0 and start > cursor:
             parts.append(combined[cursor:start])
@@ -295,11 +326,6 @@ class StreamChatService:
                 if not text or not text.strip():
                     return
 
-                if should_break_next_thought and not in_reasoning_phase and full_thought.strip():
-                    separator = f"\n\n{THOUGHT_BLOCK_BREAK_MARKER}\n\n"
-                    full_thought += separator
-                    current_text_index = len(full_content)
-                    yield ThoughtEvent(content=separator, text_index=current_text_index).model_dump(by_alias=True)
                 should_break_next_thought = False
                 in_reasoning_phase = True
                 full_thought += text
@@ -321,6 +347,43 @@ class StreamChatService:
 
             def _extract_text_chunk(run_event: Any) -> str:
                 """Extract assistant text only from explicit content fields."""
+                provider_data = getattr(run_event, "model_provider_data", None)
+                if isinstance(provider_data, dict):
+                    # NVIDIA dedicated split:
+                    # text -> delta.content, reasoning -> delta.reasoning_content
+                    choices = provider_data.get("choices") or []
+                    if choices and isinstance(choices[0], dict):
+                        delta = choices[0].get("delta") or {}
+                        raw_content = delta.get("content")
+                        if isinstance(raw_content, str) and raw_content:
+                            return raw_content
+                        if isinstance(raw_content, list):
+                            parts: list[str] = []
+                            for item in raw_content:
+                                if isinstance(item, dict):
+                                    text_part = item.get("text") or item.get("content")
+                                    if text_part:
+                                        parts.append(str(text_part))
+                                elif isinstance(item, str) and item:
+                                    parts.append(item)
+                            if parts:
+                                return "".join(parts)
+                        raw_reasoning = delta.get("reasoning_content")
+                        if isinstance(raw_reasoning, str) and raw_reasoning:
+                            return ""
+                        if isinstance(raw_reasoning, list):
+                            reasoning_parts: list[str] = []
+                            for item in raw_reasoning:
+                                if isinstance(item, dict):
+                                    text_part = item.get("text") or item.get("content")
+                                    if text_part:
+                                        reasoning_parts.append(str(text_part))
+                                elif isinstance(item, str) and item:
+                                    reasoning_parts.append(item)
+                            if reasoning_parts:
+                                return ""
+                    # Fall through to generic extraction when no explicit NVIDIA split fields.
+
                 content = getattr(run_event, "content", None)
                 if isinstance(content, str) and content:
                     return content
@@ -328,7 +391,7 @@ class StreamChatService:
                     parts: list[str] = []
                     for item in content:
                         if isinstance(item, dict):
-                            text_part = item.get("text")
+                            text_part = item.get("text") or item.get("content")
                             if isinstance(text_part, str) and text_part:
                                 parts.append(text_part)
                         elif isinstance(item, str) and item:
@@ -336,7 +399,6 @@ class StreamChatService:
                     if parts:
                         return "".join(parts)
 
-                provider_data = getattr(run_event, "model_provider_data", None)
                 if isinstance(provider_data, dict):
                     choices = provider_data.get("choices") or []
                     if choices and isinstance(choices[0], dict):
@@ -348,14 +410,39 @@ class StreamChatService:
                             parts: list[str] = []
                             for item in raw_content:
                                 if isinstance(item, dict):
-                                    text_part = item.get("text")
+                                    text_part = item.get("text") or item.get("content")
                                     if text_part:
                                         parts.append(str(text_part))
+                                elif isinstance(item, str) and item:
+                                    parts.append(item)
                             if parts:
                                 return "".join(parts)
                 return ""
 
             def _extract_reasoning_chunk(run_event: Any) -> str:
+                provider_data = getattr(run_event, "model_provider_data", None)
+                if isinstance(provider_data, dict):
+                    choices = provider_data.get("choices") or []
+                    if choices and isinstance(choices[0], dict):
+                        delta = choices[0].get("delta") or {}
+                        raw_reasoning = delta.get("reasoning_content")
+                        if isinstance(raw_reasoning, str) and raw_reasoning:
+                            trace_stream("reasoning_source", source="provider_data.delta.reasoning_content")
+                            return raw_reasoning
+                        if isinstance(raw_reasoning, list):
+                            parts: list[str] = []
+                            for item in raw_reasoning:
+                                if isinstance(item, dict):
+                                    text_part = item.get("text") or item.get("content")
+                                    if text_part:
+                                        parts.append(str(text_part))
+                                elif isinstance(item, str) and item:
+                                    parts.append(item)
+                            if parts:
+                                trace_stream("reasoning_source", source="provider_data.delta.reasoning_content[]")
+                                return "".join(parts)
+                    # Fall through to generic extraction when no explicit NVIDIA reasoning delta.
+
                 reasoning = getattr(run_event, "reasoning_content", None)
                 if isinstance(reasoning, str) and reasoning:
                     trace_stream("reasoning_source", source="run_event.reasoning_content")
@@ -373,7 +460,6 @@ class StreamChatService:
                         trace_stream("reasoning_source", source="run_event.reasoning_content[]")
                         return "".join(parts)
 
-                provider_data = getattr(run_event, "model_provider_data", None)
                 if isinstance(provider_data, dict):
                     choices = provider_data.get("choices") or []
                     if choices and isinstance(choices[0], dict):
@@ -392,6 +478,11 @@ class StreamChatService:
                             if parts:
                                 trace_stream("reasoning_source", source="provider_data.delta.reasoning_content[]")
                                 return "".join(parts)
+                        # NOTE:
+                        # Some providers (e.g. DeepSeek-compatible streams) may place
+                        # assistant answer tokens under `delta.reasoning`.
+                        # Treating that field as reasoning can misclassify answer text as thought.
+                        # Keep reasoning extraction strict to `reasoning_content` only.
                 return ""
 
             # Context management now handled by Agno's num_history_runs parameter
@@ -492,17 +583,16 @@ class StreamChatService:
             # 3. Inject Summary into System Prompt
             if session_summary_text:
                 summary_prompt = (
-                    "\n\n<session_memory>\n"
+                    "\n\nSession memory summary:\n"
                     "Here is a summary of the conversation so far. Use this to understand long-term context, "
                     "but prioritize the details in the recent messages below.\n"
                     f"{session_summary_text}\n"
-                    "</session_memory>"
                 )
                 # Inject into the LAST system message, or create a new one if none exist
                 if system_messages:
                     last_sys = system_messages[-1]
                     # Avoid appending if already present (defensive)
-                    if "<session_memory>" not in str(last_sys.get("content", "")):
+                    if "Session memory summary:" not in str(last_sys.get("content", "")):
                         new_content = str(last_sys.get("content", "")) + summary_prompt
                         # Update the dict (need to be careful not to mutate original request list in place if reused, but here it's fine)
                         last_sys["content"] = new_content
@@ -518,7 +608,10 @@ class StreamChatService:
                 stream_events=True,
                 user_id=request.user_id,
                 session_id=request.conversation_id,
-                output_schema=request.output_schema or request.response_format,
+                # Only pass explicit structured-output schema.
+                # Do not fallback to response_format, otherwise {"type":"json_object"}
+                # may be treated as grammar and trigger provider-side grammar cache errors.
+                output_schema=request.output_schema,
             )
 
             # ================================================================
@@ -556,6 +649,10 @@ class StreamChatService:
 
                         # Save to Supabase
                         try:
+                            logger.info(
+                                f"[HITL] Saving pending run_id={run_event.run_id} "
+                                f"with database_provider={request.database_provider}"
+                            )
                             hitl_storage = get_hitl_storage(request.database_provider)
                             saved = await hitl_storage.save_pending_run(
                                 run_id=run_event.run_id,
@@ -918,9 +1015,31 @@ class StreamChatService:
                             return
                 else:
                     # Simple event Fallback (no detailed event type), just check for content
-                    content = getattr(run_event, 'content', None)
-                    if content:
-                        for e in process_text(str(content)):
+                    raw_content_chunk = _extract_text_chunk(run_event)
+                    raw_content_chunk, inline_tool_trace_depth, inline_protocol_tail, _ = _strip_inline_tool_protocol(
+                        raw_content_chunk,
+                        inline_tool_trace_depth,
+                        inline_protocol_tail,
+                    )
+                    raw_reasoning = _extract_reasoning_chunk(run_event)
+                    content_segments, in_content_think_block = _split_content_by_think_tags(
+                        raw_content_chunk,
+                        in_content_think_block,
+                    )
+                    content_chunk = "".join(
+                        seg_text for seg_type, seg_text in content_segments if seg_type == "text"
+                    )
+                    inline_thought_chunk = "".join(
+                        seg_text for seg_type, seg_text in content_segments if seg_type == "thought"
+                    )
+                    if raw_reasoning:
+                        for event in emit_thought_part(str(raw_reasoning)):
+                            yield event
+                    if inline_thought_chunk:
+                        for event in emit_thought_part(str(inline_thought_chunk)):
+                            yield event
+                    if content_chunk:
+                        for e in process_text(content_chunk):
                             yield e
 
         except Exception as exc:
@@ -935,17 +1054,20 @@ class StreamChatService:
         Continue a paused HITL run after user submits form.
         
         This method:
-        1. Retrieves requirements from Supabase
-        2. Fills in user-submitted field values
-        3. Continues the agent run with agent.acontinue_run()
-        4. Streams the completion
-        5. Cleans up Supabase record
+        1. Retrieves requirements from storage
+        2. Rebuilds continuation messages with submitted form values
+        3. Runs agent.arun() and streams completion
+        4. Cleans up storage record
         """
         try:
             run_id = request.run_id
             field_values = request.field_values or {}
 
-            logger.info(f"Continuing HITL run {run_id} with field_values: {list(field_values.keys())}")
+            logger.info(
+                f"[HITL] Continuing run_id={run_id!r} "
+                f"with database_provider={request.database_provider} "
+                f"and field_values={list(field_values.keys())}"
+            )
 
             # 1. Fetch Session Summary from DB
             session_summary_text = None
@@ -999,25 +1121,12 @@ class StreamChatService:
                 requirements = pending
 
             if not requirements:
-                logger.error(f"No pending run found for run_id: {run_id}")
+                logger.error(
+                    f"[HITL] No pending run found for run_id={run_id!r} "
+                    f"(database_provider={request.database_provider})"
+                )
                 yield ErrorEvent(error="Form session expired or not found").model_dump()
                 return
-
-            # Fill in user-submitted values
-            for req in requirements:
-                # Case 1: External execution (interactive_form)
-                if (hasattr(req, 'needs_external_execution') and req.needs_external_execution) or \
-                   (req.tool_execution and req.tool_execution.tool_name == "interactive_form"):
-                    import json
-                    req.set_external_execution_result(json.dumps(field_values))
-                    logger.debug(f"Set external execution result for {req.tool_execution.tool_name}")
-
-                # Case 2: Traditional user input (get_user_input)
-                elif req.needs_user_input and req.user_input_schema:
-                    for field in req.user_input_schema:
-                        if field.name in field_values:
-                            field.value = field_values[field.name]
-                            logger.debug(f"Filled field '{field.name}' with value: {field.value}")
 
             # Get agent (same provider as original request)
             agent = get_agent_for_provider(request)
@@ -1035,6 +1144,8 @@ class StreamChatService:
             inline_protocol_tail = ""
             stream_trace = _is_stream_trace_enabled()
             paused_again = False  # Flag to prevent cleanup when multi-form chaining occurs
+            stream_had_error = False
+            completed_content_fallback = ""
 
             def trace_stream(stage: str, **kwargs: Any) -> None:
                 if not stream_trace:
@@ -1047,11 +1158,6 @@ class StreamChatService:
                 text = _strip_internal_tool_trace(str(part or ""))
                 if not text or not text.strip():
                     return
-                if should_break_next_thought and not in_reasoning_phase and full_thought.strip():
-                    separator = f"\n\n{THOUGHT_BLOCK_BREAK_MARKER}\n\n"
-                    full_thought += separator
-                    current_text_index = len(full_content)
-                    yield ThoughtEvent(content=separator, text_index=current_text_index).model_dump(by_alias=True)
                 should_break_next_thought = False
                 in_reasoning_phase = True
                 full_thought += text
@@ -1072,6 +1178,45 @@ class StreamChatService:
                     yield TextEvent(content=clean_text).model_dump()
 
             def _extract_text_chunk(run_event: Any) -> str:
+                provider_data = getattr(run_event, "model_provider_data", None)
+                if isinstance(provider_data, dict):
+                    # NVIDIA-compatible stream split (per provider example):
+                    # content -> delta.content, reasoning -> delta.reasoning_content
+                    choices = provider_data.get("choices") or []
+                    if choices and isinstance(choices[0], dict):
+                        delta = choices[0].get("delta") or {}
+                        raw_content = delta.get("content")
+                        if isinstance(raw_content, str) and raw_content:
+                            return raw_content
+                        if isinstance(raw_content, list):
+                            parts: list[str] = []
+                            for item in raw_content:
+                                if isinstance(item, dict):
+                                    text_part = item.get("text") or item.get("content")
+                                    if text_part:
+                                        parts.append(str(text_part))
+                                elif isinstance(item, str) and item:
+                                    parts.append(item)
+                            if parts:
+                                return "".join(parts)
+                        # NVIDIA strict split:
+                        # If this chunk carries reasoning_content, never route it into text.
+                        raw_reasoning = delta.get("reasoning_content")
+                        if isinstance(raw_reasoning, str) and raw_reasoning:
+                            return ""
+                        if isinstance(raw_reasoning, list):
+                            reasoning_parts: list[str] = []
+                            for item in raw_reasoning:
+                                if isinstance(item, dict):
+                                    text_part = item.get("text") or item.get("content")
+                                    if text_part:
+                                        reasoning_parts.append(str(text_part))
+                                elif isinstance(item, str) and item:
+                                    reasoning_parts.append(item)
+                            if reasoning_parts:
+                                return ""
+                    # Fall through to generic extraction only when no explicit NVIDIA split fields.
+
                 content = getattr(run_event, "content", None)
                 if isinstance(content, str) and content:
                     return content
@@ -1079,7 +1224,7 @@ class StreamChatService:
                     parts: list[str] = []
                     for item in content:
                         if isinstance(item, dict):
-                            text_part = item.get("text")
+                            text_part = item.get("text") or item.get("content")
                             if isinstance(text_part, str) and text_part:
                                 parts.append(text_part)
                         elif isinstance(item, str) and item:
@@ -1087,7 +1232,6 @@ class StreamChatService:
                     if parts:
                         return "".join(parts)
 
-                provider_data = getattr(run_event, "model_provider_data", None)
                 if isinstance(provider_data, dict):
                     choices = provider_data.get("choices") or []
                     if choices and isinstance(choices[0], dict):
@@ -1099,14 +1243,41 @@ class StreamChatService:
                             parts: list[str] = []
                             for item in raw_content:
                                 if isinstance(item, dict):
-                                    text_part = item.get("text")
+                                    text_part = item.get("text") or item.get("content")
                                     if text_part:
                                         parts.append(str(text_part))
                             if parts:
                                 return "".join(parts)
+                        # IMPORTANT:
+                        # Do not route `delta.reasoning` into assistant text during HITL continuation.
+                        # Some providers emit hidden chain-of-thought in this field, which must never
+                        # be rendered in normal answer paragraphs.
                 return ""
 
             def _extract_reasoning_chunk(run_event: Any) -> str:
+                provider_data = getattr(run_event, "model_provider_data", None)
+                if isinstance(provider_data, dict):
+                    choices = provider_data.get("choices") or []
+                    if choices and isinstance(choices[0], dict):
+                        delta = choices[0].get("delta") or {}
+                        raw_reasoning = delta.get("reasoning_content")
+                        if isinstance(raw_reasoning, str) and raw_reasoning:
+                            trace_stream("reasoning_source", source="provider_data.delta.reasoning_content")
+                            return raw_reasoning
+                        if isinstance(raw_reasoning, list):
+                            parts: list[str] = []
+                            for item in raw_reasoning:
+                                if isinstance(item, dict):
+                                    text_part = item.get("text") or item.get("content")
+                                    if text_part:
+                                        parts.append(str(text_part))
+                                elif isinstance(item, str) and item:
+                                    parts.append(item)
+                            if parts:
+                                trace_stream("reasoning_source", source="provider_data.delta.reasoning_content[]")
+                                return "".join(parts)
+                    # Fall through to generic extraction when this chunk has no NVIDIA reasoning delta.
+
                 reasoning = getattr(run_event, "reasoning_content", None)
                 if isinstance(reasoning, str) and reasoning:
                     trace_stream("reasoning_source", source="run_event.reasoning_content")
@@ -1124,7 +1295,6 @@ class StreamChatService:
                         trace_stream("reasoning_source", source="run_event.reasoning_content[]")
                         return "".join(parts)
 
-                provider_data = getattr(run_event, "model_provider_data", None)
                 if isinstance(provider_data, dict):
                     choices = provider_data.get("choices") or []
                     if choices and isinstance(choices[0], dict):
@@ -1143,12 +1313,18 @@ class StreamChatService:
                             if parts:
                                 trace_stream("reasoning_source", source="provider_data.delta.reasoning_content[]")
                                 return "".join(parts)
+                        # NOTE:
+                        # Some providers (e.g. DeepSeek-compatible streams) may place
+                        # assistant answer tokens under `delta.reasoning`.
+                        # Treating that field as reasoning can misclassify answer text as thought.
+                        # Keep reasoning extraction strict to `reasoning_content` only.
                 return ""
 
             async def _stream_events(stream):
-                nonlocal full_content, full_thought, sources_map, tool_start_times, paused_again
+                nonlocal full_content, full_thought, sources_map, tool_start_times, paused_again, stream_had_error
                 nonlocal in_reasoning_phase, should_break_next_thought, reasoning_closed_for_current_cycle
                 nonlocal in_content_think_block, inline_tool_trace_depth, inline_protocol_tail
+                nonlocal completed_content_fallback
                 async for run_event in stream:
                     # HITL Pause Check
                     if hasattr(run_event, 'is_paused') and run_event.is_paused:
@@ -1428,18 +1604,52 @@ class StreamChatService:
                                     self._collect_search_sources(output, sources_map)
 
                             case RunEvent.run_completed.value:
-                                 # We handle DoneEvent outside the loop to ensure final accumulation
-                                 pass
+                                # Capture final aggregated content as fallback for providers
+                                # that don't stream incremental text in continuation.
+                                agn_content = getattr(run_event, "content", None)
+                                if agn_content and hasattr(agn_content, "model_dump"):
+                                    completed_content_fallback = json.dumps(
+                                        agn_content.model_dump(), ensure_ascii=False
+                                    )
+                                elif isinstance(agn_content, (dict, list)):
+                                    completed_content_fallback = json.dumps(
+                                        agn_content, ensure_ascii=False
+                                    )
+                                elif isinstance(agn_content, str) and agn_content.strip():
+                                    completed_content_fallback = agn_content
 
                             case RunEvent.run_error.value:
                                 error_msg = getattr(run_event, "content", None) or "Unknown error"
+                                stream_had_error = True
                                 yield ErrorEvent(error=str(error_msg)).model_dump()
                                 return
                     else:
                         # Simple event Fallback
-                        content = getattr(run_event, 'content', None)
-                        if content:
-                            for e in process_text(str(content)):
+                        raw_content_chunk = _extract_text_chunk(run_event)
+                        raw_content_chunk, inline_tool_trace_depth, inline_protocol_tail, _ = _strip_inline_tool_protocol(
+                            raw_content_chunk,
+                            inline_tool_trace_depth,
+                            inline_protocol_tail,
+                        )
+                        raw_reasoning = _extract_reasoning_chunk(run_event)
+                        content_segments, in_content_think_block = _split_content_by_think_tags(
+                            raw_content_chunk,
+                            in_content_think_block,
+                        )
+                        content_chunk = "".join(
+                            seg_text for seg_type, seg_text in content_segments if seg_type == "text"
+                        )
+                        inline_thought_chunk = "".join(
+                            seg_text for seg_type, seg_text in content_segments if seg_type == "thought"
+                        )
+                        if raw_reasoning:
+                            for event in emit_thought_part(str(raw_reasoning)):
+                                yield event
+                        if inline_thought_chunk:
+                            for event in emit_thought_part(str(inline_thought_chunk)):
+                                yield event
+                        if content_chunk:
+                            for e in process_text(content_chunk):
                                 yield e
 
             def _build_fallback_messages():
@@ -1472,37 +1682,69 @@ class StreamChatService:
                     })
                 return updated_messages
 
-            # Continue the run (streaming)
-            logger.info(f"Calling agent.acontinue_run for run_id: {run_id}, session_id: {request.conversation_id}")
-            try:
-                stream = agent.acontinue_run(
-                    run_id=run_id,
-                    session_id=request.conversation_id,
-                    requirements=requirements,
-                    stream=True,
-                    stream_events=True,  # Enable detailed events (tools, thoughts, etc.)
+            def _build_continuation_agent_input(base_messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+                messages = self._inject_local_time_context(list(base_messages), request, [])
+                system_messages = [m for m in messages if m.get("role") == "system"]
+                chat_messages = [m for m in messages if m.get("role") != "system"]
+
+                raw_turn_limit = request.context_turn_limit
+                turn_limit = (
+                    max(1, min(50, int(raw_turn_limit)))
+                    if isinstance(raw_turn_limit, int) and raw_turn_limit > 0
+                    else 2
                 )
-                async for event in _stream_events(stream):
-                    yield event
-            except Exception as exc:
-                logger.warning(f"HITL acontinue_run failed, falling back to fresh run: {exc}")
-                fallback_messages = _build_fallback_messages()
-                if not fallback_messages:
-                    yield ErrorEvent(error="Form session cannot be resumed (missing state)").model_dump()
-                    return
-                stream = agent.arun(
-                    input=fallback_messages,
-                    stream=True,
-                    stream_events=True,
-                    user_id=request.user_id,
-                    session_id=request.conversation_id,
-                )
-                async for event in _stream_events(stream):
-                    yield event
+                user_indices = [i for i, m in enumerate(chat_messages) if m.get("role") == "user"]
+                user_turn_count = len(user_indices)
+                if user_turn_count > turn_limit:
+                    cutoff_index = user_indices[-turn_limit]
+                    recent_history = chat_messages[cutoff_index:]
+                else:
+                    recent_history = chat_messages
+
+                should_inject_summary = bool(session_summary_text) and (user_turn_count > turn_limit)
+                if should_inject_summary:
+                    summary_prompt = (
+                        "\n\nSession memory summary:\n"
+                        "Here is a summary of the conversation so far. Use this to understand long-term context, "
+                        "but prioritize the details in the recent messages below.\n"
+                        f"{session_summary_text}\n"
+                    )
+                    if system_messages:
+                        last_sys = system_messages[-1]
+                        if "Session memory summary:" not in str(last_sys.get("content", "")):
+                            last_sys["content"] = str(last_sys.get("content", "")) + summary_prompt
+                    else:
+                        system_messages.append({"role": "system", "content": summary_prompt})
+
+                return system_messages + recent_history
+
+            fallback_messages = _build_fallback_messages()
+            if not fallback_messages:
+                yield ErrorEvent(error="Form session cannot be resumed (missing state)").model_dump()
+                return
+
+            agent_input = _build_continuation_agent_input(fallback_messages)
+            logger.info(
+                f"Running HITL continuation with rebuilt messages (run_id: {run_id}, session_id: {request.conversation_id})"
+            )
+            stream = agent.arun(
+                input=agent_input,
+                stream=True,
+                stream_events=True,
+                user_id=request.user_id,
+                session_id=request.conversation_id,
+                output_schema=request.output_schema,
+            )
+            async for event in _stream_events(stream):
+                yield event
+
+            if stream_had_error:
+                logger.warning(f"HITL run {run_id} ended with stream error; skipping done/cleanup")
+                return
 
             # Stream completed, send done event
             yield DoneEvent(
-                content=full_content,
+                content=full_content or completed_content_fallback,
                 thought=full_thought.strip() or None,
                 sources=list(sources_map.values()) or None,
             ).model_dump()
@@ -1602,20 +1844,19 @@ class StreamChatService:
         locale = request.user_locale or "en-US"
         time_result = self._compute_local_time(timezone, locale)
         injected = (
-            "\n\n<today_local_time>\n"
-            f"##today local time：{time_result.get('formatted')} ({time_result.get('timezone')})\n"
+            "\n\nLocal time context:\n"
+            f"##today local time: {time_result.get('formatted')} ({time_result.get('timezone')})\n"
             f"locale: {time_result.get('locale')}\n"
             f"iso: {time_result.get('iso')}\n"
-            "</today_local_time>"
         )
 
         updated = list(messages)
         system_index = next((i for i, m in enumerate(updated) if m.get("role") == "system"), -1)
         if system_index != -1:
             current_content = str(updated[system_index].get("content", ""))
-            if "<today_local_time>" in current_content and "</today_local_time>" in current_content:
+            if "Local time context:" in current_content:
                 current_content = re.sub(
-                    r"<today_local_time>[\s\S]*?</today_local_time>",
+                    r"Local time context:\n[\s\S]*?(?=\n\n\S|\Z)",
                     injected.strip(),
                     current_content,
                     count=1,

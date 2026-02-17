@@ -6,11 +6,14 @@ from __future__ import annotations
 
 import ast
 import json
+import logging
 from typing import Any
 
 from ..models.stream_chat import StreamChatRequest
 from ..providers import ExecutionContext, get_provider_adapter
 from ..services.stream_chat import get_stream_chat_service
+
+logger = logging.getLogger(__name__)
 
 
 def normalize_text_content(content: Any) -> str:
@@ -139,26 +142,76 @@ async def run_chat_completion(
 async def run_agent_completion(request: StreamChatRequest) -> dict[str, Any]:
     """Run the Agno Agent via stream_chat service and return final content/thought/sources."""
     service = get_stream_chat_service()
-    full_text = ""
-    full_thought = ""
-    sources: list[dict[str, Any]] = []
-    output: Any = None
 
-    async for event in service.stream_chat(request):
-        event_type = event.get("type")
-        if event_type == "text":
-            full_text += event.get("content", "")
-        elif event_type == "thought":
-            full_thought += event.get("content", "")
-        elif event_type == "done":
-            sources = event.get("sources") or []
-            output = event.get("output")
-        elif event_type == "error":
-            raise ValueError(event.get("error") or "Unknown error")
+    async def _collect(req: StreamChatRequest) -> dict[str, Any]:
+        full_text = ""
+        full_thought = ""
+        sources: list[dict[str, Any]] = []
+        output: Any = None
 
-    return {
-        "content": full_text,
-        "thought": full_thought,
-        "sources": sources,
-        "output": output,
-    }
+        async for event in service.stream_chat(req):
+            event_type = event.get("type")
+            if event_type == "text":
+                full_text += event.get("content", "")
+            elif event_type == "thought":
+                full_thought += event.get("content", "")
+            elif event_type == "done":
+                sources = event.get("sources") or []
+                output = event.get("output")
+            elif event_type == "error":
+                raise ValueError(event.get("error") or "Unknown error")
+
+        return {
+            "content": full_text,
+            "thought": full_thought,
+            "sources": sources,
+            "output": output,
+        }
+
+    result = await _collect(request)
+
+    is_structured_request = bool(request.output_schema is not None or request.response_format is not None)
+    if not is_structured_request:
+        return result
+
+    has_structured_output = result.get("output") is not None
+    has_json_like_content = safe_json_parse(result.get("content", "")) is not None
+    has_json_like_thought = safe_json_parse(result.get("thought", "")) is not None
+    should_retry = not has_structured_output and not has_json_like_content and not has_json_like_thought
+    if not should_retry:
+        return result
+
+    retry_request = request.model_copy(deep=True)
+    retry_request.response_format = None
+    retry_request.output_schema = None
+    retry_messages = list(retry_request.messages or [])
+    if retry_messages:
+        first = retry_messages[0]
+        if isinstance(first, dict) and first.get("role") == "system":
+            retry_messages[0] = {
+                **first,
+                "content": (
+                    f"{first.get('content', '')}\n\n"
+                    "CRITICAL: Return ONLY a valid JSON object/array. "
+                    "Do not include markdown code fences or extra explanation."
+                ),
+            }
+        else:
+            retry_messages.insert(
+                0,
+                {
+                    "role": "system",
+                    "content": (
+                        "CRITICAL: Return ONLY a valid JSON object/array. "
+                        "Do not include markdown code fences or extra explanation."
+                    ),
+                },
+            )
+        retry_request.messages = retry_messages
+
+    logger.warning("Structured output parse failed; retrying once with strict JSON-only prompt.")
+    try:
+        return await _collect(retry_request)
+    except Exception as exc:
+        logger.warning("Structured retry failed; returning first-pass result. error=%s", exc)
+        return result

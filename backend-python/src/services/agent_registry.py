@@ -19,7 +19,13 @@ from agno.models.openai import OpenAILike
 from agno.utils.log import logger
 
 from ..config import get_settings
-from .custom_tools import DuckDuckGoImageTools, DuckDuckGoVideoTools, QurioLocalTools, SerpApiImageTools
+from .custom_tools import (
+    DuckDuckGoImageTools,
+    DuckDuckGoVideoTools,
+    DuckDuckGoWebSearchTools,
+    QurioLocalTools,
+    SerpApiImageTools,
+)
 from .tool_registry import AGNO_TOOLS, IMAGE_SEARCH_TOOLS, LOCAL_TOOLS, VIDEO_SEARCH_TOOLS, resolve_tool_name
 from .user_tools import build_user_tools_toolkit
 
@@ -272,19 +278,14 @@ def _build_agno_toolkits(request: Any, include_agno: list[str]) -> list[Any]:
 
     websearch_tools = {"web_search", "search_news"}
     if include_set.intersection(websearch_tools):
-        try:
-            from agno.tools.websearch import WebSearchTools
-        except Exception:
-            WebSearchTools = None
-        if WebSearchTools:
-            selected = [name for name in include_agno if name in websearch_tools]
-            backend = getattr(request, "search_backend", None) or "auto"
-            toolkits.append(
-                WebSearchTools(
-                    include_tools=selected,
-                    backend=backend,
-                )
+        selected = [name for name in include_agno if name in websearch_tools]
+        backend = getattr(request, "search_backend", None) or "auto"
+        toolkits.append(
+            DuckDuckGoWebSearchTools(
+                include_tools=selected,
+                backend=backend,
             )
+        )
 
     arxiv_tools = {"search_arxiv_and_return_articles", "read_arxiv_papers"}
     if include_set.intersection(arxiv_tools):

@@ -39,6 +39,31 @@ import {
   getLanguageInstruction,
   applyLanguageInstructionToText,
 } from './chat/prompts'
+import { normalizeExpertBrokenTokenLines } from './chat/expertTextUtils'
+
+const sanitizeExpertStreamChunk = value => {
+  if (typeof value !== 'string') return ''
+  let cleaned = value
+  cleaned = cleaned.replace(/<\/?(?:think|thought)>/gi, '')
+  cleaned = cleaned.replace(/<\|[^|>]*\|>/gi, '')
+  cleaned = cleaned.replace(/<\/?(?:session_memory|today_local_time)>/gi, '')
+  cleaned = cleaned.replace(/\[SYSTEM INJECTED CONTEXT\]/gi, '')
+  return cleaned
+}
+
+const readReasoningField = value => {
+  if (typeof value === 'string') return value
+  if (Array.isArray(value)) {
+    return value
+      .map(item => {
+        if (typeof item === 'string') return item
+        if (item?.text) return String(item.text)
+        return ''
+      })
+      .join('')
+  }
+  return ''
+}
 
 const parseJsonObjectFromText = raw => {
   if (!raw || typeof raw !== 'string') return null
@@ -178,7 +203,6 @@ const useChatStore = create((set, get) => ({
    * @param {Object} params.selectedAgent - Current agent
    * @param {Array} params.agents - Available agents
    * @param {Object} params.spaceInfo - Space information
-   * @param {boolean} params.isAgentAutoMode - Agent auto mode flag
    */
   submitInteractiveForm: async ({
     formData,
@@ -187,7 +211,6 @@ const useChatStore = create((set, get) => ({
     selectedAgent,
     agents,
     spaceInfo,
-    isAgentAutoMode,
   }) => {
     const { conversationId, messages } = get()
     if (!conversationId) return
@@ -216,6 +239,639 @@ const useChatStore = create((set, get) => ({
     const lastAiMsg = messages[messages.length - 1]
     if (!lastAiMsg || lastAiMsg.role !== 'ai') {
       console.error('No HITL run_id found in last AI message')
+      return
+    }
+
+    // Expert-mode HITL continuation: continue only the active/pending expert agent.
+    if (lastAiMsg.expertMode && Array.isArray(lastAiMsg.expertResponses)) {
+      const extractRunIdFromTool = tool => {
+        if (!tool || tool.name !== 'interactive_form' || tool.status === 'done') return null
+        if (tool.runId) return tool.runId
+        try {
+          const args =
+            typeof tool.arguments === 'string' ? JSON.parse(tool.arguments || '{}') : tool.arguments
+          if (args?.run_id || args?.runId) return args.run_id || args.runId
+        } catch {}
+        const output = tool?.output
+        if (output && typeof output === 'object' && (output.run_id || output.runId)) {
+          return output.run_id || output.runId
+        }
+        return null
+      }
+
+      const responses = lastAiMsg.expertResponses
+      const preferredAgentId = String(lastAiMsg.expertActiveAgentId || '')
+      const activeResponse = responses.find(item => String(item?.agentId) === preferredAgentId)
+      const activeHasPendingForm =
+        activeResponse && Array.isArray(activeResponse.toolCallHistory)
+          ? activeResponse.toolCallHistory.some(
+              tool => tool?.name === 'interactive_form' && tool?.status !== 'done',
+            )
+          : false
+      const pendingResponse =
+        activeResponse && activeHasPendingForm
+          ? activeResponse
+          : responses.find(item =>
+              Array.isArray(item?.toolCallHistory)
+                ? item.toolCallHistory.some(
+                    tool => tool?.name === 'interactive_form' && tool?.status !== 'done',
+                  )
+                : false,
+            )
+
+      const targetResponse = pendingResponse || null
+      const targetAgentId = String(targetResponse?.agentId || '')
+      if (!targetResponse || !targetAgentId) {
+        set({ isLoading: false })
+        return
+      }
+
+      const pendingFormTool = (targetResponse.toolCallHistory || []).find(
+        tool => tool?.name === 'interactive_form' && tool?.status !== 'done',
+      )
+      const expertRunId = extractRunIdFromTool(pendingFormTool)
+      if (!expertRunId) {
+        set(state => {
+          const updated = [...state.messages]
+          const lastMsgIndex = updated.length - 1
+          if (lastMsgIndex >= 0 && updated[lastMsgIndex].role === 'ai') {
+            updated[lastMsgIndex] = {
+              ...updated[lastMsgIndex],
+              isError: true,
+              content: `${updated[lastMsgIndex].content || ''}\n\n**Error:** Expert form session expired. Please ask again to regenerate the form.`,
+            }
+          }
+          return { messages: updated, isLoading: false }
+        })
+        return
+      }
+
+      // Mark form tool done immediately for UI.
+      set(state => {
+        const updated = [...state.messages]
+        const lastMsgIndex = updated.length - 1
+        if (lastMsgIndex < 0 || updated[lastMsgIndex].role !== 'ai') return { messages: updated }
+        const lastMsg = { ...updated[lastMsgIndex] }
+        const nextResponses = Array.isArray(lastMsg.expertResponses) ? [...lastMsg.expertResponses] : []
+        const responseIndex = nextResponses.findIndex(
+          item => String(item?.agentId) === String(targetAgentId),
+        )
+        if (responseIndex >= 0) {
+          const resp = { ...nextResponses[responseIndex] }
+          const tools = Array.isArray(resp.toolCallHistory) ? [...resp.toolCallHistory] : []
+          const formIndex = tools.findIndex(
+            tool => tool?.name === 'interactive_form' && tool?.status !== 'done',
+          )
+          if (formIndex >= 0) {
+            tools[formIndex] = {
+              ...tools[formIndex],
+              status: 'done',
+              result: JSON.stringify(formData.values || {}),
+            }
+          }
+          resp.toolCallHistory = tools
+          resp.status = 'running'
+          nextResponses[responseIndex] = resp
+          lastMsg.expertResponses = nextResponses
+          lastMsg.expertActiveAgentId = targetAgentId
+        }
+        updated[lastMsgIndex] = lastMsg
+        return { messages: updated }
+      })
+
+      const targetAgent =
+        agents?.find(agent => String(agent?.id) === String(targetAgentId)) ||
+        selectedAgent ||
+        agents?.find(agent => agent?.isDefault)
+      if (!targetAgent) {
+        set({ isLoading: false })
+        return
+      }
+
+      set({ isLoading: true })
+      const fallbackAgent = agents?.find(agent => agent.isDefault)
+      const modelConfig = getModelConfigForAgent(
+        targetAgent,
+        settings,
+        'streamChatCompletion',
+        fallbackAgent,
+      )
+      const provider = getProvider(modelConfig.provider)
+      const credentials = provider.getCredentials(settings)
+      const searchProvider = settings.searchProvider || 'tavily'
+      const tavilyApiKey = searchProvider === 'tavily' ? settings.tavilyApiKey : undefined
+      const serpapiApiKey = settings.serpapiApiKey
+      const searchBackends = Array.isArray(toggles?.searchBackends)
+        ? toggles.searchBackends.map(item => String(item)).filter(Boolean)
+        : typeof toggles?.searchBackend === 'string' && toggles.searchBackend
+          ? [String(toggles.searchBackend)]
+          : []
+      const searchBackend = searchBackends[0] || null
+
+      const resolvedToolIds = (() => {
+        if (Array.isArray(targetAgent?.toolIds) && targetAgent.toolIds.length > 0) {
+          return targetAgent.toolIds
+        }
+        if (Array.isArray(targetAgent?.tool_ids) && targetAgent.tool_ids.length > 0) {
+          return targetAgent.tool_ids
+        }
+        return []
+      })()
+
+      let activeUserTools = []
+      try {
+        const allUserTools = await getUserTools()
+        if (Array.isArray(allUserTools) && resolvedToolIds.length > 0) {
+          activeUserTools = allUserTools
+            .filter(t => resolvedToolIds.includes(String(t.id)))
+            .filter(t => !t.config?.disabled)
+        }
+      } catch (error) {
+        console.error('Failed to fetch user tools for expert HITL:', error)
+      }
+
+      const controller = new AbortController()
+      set({ abortController: controller })
+
+      const getTargetRuntimeState = () => {
+        const currentMessages = get().messages || []
+        const currentLast = currentMessages[currentMessages.length - 1]
+        if (!currentLast || currentLast.role !== 'ai') return { streamSeq: 0, toolOrder: 0, thoughtOrder: 0 }
+        const currentResp = Array.isArray(currentLast.expertResponses)
+          ? currentLast.expertResponses.find(item => String(item?.agentId) === String(targetAgentId))
+          : null
+        const currentBlocks = Array.isArray(currentResp?.streamBlocks) ? currentResp.streamBlocks : []
+        const currentTools = Array.isArray(currentResp?.toolCallHistory) ? currentResp.toolCallHistory : []
+        const currentThoughts = Array.isArray(currentResp?.thoughtHistory) ? currentResp.thoughtHistory : []
+        const streamSeq = currentBlocks.reduce((acc, block, index) => {
+          const seq = Number.isFinite(block?.seq) ? Number(block.seq) : index + 1
+          return Math.max(acc, seq)
+        }, 0)
+        const toolOrder = currentTools.reduce(
+          (acc, item) =>
+            Number.isFinite(item?.streamOrder) ? Math.max(acc, Number(item.streamOrder)) : acc,
+          0,
+        )
+        const thoughtOrder = currentThoughts.reduce(
+          (acc, item) =>
+            Number.isFinite(item?.streamOrder) ? Math.max(acc, Number(item.streamOrder)) : acc,
+          0,
+        )
+        return { streamSeq, toolOrder, thoughtOrder }
+      }
+
+      let streamSeq = getTargetRuntimeState().streamSeq
+      let toolStreamOrder = getTargetRuntimeState().toolOrder
+      let thoughtStreamOrder = getTargetRuntimeState().thoughtOrder
+      let lastReasoningAtMs = null
+      const toolStartedAt = new Map()
+
+      const extractChunkText = chunk => {
+        if (typeof chunk === 'string') return chunk
+        if (!chunk || typeof chunk !== 'object') return ''
+        if (chunk.type === 'reasoning') return ''
+        if (chunk.type === 'thought') return ''
+        if (chunk.type === 'thinking') return ''
+        if (chunk.type === 'tool_call' || chunk.type === 'tool_result') return ''
+        if (chunk.type === 'research_step' || chunk.type === 'form_request') return ''
+        if (chunk.type === 'text' && typeof chunk.content === 'string') return chunk.content
+        if (chunk.type && chunk.type !== 'text') return ''
+        if (typeof chunk.text === 'string') return chunk.text
+        if (typeof chunk.delta === 'string') return chunk.delta
+        if (typeof chunk.delta?.reasoning_content !== 'undefined') return ''
+        if (typeof chunk.reasoning_content !== 'undefined') return ''
+        if (typeof chunk.delta?.content === 'string') return chunk.delta.content
+        if (typeof chunk.message?.content === 'string') return chunk.message.content
+        if (typeof chunk.choices?.[0]?.delta?.content === 'string') return chunk.choices[0].delta.content
+        return ''
+      }
+
+      const extractReasoningText = chunk => {
+        if (!chunk || typeof chunk !== 'object') return ''
+        if (
+          chunk.type !== 'reasoning' &&
+          chunk.type !== 'thought' &&
+          chunk.type !== 'thinking'
+        ) {
+          return ''
+        }
+        if (typeof chunk.content === 'string') return chunk.content
+        if (typeof chunk.text === 'string') return chunk.text
+        if (typeof chunk.reasoning === 'string') return chunk.reasoning
+        if (typeof chunk.reasoning_content !== 'undefined') return readReasoningField(chunk.reasoning_content)
+        if (typeof chunk.delta === 'string') return chunk.delta
+        if (typeof chunk.delta?.reasoning_content !== 'undefined') {
+          return readReasoningField(chunk.delta.reasoning_content)
+        }
+        if (typeof chunk.delta?.content === 'string') return chunk.delta.content
+        if (typeof chunk.choices?.[0]?.delta?.reasoning_content !== 'undefined') {
+          return readReasoningField(chunk.choices[0].delta.reasoning_content)
+        }
+        return ''
+      }
+
+      const updateTargetResponse = updater => {
+        set(state => {
+          const updated = [...state.messages]
+          const lastMsgIndex = updated.length - 1
+          if (lastMsgIndex < 0 || updated[lastMsgIndex].role !== 'ai') return { messages: updated }
+          const lastMsg = { ...updated[lastMsgIndex] }
+          const responses = Array.isArray(lastMsg.expertResponses) ? [...lastMsg.expertResponses] : []
+          const responseIndex = responses.findIndex(
+            item => String(item?.agentId) === String(targetAgentId),
+          )
+          if (responseIndex < 0) return { messages: updated }
+          responses[responseIndex] = updater({ ...responses[responseIndex] })
+          lastMsg.expertResponses = responses
+          lastMsg.expertActiveAgentId = targetAgentId
+          updated[lastMsgIndex] = lastMsg
+          return { messages: updated }
+        })
+      }
+
+      const syncTopLevelFromPreferred = () => {
+        set(state => {
+          const updated = [...state.messages]
+          const lastMsgIndex = updated.length - 1
+          if (lastMsgIndex < 0 || updated[lastMsgIndex].role !== 'ai') return { messages: updated }
+          const lastMsg = { ...updated[lastMsgIndex] }
+          const responses = Array.isArray(lastMsg.expertResponses) ? lastMsg.expertResponses : []
+          const preferredResponse =
+            responses.find(item => item.status === 'done' && item.content?.trim()) ||
+            responses.find(item => item.status === 'waiting_input' && item.content?.trim()) ||
+            responses.find(item => item.content?.trim()) ||
+            responses.find(item => String(item?.agentId) === String(targetAgentId)) ||
+            null
+          if (!preferredResponse) return { messages: updated }
+
+          const planBlocks =
+            typeof lastMsg.expertPlan === 'string' && lastMsg.expertPlan.trim()
+              ? [{ seq: 1, type: 'workflow_text', content: lastMsg.expertPlan }]
+              : []
+          const responseBlocks = Array.isArray(preferredResponse.streamBlocks)
+            ? preferredResponse.streamBlocks
+            : []
+          const normalizedResponseBlocks = responseBlocks.map((block, index) => ({
+            ...block,
+            seq: Number.isFinite(block?.seq) ? Number(block.seq) : index + 1,
+          }))
+          const hasWorkflowBlock = normalizedResponseBlocks.some(
+            block => String(block?.type || '').toLowerCase() === 'workflow_text',
+          )
+          const mergedBlocks =
+            hasWorkflowBlock || planBlocks.length === 0
+              ? normalizedResponseBlocks
+              : [
+                  ...planBlocks,
+                  ...normalizedResponseBlocks.map(block => ({
+                    ...block,
+                    seq: Number(block.seq) + planBlocks.length,
+                  })),
+                ]
+
+          lastMsg.content = normalizeExpertBrokenTokenLines(preferredResponse.content || lastMsg.content || '')
+          lastMsg.toolCallHistory = Array.isArray(preferredResponse.toolCallHistory)
+            ? preferredResponse.toolCallHistory
+            : []
+          lastMsg.thoughtHistory = Array.isArray(preferredResponse.thoughtHistory)
+            ? preferredResponse.thoughtHistory
+            : []
+          lastMsg.streamBlocks = mergedBlocks
+          lastMsg.searchBackend =
+            typeof preferredResponse.searchBackend === 'string' ? preferredResponse.searchBackend : null
+          lastMsg.searchBackends = Array.isArray(preferredResponse.searchBackends)
+            ? preferredResponse.searchBackends
+            : []
+          updated[lastMsgIndex] = lastMsg
+          return { messages: updated }
+        })
+      }
+
+      try {
+        await provider.streamChatCompletion({
+          ...credentials,
+          model: modelConfig.model,
+          messages: [],
+          tools: provider.getTools(
+            Boolean(toggles?.search),
+            toggles?.search ? toggles?.searchTool : [],
+            Boolean(settings.enableLongTermMemory),
+          ),
+          toolIds: resolvedToolIds,
+          userTools: activeUserTools,
+          enableLongTermMemory: Boolean(settings.enableLongTermMemory),
+          databaseProvider: settings.databaseProviderId || settings.databaseProvider || '',
+          contextTurns: settings.contextTurns,
+          searchProvider,
+          tavilyApiKey,
+          serpapiApiKey,
+          searchBackend,
+          memoryProvider: modelConfig.provider,
+          memoryModel: modelConfig.model,
+          memoryApiKey: credentials.apiKey,
+          memoryBaseUrl: credentials.baseUrl,
+          thinking: provider.getThinking(Boolean(toggles?.thinking), modelConfig.model),
+          runId: expertRunId,
+          fieldValues: formData.values,
+          signal: controller.signal,
+          onChunk: chunk => {
+            const reasoningText = extractReasoningText(chunk)
+            if (reasoningText) {
+              const cleanReasoning = sanitizeExpertStreamChunk(reasoningText)
+              if (cleanReasoning) {
+                const now = Date.now()
+                const resolvedDurationMs =
+                  typeof chunk?.duration_ms === 'number'
+                    ? chunk.duration_ms
+                    : Number.isFinite(lastReasoningAtMs)
+                      ? Math.max(0, now - lastReasoningAtMs)
+                      : 0
+                lastReasoningAtMs = now
+                updateTargetResponse(item => {
+                  const thoughtHistory = Array.isArray(item.thoughtHistory) ? [...item.thoughtHistory] : []
+                  const blockId = chunk?.block_id || 'reasoning-stream'
+                  const lastEntry = thoughtHistory[thoughtHistory.length - 1]
+                  if (lastEntry && String(lastEntry.blockId) === String(blockId)) {
+                    lastEntry.content = `${lastEntry.content || ''}${cleanReasoning}`
+                    const lastDuration =
+                      typeof lastEntry.durationMs === 'number' ? lastEntry.durationMs : 0
+                    lastEntry.durationMs = Math.max(0, lastDuration + resolvedDurationMs)
+                  } else {
+                    thoughtHistory.push({
+                      id: `${blockId}-${Date.now()}-${thoughtHistory.length}`,
+                      blockId,
+                      textIndex: (item.content || '').length,
+                      content: cleanReasoning,
+                      streamOrder: ++thoughtStreamOrder,
+                      durationMs: resolvedDurationMs,
+                    })
+                  }
+                  const streamBlocks = Array.isArray(item.streamBlocks) ? [...item.streamBlocks] : []
+                  streamBlocks.push({
+                    seq: ++streamSeq,
+                    type: 'reasoning',
+                    content: cleanReasoning,
+                    duration_ms: typeof chunk?.duration_ms === 'number' ? chunk.duration_ms : null,
+                  })
+                  return {
+                    ...item,
+                    thought: `${item.thought || ''}${cleanReasoning}`,
+                    thoughtHistory,
+                    streamBlocks,
+                    status: 'running',
+                  }
+                })
+              }
+            }
+
+            if (chunk && typeof chunk === 'object' && chunk.type === 'form_request') {
+              updateTargetResponse(item => {
+                const formId = chunk.id || `form-${Date.now()}`
+                const tools = Array.isArray(item.toolCallHistory) ? [...item.toolCallHistory] : []
+                const formArgs = JSON.stringify({
+                  id: formId,
+                  title: chunk.title || 'Please provide required information',
+                  fields: Array.isArray(chunk.fields) ? chunk.fields : [],
+                  run_id: chunk.run_id,
+                })
+                tools.push({
+                  id: formId,
+                  name: 'interactive_form',
+                  runId: chunk.run_id,
+                  arguments: formArgs,
+                  output: {
+                    id: formId,
+                    title: chunk.title || 'Please provide required information',
+                    fields: Array.isArray(chunk.fields) ? chunk.fields : [],
+                    run_id: chunk.run_id,
+                  },
+                  status: 'pending',
+                  textIndex: (item.content || '').length,
+                  streamOrder: ++toolStreamOrder,
+                })
+                const streamBlocks = Array.isArray(item.streamBlocks) ? [...item.streamBlocks] : []
+                streamBlocks.push({
+                  seq: ++streamSeq,
+                  type: 'tool_call',
+                  tool_call_id: formId,
+                  name: 'interactive_form',
+                  arguments: formArgs,
+                  status: 'pending',
+                })
+                return { ...item, toolCallHistory: tools, streamBlocks, status: 'waiting_input' }
+              })
+              return
+            }
+
+            if (
+              chunk &&
+              typeof chunk === 'object' &&
+              (chunk.type === 'tool_call' || chunk.type === 'tool_call_started')
+            ) {
+              updateTargetResponse(item => {
+                const nextToolId = chunk.id || `${chunk.name || 'tool'}-${Date.now()}`
+                const toolCallHistory = Array.isArray(item.toolCallHistory) ? [...item.toolCallHistory] : []
+                toolCallHistory.push({
+                  id: nextToolId,
+                  name: chunk.name || 'tool',
+                  arguments: chunk.arguments || '',
+                  status: 'calling',
+                  durationMs: null,
+                  textIndex: (item.content || '').length,
+                  step: typeof chunk.step === 'number' ? chunk.step : undefined,
+                  total: typeof chunk.total === 'number' ? chunk.total : undefined,
+                  streamOrder: ++toolStreamOrder,
+                })
+                toolStartedAt.set(nextToolId, Date.now())
+                const streamBlocks = Array.isArray(item.streamBlocks) ? [...item.streamBlocks] : []
+                streamBlocks.push({
+                  seq: ++streamSeq,
+                  type: 'tool_call',
+                  tool_call_id: nextToolId,
+                  name: chunk.name || 'tool',
+                  arguments: chunk.arguments || '',
+                  status: 'calling',
+                })
+                return { ...item, toolCallHistory, streamBlocks, status: 'running' }
+              })
+              return
+            }
+
+            if (
+              chunk &&
+              typeof chunk === 'object' &&
+              (chunk.type === 'tool_result' || chunk.type === 'tool_call_completed')
+            ) {
+              updateTargetResponse(item => {
+                const toolCallHistory = Array.isArray(item.toolCallHistory) ? [...item.toolCallHistory] : []
+                const targetIndex = toolCallHistory.findIndex(entry =>
+                  chunk.id ? entry.id === chunk.id : entry.name === chunk.name,
+                )
+                if (targetIndex >= 0) {
+                  const targetId = toolCallHistory[targetIndex].id
+                  const startedAt = toolStartedAt.get(targetId)
+                  if (targetId) toolStartedAt.delete(targetId)
+                  toolCallHistory[targetIndex] = {
+                    ...toolCallHistory[targetIndex],
+                    status: chunk.status || 'done',
+                    error: chunk.error || null,
+                    output:
+                      typeof chunk.output !== 'undefined'
+                        ? chunk.output
+                        : toolCallHistory[targetIndex].output,
+                    durationMs:
+                      typeof chunk.duration_ms === 'number'
+                        ? chunk.duration_ms
+                        : typeof startedAt === 'number'
+                          ? Date.now() - startedAt
+                          : null,
+                  }
+                }
+                const streamBlocks = Array.isArray(item.streamBlocks) ? [...item.streamBlocks] : []
+                streamBlocks.push({
+                  seq: ++streamSeq,
+                  type: 'tool_result',
+                  tool_call_id: chunk.id || null,
+                  name: chunk.name || 'tool',
+                  status: chunk.status || 'done',
+                  output: typeof chunk.output !== 'undefined' ? chunk.output : null,
+                  error: chunk.error || null,
+                  duration_ms: typeof chunk.duration_ms === 'number' ? chunk.duration_ms : null,
+                })
+                return { ...item, toolCallHistory, streamBlocks, status: 'running' }
+              })
+              return
+            }
+
+            const chunkText = extractChunkText(chunk)
+            if (!chunkText) return
+            const cleanText = sanitizeExpertStreamChunk(chunkText)
+            if (!cleanText) return
+            updateTargetResponse(item => {
+              const streamBlocks = Array.isArray(item.streamBlocks) ? [...item.streamBlocks] : []
+              streamBlocks.push({ seq: ++streamSeq, type: 'text', content: cleanText })
+              return {
+                ...item,
+                content: `${item.content || ''}${cleanText}`,
+                streamBlocks,
+                status: 'running',
+              }
+            })
+          },
+          onFinish: result => {
+            const finalText =
+              typeof result?.content === 'string'
+                ? normalizeExpertBrokenTokenLines(result.content)
+                : undefined
+            const finalThought =
+              typeof result?.thought === 'string'
+                ? normalizeExpertBrokenTokenLines(sanitizeExpertStreamChunk(result.thought))
+                : typeof result?.reasoning === 'string'
+                  ? normalizeExpertBrokenTokenLines(sanitizeExpertStreamChunk(result.reasoning))
+                  : ''
+            updateTargetResponse(item => {
+              const hasPendingForm = (item.toolCallHistory || []).some(
+                entry => entry.name === 'interactive_form' && entry.status !== 'done',
+              )
+              return {
+                ...item,
+                status: hasPendingForm ? 'waiting_input' : 'done',
+                content: finalText ?? item.content ?? '',
+                thought: finalThought || item.thought || '',
+              }
+            })
+            syncTopLevelFromPreferred()
+          },
+          onError: error => {
+            updateTargetResponse(item => ({
+              ...item,
+              status: 'error',
+              error: error?.message || 'Failed',
+            }))
+            syncTopLevelFromPreferred()
+          },
+        })
+      } catch (e) {
+        console.error('Expert form submission stream failed', e)
+        updateTargetResponse(item => ({
+          ...item,
+          status: 'error',
+          error: e?.message || 'Failed',
+        }))
+      } finally {
+        syncTopLevelFromPreferred()
+        set({ isLoading: false, abortController: null })
+
+        try {
+          const currentMessages = get().messages || []
+          const currentLast = currentMessages[currentMessages.length - 1]
+          if (currentLast?.id) {
+            const finalResponses = Array.isArray(currentLast.expertResponses)
+              ? currentLast.expertResponses
+              : []
+            const preferredResponse =
+              finalResponses.find(item => item.status === 'done' && item.content?.trim()) ||
+              finalResponses.find(item => item.status === 'waiting_input' && item.content?.trim()) ||
+              finalResponses.find(item => item.content?.trim()) ||
+              null
+
+            const planBlocks =
+              typeof currentLast.expertPlan === 'string' && currentLast.expertPlan.trim()
+                ? [{ seq: 1, type: 'workflow_text', content: currentLast.expertPlan }]
+                : []
+            const responseBlocks = Array.isArray(preferredResponse?.streamBlocks)
+              ? preferredResponse.streamBlocks
+              : []
+            const normalizedResponseBlocks = responseBlocks.map((block, index) => ({
+              ...block,
+              seq: Number.isFinite(block?.seq) ? Number(block.seq) : index + 1,
+            }))
+            const hasWorkflowBlock = normalizedResponseBlocks.some(
+              block => String(block?.type || '').toLowerCase() === 'workflow_text',
+            )
+            const mergedBlocks =
+              hasWorkflowBlock || planBlocks.length === 0
+                ? normalizedResponseBlocks
+                : [
+                    ...planBlocks,
+                    ...normalizedResponseBlocks.map(block => ({
+                      ...block,
+                      seq: Number(block.seq) + planBlocks.length,
+                    })),
+                  ]
+
+            const expertThinkingPayload = JSON.stringify({
+              expertMode: true,
+              expertPlan: currentLast.expertPlan || '',
+              expertResponses: finalResponses,
+              expertActiveAgentId: currentLast.expertActiveAgentId || '',
+            })
+            const databaseProviderKey = String(
+              settings?.databaseProviderId || settings?.databaseProvider || '',
+            ).toLowerCase()
+            const shouldPersistStreamBlocks =
+              databaseProviderKey.includes('sqlite') ||
+              databaseProviderKey.includes('supabase') ||
+              databaseProviderKey.includes('postgres')
+
+            await updateMessageById(currentLast.id, {
+              content: sanitizeJson(currentLast.content || ''),
+              thinking_process: expertThinkingPayload,
+              tool_call_history: sanitizeJson(
+                preferredResponse && Array.isArray(preferredResponse.toolCallHistory)
+                  ? preferredResponse.toolCallHistory
+                  : [],
+              ),
+              ...(shouldPersistStreamBlocks && {
+                stream_blocks: sanitizeJson(mergedBlocks),
+                stream_schema_version: 1,
+              }),
+            })
+          }
+        } catch (persistError) {
+          console.error('Failed to persist expert HITL continuation:', persistError)
+        }
+      }
       return
     }
 
@@ -285,7 +941,7 @@ const useChatStore = create((set, get) => ({
 
     try {
       // Call AI API with run_id and field_values
-      // The backend will use agent.continue_run() to resume
+      // The backend rebuilds continuation messages and resumes with stream arun.
       await callAIAPI(
         [], // No context messages needed (continuation uses stored state)
         null, // No placeholder (we append to existing message)
@@ -636,6 +1292,10 @@ const useChatStore = create((set, get) => ({
     // Ensure thinking toggle reflects the resolved agent (auto mode can resolve late).
     const resolvedToggles = (() => {
       const next = { ...toggles }
+      if (next.expertMode) {
+        // Expert mode defaults to reasoning-enabled execution per-agent.
+        next.thinking = true
+      }
       const fallbackAgent = agents?.find(agent => agent.isDefault)
       const modelConfig = getModelConfigForAgent(
         resolvedAgent || fallbackAgent,
@@ -733,6 +1393,7 @@ const useChatStore = create((set, get) => ({
 
           let expertPlan = ''
           let plannedTasks = []
+          let expertPlanError = null
           try {
             const fallbackAgent = agents?.find(agent => agent.isDefault)
             const planModelConfig = getModelConfigForAgent(
@@ -776,6 +1437,23 @@ const useChatStore = create((set, get) => ({
             }
           } catch (error) {
             console.error('Expert plan generation failed:', error)
+            expertPlanError = error
+          }
+
+          if (expertPlanError) {
+            const errorMessage =
+              expertPlanError?.message || 'Expert plan generation failed. Please retry.'
+            updateExpertMessage(current => ({
+              ...current,
+              expertPlanLoading: false,
+              expertPlan: errorMessage,
+              expertResponses: [],
+              expertActiveAgentId: '',
+              content: '',
+              isError: true,
+            }))
+            set({ abortController: null, isLoading: false })
+            return
           }
 
           const expertAgentMap = new Map(expertAgents.map(agent => [String(agent.id), agent]))
@@ -834,7 +1512,9 @@ const useChatStore = create((set, get) => ({
               thought: '',
               thoughtHistory: [],
               toolCallHistory: [],
-              streamBlocks: [],
+              streamBlocks: expertPlan
+                ? [{ seq: 1, type: 'workflow_text', content: expertPlan }]
+                : [],
               searchBackend:
                 typeof resolvedToggles?.searchBackend === 'string'
                   ? resolvedToggles.searchBackend
@@ -867,7 +1547,24 @@ const useChatStore = create((set, get) => ({
                 ? [String(resolvedToggles.searchBackend)]
                 : []
             const searchBackend = searchBackends[0] || null
-            let streamSeq = 0
+            let streamSeq = (() => {
+              const currentMessages = get().messages || []
+              const currentExpertMessage = currentMessages.find(
+                msg => msg.role === 'ai' && msg.localId === expertMessageLocalId,
+              )
+              const currentResponse = Array.isArray(currentExpertMessage?.expertResponses)
+                ? currentExpertMessage.expertResponses.find(
+                    item => String(item?.agentId) === String(agent.id),
+                  )
+                : null
+              const currentBlocks = Array.isArray(currentResponse?.streamBlocks)
+                ? currentResponse.streamBlocks
+                : []
+              return currentBlocks.reduce((maxSeq, block, index) => {
+                const seq = Number.isFinite(block?.seq) ? Number(block.seq) : index + 1
+                return Math.max(maxSeq, seq)
+              }, 0)
+            })()
             let thoughtStreamOrder = 0
             let toolStreamOrder = 0
             const toolStartedAt = new Map()
@@ -877,12 +1574,16 @@ const useChatStore = create((set, get) => ({
               if (typeof chunk === 'string') return chunk
               if (!chunk || typeof chunk !== 'object') return ''
               if (chunk.type === 'reasoning') return ''
+              if (chunk.type === 'thought') return ''
+              if (chunk.type === 'thinking') return ''
               if (chunk.type === 'tool_call' || chunk.type === 'tool_result') return ''
               if (chunk.type === 'research_step' || chunk.type === 'form_request') return ''
               if (chunk.type === 'text' && typeof chunk.content === 'string') return chunk.content
-              if (typeof chunk.content === 'string') return chunk.content
+              if (chunk.type && chunk.type !== 'text') return ''
               if (typeof chunk.text === 'string') return chunk.text
               if (typeof chunk.delta === 'string') return chunk.delta
+              if (typeof chunk.delta?.reasoning_content !== 'undefined') return ''
+              if (typeof chunk.reasoning_content !== 'undefined') return ''
               if (typeof chunk.delta?.content === 'string') return chunk.delta.content
               if (typeof chunk.message?.content === 'string') return chunk.message.content
               if (typeof chunk.choices?.[0]?.delta?.content === 'string') {
@@ -892,12 +1593,28 @@ const useChatStore = create((set, get) => ({
             }
 
             const extractReasoningText = chunk => {
-              if (!chunk || typeof chunk !== 'object' || chunk.type !== 'reasoning') return ''
+              if (!chunk || typeof chunk !== 'object') return ''
+              if (
+                chunk.type !== 'reasoning' &&
+                chunk.type !== 'thought' &&
+                chunk.type !== 'thinking'
+              ) {
+                return ''
+              }
               if (typeof chunk.content === 'string') return chunk.content
               if (typeof chunk.text === 'string') return chunk.text
               if (typeof chunk.reasoning === 'string') return chunk.reasoning
+              if (typeof chunk.reasoning_content !== 'undefined') {
+                return readReasoningField(chunk.reasoning_content)
+              }
               if (typeof chunk.delta === 'string') return chunk.delta
+              if (typeof chunk.delta?.reasoning_content !== 'undefined') {
+                return readReasoningField(chunk.delta.reasoning_content)
+              }
               if (typeof chunk.delta?.content === 'string') return chunk.delta.content
+              if (typeof chunk.choices?.[0]?.delta?.reasoning_content !== 'undefined') {
+                return readReasoningField(chunk.choices[0].delta.reasoning_content)
+              }
               return ''
             }
 
@@ -912,6 +1629,10 @@ const useChatStore = create((set, get) => ({
             )
             const provider = getProvider(modelConfig.provider)
             const credentials = provider.getCredentials(settings)
+            const searchProvider = settings.searchProvider || 'tavily'
+            const tavilyApiKey =
+              searchProvider === 'tavily' ? settings.tavilyApiKey : undefined
+            const serpapiApiKey = settings.serpapiApiKey
             const languageInstruction = getLanguageInstruction(agent, settings)
             const taskPrompt = assignedTask
               ? `You are assigned this sub-question only:\n${assignedTask}\n\nConstraints:\n- Answer only this sub-question.\n- Do not cover other agents' topics.\n- Return practical, implementation-ready guidance.`
@@ -924,6 +1645,23 @@ const useChatStore = create((set, get) => ({
               agent,
               settings,
             )
+
+            const resolvedToolIds = (() => {
+              if (Array.isArray(agent?.toolIds) && agent.toolIds.length > 0) return agent.toolIds
+              if (Array.isArray(agent?.tool_ids) && agent.tool_ids.length > 0) return agent.tool_ids
+              return []
+            })()
+            let activeUserTools = []
+            try {
+              const allUserTools = await getUserTools()
+              if (Array.isArray(allUserTools) && resolvedToolIds.length > 0) {
+                activeUserTools = allUserTools
+                  .filter(t => resolvedToolIds.includes(String(t.id)))
+                  .filter(t => !t.config?.disabled)
+              }
+            } catch (error) {
+              console.error('Failed to fetch user tools for expert mode:', error)
+            }
 
             updateExpertMessage(current => ({
               ...current,
@@ -954,8 +1692,20 @@ const useChatStore = create((set, get) => ({
                   tools: provider.getTools(
                     Boolean(resolvedToggles?.search),
                     searchToolForExpert,
-                    false,
+                    Boolean(settings.enableLongTermMemory),
                   ),
+                  toolIds: resolvedToolIds,
+                  userTools: activeUserTools,
+                  enableLongTermMemory: Boolean(settings.enableLongTermMemory),
+                  databaseProvider: settings.databaseProviderId || settings.databaseProvider || '',
+                  contextTurns: settings.contextTurns,
+                  searchProvider,
+                  tavilyApiKey,
+                  serpapiApiKey,
+                  memoryProvider: modelConfig.provider,
+                  memoryModel: modelConfig.model,
+                  memoryApiKey: credentials.apiKey,
+                  memoryBaseUrl: credentials.baseUrl,
                   thinking: provider.getThinking(
                     Boolean(resolvedToggles?.thinking),
                     modelConfig.model,
@@ -964,58 +1714,137 @@ const useChatStore = create((set, get) => ({
                   onChunk: chunk => {
                     const reasoningText = extractReasoningText(chunk)
                     if (reasoningText) {
-                      const now = Date.now()
-                      const resolvedDurationMs =
-                        typeof chunk?.duration_ms === 'number'
-                          ? chunk.duration_ms
-                          : Number.isFinite(lastReasoningAtMs)
-                            ? Math.max(0, now - lastReasoningAtMs)
-                            : 0
-                      lastReasoningAtMs = now
+                      const cleanReasoning = sanitizeExpertStreamChunk(reasoningText)
+                      if (cleanReasoning) {
+                        const now = Date.now()
+                        const resolvedDurationMs =
+                          typeof chunk?.duration_ms === 'number'
+                            ? chunk.duration_ms
+                            : Number.isFinite(lastReasoningAtMs)
+                              ? Math.max(0, now - lastReasoningAtMs)
+                              : 0
+                        lastReasoningAtMs = now
+                        updateExpertMessage(current => ({
+                          ...current,
+                          expertActiveAgentId: String(agent.id),
+                          expertResponses: (current.expertResponses || []).map(item => {
+                            if (String(item.agentId) !== String(agent.id)) return item
+                            const contentLength = (item.content || '').length
+                            const thoughtHistory = Array.isArray(item.thoughtHistory)
+                              ? [...item.thoughtHistory]
+                              : []
+                            const blockId = chunk?.block_id || 'reasoning-stream'
+                            const lastEntry = thoughtHistory[thoughtHistory.length - 1]
+                            if (lastEntry && String(lastEntry.blockId) === String(blockId)) {
+                              lastEntry.content = `${lastEntry.content || ''}${cleanReasoning}`
+                              const lastDuration =
+                                typeof lastEntry.durationMs === 'number' ? lastEntry.durationMs : 0
+                              lastEntry.durationMs = Math.max(0, lastDuration + resolvedDurationMs)
+                            } else {
+                              thoughtHistory.push({
+                                id: `${blockId}-${Date.now()}-${thoughtHistory.length}`,
+                                blockId,
+                                textIndex: contentLength,
+                                content: cleanReasoning,
+                                streamOrder: ++thoughtStreamOrder,
+                                durationMs: resolvedDurationMs,
+                              })
+                            }
+                            const streamBlocks = Array.isArray(item.streamBlocks)
+                              ? [...item.streamBlocks]
+                              : []
+                            streamBlocks.push({
+                              seq: ++streamSeq,
+                              type: 'reasoning',
+                              content: cleanReasoning,
+                              duration_ms:
+                                typeof chunk?.duration_ms === 'number' ? chunk.duration_ms : null,
+                            })
+                            return {
+                              ...item,
+                              thought: `${item.thought || ''}${cleanReasoning}`,
+                              thoughtHistory,
+                              streamBlocks,
+                            }
+                          }),
+                        }))
+                      }
+                    }
+
+                    if (chunk && typeof chunk === 'object' && chunk.type === 'form_request') {
                       updateExpertMessage(current => ({
                         ...current,
+                        hitlRunId: chunk.run_id || current.hitlRunId,
+                        hitlFormId: chunk.id || current.hitlFormId,
+                        hitlFormTitle: chunk.title || current.hitlFormTitle,
+                        hitlFormFields: Array.isArray(chunk.fields)
+                          ? chunk.fields
+                          : current.hitlFormFields,
                         expertActiveAgentId: String(agent.id),
                         expertResponses: (current.expertResponses || []).map(item => {
                           if (String(item.agentId) !== String(agent.id)) return item
-                          const contentLength = (item.content || '').length
-                          const thoughtHistory = Array.isArray(item.thoughtHistory)
-                            ? [...item.thoughtHistory]
+                          const formId = chunk.id || `form-${Date.now()}`
+                          const toolCallHistory = Array.isArray(item.toolCallHistory)
+                            ? [...item.toolCallHistory]
                             : []
-                          const blockId = chunk?.block_id || `thought-${thoughtHistory.length + 1}`
-                          const lastEntry = thoughtHistory[thoughtHistory.length - 1]
-                          if (
-                            lastEntry &&
-                            String(lastEntry.blockId) === String(blockId) &&
-                            Number(lastEntry.textIndex) === Number(contentLength)
-                          ) {
-                            lastEntry.content = `${lastEntry.content || ''}${reasoningText}`
-                            const lastDuration =
-                              typeof lastEntry.durationMs === 'number' ? lastEntry.durationMs : 0
-                            lastEntry.durationMs = Math.max(0, lastDuration + resolvedDurationMs)
-                          } else {
-                            thoughtHistory.push({
-                              id: `${blockId}-${Date.now()}-${thoughtHistory.length}`,
-                              blockId,
-                              textIndex: contentLength,
-                              content: reasoningText,
-                              streamOrder: ++thoughtStreamOrder,
-                              durationMs: resolvedDurationMs,
-                            })
+                          const existingFormIndex = toolCallHistory.findIndex(
+                            entry =>
+                              entry.name === 'interactive_form' &&
+                              entry.status !== 'done' &&
+                              (entry.id === formId ||
+                                entry.runId === chunk.run_id ||
+                                (entry.output &&
+                                  typeof entry.output === 'object' &&
+                                  (entry.output.run_id === chunk.run_id ||
+                                    entry.output.runId === chunk.run_id))),
+                          )
+
+                          const nextFormEntry = {
+                            id: formId,
+                            name: 'interactive_form',
+                            runId: chunk.run_id,
+                            arguments: JSON.stringify({
+                              id: formId,
+                              title: chunk.title || 'Please provide required information',
+                              fields: Array.isArray(chunk.fields) ? chunk.fields : [],
+                              run_id: chunk.run_id,
+                            }),
+                            status: 'pending',
+                            output: {
+                              id: formId,
+                              title: chunk.title || 'Please provide required information',
+                              fields: Array.isArray(chunk.fields) ? chunk.fields : [],
+                              run_id: chunk.run_id,
+                            },
+                            textIndex: (item.content || '').length,
+                            streamOrder: ++toolStreamOrder,
                           }
+
+                          if (existingFormIndex >= 0) {
+                            toolCallHistory[existingFormIndex] = {
+                              ...toolCallHistory[existingFormIndex],
+                              ...nextFormEntry,
+                            }
+                          } else {
+                            toolCallHistory.push(nextFormEntry)
+                          }
+
                           const streamBlocks = Array.isArray(item.streamBlocks)
                             ? [...item.streamBlocks]
                             : []
                           streamBlocks.push({
                             seq: ++streamSeq,
-                            type: 'reasoning',
-                            content: reasoningText,
-                            durationMs:
-                              typeof chunk?.duration_ms === 'number' ? chunk.duration_ms : null,
+                            type: 'tool_call',
+                            tool_call_id: formId,
+                            name: 'interactive_form',
+                            arguments: nextFormEntry.arguments,
+                            status: 'pending',
                           })
+
                           return {
                             ...item,
-                            thought: `${item.thought || ''}${reasoningText}`,
-                            thoughtHistory,
+                            status: 'waiting_input',
+                            toolCallHistory,
                             streamBlocks,
                           }
                         }),
@@ -1023,7 +1852,11 @@ const useChatStore = create((set, get) => ({
                       return
                     }
 
-                    if (chunk && typeof chunk === 'object' && chunk.type === 'tool_call') {
+                    if (
+                      chunk &&
+                      typeof chunk === 'object' &&
+                      (chunk.type === 'tool_call' || chunk.type === 'tool_call_started')
+                    ) {
                       updateExpertMessage(current => ({
                         ...current,
                         expertActiveAgentId: String(agent.id),
@@ -1097,7 +1930,7 @@ const useChatStore = create((set, get) => ({
                           streamBlocks.push({
                             seq: ++streamSeq,
                             type: 'tool_call',
-                            toolCallId: nextToolId,
+                            tool_call_id: nextToolId,
                             name: toolName,
                             arguments: injectedArguments,
                             status: 'calling',
@@ -1108,7 +1941,11 @@ const useChatStore = create((set, get) => ({
                       return
                     }
 
-                    if (chunk && typeof chunk === 'object' && chunk.type === 'tool_result') {
+                    if (
+                      chunk &&
+                      typeof chunk === 'object' &&
+                      (chunk.type === 'tool_result' || chunk.type === 'tool_call_completed')
+                    ) {
                       updateExpertMessage(current => ({
                         ...current,
                         expertActiveAgentId: String(agent.id),
@@ -1170,12 +2007,12 @@ const useChatStore = create((set, get) => ({
                           streamBlocks.push({
                             seq: ++streamSeq,
                             type: 'tool_result',
-                            toolCallId: chunk.id || null,
+                            tool_call_id: chunk.id || null,
                             name: chunk.name || 'tool',
                             status: chunk.status || 'done',
                             output: typeof chunk.output !== 'undefined' ? chunk.output : null,
                             error: chunk.error || null,
-                            durationMs:
+                            duration_ms:
                               typeof chunk.duration_ms === 'number' ? chunk.duration_ms : null,
                           })
                           return { ...item, toolCallHistory, streamBlocks }
@@ -1186,6 +2023,8 @@ const useChatStore = create((set, get) => ({
 
                     const chunkText = extractChunkText(chunk)
                     if (!chunkText) return
+                    const cleanText = sanitizeExpertStreamChunk(chunkText)
+                    if (!cleanText) return
                     updateExpertMessage(current => ({
                       ...current,
                       expertActiveAgentId: String(agent.id),
@@ -1193,10 +2032,13 @@ const useChatStore = create((set, get) => ({
                         String(item.agentId) === String(agent.id)
                           ? {
                               ...item,
-                              content: `${item.content || ''}${chunkText}`,
+                              content: `${item.content || ''}${cleanText}`,
                               streamBlocks: Array.isArray(item.streamBlocks)
-                                ? [...item.streamBlocks, { seq: ++streamSeq, type: 'text', content: chunkText }]
-                                : [{ seq: ++streamSeq, type: 'text', content: chunkText }],
+                                ? [
+                                    ...item.streamBlocks,
+                                    { seq: ++streamSeq, type: 'text', content: cleanText },
+                                  ]
+                                : [{ seq: ++streamSeq, type: 'text', content: cleanText }],
                             }
                           : item,
                       ),
@@ -1204,13 +2046,24 @@ const useChatStore = create((set, get) => ({
                   },
                   onFinish: result => {
                     const finalText =
-                      typeof result?.content === 'string' ? result.content : undefined
+                      typeof result?.content === 'string'
+                        ? normalizeExpertBrokenTokenLines(result.content)
+                        : undefined
                     const finalThought =
                       typeof result?.thought === 'string'
-                        ? result.thought
+                        ? normalizeExpertBrokenTokenLines(
+                            sanitizeExpertStreamChunk(result.thought),
+                          )
                         : typeof result?.reasoning === 'string'
-                          ? result.reasoning
+                          ? normalizeExpertBrokenTokenLines(
+                              sanitizeExpertStreamChunk(result.reasoning),
+                            )
                           : ''
+                    const finalToolCalls = Array.isArray(result?.toolCalls)
+                      ? result.toolCalls
+                      : Array.isArray(result?.tool_calls)
+                        ? result.tool_calls
+                        : []
                     updateExpertMessage(current => ({
                       ...current,
                       expertActiveAgentId: String(agent.id),
@@ -1218,9 +2071,49 @@ const useChatStore = create((set, get) => ({
                         String(item.agentId) === String(agent.id)
                           ? {
                               ...item,
-                              status: 'done',
+                              status: (() => {
+                                const hasPendingForm = (item.toolCallHistory || []).some(
+                                  entry => entry.name === 'interactive_form' && entry.status !== 'done',
+                                )
+                                return hasPendingForm ? 'waiting_input' : 'done'
+                              })(),
                               content: finalText ?? item.content ?? '',
                               thought: finalThought || item.thought || '',
+                              toolCallHistory: (() => {
+                                const existing = Array.isArray(item.toolCallHistory)
+                                  ? [...item.toolCallHistory]
+                                  : []
+                                if (finalToolCalls.length === 0) return existing
+
+                                const seen = new Set(
+                                  existing.map(tc => String(tc?.id || `${tc?.name}:${tc?.arguments || ''}`)),
+                                )
+                                const mapped = finalToolCalls
+                                  .map((tc, idx) => {
+                                    const id = tc?.id || `${tc?.name || tc?.function?.name || 'tool'}-finish-${idx}`
+                                    const name = tc?.name || tc?.function?.name || 'tool'
+                                    const argumentsPayload =
+                                      typeof tc?.arguments !== 'undefined'
+                                        ? tc.arguments
+                                        : tc?.function?.arguments || ''
+                                    const key = String(id || `${name}:${argumentsPayload || ''}`)
+                                    if (seen.has(key)) return null
+                                    seen.add(key)
+                                    return {
+                                      id,
+                                      name,
+                                      arguments: argumentsPayload,
+                                      status: 'done',
+                                      output: null,
+                                      durationMs: null,
+                                      textIndex: (finalText ?? item.content ?? '').length,
+                                      streamOrder: ++toolStreamOrder,
+                                    }
+                                  })
+                                  .filter(Boolean)
+
+                                return mapped.length > 0 ? [...existing, ...mapped] : existing
+                              })(),
                             }
                           : item,
                       ),
@@ -1261,24 +2154,64 @@ const useChatStore = create((set, get) => ({
             })
           }
 
-          for (const agent of executionAgents) {
-            // Execute in planner order to preserve task dependency flow.
-            await runAgentTask(agent)
-          }
+          // Execute all assigned expert agents in parallel for concurrent streaming.
+          await Promise.all(executionAgents.map(agent => runAgentTask(agent)))
 
           const finalMessage = (get().messages || []).find(
             msg => msg.role === 'ai' && msg.localId === expertMessageLocalId,
           )
-          const finalResponses = Array.isArray(finalMessage?.expertResponses)
+          const finalResponsesRaw = Array.isArray(finalMessage?.expertResponses)
             ? finalMessage.expertResponses
             : []
+          const finalResponses = finalResponsesRaw.map(item => ({
+            ...item,
+            content:
+              typeof item?.content === 'string'
+                ? normalizeExpertBrokenTokenLines(item.content)
+                : item?.content || '',
+            thought:
+              typeof item?.thought === 'string'
+                ? normalizeExpertBrokenTokenLines(item.thought)
+                : item?.thought || '',
+          }))
           const preferredResponse =
             finalResponses.find(item => item.status === 'done' && item.content?.trim()) ||
             finalResponses.find(item => item.content?.trim()) ||
             null
-          const fallbackText = preferredResponse?.content || 'All expert agents failed to respond.'
+          const mergedPreferredStreamBlocks = (() => {
+            const planBlocks = expertPlan
+              ? [{ seq: 1, type: 'workflow_text', content: expertPlan }]
+              : []
+            const responseBlocks = Array.isArray(preferredResponse?.streamBlocks)
+              ? preferredResponse.streamBlocks
+              : []
+            if (responseBlocks.length === 0) return planBlocks
+
+            const normalizedResponseBlocks = responseBlocks.map((block, index) => ({
+              ...block,
+              seq: Number.isFinite(block?.seq) ? Number(block.seq) : index + 1,
+            }))
+            const hasWorkflowBlock = normalizedResponseBlocks.some(
+              block => String(block?.type || '').toLowerCase() === 'workflow_text',
+            )
+            if (hasWorkflowBlock || planBlocks.length === 0) return normalizedResponseBlocks
+
+            return [
+              ...planBlocks,
+              ...normalizedResponseBlocks.map(block => ({
+                ...block,
+                seq: Number(block.seq) + planBlocks.length,
+              })),
+            ]
+          })()
+          const fallbackText = normalizeExpertBrokenTokenLines(
+            preferredResponse?.content || 'All expert agents failed to respond.',
+          )
           const activeAgentId = String(
-            preferredResponse?.agentId || finalResponses[0]?.agentId || executionAgents[0]?.id || '',
+            preferredResponse?.agentId ||
+              finalResponses[0]?.agentId ||
+              executionAgents[0]?.id ||
+              '',
           )
 
           updateExpertMessage(current => ({
@@ -1294,10 +2227,8 @@ const useChatStore = create((set, get) => ({
               preferredResponse && Array.isArray(preferredResponse.thoughtHistory)
                 ? preferredResponse.thoughtHistory
                 : [],
-            streamBlocks:
-              preferredResponse && Array.isArray(preferredResponse.streamBlocks)
-                ? preferredResponse.streamBlocks
-                : [],
+            streamBlocks: mergedPreferredStreamBlocks,
+            expertResponses: finalResponses,
             searchBackend:
               preferredResponse && typeof preferredResponse.searchBackend === 'string'
                 ? preferredResponse.searchBackend
@@ -1314,6 +2245,13 @@ const useChatStore = create((set, get) => ({
             expertResponses: finalResponses,
             expertActiveAgentId: activeAgentId,
           })
+          const databaseProviderKey = String(
+            settings?.databaseProviderId || settings?.databaseProvider || '',
+          ).toLowerCase()
+          const shouldPersistStreamBlocks =
+            databaseProviderKey.includes('sqlite') ||
+            databaseProviderKey.includes('supabase') ||
+            databaseProviderKey.includes('postgres')
           const aiPayload = {
             conversation_id: convId,
             role: 'assistant',
@@ -1334,6 +2272,10 @@ const useChatStore = create((set, get) => ({
                 ? preferredResponse.toolCallHistory
                 : [],
             ),
+            ...(shouldPersistStreamBlocks && {
+              stream_blocks: sanitizeJson(mergedPreferredStreamBlocks),
+              stream_schema_version: 1,
+            }),
             document_sources: sanitizeJson(null),
             created_at: new Date().toISOString(),
           }
@@ -1365,7 +2307,23 @@ const useChatStore = create((set, get) => ({
           return
         }
       } catch (error) {
-        console.error('Expert mode execution failed, fallback to normal mode:', error)
+        console.error('Expert mode execution failed:', error)
+        const expertErrorMessage = error?.message || 'Expert mode execution failed.'
+        set(state => {
+          const updated = [...state.messages]
+          const lastMsgIndex = updated.length - 1
+          if (lastMsgIndex >= 0 && updated[lastMsgIndex].role === 'ai') {
+            updated[lastMsgIndex] = {
+              ...updated[lastMsgIndex],
+              expertPlanLoading: false,
+              expertPlan: expertErrorMessage,
+              isError: true,
+            }
+          }
+          return { messages: updated }
+        })
+        set({ abortController: null, isLoading: false })
+        return
       }
     }
 

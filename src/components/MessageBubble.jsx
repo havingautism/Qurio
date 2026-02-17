@@ -7,6 +7,7 @@ import useChatStore from '../lib/chatStore'
 import clsx from 'clsx'
 import {
   Check,
+  RotateCcw,
   ChevronDown,
   ChevronRight,
   Copy,
@@ -41,6 +42,7 @@ import { getProvider } from '../lib/providers'
 import { SEARCH_BACKEND_OPTIONS } from '../lib/searchTools'
 import { TOOL_TRANSLATION_KEYS, TOOL_ICONS } from '../lib/toolConstants'
 import { splitTextWithUrls } from '../lib/urlHighlight'
+import { normalizeExpertBrokenTokenLines } from '../lib/chat/expertTextUtils'
 import DesktopSourcesSection from './DesktopSourcesSection'
 import DotLoader from './DotLoader'
 import EmojiDisplay from './EmojiDisplay'
@@ -58,6 +60,8 @@ import { useMessageExport } from './message/useMessageExport'
 import MobileSourcesDrawer from './MobileSourcesDrawer'
 import DocumentSourcesPanel from './DocumentSourcesPanel'
 import ShareModal from './ShareModal'
+import YoutubeLogo from '../assets/youtube.svg?url'
+import BilibiliLogo from '../assets/bilibili.png?url'
 
 const PROVIDER_META = {
   gemini: {
@@ -96,7 +100,39 @@ const PROVIDER_META = {
     fallback: 'N',
   },
 }
-const THOUGHT_BLOCK_BREAK_MARKER = '<|thought_block_break|>'
+const InTableContext = React.createContext(false)
+
+const InlineVideoEmbed = memo(({ embedUrl, title = 'Video' }) => {
+  const iframeSrc = useMemo(() => {
+    if (!embedUrl) return null
+    try {
+      const parsed = new URL(embedUrl)
+      parsed.searchParams.set('autoplay', '0')
+      parsed.searchParams.set('auto_play', '0')
+      return parsed.toString()
+    } catch {
+      return embedUrl
+    }
+  }, [embedUrl])
+
+  if (!iframeSrc) return null
+
+  return (
+    <span className="my-3 block aspect-video w-full max-w-md overflow-hidden rounded-lg">
+      <iframe
+        src={iframeSrc}
+        title={title}
+        loading="lazy"
+        fetchPriority="low"
+        referrerPolicy="strict-origin-when-cross-origin"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowFullScreen
+        className="h-full w-full border-0"
+      />
+    </span>
+  )
+})
+InlineVideoEmbed.displayName = 'InlineVideoEmbed'
 
 const sanitizeDisplayText = value => {
   if (typeof value !== 'string') return ''
@@ -105,20 +141,6 @@ const sanitizeDisplayText = value => {
     .replace(/\uFEFF/g, '')
     .replace(/ï¿½+/g, '')
     .replace(/ï»¿/g, '')
-}
-
-const clampToUnicodeBoundary = (text, index) => {
-  if (typeof text !== 'string' || text.length === 0) return 0
-  let safeIndex = Math.max(0, Math.min(Number.isFinite(index) ? Number(index) : 0, text.length))
-  if (safeIndex <= 0 || safeIndex >= text.length) return safeIndex
-  const currentCode = text.charCodeAt(safeIndex)
-  const prevCode = text.charCodeAt(safeIndex - 1)
-  const isLowSurrogate = currentCode >= 0xdc00 && currentCode <= 0xdfff
-  const prevIsHighSurrogate = prevCode >= 0xd800 && prevCode <= 0xdbff
-  if (isLowSurrogate && prevIsHighSurrogate) {
-    safeIndex -= 1
-  }
-  return safeIndex
 }
 
 const isExplicitSchemeUrl = value => /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(value)
@@ -255,8 +277,12 @@ const MessageBubble = ({
   onEdit,
   onDelete,
   onRegenerateAnswer,
+  onUserRegenerate,
   onQuote,
   onFormSubmit,
+  messageOverride = null,
+  headerExtraContent = null,
+  compactStreamingTextBlocks = false,
 }) => {
   // Get message directly from chatStore using shallow selector
   const { messages, isLoading, conversationTitle } = useChatStore(
@@ -273,7 +299,7 @@ const MessageBubble = ({
   const isMobile = useIsMobile()
 
   // Extract message by index
-  const message = messages[messageIndex]
+  const message = messageOverride || messages[messageIndex]
 
   // Simple message reference (no more merging hacks!)
   const mergedMessage = message
@@ -376,138 +402,77 @@ const MessageBubble = ({
       : baseToolCallHistory
   const formToolHistory = toolCallHistory.filter(item => item.name === 'interactive_form')
   const hasInteractiveForm = formToolHistory.length > 0
-  const thoughtContent = isDeepResearch
-    ? null
-    : isExpertMessage
-      ? activeExpertResponse?.thought || ''
-      : parsed.thought
   const mainContent = isExpertMessage ? activeExpertResponse?.content || '' : parsed.content
   const displayProviderId = isExpertMessage
     ? activeExpertResponse?.provider || providerId
     : providerId
   const displayModel = isExpertMessage ? activeExpertResponse?.model || null : null
-  const positionedThoughtBlocks = useMemo(() => {
-    if (isDeepResearch) return []
 
-    const thoughtHistorySource =
-      isExpertMessage && Array.isArray(activeExpertResponse?.thoughtHistory)
-        ? activeExpertResponse.thoughtHistory
-        : mergedMessage?.thoughtHistory
+  const formatThoughtContentForDisplay = useCallback(value => {
+    const raw = sanitizeDisplayText(String(value || '')).trim()
+    if (!raw) return ''
 
-    const fromHistory = Array.isArray(thoughtHistorySource)
-      ? thoughtHistorySource
-          .map((item, index) => ({
-            id: item?.id || `${item?.blockId ?? 'block'}-${index}`,
-            blockId: item?.blockId ?? index,
-            textIndex: Number.isFinite(item?.textIndex) ? Number(item.textIndex) : 0,
-            content: String(item?.content || '').trim(),
-            streamOrder: Number.isFinite(item?.streamOrder) ? Number(item.streamOrder) : index,
-            durationMs: Number.isFinite(item?.durationMs) ? Number(item.durationMs) : null,
-          }))
-          .filter(item => item.content)
-          .sort((a, b) =>
-            a.textIndex === b.textIndex ? a.streamOrder - b.streamOrder : a.textIndex - b.textIndex,
-          )
-      : []
-
-    if (fromHistory.length > 0) return fromHistory
-    if (!thoughtContent) return []
-
-    return String(thoughtContent)
-      .split(THOUGHT_BLOCK_BREAK_MARKER)
-      .map(part => part.trim())
-      .filter(Boolean)
-      .map((content, index) => ({
-        id: `legacy-thought-${index}`,
-        blockId: `legacy-${index}`,
-        textIndex: 0,
-        content,
-        streamOrder: index,
-      }))
-  }, [
-    isDeepResearch,
-    isExpertMessage,
-    activeExpertResponse?.thoughtHistory,
-    mergedMessage?.thoughtHistory,
-    thoughtContent,
-  ])
-
-  const formatThoughtContentForDisplay = useCallback(
-    value => {
-      const raw = sanitizeDisplayText(String(value || '')).trim()
-      if (!raw) return ''
-
-      const decodeJsonString = input => {
-        if (typeof input !== 'string') return ''
-        try {
-          return JSON.parse(`"${input.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`)
-        } catch {
-          return input
-        }
-      }
-
-      const toStructuredMarkdown = parsed => {
-        if (!parsed || typeof parsed !== 'object') return ''
-        const lines = []
-        if (parsed.expertPlan) {
-          lines.push(String(parsed.expertPlan))
-        }
-        const responses = Array.isArray(parsed.expertResponses) ? parsed.expertResponses : []
-        if (responses.length > 0) {
-          lines.push(`\n**专家任务分解**`)
-          responses.forEach((item, idx) => {
-            const name = String(item?.agentName || item?.agent || `专家${idx + 1}`)
-            const emoji = String(item?.agentEmoji || '').trim()
-            const task = String(item?.task || '').trim()
-            if (task) {
-              lines.push(`- ${emoji ? `${emoji} ` : ''}${name}: ${task}`)
-            }
-          })
-        }
-        if (lines.length > 0) return lines.join('\n')
-        return ''
-      }
-
+    const decodeJsonString = input => {
+      if (typeof input !== 'string') return ''
       try {
-        const parsed = JSON.parse(raw)
-        const markdown = toStructuredMarkdown(parsed)
-        if (markdown) return markdown
+        return JSON.parse(`"${input.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`)
       } catch {
-        // Streaming partial JSON: extract key fields progressively for readability.
-        // Regex modified to capture values even if the closing quote hasn't arrived ensuring streaming support.
-        const planMatch = raw.match(/"expertPlan"\s*:\s*"((?:\\.|[^"\\])*)(?:"|$)/)
-        // For tasks, we use a global regex to capture all occurrences
-        const taskMatches = [...raw.matchAll(/"task"\s*:\s*"((?:\\.|[^"\\])*)(?:"|$)/g)]
-
-        const extracted = []
-        if (planMatch?.[1]) {
-          extracted.push(decodeJsonString(planMatch[1]))
-        }
-        if (taskMatches.length > 0) {
-          extracted.push(`\n**专家任务分解**`)
-          taskMatches.forEach((match, idx) => {
-            const task = decodeJsonString(match?.[1] || '')
-            // Optional: Try to capture the agent name if available near this task
-            // This is a best-effort heuristic for streaming
-            if (task) extracted.push(`- 专家${idx + 1}: ${task}`)
-          })
-        }
-        if (extracted.length > 0) return extracted.join('\n')
+        return input
       }
+    }
 
-      return raw
-    },
-    [t],
-  )
+    const toStructuredMarkdown = parsed => {
+      if (!parsed || typeof parsed !== 'object') return ''
+      const lines = []
+      if (parsed.expertPlan) {
+        lines.push(String(parsed.expertPlan))
+      }
+      const responses = Array.isArray(parsed.expertResponses) ? parsed.expertResponses : []
+      if (responses.length > 0) {
+        lines.push(`\n**专家任务分解**`)
+        responses.forEach((item, idx) => {
+          const name = String(item?.agentName || item?.agent || `专家${idx + 1}`)
+          const emoji = String(item?.agentEmoji || '').trim()
+          const task = String(item?.task || '').trim()
+          if (task) {
+            lines.push(`- ${emoji ? `${emoji} ` : ''}${name}: ${task}`)
+          }
+        })
+      }
+      if (lines.length > 0) return lines.join('\n')
+      return ''
+    }
 
-  const thoughtExportContent = useMemo(
-    () =>
-      positionedThoughtBlocks
-        .map(item => formatThoughtContentForDisplay(item.content))
-        .filter(Boolean)
-        .join('\n\n'),
-    [formatThoughtContentForDisplay, positionedThoughtBlocks],
-  )
+    try {
+      const parsed = JSON.parse(raw)
+      const markdown = toStructuredMarkdown(parsed)
+      if (markdown) return markdown
+    } catch {
+      // Streaming partial JSON: extract key fields progressively for readability.
+      // Regex modified to capture values even if the closing quote hasn't arrived ensuring streaming support.
+      const planMatch = raw.match(/"expertPlan"\s*:\s*"((?:\\.|[^"\\])*)(?:"|$)/)
+      // For tasks, we use a global regex to capture all occurrences
+      const taskMatches = [...raw.matchAll(/"task"\s*:\s*"((?:\\.|[^"\\])*)(?:"|$)/g)]
+
+      const extracted = []
+      if (planMatch?.[1]) {
+        extracted.push(decodeJsonString(planMatch[1]))
+      }
+      if (taskMatches.length > 0) {
+        extracted.push(`\n**专家任务分解**`)
+        taskMatches.forEach((match, idx) => {
+          const task = decodeJsonString(match?.[1] || '')
+          // Optional: Try to capture the agent name if available near this task
+          // This is a best-effort heuristic for streaming
+          if (task) extracted.push(`- 专家${idx + 1}: ${task}`)
+        })
+      }
+      if (extracted.length > 0) return extracted.join('\n')
+    }
+
+    return raw
+  }, [])
+
   const normalizedStreamBlocks = useMemo(() => {
     const streamSource =
       isExpertMessage && Array.isArray(activeExpertResponse?.streamBlocks)
@@ -529,6 +494,15 @@ const MessageBubble = ({
       .filter(item => item.type)
       .sort((a, b) => a.seq - b.seq)
   }, [isExpertMessage, activeExpertResponse?.streamBlocks, mergedMessage?.streamBlocks])
+  const thoughtExportContent = useMemo(
+    () =>
+      normalizedStreamBlocks
+        .filter(item => item.type === 'reasoning' || item.type === 'thought')
+        .map(item => formatThoughtContentForDisplay(item.content))
+        .filter(Boolean)
+        .join('\n\n'),
+    [formatThoughtContentForDisplay, normalizedStreamBlocks],
+  )
 
   const resolvedSearchBackends = useMemo(() => {
     const explicitBackends = isExpertMessage
@@ -837,7 +811,7 @@ const MessageBubble = ({
     return results
   }, [toolCallHistory])
 
-  // Extract all video search results from toolCallHistory to determine which links should be iframes
+  // Extract video search results to get title for iframe accessibility
   // Update ref without triggering re-renders of markdownComponents
   const allVideoResults = useMemo(() => {
     const results = []
@@ -846,27 +820,18 @@ const MessageBubble = ({
       if (videoSearchTools.includes(tc.name)) {
         try {
           const output = typeof tc.output === 'string' ? JSON.parse(tc.output) : tc.output
-
-          // Handle different output formats
           let videoList = []
           if (Array.isArray(output)) {
-            // DuckDuckGo format: direct array
             videoList = output
           } else if (output && typeof output === 'object') {
-            // SerpApi format: { video_results: [...] }
             videoList = output.video_results || output.videos || []
           }
-
           videoList.forEach(item => {
-            // SerpApi uses 'link' field, DuckDuckGo uses 'url' or 'content'
             const videoUrl = item.link || item.url || item.content || ''
             if (videoUrl) {
               results.push({
                 url: videoUrl,
                 title: item.title || '',
-                thumbnail: item.thumbnail || item.thumbnail_static || '',
-                source: item.source || item.channel || '',
-                duration: item.duration || '',
               })
             }
           })
@@ -875,25 +840,96 @@ const MessageBubble = ({
         }
       }
     })
-    // Update ref for use in markdown a component without triggering deps
     videoMetadataRef.current = results
     return results
   }, [toolCallHistory])
 
-  // Helper function to convert YouTube URL to embed URL
-  const getYouTubeEmbedUrl = useCallback(url => {
+  // Helper function to convert supported video URLs to embed URL
+  const getVideoEmbedUrl = useCallback(url => {
     if (!url) return null
-    // Match various YouTube URL formats
-    const patterns = [
+
+    // YouTube: various formats
+    const ytPatterns = [
       /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/)([a-zA-Z0-9_-]{11})/,
       /youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/,
     ]
-    for (const pattern of patterns) {
+    for (const pattern of ytPatterns) {
       const match = url.match(pattern)
       if (match && match[1]) {
         return `https://www.youtube.com/embed/${match[1]}`
       }
     }
+
+    // Bilibili: normal video links and player links
+    try {
+      const normalizedUrl = url.startsWith('//') ? `https:${url}` : url
+      const parsed = new URL(normalizedUrl)
+      const hostname = parsed.hostname.toLowerCase()
+
+      const buildBilibiliEmbedUrl = ({ bvid, aid, cid, page }) => {
+        const params = new URLSearchParams()
+        params.set('isOutside', 'true')
+        if (aid) params.set('aid', aid)
+        if (bvid) params.set('bvid', bvid)
+        if (cid) params.set('cid', cid)
+        params.set('p', page || '1')
+        return `https://player.bilibili.com/player.html?${params.toString()}`
+      }
+
+      // Example: player.bilibili.com/player.html?...&bvid=...&cid=...&p=1
+      if (hostname.includes('player.bilibili.com') && parsed.pathname.includes('/player.html')) {
+        const bvid = parsed.searchParams.get('bvid')
+        const aid = parsed.searchParams.get('aid')
+        const cid = parsed.searchParams.get('cid')
+        const page = parsed.searchParams.get('p') || parsed.searchParams.get('page')
+        if (bvid || aid || cid) {
+          return buildBilibiliEmbedUrl({ bvid, aid, cid, page })
+        }
+      }
+
+      // Example: www.bilibili.com/video/BV... or www.bilibili.com/video/av...
+      if (hostname.includes('bilibili.com')) {
+        const bvidMatch = parsed.pathname.match(/\/video\/(BV[a-zA-Z0-9]+)/i)
+        const aidMatch = parsed.pathname.match(/\/video\/av(\d+)/i)
+        const page = parsed.searchParams.get('p') || parsed.searchParams.get('page')
+
+        if (bvidMatch?.[1]) {
+          return buildBilibiliEmbedUrl({ bvid: bvidMatch[1], page })
+        }
+        if (aidMatch?.[1]) {
+          return buildBilibiliEmbedUrl({ aid: aidMatch[1], page })
+        }
+      }
+    } catch {
+      // ignore URL parse errors
+    }
+
+    return null
+  }, [])
+
+  const getVideoPlatform = useCallback(url => {
+    if (!url) return null
+
+    try {
+      const normalizedUrl = url.startsWith('//') ? `https:${url}` : url
+      const parsed = new URL(normalizedUrl)
+      const hostname = parsed.hostname.toLowerCase()
+
+      if (
+        hostname.includes('youtube.com') ||
+        hostname.includes('youtu.be') ||
+        hostname.includes('youtube-nocookie.com')
+      ) {
+        return 'youtube'
+      }
+
+      if (hostname.includes('player.bilibili.com') || hostname.includes('bilibili.com')) {
+        return 'bilibili'
+      }
+    } catch {
+      // ignore parse errors
+    }
+
     return null
   }, [])
 
@@ -1092,61 +1128,27 @@ const MessageBubble = ({
     )
   }
 
-  // Normalize tool index - formerly searched for newlines, but this caused clumping
-  // Now we trust the backend's relative positioning to ensure accurate interleaving.
-  const normalizeToolIndex = (content, index, toolName) => {
-    if (!content) return 0
-    const clamped = Math.max(0, index)
-
-    // Interactive forms should use the exact index where they were generated
-    if (toolName === 'interactive_form') return clamped
-
-    // Return exact clamped index to prevent "Adhesive Clumping" at paragraph boundaries
-    return clamped
-  }
-
   const interleavedContent = useMemo(() => {
     const rawContent = mainContent || ''
     const parts = []
-    const hasLiveRuntimeOrdering =
-      isStreamingMessage && (toolCallHistory.length > 0 || positionedThoughtBlocks.length > 0)
-    const canUsePersistedStreamBlocks = normalizedStreamBlocks.length > 0 && !hasLiveRuntimeOrdering
+    if (normalizedStreamBlocks.length === 0) {
+      return [{ type: 'text', content: rawContent }]
+    }
 
-    if (canUsePersistedStreamBlocks) {
-      // Virtual Injection: If expertPlan exists in message props but not in stream, inject it first
-      if (mergedMessage?.expertPlan) {
-        // Construct the JSON structure that normalizeThoughtContent expects
-        const planJson = JSON.stringify({
-          expertPlan: mergedMessage.expertPlan,
-          expertResponses: mergedMessage.expertResponses,
-        }) // No formatting needed, just raw JSON string
-
-        // Check for duplicates (robust check: scan all blocks for expertPlan content)
-        const isDuplicate = normalizedStreamBlocks.some(
-          block =>
-            (block.type === 'reasoning' || block.type === 'thought') &&
-            block.content &&
-            block.content.includes(mergedMessage.expertPlan),
-        )
-
-        if (!isDuplicate) {
-          parts.push({
-            type: 'thought',
-            key: 'virtual-expert-plan',
-            content: planJson,
-            durationMs: 0,
-            isVirtual: true,
-          })
-        }
+    for (const block of normalizedStreamBlocks) {
+      if (block.type === 'text') {
+        if (block.content) parts.push({ type: 'text', content: block.content })
+        continue
       }
-
-      for (const block of normalizedStreamBlocks) {
-        if (block.type === 'text') {
-          if (block.content) parts.push({ type: 'text', content: block.content })
-          continue
-        }
-        if (block.type === 'reasoning' || block.type === 'thought') {
-          if (!isDeepResearch && block.content) {
+      if (block.type === 'reasoning' || block.type === 'thought') {
+        if (!isDeepResearch && block.content) {
+          const lastPart = parts[parts.length - 1]
+          if (lastPart?.type === 'thought') {
+            lastPart.content = `${lastPart.content || ''}${block.content || ''}`
+            const prevDuration = Number.isFinite(lastPart.durationMs) ? Number(lastPart.durationMs) : 0
+            const nextDuration = Number.isFinite(block.durationMs) ? Number(block.durationMs) : 0
+            lastPart.durationMs = prevDuration + nextDuration
+          } else {
             parts.push({
               type: 'thought',
               key: `stream-thought-${block.seq}`,
@@ -1154,127 +1156,83 @@ const MessageBubble = ({
               durationMs: block.durationMs,
             })
           }
-          continue
         }
-        if (block.type === 'tool' || block.type === 'tool_call' || block.type === 'tool_result') {
-          const matchedTool =
-            toolCallHistory.find(item => item?.id && item.id === block.toolCallId) || null
-          const toolItem =
-            matchedTool ||
-            (block.toolCallId
-              ? {
-                  id: block.toolCallId,
-                  name: block.name || 'tool',
-                  status: block.status || 'done',
-                  arguments: block.arguments,
-                  output: block.output,
-                  durationMs: block.durationMs,
-                }
-              : null)
-          if (toolItem) {
-            parts.push({
-              type: 'tools',
-              key: `stream-tool-${block.toolCallId || block.seq}`,
-              items: [toolItem],
-            })
-          }
-        }
+        continue
       }
-      return parts.length > 0 ? parts : [{ type: 'text', content: rawContent }]
-    }
-
-    const events = []
-
-    if (!isDeepResearch) {
-      toolCallHistory.forEach((tool, index) => {
-        const rawIndex =
-          tool.textIndex ?? (tool.name === 'interactive_form' ? rawContent.length : 0)
-        const normalizedIndex = normalizeToolIndex(rawContent, rawIndex, tool.name)
-        events.push({
-          type: 'tools',
-          index: Math.max(0, normalizedIndex),
-          order: Number.isFinite(tool?.streamOrder) ? Number(tool.streamOrder) : 100000 + index,
-          key: `tool-${tool.id || index}`,
-          tool,
-        })
-      })
-
-      positionedThoughtBlocks.forEach((block, index) => {
-        const rawIndex = Number(block.textIndex) || 0
-        const normalizedIndex = normalizeToolIndex(rawContent, rawIndex, 'thought')
-        events.push({
-          type: 'thought',
-          index: Math.max(0, normalizedIndex),
-          order: Number.isFinite(block.streamOrder) ? Number(block.streamOrder) : index,
-          key: `thought-${block.id || index}`,
-          thought: block.content,
-          durationMs: block.durationMs,
-        })
-      })
-
-      // Virtual Injection for Live Runtime: Inject expertPlan if not already present
-      if (mergedMessage?.expertPlan) {
-        const planJson = JSON.stringify({
-          expertPlan: mergedMessage.expertPlan,
-          expertResponses: mergedMessage.expertResponses,
-        })
-        const isDuplicate = positionedThoughtBlocks.some(block =>
-          block.content.includes(mergedMessage.expertPlan),
-        )
-
-        if (!isDuplicate) {
-          events.push({
-            type: 'thought',
-            index: 0,
-            order: -1, // Force to top
-            key: 'virtual-expert-plan-event',
-            thought: planJson,
-            durationMs: 0,
+      if (block.type === 'workflow_text') {
+        if (!isDeepResearch && block.content) {
+          parts.push({
+            type: 'workflow_text',
+            key: `stream-workflow-text-${block.seq}`,
+            content: block.content,
+          })
+        }
+        continue
+      }
+      if (block.type === 'tool' || block.type === 'tool_call' || block.type === 'tool_result') {
+        const matchedTool = toolCallHistory.find(item => item?.id && item.id === block.toolCallId) || null
+        const toolItem =
+          matchedTool ||
+          (block.toolCallId
+            ? {
+                id: block.toolCallId,
+                name: block.name || 'tool',
+                status: block.status || 'done',
+                arguments: block.arguments,
+                output: block.output,
+                durationMs: block.durationMs,
+              }
+            : null)
+        if (toolItem) {
+          parts.push({
+            type: 'tools',
+            key: `stream-tool-${block.type || 'tool'}-${block.toolCallId || 'na'}-${block.seq}`,
+            items: [toolItem],
           })
         }
       }
     }
 
-    if (events.length === 0) {
-      return [{ type: 'text', content: rawContent }]
-    }
-
-    events.sort((a, b) => (a.index === b.index ? a.order - b.order : a.index - b.index))
-
-    let lastIndex = 0
-    for (const event of events) {
-      // CRITICAL: Cap the safeIndex at rawContent.length to prevent "future" indices
-      // from swallowing text that hasn't officially arrived at that position yet.
-      const safeIndex = Number.isFinite(event.index) ? event.index : 0
-      const boundedIndex = Math.min(safeIndex, rawContent.length)
-      const displayIndex = clampToUnicodeBoundary(rawContent, boundedIndex)
-
-      if (displayIndex > lastIndex) {
-        parts.push({ type: 'text', content: rawContent.substring(lastIndex, displayIndex) })
-        lastIndex = displayIndex
+    if (!isDeepResearch && parts.length > 1) {
+      const firstNonThoughtIndex = parts.findIndex(part => part.type !== 'thought')
+      if (firstNonThoughtIndex > 0 && parts[firstNonThoughtIndex]?.type === 'text') {
+        const thoughtPrefix = parts
+          .slice(0, firstNonThoughtIndex)
+          .filter(part => part.type === 'thought')
+          .map(part => String(part.content || ''))
+          .join('')
+        const textPart = String(parts[firstNonThoughtIndex].content || '')
+        const compactThought = thoughtPrefix.replace(/\s+/g, '')
+        const compactText = textPart.replace(/\s+/g, '')
+        if (compactThought && compactText) {
+          const minLen = Math.min(compactThought.length, compactText.length)
+          if (minLen >= 24) {
+            let common = 0
+            while (common < minLen && compactThought[common] === compactText[common]) common += 1
+            const overlapRatio = common / minLen
+            if (overlapRatio >= 0.92) {
+              const trimmedText = textPart.trimStart()
+              if (trimmedText.startsWith(thoughtPrefix)) {
+                const deduped = trimmedText.slice(thoughtPrefix.length).trimStart()
+                if (deduped) {
+                  parts[firstNonThoughtIndex] = { ...parts[firstNonThoughtIndex], content: deduped }
+                } else {
+                  parts.splice(firstNonThoughtIndex, 1)
+                }
+              } else if (compactText.startsWith(compactThought)) {
+                parts.splice(firstNonThoughtIndex, 1)
+              }
+            }
+          }
+        }
       }
-      if (event.type === 'tools') {
-        parts.push({ type: 'tools', key: event.key, items: [event.tool] })
-      } else if (event.type === 'thought') {
-        parts.push({
-          type: 'thought',
-          key: event.key,
-          content: event.thought,
-          durationMs: event.durationMs,
-        })
-      }
     }
 
-    if (lastIndex < rawContent.length) {
-      parts.push({ type: 'text', content: rawContent.substring(lastIndex) })
-    }
-    return parts
+    return parts.length > 0 ? parts : [{ type: 'text', content: rawContent }]
   }, [
     mainContent,
     toolCallHistory,
-    positionedThoughtBlocks,
     isDeepResearch,
-    isStreamingMessage,
     normalizedStreamBlocks,
   ])
 
@@ -1838,6 +1796,103 @@ const MessageBubble = ({
     [onFormSubmit],
   )
 
+  const MarkdownLinkRenderer = ({ href, children, ...props }) => {
+    const isInTable = React.useContext(InTableContext)
+    const safeHref = sanitizeMarkdownUrl(href)
+    let citationIndices = null
+
+    if (safeHref?.startsWith('citation:')) {
+      citationIndices = safeHref
+        .replace('citation:', '')
+        .split(',')
+        .map(Number)
+        .filter(n => !isNaN(n))
+    } else if (safeHref?.startsWith('https://citation.local/')) {
+      const path = safeHref.replace('https://citation.local/', '')
+      citationIndices = path
+        .split(',')
+        .map(Number)
+        .filter(n => !isNaN(n))
+    }
+
+    if (citationIndices) {
+      return (
+        <CitationChip
+          indices={citationIndices}
+          sources={mergedMessage.sources}
+          isMobile={isMobile}
+          onMobileClick={sources => handleMobileSourceClick(sources, t('sources.citationSources'))}
+          label={children}
+        />
+      )
+    }
+    if (!safeHref) {
+      return <span {...props}>{parseChildrenWithEmojis(children)}</span>
+    }
+
+    const embedUrl = getVideoEmbedUrl(safeHref)
+    if (embedUrl) {
+      const videoInfo = videoMetadataRef.current.find(v => v.url === safeHref)
+      if (isInTable) {
+        const platform = getVideoPlatform(safeHref)
+        const platformMeta =
+          platform === 'youtube'
+            ? {
+                label: 'YouTube',
+                logo: YoutubeLogo,
+                className: 'bg-red-600 text-white',
+              }
+            : platform === 'bilibili'
+              ? {
+                  label: 'Bilibili',
+                  logo: BilibiliLogo,
+                  className: 'bg-sky-500 text-white',
+                }
+              : {
+                  label: '视频',
+                  logo: null,
+                  className: 'bg-rose-500 text-white',
+                }
+
+        return (
+          <a
+            href={safeHref}
+            target="_blank"
+            rel="noreferrer"
+            className={clsx(
+              'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium',
+              platformMeta.className,
+            )}
+            title={videoInfo?.title || platformMeta.label}
+          >
+            {platformMeta.logo ? (
+              <img
+                src={platformMeta.logo}
+                alt={platformMeta.label}
+                className="h-3.5 w-3.5 shrink-0 rounded-sm bg-white/90 p-[1px]"
+                loading="lazy"
+              />
+            ) : null}
+            <span>{platformMeta.label}</span>
+          </a>
+        )
+      }
+      return <InlineVideoEmbed embedUrl={embedUrl} title={videoInfo?.title || 'Video'} />
+    }
+
+    return (
+      <a
+        href={safeHref}
+        {...props}
+        target="_blank"
+        rel="noreferrer"
+        className="hover:bg-primary-300/50 dark:hover:bg-primary-700/50 dark:bg-primary-900/50 bg-primary-200/50 text-primary-700 dark:text-primary-300 mx-0.5 rounded-lg px-1 py-0.5 text-[12px]"
+      >
+        {parseChildrenWithEmojis(children)}
+      </a>
+    )
+  }
+
   const markdownComponents = useMemo(
     () => ({
       code: ({ inline, className, children, ...props }) => {
@@ -1888,7 +1943,9 @@ const MessageBubble = ({
           className="px-4 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase dark:text-gray-400"
           {...props}
         >
-          {parseChildrenWithEmojis(children)}
+          <InTableContext.Provider value>
+            {parseChildrenWithEmojis(children)}
+          </InTableContext.Provider>
         </th>
       ),
       td: ({ children, ...props }) => (
@@ -1896,77 +1953,12 @@ const MessageBubble = ({
           className="px-4 py-3 text-sm whitespace-nowrap text-gray-700 dark:text-gray-300"
           {...props}
         >
-          {parseChildrenWithEmojis(children)}
+          <InTableContext.Provider value>
+            {parseChildrenWithEmojis(children)}
+          </InTableContext.Provider>
         </td>
       ),
-
-      a: ({ href, children, ...props }) => {
-        const safeHref = sanitizeMarkdownUrl(href)
-        let citationIndices = null
-
-        if (safeHref?.startsWith('citation:')) {
-          citationIndices = safeHref
-            .replace('citation:', '')
-            .split(',')
-            .map(Number)
-            .filter(n => !isNaN(n))
-        } else if (safeHref?.startsWith('https://citation.local/')) {
-          const path = safeHref.replace('https://citation.local/', '')
-          citationIndices = path
-            .split(',')
-            .map(Number)
-            .filter(n => !isNaN(n))
-        }
-
-        if (citationIndices) {
-          return (
-            <CitationChip
-              indices={citationIndices}
-              sources={mergedMessage.sources}
-              isMobile={isMobile}
-              onMobileClick={sources =>
-                handleMobileSourceClick(sources, t('sources.citationSources'))
-              }
-              label={children} // Children of the link is the label [Title + N]
-            />
-          )
-        }
-        if (!safeHref) {
-          return <span {...props}>{parseChildrenWithEmojis(children)}</span>
-        }
-
-        // Check if this URL is from video search results and is a YouTube link
-        const videoResult = videoMetadataRef.current.find(v => v.url === safeHref)
-        if (videoResult) {
-          const embedUrl = getYouTubeEmbedUrl(safeHref)
-          if (embedUrl) {
-            // Use span instead of div to avoid HTML nesting error (<div> inside <p>)
-            return (
-              <span className="my-3 block aspect-video w-full max-w-md overflow-hidden rounded-lg">
-                <iframe
-                  src={embedUrl}
-                  title={videoResult.title || 'YouTube video'}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  className="h-full w-full border-0"
-                />
-              </span>
-            )
-          }
-        }
-
-        return (
-          <a
-            href={safeHref}
-            {...props}
-            target="_blank"
-            rel="noreferrer"
-            className="hover:bg-primary-300/50 dark:hover:bg-primary-700/50 dark:bg-primary-900/50 bg-primary-200/50 text-primary-700 dark:text-primary-300 mx-0.5 rounded-lg px-1 py-0.5 text-[12px]"
-          >
-            {parseChildrenWithEmojis(children)}
-          </a>
-        )
-      },
+      a: MarkdownLinkRenderer,
       img: ({ src, alt }) => {
         const safeSrc = sanitizeMarkdownUrl(src, { allowDataImage: true })
         if (!safeSrc) return null
@@ -2001,7 +1993,8 @@ const MessageBubble = ({
       openGallery,
       handleImageError,
       failedImageUrls,
-      getYouTubeEmbedUrl,
+      getVideoEmbedUrl,
+      getVideoPlatform,
       // Note: imageMetadataRef and videoMetadataRef are excluded as they're stable refs that don't trigger re-renders
     ], // Dependencies for markdownComponents
   )
@@ -2032,43 +2025,56 @@ const MessageBubble = ({
     }
   }, [markdownComponents, messageIndex, parseChildrenWithEmojis])
 
-  const workflowParts = useMemo(
+  const workflowThoughtParts = useMemo(
     () => interleavedContent.filter(part => part.type === 'thought'),
     [interleavedContent],
   )
-  const workflowThoughtParts = useMemo(
-    () => workflowParts.map((part, index) => ({ ...part, round: index + 1 })),
-    [workflowParts],
-  )
-  const contentPartsOutsideWorkflow = useMemo(
-    () =>
-      interleavedContent.flatMap((part, idx) => {
-        if (part.type === 'text') {
-          return [{ type: 'text', key: `text-${idx}`, content: part.content }]
-        }
-        if (part.type !== 'tools' || !Array.isArray(part.items)) return []
-        const formItems = part.items.filter(item => item?.name === 'interactive_form')
-        const regularTools = part.items.filter(item => item?.name !== 'interactive_form')
-        const nextParts = []
-        if (regularTools.length > 0) {
-          nextParts.push({
-            type: 'tools',
-            key: part.key || `tools-${idx}`,
-            items: regularTools,
-          })
-        }
-        if (formItems.length > 0) {
-          nextParts.push({
-            type: 'interactive_form',
-            key: `${part.key || `interactive-form-${idx}`}-form`,
-            items: formItems,
-          })
-        }
-        return nextParts
-      }),
+  const workflowTextParts = useMemo(
+    () => interleavedContent.filter(part => part.type === 'workflow_text'),
     [interleavedContent],
   )
-  const hasWorkflow = !isDeepResearch && workflowParts.length > 0
+  const contentPartsOutsideWorkflow = useMemo(() => {
+    const rawParts = interleavedContent.flatMap((part, idx) => {
+      if (part.type === 'text') {
+        return [{ type: 'text', key: `text-${idx}`, content: part.content }]
+      }
+      if (part.type !== 'tools' || !Array.isArray(part.items)) return []
+      const formItems = part.items.filter(item => item?.name === 'interactive_form')
+      const regularTools = part.items.filter(item => item?.name !== 'interactive_form')
+      const nextParts = []
+      if (regularTools.length > 0) {
+        nextParts.push({
+          type: 'tools',
+          key: part.key || `tools-${idx}`,
+          items: regularTools,
+        })
+      }
+      if (formItems.length > 0) {
+        nextParts.push({
+          type: 'interactive_form',
+          key: `${part.key || `interactive-form-${idx}`}-form`,
+          items: formItems,
+        })
+      }
+      return nextParts
+    })
+
+    // Some streaming paths (e.g. expert synthetic message) can produce many tiny
+    // adjacent text segments; merge them before rendering to avoid per-chunk line breaks.
+    const shouldMergeAdjacentText = isExpertMessage || compactStreamingTextBlocks
+    if (!shouldMergeAdjacentText) return rawParts
+    const merged = []
+    for (const part of rawParts) {
+      const prev = merged[merged.length - 1]
+      if (part.type === 'text' && prev?.type === 'text') {
+        prev.content = `${prev.content || ''}${part.content || ''}`
+        continue
+      }
+      merged.push({ ...part })
+    }
+    return merged
+  }, [compactStreamingTextBlocks, interleavedContent, isExpertMessage])
+  const hasWorkflow = !isDeepResearch && workflowThoughtParts.length > 0
   const hasFormSubmissionStatus = useMemo(
     () => toolCallHistory.some(item => item?.name === 'form_submission_status'),
     [toolCallHistory],
@@ -2187,71 +2193,46 @@ const MessageBubble = ({
     },
     [i18n.language, i18n.resolvedLanguage, toZhRound],
   )
+  const workflowThoughtCount = workflowThoughtParts.length
   const renderedWorkflowContent = workflowThoughtParts.map((part, idx) => {
-    if (part.type === 'workflow_text') {
-      const workflowTextWithSupports = applyGroundingSupports(
-        part.content,
-        mergedMessage.groundingSupports,
-        mergedMessage.sources,
-      )
-      const workflowTextWithCitations = formatContentWithSources(
-        workflowTextWithSupports,
-        mergedMessage.sources,
-      )
-      const sanitizedWorkflowText = sanitizeDisplayText(workflowTextWithCitations)
-      return (
-        <div
-          key={part.key || `workflow-text-${idx}`}
-          className="border-primary-200/45 bg-primary-50/30 dark:border-primary-700/25 dark:bg-primary-900/12 mb-3 rounded-xl border px-3.5 py-3 text-sm leading-relaxed text-gray-700 dark:text-gray-300"
-        >
+    const thoughtRound = idx + 1
+    const isLast = idx === workflowThoughtParts.length - 1
+    const isThinking = isStreaming && isLast && !hasMainText
+    const hasMultipleRounds = workflowThoughtCount > 1
+
+    return (
+      <div key={part.key || `thought-inline-${idx}`} className="mb-3">
+        <div className="mb-1 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+          {hasMultipleRounds && (
+            <span className="font-medium text-gray-600 dark:text-gray-300">
+              {formatRoundLabel(thoughtRound)}
+            </span>
+          )}
+          {typeof part.durationMs === 'number' && part.durationMs >= 0 && (
+            <span className="text-[11px] text-gray-500 dark:text-gray-400">
+              {t('messageBubble.thinkingDuration', {
+                duration: (part.durationMs / 1000).toFixed(2),
+              })}
+            </span>
+          )}
+          {isThinking && <DotLoader />}
+        </div>
+        <div className="text-sm text-gray-500 dark:text-gray-400">
           <Streamdown
             mermaid={mermaidOptions}
             remarkPlugins={[remarkGfm]}
             components={markdownComponents}
           >
-            {sanitizedWorkflowText}
+            {formatThoughtContentForDisplay(part.content)}
           </Streamdown>
         </div>
-      )
-    }
-
-    if (part.type === 'thought') {
-      const isLast = idx === workflowThoughtParts.length - 1
-      const isThinking = isStreaming && isLast && !hasMainText
-      const hasMultipleRounds = workflowThoughtParts.length > 1
-
-      return (
-        <div key={part.key || `thought-inline-${idx}`} className="mb-3">
-          <div className="mb-1 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-            {hasMultipleRounds && (
-              <span className="font-medium text-gray-600 dark:text-gray-300">
-                {formatRoundLabel(idx + 1)}
-              </span>
-            )}
-            {typeof part.durationMs === 'number' && part.durationMs >= 0 && (
-              <span className="text-[11px] text-gray-500 dark:text-gray-400">
-                {t('messageBubble.thinkingDuration', {
-                  duration: (part.durationMs / 1000).toFixed(2),
-                })}
-              </span>
-            )}
-            {isThinking && <DotLoader />}
-          </div>
-          <div className="text-sm text-gray-500 dark:text-gray-400">
-            <Streamdown
-              mermaid={mermaidOptions}
-              remarkPlugins={[remarkGfm]}
-              components={markdownComponents}
-            >
-              {formatThoughtContentForDisplay(part.content)}
-            </Streamdown>
-          </div>
-        </div>
-      )
-    }
-
-    return null
+      </div>
+    )
   })
+  const expertPlanBlock = useMemo(
+    () => workflowTextParts.find(part => typeof part?.content === 'string' && part.content.trim()),
+    [workflowTextParts],
+  )
 
   const renderInteractiveFormItem = (item, formKey) => {
     const formData = parseFormPayload(item.arguments) || parseFormPayload(item.output)
@@ -2323,7 +2304,10 @@ const MessageBubble = ({
         contentWithSupports,
         mergedMessage.sources,
       )
-      const sanitizedMainText = sanitizeDisplayText(contentWithCitations)
+      const sanitizedMainText =
+        isExpertMessage && typeof contentWithCitations === 'string'
+          ? normalizeExpertBrokenTokenLines(contentWithCitations)
+          : sanitizeDisplayText(contentWithCitations)
       const showStatusBeforeText = hasFormSubmissionStatus && idx === firstTextPartDisplayIndex
       const isTextEmpty = !sanitizedMainText || !sanitizedMainText.trim()
 
@@ -2373,14 +2357,11 @@ const MessageBubble = ({
   })
 
   const workflowHeaderLabel = useMemo(() => {
-    if (isExpertMessage) {
-      return t('messageBubble.expertPlan')
-    }
     if (!isStreaming || workflowThoughtParts.length === 0 || hasMainText) {
       return t('messageBubble.deepThinking')
     }
     return t('messageBubble.thinking')
-  }, [hasMainText, isExpertMessage, isStreaming, t, workflowThoughtParts])
+  }, [hasMainText, isStreaming, t, workflowThoughtParts])
   const workflowDurationMs = useMemo(
     () =>
       workflowThoughtParts.reduce(
@@ -2427,6 +2408,13 @@ const MessageBubble = ({
     const isDeepResearchContext =
       nextMessage?.agentName === 'Deep Research Agent' ||
       nextMessage?.agent_name === 'Deep Research Agent'
+    const nextUserIndex = messages.findIndex((m, idx) => idx > messageIndex && m.role === 'user')
+    const replyScanEnd = nextUserIndex === -1 ? messages.length : nextUserIndex
+    const hasAssistantReplyForCurrentQuestion = messages
+      .slice(messageIndex + 1, replyScanEnd)
+      .some(m => m?.role === 'ai')
+    const canResendThisQuestion =
+      !!onUserRegenerate && !isDeepResearchContext && !hasAssistantReplyForCurrentQuestion
 
     return (
       <div
@@ -2552,10 +2540,32 @@ const MessageBubble = ({
             {!isDeepResearchContext && (
               <div className="flex items-center gap-1 px-1">
                 <div className="flex items-center gap-1">
+                  {canResendThisQuestion && (
+                    <button
+                      disabled={isLoading}
+                      onClick={() => {
+                        if (isLoading) return
+                        showConfirmation({
+                          title: t('confirmation.resendTitle'),
+                          message: t('confirmation.resendMessage'),
+                          confirmText: t('common.confirm'),
+                          onConfirm: onUserRegenerate,
+                        })
+                      }}
+                      className="group/icon flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-gray-500 transition-all duration-200 hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-50 dark:text-white dark:hover:bg-zinc-800 dark:hover:text-gray-200"
+                      title={t('messageBubble.regenerate')}
+                    >
+                      <RotateCcw size={14} />
+                      <span className="hidden max-w-0 overflow-hidden text-xs font-medium whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover/icon:max-w-[70px] group-hover/icon:opacity-100 sm:block">
+                        {t('messageBubble.regenerate')}
+                      </span>
+                    </button>
+                  )}
                   {onEdit && (
                     <button
+                      disabled={isLoading}
                       onClick={() => onEdit()}
-                      className="group/icon flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-gray-500 transition-all duration-200 hover:bg-gray-100 hover:text-gray-700 dark:text-white dark:hover:bg-zinc-800 dark:hover:text-gray-200"
+                      className="group/icon flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-gray-500 transition-all duration-200 hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-50 dark:text-white dark:hover:bg-zinc-800 dark:hover:text-gray-200"
                       title={t('messageBubble.edit')}
                     >
                       <Pencil size={14} />
@@ -2589,7 +2599,9 @@ const MessageBubble = ({
                     )}
                   </button>
                   <button
+                    disabled={isLoading}
                     onClick={() => {
+                      if (isLoading) return
                       if (!onDelete) return
                       showConfirmation({
                         title: t('confirmation.deleteMessageTitle'),
@@ -2599,7 +2611,7 @@ const MessageBubble = ({
                         onConfirm: onDelete,
                       })
                     }}
-                    className="group/icon flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-gray-500 transition-all duration-200 hover:bg-red-50 hover:text-red-600 dark:text-white dark:hover:bg-red-900/20 dark:hover:text-red-400"
+                    className="group/icon flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-gray-500 transition-all duration-200 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-white dark:hover:bg-red-900/20 dark:hover:text-red-400"
                     title={t('common.delete')}
                   >
                     <Trash2 size={14} />
@@ -2871,6 +2883,33 @@ const MessageBubble = ({
       </div>
     </details>
   ) : null
+  const expertPlanPanel =
+    isExpertMessage && expertPlanBlock ? (
+      <div className="mb-4">
+        <div className="mb-2 flex items-center gap-2 text-gray-600 dark:text-gray-300">
+          <BrainCircuit size={15} className="text-primary-500/80 dark:text-primary-300/75" />
+          <span className="text-sm font-medium tracking-tight">{t('messageBubble.expertPlan')}</span>
+        </div>
+        <div className="border-primary-200/45 bg-primary-50/30 dark:border-primary-700/25 dark:bg-primary-900/12 rounded-xl border px-3.5 py-3 text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+          <Streamdown
+            mermaid={mermaidOptions}
+            remarkPlugins={[remarkGfm]}
+            components={markdownComponents}
+          >
+            {sanitizeDisplayText(
+              formatContentWithSources(
+                applyGroundingSupports(
+                  expertPlanBlock.content,
+                  mergedMessage.groundingSupports,
+                  mergedMessage.sources,
+                ),
+                mergedMessage.sources,
+              ),
+            )}
+          </Streamdown>
+        </div>
+      </div>
+    ) : null
 
   // Debug logging for related questions
   // if (mergedMessage._formSubmitted) {
@@ -2958,7 +2997,7 @@ const MessageBubble = ({
           document.body,
         )}
 
-      {isExpertMessage && workflowPanel}
+      {expertPlanPanel}
 
       {/* Provider/Model Header Container */}
       <div className="mb-4 flex flex-col gap-1">
@@ -3059,6 +3098,7 @@ const MessageBubble = ({
           )}
         </div>
       </div>
+      {headerExtraContent}
 
       {/* Thinking Process Section */}
       {isDeepResearch ? (
@@ -3426,7 +3466,7 @@ const MessageBubble = ({
               </div>
             </div>
           )}
-          {!isExpertMessage && workflowPanel}
+          {workflowPanel}
           {renderedMainContent}
           {renderInitialSkeleton && (
             <div
@@ -3689,24 +3729,24 @@ const MessageBubble = ({
 
             {/* Main Image Container */}
             <div
-              className="relative flex max-h-[85vh] max-w-[95vw] items-center justify-center md:px-12"
+              className="relative flex max-w-[95vw] items-center justify-center md:px-12"
               onClick={e => e.stopPropagation()}
             >
               {messageImages[galleryIndex] &&
               !failedImageUrls.has(messageImages[galleryIndex].src) ? (
-                <>
+                <div className="inline-flex max-w-full flex-col gap-3">
                   <img
                     key={messageImages[galleryIndex].src}
                     src={messageImages[galleryIndex].src}
                     alt={messageImages[galleryIndex].alt}
-                    className="animate-in zoom-in-95 max-h-[85vh] max-w-[95vw] rounded-lg object-contain shadow-2xl transition-all duration-300"
+                    className="animate-in zoom-in-95 max-h-[72vh] max-w-[95vw] rounded-lg object-contain shadow-2xl transition-all duration-300"
                   />
 
                   {/* Caption & Source Area */}
                   {(messageImages[galleryIndex].title || messageImages[galleryIndex].source) && (
-                    <div className="absolute right-0 bottom-0 left-0 bg-linear-to-t from-black/90 via-black/40 to-transparent p-6 pt-12 text-white md:rounded-b-lg">
+                    <div className="rounded-lg bg-black/70 p-4 text-white backdrop-blur-sm">
                       {messageImages[galleryIndex].title && (
-                        <h3 className="mb-1 line-clamp-2 text-lg font-semibold">
+                        <h3 className="mb-1 line-clamp-2 text-base font-semibold md:text-lg">
                           {messageImages[galleryIndex].title}
                         </h3>
                       )}
@@ -3719,7 +3759,7 @@ const MessageBubble = ({
                             href={messageImages[galleryIndex].sourceUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-primary-400 flex items-center gap-1.5 text-sm font-medium underline-offset-4 hover:underline"
+                            className="text-primary-300 flex items-center gap-1.5 text-sm font-medium underline-offset-4 hover:underline"
                             onClick={e => e.stopPropagation()}
                           >
                             <Globe size={14} className="opacity-70" />
@@ -3729,7 +3769,7 @@ const MessageBubble = ({
                       )}
                     </div>
                   )}
-                </>
+                </div>
               ) : (
                 <div className="flex flex-col items-center justify-center gap-4 text-white/80">
                   <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-white/20 bg-white/10 p-6 backdrop-blur-md">

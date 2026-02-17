@@ -18,10 +18,11 @@ if debug_agno:
     print(f"[DEBUG] DEBUG_AGNO enabled", file=sys.stderr)
 
 if __name__ == "__main__":
+    reload_enabled = os.environ.get("BACKEND_RELOAD", "1") == "1"
     uvicorn.run(
         "src.main:app",
         host=settings.host,
         port=settings.port,
-        reload=True,
+        reload=reload_enabled,
         log_level="debug" if debug_agno else "info",
     )

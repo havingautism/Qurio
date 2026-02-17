@@ -306,7 +306,7 @@
     "backendConfiguration": "后端配置",
     "backendConfigurationHint": "用于配置应用连接的后端 API。",
     "backendConfigurationElectronHint": "Electron 模式下后端由桌面端运行时管理。",
-    "backendDesktopManaged": "桌面模式使用内置后端：127.0.0.1:3002。",
+    "backendDesktopManaged": "桌面模式使用内置后端：{{backendUrl}}。",
     "backendUrl": "后端 URL",
     "backendUrlPlaceholder": "http://127.0.0.1:3002",
     "backendHealthCheck": "检测后端健康",

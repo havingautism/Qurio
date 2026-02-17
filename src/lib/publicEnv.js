@@ -18,11 +18,21 @@ const PUBLIC_ENV = {
   PUBLIC_NOTION_OAUTH_URL: import.meta.env.PUBLIC_NOTION_OAUTH_URL,
 }
 
-const isElectronRuntime = () =>
-  typeof window !== 'undefined' &&
-  (window.location.protocol === 'file:' || navigator.userAgent.includes('Electron'))
+const isElectronRuntime = () => {
+  if (typeof window === 'undefined') return false
+  const hasBackendOverrideInQuery = window.location.search.includes('backend_url=')
+  return (
+    window.location.protocol === 'file:' ||
+    navigator.userAgent.includes('Electron') ||
+    hasBackendOverrideInQuery
+  )
+}
 
 export const getPublicEnv = key => {
+  if (key === 'PUBLIC_BACKEND_URL' && isElectronRuntime()) {
+    return undefined
+  }
+
   if (isElectronRuntime()) return undefined
 
   if (Object.prototype.hasOwnProperty.call(PUBLIC_ENV, key)) {

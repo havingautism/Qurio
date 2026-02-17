@@ -4,6 +4,26 @@ const isElectronRuntime = () =>
   typeof window !== 'undefined' &&
   (window.location.protocol === 'file:' || navigator.userAgent.includes('Electron'))
 
+const getElectronBackendUrlFromBridge = () => {
+  if (!isElectronRuntime() || typeof window === 'undefined') return ''
+  const raw = window.qurioRuntime?.backendUrl
+  const trimmed = String(raw || '').trim()
+  if (!trimmed) return ''
+  return /^https?:\/\/[^/]+$/i.test(trimmed) ? trimmed : ''
+}
+
+const getElectronBackendUrlOverride = () => {
+  if (!isElectronRuntime() || typeof window === 'undefined') return ''
+  try {
+    const value = new URLSearchParams(window.location.search).get('backend_url') || ''
+    const trimmed = value.trim()
+    if (!trimmed) return ''
+    return /^https?:\/\/[^/]+/i.test(trimmed) ? trimmed.replace(/\/+$/, '') : ''
+  } catch {
+    return ''
+  }
+}
+
 /**
  * Centralized Settings Management
  *
@@ -168,6 +188,8 @@ export const updateMemorySettings = settings => {
 
 export const loadSettings = (overrides = {}) => {
   const electronMode = isElectronRuntime()
+  const electronBackendUrl =
+    getElectronBackendUrlFromBridge() || getElectronBackendUrlOverride()
 
   // Supabase Env Vars
   const envSupabaseUrl = electronMode ? '' : getPublicEnv('PUBLIC_SUPABASE_URL')
@@ -304,7 +326,12 @@ export const loadSettings = (overrides = {}) => {
     defaultModelSource: overrides.defaultModelSource || localDefaultModelSource || 'list',
 
     // Backend API
-    backendUrl: envBackendUrl || localBackendUrl || overrides.backendUrl || 'http://127.0.0.1:3002',
+    backendUrl:
+      electronBackendUrl ||
+      envBackendUrl ||
+      localBackendUrl ||
+      overrides.backendUrl ||
+      'http://127.0.0.1:3002',
 
     // Search provider
     searchProvider: localSearchProvider || overrides.searchProvider || 'tavily',
@@ -356,7 +383,9 @@ export const loadSettings = (overrides = {}) => {
   // This overrides everything else for keys
   const mergedSettings = { ...settings, ...memorySettings }
 
-  if (envBackendUrl) {
+  if (electronBackendUrl) {
+    mergedSettings.backendUrl = electronBackendUrl
+  } else if (envBackendUrl) {
     mergedSettings.backendUrl = envBackendUrl
   }
 
@@ -401,6 +430,10 @@ export const loadSettings = (overrides = {}) => {
 export const saveSettings = async settings => {
   // Update Memory Cache
   updateMemorySettings(settings)
+  if (isElectronRuntime()) {
+    const runtimeUrl = getElectronBackendUrlFromBridge() || getElectronBackendUrlOverride()
+    if (runtimeUrl) settings.backendUrl = runtimeUrl
+  }
 
   // Persist Non-Sensitive to LocalStorage
   if (settings.databaseProvider !== undefined) {

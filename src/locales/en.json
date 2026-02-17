@@ -322,7 +322,7 @@
     "backendConfiguration": "Backend Configuration",
     "backendConfigurationHint": "Configure the backend API used by the app.",
     "backendConfigurationElectronHint": "Electron mode: backend is managed by desktop runtime.",
-    "backendDesktopManaged": "Desktop mode uses built-in backend at 127.0.0.1:3002.",
+    "backendDesktopManaged": "Desktop mode uses built-in backend at {{backendUrl}}.",
     "backendUrl": "Backend URL",
     "backendUrlPlaceholder": "http://127.0.0.1:3002",
     "backendHealthCheck": "Test backend health",

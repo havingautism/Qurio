@@ -10,7 +10,6 @@ from starlette.responses import Response
 
 from ..providers import is_provider_supported
 from ..services.generation import generate_title
-from ..utils.json_stream import create_streaming_json_response
 
 router = APIRouter(tags=["title"])
 
@@ -34,17 +33,16 @@ async def title(request: Request) -> Response:
     if not is_provider_supported(provider):
         return JSONResponse(status_code=400, content={"error": f"Unsupported provider: {provider}"})
 
-    return create_streaming_json_response(
-        _build_title_result(
-            provider=provider,
-            message=message,
-            api_key=api_key,
-            base_url=base_url,
-            model=model,
-            user_timezone=user_timezone,
-            user_locale=user_locale,
-        )
+    result = await _build_title_result(
+        provider=provider,
+        message=message,
+        api_key=api_key,
+        base_url=base_url,
+        model=model,
+        user_timezone=user_timezone,
+        user_locale=user_locale,
     )
+    return JSONResponse(content=result)
 
 
 async def _build_title_result(

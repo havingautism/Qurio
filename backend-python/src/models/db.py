@@ -71,3 +71,13 @@ class DbQueryResponse(BaseModel):
     data: Any | None = None
     error: str | None = None
     count: int | None = None
+
+
+class DbProviderUpsertRequest(BaseModel):
+    id: str
+    type: Literal["supabase", "sqlite"]
+    label: str | None = None
+    access_key: str | None = Field(default=None, alias="accessKey")
+    url: str | None = None
+    anon_key: str | None = Field(default=None, alias="anonKey")
+    path: str | None = None

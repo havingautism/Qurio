@@ -1,5 +1,9 @@
 import { getPublicEnv } from './publicEnv'
 
+const isElectronRuntime = () =>
+  typeof window !== 'undefined' &&
+  (window.location.protocol === 'file:' || navigator.userAgent.includes('Electron'))
+
 /**
  * Centralized Settings Management
  *
@@ -163,17 +167,19 @@ export const updateMemorySettings = settings => {
 }
 
 export const loadSettings = (overrides = {}) => {
+  const electronMode = isElectronRuntime()
+
   // Supabase Env Vars
-  const envSupabaseUrl = getPublicEnv('PUBLIC_SUPABASE_URL')
-  const envSupabaseKey = getPublicEnv('PUBLIC_SUPABASE_KEY')
-  const envBackendUrl = getPublicEnv('PUBLIC_BACKEND_URL')
-  const envDbProviderId = getPublicEnv('PUBLIC_DB_PROVIDER_ID')
-  const envDbAccessKey = getPublicEnv('PUBLIC_DB_ACCESS_KEY')
+  const envSupabaseUrl = electronMode ? '' : getPublicEnv('PUBLIC_SUPABASE_URL')
+  const envSupabaseKey = electronMode ? '' : getPublicEnv('PUBLIC_SUPABASE_KEY')
+  const envBackendUrl = electronMode ? '' : getPublicEnv('PUBLIC_BACKEND_URL')
+  const envDbProviderId = electronMode ? '' : getPublicEnv('PUBLIC_DB_PROVIDER_ID')
+  const envDbAccessKey = electronMode ? '' : getPublicEnv('PUBLIC_DB_ACCESS_KEY')
 
   // OpenAI Env Vars
-  const envOpenAIKey = getPublicEnv('PUBLIC_OPENAI_API_KEY')
-  const envOpenAIBaseUrl = getPublicEnv('PUBLIC_OPENAI_BASE_URL')
-  const envTavilyApiKey = getPublicEnv('PUBLIC_TAVILY_API_KEY')
+  const envOpenAIKey = electronMode ? '' : getPublicEnv('PUBLIC_OPENAI_API_KEY')
+  const envOpenAIBaseUrl = electronMode ? '' : getPublicEnv('PUBLIC_OPENAI_BASE_URL')
+  const envTavilyApiKey = electronMode ? '' : getPublicEnv('PUBLIC_TAVILY_API_KEY')
 
   // LocalStorage - Only load non-sensitive or essential connection configs
   const localDatabaseProvider = localStorage.getItem('databaseProvider')
@@ -360,19 +366,23 @@ export const loadSettings = (overrides = {}) => {
   if (!mergedSettings.OpenAICompatibilityUrl)
     mergedSettings.OpenAICompatibilityUrl = envOpenAIBaseUrl || ''
   if (!mergedSettings.SiliconFlowKey)
-    mergedSettings.SiliconFlowKey = getPublicEnv('PUBLIC_SILICONFLOW_API_KEY') || ''
-  if (!mergedSettings.GlmKey) mergedSettings.GlmKey = getPublicEnv('PUBLIC_GLM_API_KEY') || ''
+    mergedSettings.SiliconFlowKey = electronMode
+      ? ''
+      : getPublicEnv('PUBLIC_SILICONFLOW_API_KEY') || ''
+  if (!mergedSettings.GlmKey)
+    mergedSettings.GlmKey = electronMode ? '' : getPublicEnv('PUBLIC_GLM_API_KEY') || ''
   if (!mergedSettings.ModelScopeKey)
-    mergedSettings.ModelScopeKey = getPublicEnv('PUBLIC_MODELSCOPE_API_KEY') || ''
-  if (!mergedSettings.KimiKey) mergedSettings.KimiKey = getPublicEnv('PUBLIC_KIMI_API_KEY') || ''
+    mergedSettings.ModelScopeKey = electronMode ? '' : getPublicEnv('PUBLIC_MODELSCOPE_API_KEY') || ''
+  if (!mergedSettings.KimiKey)
+    mergedSettings.KimiKey = electronMode ? '' : getPublicEnv('PUBLIC_KIMI_API_KEY') || ''
   if (!mergedSettings.googleApiKey)
-    mergedSettings.googleApiKey = getPublicEnv('PUBLIC_GOOGLE_API_KEY') || ''
+    mergedSettings.googleApiKey = electronMode ? '' : getPublicEnv('PUBLIC_GOOGLE_API_KEY') || ''
   if (!mergedSettings.tavilyApiKey) mergedSettings.tavilyApiKey = envTavilyApiKey || ''
   if (!mergedSettings.serpapiApiKey)
-    mergedSettings.serpapiApiKey = getPublicEnv('PUBLIC_SERPAPI_API_KEY') || ''
+    mergedSettings.serpapiApiKey = electronMode ? '' : getPublicEnv('PUBLIC_SERPAPI_API_KEY') || ''
   if (!mergedSettings.NvidiaKey) mergedSettings.NvidiaKey = ''
   if (!mergedSettings.MinimaxKey)
-    mergedSettings.MinimaxKey = getPublicEnv('PUBLIC_MINIMAX_API_KEY') || ''
+    mergedSettings.MinimaxKey = electronMode ? '' : getPublicEnv('PUBLIC_MINIMAX_API_KEY') || ''
   if (typeof mergedSettings.enableLongTermMemory === 'string') {
     mergedSettings.enableLongTermMemory = mergedSettings.enableLongTermMemory === 'true'
   }

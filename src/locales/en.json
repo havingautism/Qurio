@@ -321,6 +321,8 @@
     "tavilyApiKeyPlaceholder": "Enter your Tavily API key",
     "backendConfiguration": "Backend Configuration",
     "backendConfigurationHint": "Configure the backend API used by the app.",
+    "backendConfigurationElectronHint": "Electron mode: backend is managed by desktop runtime.",
+    "backendDesktopManaged": "Desktop mode uses built-in backend at 127.0.0.1:3002.",
     "backendUrl": "Backend URL",
     "backendUrlPlaceholder": "http://127.0.0.1:3002",
     "backendHealthCheck": "Test backend health",
@@ -590,17 +592,48 @@
       "developerModeHint": "Control how detailed tool calls are displayed in the chat."
     },
     "configureDatabase": "Configure Database",
+    "openDatabaseManager": "Open Database Manager",
     "databaseConfigDisabled": "Run backend health check first.",
     "testDatabaseConnection": "Test database connection",
     "databaseSetup": {
       "title": "Database Setup",
       "description": "Enter the access key to load database providers, then choose one to use.",
+      "electronDescription": "Configure database providers (Supabase / SQLite) and select active provider.",
       "accessKey": "Access Key",
       "accessKeyPlaceholder": "Enter backend access key",
+      "accessKeyOptional": "Optional (provider has no access key)",
       "provider": "Provider",
       "selectProvider": "Select provider",
       "saveAndReload": "Save & Reload",
-      "saving": "Validating..."
+      "saving": "Validating...",
+      "addProvider": "Add Provider",
+      "type": "Type",
+      "selectType": "Select type",
+      "providerId": "Provider ID",
+      "label": "Label",
+      "supabaseUrl": "Supabase URL",
+      "anonKey": "Anon Key",
+      "sqliteDirectory": "SQLite Directory",
+      "providerAccessKeyOptional": "Provider Access Key (optional)",
+      "providerAccessKeyPlaceholder": "Optional per-provider key",
+      "addAndInitialize": "Add & Initialize",
+      "loadingProviders": "Loading providers...",
+      "errors": {
+        "loadProviders": "Failed to load providers",
+        "initializeFailed": "Initialization failed",
+        "providerIdRequired": "Please enter provider id.",
+        "supabaseRequired": "Supabase URL and anon key are required.",
+        "sqliteDirectoryRequired": "SQLite directory is required.",
+        "addProviderFailed": "Failed to add provider",
+        "selectProvider": "Please select a provider.",
+        "accessKeyRequired": "Please enter access key.",
+        "accessKeyValidation": "Access key validation failed.",
+        "connectionFailed": "Database connection failed.",
+        "validationFailed": "Validation failed."
+      },
+      "messages": {
+        "initialized": "Database initialized."
+      }
     }
   },
   "agents": {

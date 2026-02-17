@@ -305,6 +305,8 @@
     "tavilyApiKeyPlaceholder": "输入 Tavily API 密钥",
     "backendConfiguration": "后端配置",
     "backendConfigurationHint": "用于配置应用连接的后端 API。",
+    "backendConfigurationElectronHint": "Electron 模式下后端由桌面端运行时管理。",
+    "backendDesktopManaged": "桌面模式使用内置后端：127.0.0.1:3002。",
     "backendUrl": "后端 URL",
     "backendUrlPlaceholder": "http://127.0.0.1:3002",
     "backendHealthCheck": "检测后端健康",
@@ -575,17 +577,48 @@
       "developerModeHint": "控制聊天中工具调用的显示详细程度。"
     },
     "configureDatabase": "配置数据库",
+    "openDatabaseManager": "打开数据库管理器",
     "databaseConfigDisabled": "数据库配置已禁用",
     "testDatabaseConnection": "测试数据库连接",
     "databaseSetup": {
       "title": "数据库设置",
       "description": "输入访问密钥以加载数据库提供程序，然后选择一个使用。",
+      "electronDescription": "配置数据库提供方（Supabase / SQLite）并选择当前使用项。",
       "accessKey": "访问密钥",
       "accessKeyPlaceholder": "输入后端访问密钥",
+      "accessKeyOptional": "可选（当前提供方未设置访问密钥）",
       "provider": "提供程序",
       "selectProvider": "选择提供程序",
       "saveAndReload": "保存并重新加载",
-      "saving": "正在保存..."
+      "saving": "正在保存...",
+      "addProvider": "新增提供方",
+      "type": "类型",
+      "selectType": "选择类型",
+      "providerId": "提供方 ID",
+      "label": "显示名称",
+      "supabaseUrl": "Supabase URL",
+      "anonKey": "Anon Key",
+      "sqliteDirectory": "SQLite 存储目录",
+      "providerAccessKeyOptional": "提供方访问密钥（可选）",
+      "providerAccessKeyPlaceholder": "可选：单独配置该提供方密钥",
+      "addAndInitialize": "添加并初始化",
+      "loadingProviders": "正在加载提供方...",
+      "errors": {
+        "loadProviders": "加载提供方失败",
+        "initializeFailed": "初始化失败",
+        "providerIdRequired": "请输入提供方 ID。",
+        "supabaseRequired": "Supabase URL 和 Anon Key 必填。",
+        "sqliteDirectoryRequired": "SQLite 存储目录必填。",
+        "addProviderFailed": "添加提供方失败",
+        "selectProvider": "请选择提供方。",
+        "accessKeyRequired": "请输入访问密钥。",
+        "accessKeyValidation": "访问密钥校验失败。",
+        "connectionFailed": "数据库连接失败。",
+        "validationFailed": "校验失败。"
+      },
+      "messages": {
+        "initialized": "数据库初始化完成。"
+      }
     }
   },
   "agents": {

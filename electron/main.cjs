@@ -35,6 +35,8 @@ function startBackend() {
       HOST: backendHost,
       PORT: String(backendPort),
       FRONTEND_URLS: 'http://localhost:3000,null',
+      QURIO_ELECTRON: '1',
+      QURIO_CONFIG_DIR: app.getPath('userData'),
     },
     stdio: 'inherit',
     windowsHide: true,

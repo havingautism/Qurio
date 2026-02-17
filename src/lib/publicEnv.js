@@ -18,7 +18,13 @@ const PUBLIC_ENV = {
   PUBLIC_NOTION_OAUTH_URL: import.meta.env.PUBLIC_NOTION_OAUTH_URL,
 }
 
+const isElectronRuntime = () =>
+  typeof window !== 'undefined' &&
+  (window.location.protocol === 'file:' || navigator.userAgent.includes('Electron'))
+
 export const getPublicEnv = key => {
+  if (isElectronRuntime()) return undefined
+
   if (Object.prototype.hasOwnProperty.call(PUBLIC_ENV, key)) {
     const value = PUBLIC_ENV[key]
     if (value !== undefined && value !== null && value !== '') return value

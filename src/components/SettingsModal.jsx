@@ -66,6 +66,10 @@ const getBackendUrl = () => {
   return settings.backendUrl || 'http://127.0.0.1:3002'
 }
 
+const isElectronRuntime = () =>
+  typeof window !== 'undefined' &&
+  (window.location.protocol === 'file:' || navigator.userAgent.includes('Electron'))
+
 // Minimal copy of supabase/init.sql for quick remediation in-app
 const INIT_SQL_SCRIPT = `-- Supabase initialization script (local-first, single-user)
 -- Run in Supabase SQL editor to create core tables for spaces, conversations, messages, and attachments.
@@ -546,6 +550,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
   const navigate = useNavigate()
   const { defaultAgent, showConfirmation } = useAppContext()
   const toast = useToast()
+  const electronMode = useMemo(() => isElectronRuntime(), [])
 
   const renderEnvHint = hasEnv =>
     hasEnv ? (
@@ -2813,36 +2818,45 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                       {t('settings.backendConfiguration')}
                     </label>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {t('settings.backendConfigurationHint')}
+                      {electronMode
+                        ? t('settings.backendConfigurationElectronHint')
+                        : t('settings.backendConfigurationHint')}
                     </p>
                   </div>
 
                   <div className="flex flex-col gap-4">
-                    <div className="flex flex-col gap-2">
-                      <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                        {t('settings.backendUrl')}
-                      </label>
-                      <div className="relative">
-                        <div className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400">
-                          <Link size={16} />
+                    {!electronMode && (
+                      <div className="flex flex-col gap-2">
+                        <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                          {t('settings.backendUrl')}
+                        </label>
+                        <div className="relative">
+                          <div className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400">
+                            <Link size={16} />
+                          </div>
+                          <input
+                            type="text"
+                            value={backendUrl}
+                            onChange={e => {
+                              setBackendUrl(e.target.value)
+                              setBackendHealthState({ status: 'idle', message: '' })
+                            }}
+                            placeholder={t('settings.backendUrlPlaceholder')}
+                            disabled={Boolean(ENV_VARS.backendUrl)}
+                            className={clsx(
+                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border border-gray-200 bg-white py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600',
+                              ENV_VARS.backendUrl && 'cursor-not-allowed opacity-70',
+                            )}
+                          />
                         </div>
-                        <input
-                          type="text"
-                          value={backendUrl}
-                          onChange={e => {
-                            setBackendUrl(e.target.value)
-                            setBackendHealthState({ status: 'idle', message: '' })
-                          }}
-                          placeholder={t('settings.backendUrlPlaceholder')}
-                          disabled={Boolean(ENV_VARS.backendUrl)}
-                          className={clsx(
-                            'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border border-gray-200 bg-white py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600',
-                            ENV_VARS.backendUrl && 'cursor-not-allowed opacity-70',
-                          )}
-                        />
+                        {renderEnvHint(Boolean(ENV_VARS.backendUrl))}
                       </div>
-                      {renderEnvHint(Boolean(ENV_VARS.backendUrl))}
-                    </div>
+                    )}
+                    {electronMode && (
+                      <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700 dark:border-blue-900/40 dark:bg-blue-900/20 dark:text-blue-300">
+                        {t('settings.backendDesktopManaged')}
+                      </div>
+                    )}
                     <div className="flex items-center gap-3">
                       <button
                         onClick={handleBackendHealthCheck}
@@ -2923,7 +2937,9 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                         )}
                       >
                         <Settings size={12} />
-                        {t('settings.configureDatabase') || 'Configure Database'}
+                        {electronMode
+                          ? t('settings.openDatabaseManager')
+                          : t('settings.configureDatabase') || 'Configure Database'}
                       </button>
 
                       {databaseProviderId && (

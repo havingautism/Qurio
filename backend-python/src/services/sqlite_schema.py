@@ -417,4 +417,49 @@ SCHEMA_STATEMENTS: list[str] = [
     END
     WHERE emoji IN ('HOME', 'DEV', 'TRIP', 'MEDIA', 'STUDY', 'HEALTH', 'MONEY', 'WRITE', 'CAREER');
     """,
+    # Email notification tables (supports Gmail, Outlook, QQ, 163 via IMAP)
+    """
+    CREATE TABLE IF NOT EXISTS email_provider_configs (
+      id TEXT PRIMARY KEY,
+      provider TEXT NOT NULL DEFAULT 'gmail',
+      email TEXT NOT NULL,
+      imap_password TEXT,
+      is_enabled INTEGER NOT NULL DEFAULT 1,
+      poll_interval_minutes INTEGER NOT NULL DEFAULT 15,
+      summary_provider TEXT,
+      summary_model TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_email_provider_configs_email
+      ON email_provider_configs(email);
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS email_notifications (
+      id TEXT PRIMARY KEY,
+      config_id TEXT,
+      provider TEXT NOT NULL DEFAULT 'gmail',
+      message_id TEXT NOT NULL UNIQUE,
+      subject TEXT,
+      sender TEXT,
+      received_at TEXT,
+      summary TEXT,
+      is_read INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL
+    );
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_email_notifications_is_read
+      ON email_notifications(is_read);
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_email_notifications_created_at
+      ON email_notifications(created_at DESC);
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_email_notifications_config_id
+      ON email_notifications(config_id);
+    """,
 ]

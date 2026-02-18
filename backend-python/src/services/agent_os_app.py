@@ -47,17 +47,33 @@ from ..routes import (
 from ..routes import (
     title as title_route,
 )
+from ..routes import (
+    email as email_route,
+)
 from .agent_registry import build_agent
+from .email_monitor import start_email_monitor, stop_email_monitor
 
 _agent_os: AgentOS | None = None
 
 
 def _build_base_app() -> FastAPI:
     settings = get_settings()
+
+    from contextlib import asynccontextmanager
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        # Start email polling scheduler on startup
+        start_email_monitor()
+        yield
+        # Stop scheduler on shutdown
+        stop_email_monitor()
+
     app = FastAPI(
         title="Qurio Backend (AgentOS)",
         description="Agno AgentOS app with Qurio routes",
         version="0.2.0",
+        lifespan=lifespan,
     )
     app.add_middleware(
         CORSMiddleware,
@@ -95,6 +111,7 @@ def _build_base_app() -> FastAPI:
     app.include_router(memory_route.router, prefix="/api")
     app.include_router(mcp_tools.router, prefix="/api/mcp-tools")
     app.include_router(db_route.router, prefix="/api")
+    app.include_router(email_route.router, prefix="/api")
     return app
 
 

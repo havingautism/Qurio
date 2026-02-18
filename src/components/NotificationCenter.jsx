@@ -1,0 +1,508 @@
+/**
+ * NotificationCenter — Email notification bell + modal panel.
+ *
+ * Features:
+ *  - Bell icon with unread badge count
+ *  - Modal panel with backdrop overlay
+ *  - Tabs to filter notifications by email account
+ *  - Click to view full summary in detail modal
+ *  - Click external link icon to open in webmail
+ *  - Mark individual or all notifications as read
+ *  - Auto-refresh every 5 minutes
+ *  - ESC key to close
+ */
+
+import { Bell, Check, CheckCheck, ExternalLink, Inbox, Mail, RefreshCw, Trash2, X } from 'lucide-react'
+import { useCallback, useEffect, useState, useMemo } from 'react'
+import { createPortal } from 'react-dom'
+import { useTranslation } from 'react-i18next'
+import { loadSettings } from '../lib/settings'
+
+// ---------------------------------------------------------------------------
+// API helpers
+// ---------------------------------------------------------------------------
+
+const getBackendUrl = () => {
+  const settings = loadSettings()
+  return settings.backendUrl || 'http://127.0.0.1:3002'
+}
+
+const getDbProvider = () => {
+  const settings = loadSettings()
+  return settings.databaseProvider || 'supabase'
+}
+
+const buildUrl = (path, params = {}) => {
+  const url = new URL(`${getBackendUrl()}${path}`)
+  const dbProvider = getDbProvider()
+  if (dbProvider) url.searchParams.set('dbProvider', dbProvider)
+  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v))
+  return url.toString()
+}
+
+const fetchConfigs = async () => {
+  const res = await fetch(buildUrl('/api/email/configs'))
+  if (!res.ok) return []
+  const data = await res.json()
+  return data.configs || []
+}
+
+const fetchNotifications = async ({ configId, limit = 30 } = {}) => {
+  const params = { limit }
+  if (configId) params.configId = configId
+  const res = await fetch(buildUrl('/api/email/notifications', params))
+  if (!res.ok) throw new Error(`Failed to fetch notifications: ${res.status}`)
+  return res.json()
+}
+
+const markRead = async id => {
+  const res = await fetch(buildUrl(`/api/email/notifications/${id}/read`), { method: 'PATCH' })
+  if (!res.ok) throw new Error(`Failed to mark read: ${res.status}`)
+}
+
+const markAllRead = async configId => {
+  const params = configId ? { configId } : {}
+  const res = await fetch(buildUrl('/api/email/notifications/read-all', params), { method: 'PATCH' })
+  if (!res.ok) throw new Error(`Failed to mark all read: ${res.status}`)
+}
+
+const deleteNotification = async id => {
+  const res = await fetch(buildUrl(`/api/email/notifications/${id}`), { method: 'DELETE' })
+  if (!res.ok) throw new Error(`Failed to delete notification: ${res.status}`)
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
+const NotificationCenter = () => {
+  const { t } = useTranslation()
+  const [isOpen, setIsOpen] = useState(false)
+  const [configs, setConfigs] = useState([])
+  const [notifications, setNotifications] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+  const [activeTab, setActiveTab] = useState('all')
+  const [selectedNotification, setSelectedNotification] = useState(null)
+
+  // Helper function for relative time with i18n
+  const formatRelativeTime = useCallback((dateStr) => {
+    if (!dateStr) return ''
+    const diff = Date.now() - new Date(dateStr).getTime()
+    const mins = Math.floor(diff / 60000)
+    if (mins < 1) return t('notificationCenter.timeAgo.justNow')
+    if (mins < 60) return t('notificationCenter.timeAgo.minutesAgo', { count: mins })
+    const hrs = Math.floor(mins / 60)
+    if (hrs < 24) return t('notificationCenter.timeAgo.hoursAgo', { count: hrs })
+    return t('notificationCenter.timeAgo.daysAgo', { count: Math.floor(hrs / 24) })
+  }, [t])
+
+  // Build email URL for jumping to the email in webmail
+  const buildEmailUrl = useCallback((provider, messageId) => {
+    if (!messageId) return null
+    switch (provider) {
+      case 'gmail':
+        return `https://mail.google.com/mail/u/0/#search/rfc822msgid%3A${encodeURIComponent(messageId)}`
+      case 'outlook':
+        return 'https://outlook.live.com/mail/0/inbox'
+      case 'qq':
+        return 'https://mail.qq.com/'
+      case '163':
+        return 'https://mail.163.com/'
+      default:
+        return null
+    }
+  }, [])
+
+  const handleOpenEmail = useCallback((notif) => {
+    const url = buildEmailUrl(notif.provider, notif.message_id)
+    if (url) window.open(url, '_blank')
+  }, [buildEmailUrl])
+
+  // Calculate unread counts
+  const totalUnreadCount = useMemo(() => {
+    return notifications.filter(n => !n.is_read).length
+  }, [notifications])
+
+  const unreadCountByConfig = useMemo(() => {
+    const counts = {}
+    notifications.forEach(n => {
+      if (!n.is_read && n.config_id) {
+        counts[n.config_id] = (counts[n.config_id] || 0) + 1
+      }
+    })
+    return counts
+  }, [notifications])
+
+  // Config id to email mapping
+  const configEmailMap = useMemo(() => {
+    const map = {}
+    configs.forEach(c => { map[c.id] = c.email })
+    return map
+  }, [configs])
+
+  // Load configs and notifications
+  const load = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const [configsData, notifsData] = await Promise.all([
+        fetchConfigs(),
+        fetchNotifications({ limit: 50 }),
+      ])
+      setConfigs(configsData)
+      setNotifications(notifsData.notifications || [])
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  // Filter notifications by active tab
+  const filteredNotifications = useMemo(() => {
+    if (activeTab === 'all') return notifications
+    return notifications.filter(n => n.config_id === activeTab)
+  }, [notifications, activeTab])
+
+  // Load on mount
+  useEffect(() => {
+    load()
+  }, [load])
+
+  // Refresh when modal opens and auto-refresh every 5 minutes while open
+  useEffect(() => {
+    if (!isOpen) return undefined
+    load() // Refresh when modal opens
+    const interval = setInterval(load, 5 * 60 * 1000)
+    return () => clearInterval(interval)
+  }, [isOpen, load])
+
+  // SSE: Listen for real-time notification updates
+  useEffect(() => {
+    const sseUrl = buildUrl('/api/email/notifications/stream')
+    const eventSource = new EventSource(sseUrl)
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data)
+        if (data.type === 'notifications_updated') {
+          // Refresh notifications when backend polls new emails
+          load()
+        }
+      } catch {
+        // Ignore parse errors
+      }
+    }
+
+    eventSource.onerror = () => {
+      // Auto-reconnect is handled by EventSource
+    }
+
+    return () => {
+      eventSource.close()
+    }
+  }, [load])
+
+  // ESC key to close
+  useEffect(() => {
+    if (!isOpen) return undefined
+    const handler = e => { if (e.key === 'Escape') { setIsOpen(false); setSelectedNotification(null) } }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [isOpen])
+
+  // Lock body scroll when open
+  useEffect(() => {
+    document.body.style.overflow = isOpen ? 'hidden' : ''
+    return () => { document.body.style.overflow = '' }
+  }, [isOpen])
+
+  const handleMarkRead = async id => {
+    setNotifications(prev => prev.map(n => (n.id === id ? { ...n, is_read: true } : n)))
+    try { await markRead(id) }
+    catch { setNotifications(prev => prev.map(n => (n.id === id ? { ...n, is_read: false } : n))) }
+  }
+
+  const handleMarkAllRead = async () => {
+    const configId = activeTab === 'all' ? null : activeTab
+    setNotifications(prev => prev.map(n => (configId && n.config_id !== configId ? n : { ...n, is_read: true })))
+    try { await markAllRead(configId) }
+    catch { load() }
+  }
+
+  const handleDelete = async (e, id) => {
+    e.stopPropagation()
+    const original = [...notifications]
+    setNotifications(prev => prev.filter(n => n.id !== id))
+    setSelectedNotification(null)
+    try { await deleteNotification(id) }
+    catch (err) {
+      setError(t('notificationCenter.deleteFailed', { message: err.message }))
+      setNotifications(original)
+    }
+  }
+
+  const handleSelectNotification = (notif) => {
+    setSelectedNotification(notif)
+    if (!notif.is_read) handleMarkRead(notif.id)
+  }
+
+  // Detail modal for selected notification
+  const detailModal = selectedNotification
+    ? createPortal(
+        <div className="fixed inset-0 z-10000 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setSelectedNotification(null)} />
+
+          {/* Detail Panel */}
+          <div className="relative z-10 w-full max-w-2xl bg-white rounded-xl shadow-2xl border border-gray-200/60 overflow-hidden dark:bg-zinc-900 dark:border-zinc-700/50">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-zinc-800 bg-gray-50/50 dark:bg-zinc-800/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center">
+                  <Mail size={20} className="text-white" />
+                </div>
+                <span className="text-base font-semibold text-gray-900 dark:text-gray-100">{t('notificationCenter.emailDetail')}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleOpenEmail(selectedNotification)}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-primary-600 hover:bg-primary-50 rounded-lg transition-colors dark:text-primary-400 dark:hover:bg-primary-900/20"
+                >
+                  <ExternalLink size={16} />
+                  {t('notificationCenter.openInMail')}
+                </button>
+                <button
+                  onClick={() => setSelectedNotification(null)}
+                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors dark:hover:text-gray-300 dark:hover:bg-zinc-800"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-5 max-h-[65vh] overflow-y-auto">
+              {/* Subject */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 leading-snug">
+                  {selectedNotification.subject || t('notificationCenter.noSubject')}
+                </h3>
+              </div>
+
+              {/* Meta info */}
+              <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500 dark:text-zinc-400">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-medium">{t('notificationCenter.from')}:</span>
+                  <span>{selectedNotification.sender || t('notificationCenter.unknownSender')}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-medium">{t('notificationCenter.time')}:</span>
+                  <span>{formatRelativeTime(selectedNotification.received_at || selectedNotification.created_at)}</span>
+                </div>
+                {selectedNotification.config_id && configs.length > 1 && (
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-medium">{t('notificationCenter.account')}:</span>
+                    <span className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-zinc-700">
+                      {configEmailMap[selectedNotification.config_id]?.split('@')[0]}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Summary */}
+              {selectedNotification.summary && (
+                <div className="pt-4 border-t border-gray-100 dark:border-zinc-800">
+                  <h4 className="text-sm font-semibold text-gray-700 dark:text-zinc-300 mb-3 uppercase tracking-wide">
+                    {t('notificationCenter.summary')}
+                  </h4>
+                  <p className="text-base text-gray-600 dark:text-zinc-400 leading-relaxed whitespace-pre-wrap">
+                    {selectedNotification.summary}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer actions */}
+            <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 dark:border-zinc-800 bg-gray-50/50 dark:bg-zinc-800/50">
+              <button
+                onClick={(e) => handleDelete(e, selectedNotification.id)}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors dark:text-red-400 dark:hover:bg-red-900/20"
+              >
+                <Trash2 size={16} />
+                {t('notificationCenter.delete')}
+              </button>
+              <button
+                onClick={() => handleOpenEmail(selectedNotification)}
+                className="flex items-center gap-2 px-5 py-2 text-sm font-medium text-white bg-primary-500 hover:bg-primary-600 rounded-lg transition-colors"
+              >
+                <ExternalLink size={16} />
+                {t('notificationCenter.openInMail')}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )
+    : null
+
+  // Modal rendered via portal
+  const modal = isOpen
+    ? createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-start justify-center pt-[10vh] px-4 pb-4" role="dialog" aria-modal="true">
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsOpen(false)} />
+
+          {/* Modal Panel */}
+          <div className="relative z-10 w-full max-w-xl bg-white rounded-xl shadow-2xl border border-gray-200/60 flex flex-col overflow-hidden dark:bg-zinc-900 dark:border-zinc-700/50" style={{ maxHeight: '80vh' }}>
+
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-zinc-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center shadow-sm">
+                  <Inbox size={16} className="text-white" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">{t('notificationCenter.title')}</h2>
+                  {totalUnreadCount > 0 && (
+                    <p className="text-xs text-gray-500 dark:text-zinc-400">{totalUnreadCount} {t('notificationCenter.newCount', { count: '' }).trim()}</p>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-0.5">
+                <button onClick={load} disabled={loading} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50 dark:hover:text-gray-300 dark:hover:bg-zinc-800" title={t('notificationCenter.refresh')}>
+                  <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+                </button>
+                {totalUnreadCount > 0 && (
+                  <button onClick={handleMarkAllRead} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors dark:hover:text-gray-300 dark:hover:bg-zinc-800" title={t('notificationCenter.markAllRead')}>
+                    <CheckCheck size={16} />
+                  </button>
+                )}
+                <button onClick={() => setIsOpen(false)} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors dark:hover:text-gray-300 dark:hover:bg-zinc-800" title={t('notificationCenter.close')}>
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+
+            {/* Tabs */}
+            {configs.length > 1 && (
+              <div className="flex items-center gap-1 px-3 py-2 overflow-x-auto border-b border-gray-100 dark:border-zinc-800/50 bg-gray-50/50 dark:bg-zinc-800/30">
+                <button onClick={() => setActiveTab('all')} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${activeTab === 'all' ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-gray-100' : 'text-gray-500 hover:text-gray-700 dark:text-zinc-400 dark:hover:text-zinc-200'}`}>
+                  {t('notificationCenter.all')} <span className="ml-0.5 opacity-60">{notifications.length}</span>
+                </button>
+                <div className="w-px h-4 bg-gray-200 dark:bg-zinc-700 mx-1" />
+                {configs.map(config => {
+                  const count = unreadCountByConfig[config.id] || 0
+                  const isActive = activeTab === config.id
+                  return (
+                    <button key={config.id} onClick={() => setActiveTab(config.id)} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${isActive ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-gray-100' : 'text-gray-500 hover:text-gray-700 dark:text-zinc-400 dark:hover:text-zinc-200'}`}>
+                      <span className="max-w-[100px] truncate">{config.email.split('@')[0]}</span>
+                      {count > 0 && <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-semibold flex items-center justify-center">{count}</span>}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto">
+              {loading && notifications.length === 0 && (
+                <div className="flex items-center justify-center py-16"><RefreshCw size={20} className="animate-spin text-gray-400" /></div>
+              )}
+              {error && <div className="px-4 py-6 text-center text-sm text-red-500">{error}</div>}
+              {!loading && !error && filteredNotifications.length === 0 && (
+                <div className="flex flex-col items-center py-12 text-center">
+                  <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-zinc-800 flex items-center justify-center mb-3">
+                    <Inbox size={24} className="text-gray-400 dark:text-zinc-500" />
+                  </div>
+                  <p className="text-sm font-medium text-gray-600 dark:text-zinc-300">{activeTab === 'all' ? t('notificationCenter.empty.title') : t('notificationCenter.emptyForAccount.title')}</p>
+                  <p className="text-xs text-gray-400 dark:text-zinc-500 mt-1">{activeTab === 'all' ? t('notificationCenter.empty.hint') : t('notificationCenter.emptyForAccount.hint')}</p>
+                </div>
+              )}
+
+              {/* Notification Cards */}
+              <div className="p-3 space-y-2">
+                {filteredNotifications.map(notif => (
+                  <div key={notif.id} onClick={() => handleSelectNotification(notif)} className={`group relative p-4 rounded-xl cursor-pointer transition-all ${notif.is_read ? 'hover:bg-gray-50 dark:hover:bg-zinc-800/50' : 'bg-primary-50/50 hover:bg-primary-50 dark:bg-primary-950/20 dark:hover:bg-primary-950/30'}`}>
+                    <div className="flex items-start gap-3">
+                      {/* Unread indicator */}
+                      <div className={`mt-2 w-2.5 h-2.5 rounded-full flex-shrink-0 ${notif.is_read ? 'bg-transparent' : 'bg-primary-500'}`} />
+
+                      <div className="flex-1 min-w-0">
+                        {/* Header row */}
+                        <div className="flex items-start justify-between gap-3">
+                          <p className={`text-sm leading-snug ${notif.is_read ? 'text-gray-700 dark:text-gray-300' : 'text-gray-900 dark:text-gray-100 font-medium'}`}>
+                            {notif.subject || t('notificationCenter.noSubject')}
+                          </p>
+                          <span className="text-xs text-gray-400 dark:text-zinc-500 flex-shrink-0 mt-0.5">
+                            {formatRelativeTime(notif.received_at || notif.created_at)}
+                          </span>
+                        </div>
+
+                        {/* Sender */}
+                        <div className="flex items-center gap-2 mt-1.5">
+                          <p className="text-xs text-gray-500 dark:text-zinc-400 truncate">{notif.sender || t('notificationCenter.unknownSender')}</p>
+                          {notif.config_id && configs.length > 1 && (
+                            <span className="text-[11px] px-2 py-0.5 rounded bg-gray-100 dark:bg-zinc-700 text-gray-500 dark:text-zinc-400 truncate max-w-[100px]" title={configEmailMap[notif.config_id]}>
+                              {configEmailMap[notif.config_id]?.split('@')[0]}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Summary preview */}
+                        {notif.summary && (
+                          <p className="text-xs text-gray-500 dark:text-zinc-400 mt-2 line-clamp-2 leading-relaxed">{notif.summary}</p>
+                        )}
+
+                        {/* Actions */}
+                        <div className="flex items-center gap-2 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <span className="text-xs text-primary-500 dark:text-primary-400 font-medium">
+                            {t('notificationCenter.viewDetail') || 'View'}
+                          </span>
+                          <button
+                            onClick={e => { e.stopPropagation(); handleOpenEmail(notif); }}
+                            className="text-xs text-gray-400 hover:text-primary-500 dark:text-zinc-500 dark:hover:text-primary-400 flex items-center gap-1"
+                            title={t('notificationCenter.openInMail')}
+                          >
+                            <ExternalLink size={12} />
+                          </button>
+                          {!notif.is_read && (
+                            <button onClick={e => { e.stopPropagation(); handleMarkRead(notif.id); }} className="text-xs text-gray-400 hover:text-gray-600 dark:text-zinc-500 dark:hover:text-zinc-300 flex items-center gap-1">
+                              <Check size={12} /> {t('notificationCenter.markAsRead')}
+                            </button>
+                          )}
+                          <button onClick={e => handleDelete(e, notif.id)} className="text-xs text-gray-400 hover:text-red-500 dark:text-zinc-500 dark:hover:text-red-400 ml-auto" title={t('notificationCenter.delete')}>
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )
+    : null
+
+  return (
+    <>
+      {/* Bell Button */}
+      <button id="notification-center-bell" onClick={() => setIsOpen(prev => !prev)} className="bg-user-bubble relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl text-gray-600 transition-all duration-300 hover:scale-105 hover:bg-gray-100 active:scale-95 dark:bg-zinc-800 dark:text-gray-300 dark:hover:bg-zinc-700" title={t('notificationCenter.title')}>
+        <Bell size={20} />
+        {totalUnreadCount > 0 && (
+          <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+            {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
+          </span>
+        )}
+      </button>
+      {modal}
+      {detailModal}
+    </>
+  )
+}
+
+export default NotificationCenter

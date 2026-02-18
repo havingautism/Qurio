@@ -9,6 +9,7 @@ import {
   Key,
   Link,
   Loader2,
+  Mail,
   MessageSquare,
   Monitor,
   Search,
@@ -44,6 +45,7 @@ import { upsertMemoryDomainSummary, ensureLongTermMemoryIndex } from '../lib/laz
 import { getProvider } from '../lib/providers'
 import { FALLBACK_MODEL_OPTIONS, PROVIDER_KEYS } from '../lib/modelConstants'
 import MemoryTable from './MemoryTable'
+import EmailSettingsPanel from './EmailSettingsPanel'
 import { useToast } from '../contexts/ToastContext'
 import INIT_SQL_SCRIPT from '../assets/init-schema.sql'
 
@@ -437,6 +439,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
     // { id: 'personalization', icon: User },
     { id: 'interface', icon: Monitor },
     { id: 'account', icon: Key },
+    { id: 'email', icon: Mail },
     { id: 'advanced', icon: Terminal },
     { id: 'about', icon: Info },
   ]
@@ -3691,6 +3694,9 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                 </div>
               </div>
             )}
+
+            {/* Gmail Settings Panel */}
+            {activeTab === 'email' && <EmailSettingsPanel backendUrl={getBackendUrl()} />}
           </div>
 
           {/* Footer */}

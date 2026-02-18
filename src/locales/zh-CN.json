@@ -242,8 +242,122 @@
     },
     "agents": "智能体"
   },
+  "notificationCenter": {
+    "title": "邮件通知",
+    "newCount": "{{count}} 条新消息",
+    "all": "全部",
+    "markAllRead": "全部标记已读",
+    "refresh": "刷新",
+    "close": "关闭",
+    "empty": {
+      "title": "暂无邮件通知",
+      "hint": "在设置中连接邮箱以开始接收通知"
+    },
+    "emptyForAccount": {
+      "title": "该邮箱暂无通知",
+      "hint": "试试选择其他邮箱"
+    },
+    "noSubject": "（无主题）",
+    "unknownSender": "未知发件人",
+    "markAsRead": "标记已读",
+    "delete": "删除",
+    "timeAgo": {
+      "justNow": "刚刚",
+      "minutesAgo": "{{count}} 分钟前",
+      "hoursAgo": "{{count}} 小时前",
+      "daysAgo": "{{count}} 天前"
+    },
+    "deleteFailed": "删除失败：{{message}}",
+    "emailDetail": "邮件详情",
+    "from": "发件人",
+    "time": "时间",
+    "account": "账号",
+    "summary": "摘要",
+    "viewDetail": "查看",
+    "openInMail": "在邮箱中打开"
+  },
   "settings": {
     "title": "设置",
+    "email": {
+      "title": "邮件通知",
+      "description": "连接邮箱账号，Qurio 会定时拉取新邮件并用 AI 生成摘要推送为通知。支持同时连接多个邮箱。",
+      "connectedAccounts": "已连接邮箱",
+      "connectedCount": "{{count}} 个邮箱",
+      "noAccounts": "尚未连接任何邮箱。",
+      "noAccountsHint": "点击上方「添加邮箱」按钮开始配置。",
+      "addEmail": "添加邮箱",
+      "disconnect": "断开",
+      "disconnectConfirm": "确认断开 {{email}} 的连接？该邮箱的通知记录也将被删除。",
+      "disconnected": "已断开邮箱连接",
+      "settings": "设置",
+      "pollInterval": "每 {{minutes}} 分钟检查一次",
+      "pollIntervalLabel": "检查频率",
+      "pollIntervalHint": "Qurio 检查新邮件的频率",
+      "summaryModel": "AI 摘要模型",
+      "summaryModelHint": "用于生成邮件摘要的模型，使用全局 API Key。",
+      "provider": "厂商",
+      "model": "模型",
+      "loadingModels": "加载中...",
+      "noModels": "无可用模型",
+      "saving": "保存中...",
+      "saved": "设置已保存！",
+      "syncing": "同步中...",
+      "syncNow": "立即同步",
+      "syncComplete": "同步完成！抓取了 {{count}} 个账号。",
+      "connectForm": {
+        "title": "添加邮箱",
+        "providerLabel": "邮箱类型",
+        "emailLabel": "邮箱地址",
+        "emailPlaceholder": "例如: yourname@gmail.com",
+        "passwordLabel": "应用专用密码",
+        "passwordHint": "（非登录密码）",
+        "passwordPlaceholder": "xxxx xxxx xxxx xxxx",
+        "connectButton": "连接邮箱",
+        "connecting": "正在连接..."
+      },
+      "providers": {
+        "gmail": {
+          "label": "Gmail",
+          "hint": "myaccount.google.com/apppasswords",
+          "hintText": "需要开启两步验证，然后生成「应用专用密码」"
+        },
+        "outlook": {
+          "label": "Outlook / Hotmail",
+          "hint": "account.microsoft.com/security",
+          "hintText": "在 Microsoft 账户安全设置中生成应用密码"
+        },
+        "qq": {
+          "label": "QQ 邮箱",
+          "hint": "mail.qq.com → 设置 → 账户 → IMAP/SMTP",
+          "hintText": "在 QQ 邮箱设置中开启 IMAP 并生成授权码"
+        },
+        "163": {
+          "label": "163 邮箱",
+          "hint": "mail.163.com → 设置 → POP3/SMTP/IMAP",
+          "hintText": "在 163 邮箱设置中开启 IMAP 并生成授权码"
+        }
+      },
+      "pollIntervals": {
+        "5min": "5 分钟",
+        "15min": "15 分钟",
+        "30min": "30 分钟",
+        "1hour": "1 小时",
+        "2hours": "2 小时"
+      },
+      "errors": {
+        "connectFailed": "连接失败：{{message}}",
+        "emailRequired": "请填写邮箱地址和应用专用密码",
+        "emailExists": "邮箱 {{email}} 已存在",
+        "saveFailed": "保存失败：{{message}}",
+        "deleteFailed": "删除失败：{{message}}",
+        "syncFailed": "同步失败：{{message}}",
+        "noApiKey": "该厂商未配置 API Key，请先在全局设置中配置。"
+      },
+      "success": {
+        "connected": "邮箱连接成功！",
+        "saved": "设置已保存！"
+      }
+    },
     "menu": {
       "general": "常规",
       "model": "模型",
@@ -252,6 +366,7 @@
       "interface": "界面",
       "personalization": "个性化",
       "account": "账户",
+      "email": "邮件通知",
       "advanced": "高级",
       "about": "关于"
     },

@@ -612,6 +612,8 @@
       "deleteProvider": "删除提供方",
       "deleteProviderConfirm": "确认删除提供方 {{id}} 吗？仅删除配置，不会删除数据库文件或目录。",
       "cancelEdit": "取消编辑",
+      "saveProvider": "保存提供方",
+      "saveProviderChanges": "保存更改",
       "rebuildAndInitialize": "初始化（重建）",
       "browseFolder": "选择文件夹",
       "importDbFile": "导入 DB 文件",
@@ -640,6 +642,7 @@
       },
       "messages": {
         "initialized": "数据库初始化完成。",
+        "providerSaved": "提供方配置已保存。",
         "providerDeleted": "提供方配置已删除（未删除数据库文件或目录）。"
       }
     }

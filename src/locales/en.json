@@ -627,6 +627,8 @@
       "deleteProvider": "Delete Provider",
       "deleteProviderConfirm": "Delete provider {{id}}? This only removes provider config and will not delete DB files or directories.",
       "cancelEdit": "Cancel Edit",
+      "saveProvider": "Save Provider",
+      "saveProviderChanges": "Save Changes",
       "rebuildAndInitialize": "Initialize (Rebuild)",
       "browseFolder": "Browse",
       "importDbFile": "Import DB File",
@@ -655,6 +657,7 @@
       },
       "messages": {
         "initialized": "Database initialized.",
+        "providerSaved": "Provider configuration saved.",
         "providerDeleted": "Provider config deleted (DB file/directory was not removed)."
       }
     }

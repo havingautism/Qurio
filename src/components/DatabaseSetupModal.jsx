@@ -284,11 +284,6 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
             accessKey: providerAccessKey.trim() || undefined,
           }
 
-    const confirmed = window.confirm(
-      t('settings.databaseSetup.initializeConfirm', { id: payload.id }),
-    )
-    if (!confirmed) return
-
     setIsAdding(true)
     setError('')
     try {
@@ -304,7 +299,8 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
 
       await fetchProviders()
       setSelectedId(payload.id)
-      await handleInitializeProvider(payload.id)
+      setHealthMessage(t('settings.databaseSetup.messages.providerSaved'))
+      setHealthStatus('success')
       resetProviderForm()
       setIsProviderPanelOpen(false)
     } catch (err) {
@@ -312,6 +308,21 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
     } finally {
       setIsAdding(false)
     }
+  }
+
+  const handleRebuildInitialize = async () => {
+    const targetId = providerId.trim()
+    if (!targetId) {
+      setError(t('settings.databaseSetup.errors.providerIdRequired'))
+      return
+    }
+    const confirmed = window.confirm(
+      t('settings.databaseSetup.initializeConfirm', { id: targetId }),
+    )
+    if (!confirmed) return
+    await handleInitializeProvider(targetId)
+    await fetchProviders()
+    setSelectedId(targetId)
   }
 
   const handleDeleteProvider = async () => {
@@ -614,7 +625,7 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
                     <button
                       onClick={handleUpsertProvider}
                       disabled={isAdding || isInitializing || isDeleting}
-                      className="inline-flex items-center gap-2 rounded-md border border-rose-200 px-3 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-60 dark:border-rose-900/40 dark:text-rose-300 dark:hover:bg-rose-900/20"
+                      className="inline-flex items-center gap-2 rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium hover:bg-gray-50 disabled:opacity-60 dark:border-zinc-700 dark:hover:bg-zinc-800"
                     >
                       {isAdding || isInitializing ? (
                         <RefreshCw size={12} className="animate-spin" />
@@ -624,9 +635,24 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
                         <Plus size={12} />
                       )}
                       {isEditingProvider
-                        ? t('settings.databaseSetup.rebuildAndInitialize')
-                        : t('settings.databaseSetup.initialize')}
+                        ? t('settings.databaseSetup.saveProviderChanges')
+                        : t('settings.databaseSetup.saveProvider')}
                     </button>
+                    {isEditingProvider && (
+                      <button
+                        type="button"
+                        onClick={handleRebuildInitialize}
+                        disabled={isAdding || isInitializing || isDeleting}
+                        className="inline-flex items-center gap-2 rounded-md border border-rose-200 px-3 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-60 dark:border-rose-900/40 dark:text-rose-300 dark:hover:bg-rose-900/20"
+                      >
+                        {isInitializing ? (
+                          <RefreshCw size={12} className="animate-spin" />
+                        ) : (
+                          <RefreshCw size={12} />
+                        )}
+                        {t('settings.databaseSetup.rebuildAndInitialize')}
+                      </button>
+                    )}
                     {isEditingProvider && (
                       <>
                         <button

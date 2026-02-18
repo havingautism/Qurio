@@ -300,6 +300,7 @@
       "model": "模型",
       "loadingModels": "加载中...",
       "noModels": "无可用模型",
+      "defaultsToGlobal": "默认使用全局设置",
       "saving": "保存中...",
       "saved": "设置已保存！",
       "syncing": "同步中...",
@@ -352,7 +353,8 @@
         "saveFailed": "保存失败：{{message}}",
         "deleteFailed": "删除失败：{{message}}",
         "syncFailed": "同步失败：{{message}}",
-        "noApiKey": "该厂商未配置 API Key，请先在全局设置中配置。"
+        "noApiKey": "该厂商未配置 API Key，请先在全局设置中配置。",
+        "modelRequired": "请选择摘要模型"
       },
       "success": {
         "connected": "邮箱连接成功！",

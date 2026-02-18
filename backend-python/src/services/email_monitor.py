@@ -274,20 +274,17 @@ async def _poll_single_config(config: dict, database_provider: str | None) -> No
     imap_host, imap_port = _IMAP_SERVERS.get(provider, ("imap.gmail.com", 993))
     email_provider = ImapProvider(email_addr, imap_password, imap_host, imap_port)
 
-    # Summarization model config — uses global API keys from settings
-    settings = get_settings()
+    # Summarization model config — each account must have its own provider/model
     summary_provider = config.get("summary_provider")
     summary_model    = config.get("summary_model")
 
-    # Fallback missing model/provider to global lite model settings
-    if not summary_provider:
-        summary_provider = await _resolve_db_setting(
-            "summaryLiteProvider", database_provider, settings.summary_lite_provider
+    # Skip if provider/model not configured
+    if not summary_provider or not summary_model:
+        logger.warning(
+            "[EmailMonitor] Missing summary_provider or summary_model for %s; skipping.",
+            email_addr
         )
-    if not summary_model:
-        summary_model = await _resolve_db_setting(
-            "summaryLiteModel", database_provider, settings.summary_lite_model
-        )
+        return
 
     # Step 1: Fetch latest N unread emails from IMAP (blocking I/O → thread pool)
     loop = asyncio.get_event_loop()

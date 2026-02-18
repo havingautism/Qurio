@@ -21,14 +21,16 @@ import {
   Trash2,
   Settings,
   X,
+  Check,
 } from 'lucide-react'
 import { useCallback, useEffect, useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import clsx from 'clsx'
 import { loadSettings } from '../lib/settings'
 import { getModelsForProvider } from '../lib/models_api'
-import { PROVIDER_KEYS } from '../lib/modelConstants'
+import { PROVIDER_KEYS, FALLBACK_MODEL_OPTIONS } from '../lib/modelConstants'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
-import { renderProviderIcon } from '../lib/modelIcons'
+import { renderProviderIcon, getModelIcon, getModelIconClassName } from '../lib/modelIcons'
 
 // Provider to settings key mapping
 const PROVIDER_TO_KEY = {
@@ -108,6 +110,8 @@ const triggerPoll = async backendUrl => {
 
 const EmailSettingsPanel = ({ backendUrl }) => {
   const { t } = useTranslation()
+  const globalSettings = useMemo(() => loadSettings(), [])
+
   const [configs, setConfigs] = useState([])
   const [loading, setLoading] = useState(true)
   const [connecting, setConnecting] = useState(false)
@@ -122,16 +126,24 @@ const EmailSettingsPanel = ({ backendUrl }) => {
   const [provider, setProvider] = useState('gmail')
   const [emailAddr, setEmailAddr] = useState('')
   const [appPassword, setAppPassword] = useState('')
+  const [addSummaryProvider, setAddSummaryProvider] = useState(
+    globalSettings.liteModelProvider || 'openai_compatibility'
+  )
+  const [addSummaryModel, setAddSummaryModel] = useState(globalSettings.liteModel || 'gpt-4o-mini')
+  const [addModelSource, setAddModelSource] = useState('list')
+  const [addCustomModel, setAddCustomModel] = useState('')
+  const [addAvailableModels, setAddAvailableModels] = useState([])
+  const [addFetchingModels, setAddFetchingModels] = useState(false)
 
   // Edit form state
   const [editingConfig, setEditingConfig] = useState(null)
   const [editPollInterval, setEditPollInterval] = useState(15)
-  const [editSummaryProvider, setEditSummaryProvider] = useState('openai')
+  const [editSummaryProvider, setEditSummaryProvider] = useState('openai_compatibility')
   const [editSummaryModel, setEditSummaryModel] = useState('gpt-4o-mini')
+  const [editModelSource, setEditModelSource] = useState('list')
+  const [editCustomModel, setEditCustomModel] = useState('')
   const [availableModels, setAvailableModels] = useState([])
   const [fetchingModels, setFetchingModels] = useState(false)
-
-  const globalSettings = useMemo(() => loadSettings(), [])
 
   // Provider definitions with i18n keys
   const PROVIDERS = useMemo(
@@ -190,7 +202,7 @@ const EmailSettingsPanel = ({ backendUrl }) => {
 
   const selectedProvider = PROVIDERS.find(p => p.id === provider) || PROVIDERS[0]
 
-  // Load models when summary provider changes
+  // Load models when summary provider changes (for edit form)
   useEffect(() => {
     let active = true
     const fetchModels = async () => {
@@ -200,10 +212,16 @@ const EmailSettingsPanel = ({ backendUrl }) => {
         const apiKey = globalSettings[PROVIDER_TO_KEY[editSummaryProvider]]
         const models = await getModelsForProvider(editSummaryProvider, { apiKey })
         if (active) {
-          setAvailableModels(models || [])
+          // Use fallback if models are empty
+          const finalModels = models?.length > 0 ? models : (FALLBACK_MODEL_OPTIONS[editSummaryProvider] || [])
+          setAvailableModels(finalModels)
         }
       } catch (err) {
         console.error('Failed to fetch models:', err)
+        if (active) {
+          // Use fallback on error
+          setAvailableModels(FALLBACK_MODEL_OPTIONS[editSummaryProvider] || [])
+        }
       } finally {
         if (active) setFetchingModels(false)
       }
@@ -213,6 +231,36 @@ const EmailSettingsPanel = ({ backendUrl }) => {
       active = false
     }
   }, [editSummaryProvider, globalSettings])
+
+  // Load models when add form summary provider changes
+  useEffect(() => {
+    let active = true
+    const fetchModels = async () => {
+      if (!addSummaryProvider) return
+      setAddFetchingModels(true)
+      try {
+        const apiKey = globalSettings[PROVIDER_TO_KEY[addSummaryProvider]]
+        const models = await getModelsForProvider(addSummaryProvider, { apiKey })
+        if (active) {
+          // Use fallback if models are empty
+          const finalModels = models?.length > 0 ? models : (FALLBACK_MODEL_OPTIONS[addSummaryProvider] || [])
+          setAddAvailableModels(finalModels)
+        }
+      } catch (err) {
+        console.error('Failed to fetch models for add form:', err)
+        if (active) {
+          // Use fallback on error
+          setAddAvailableModels(FALLBACK_MODEL_OPTIONS[addSummaryProvider] || [])
+        }
+      } finally {
+        if (active) setAddFetchingModels(false)
+      }
+    }
+    fetchModels()
+    return () => {
+      active = false
+    }
+  }, [addSummaryProvider, globalSettings])
 
   // Load existing configs on mount
   const loadConfigs = useCallback(async () => {
@@ -232,27 +280,49 @@ const EmailSettingsPanel = ({ backendUrl }) => {
     loadConfigs()
   }, [loadConfigs])
 
+  // Validate add form
+  const isAddFormValid = useMemo(() => {
+    const hasBasicFields = emailAddr.trim() && appPassword.trim() && addSummaryProvider
+    const hasModel =
+      addModelSource === 'list' ? !!addSummaryModel : !!addCustomModel.trim()
+    return hasBasicFields && hasModel
+  }, [emailAddr, appPassword, addSummaryProvider, addModelSource, addSummaryModel, addCustomModel])
+
+  // Validate edit form
+  const isEditFormValid = useMemo(() => {
+    const hasProvider = !!editSummaryProvider
+    const hasModel =
+      editModelSource === 'list' ? !!editSummaryModel : !!editCustomModel.trim()
+    return hasProvider && hasModel
+  }, [editSummaryProvider, editModelSource, editSummaryModel, editCustomModel])
+
   // Add new email account
   const handleConnect = async () => {
-    if (!emailAddr.trim() || !appPassword.trim()) {
+    if (!isAddFormValid) {
       setError(t('settings.email.errors.emailRequired'))
       return
     }
     setConnecting(true)
     setError(null)
+    const finalModel = addModelSource === 'list' ? addSummaryModel : addCustomModel
     try {
       await connectEmail(backendUrl, {
         provider,
         email: emailAddr.trim(),
         app_password: appPassword.trim(),
         poll_interval_minutes: 15,
-        summary_provider: 'openai',
-        summary_model: 'gpt-4o-mini',
+        summary_provider: addSummaryProvider,
+        summary_model: finalModel,
       })
       await loadConfigs()
       setShowAddForm(false)
       setEmailAddr('')
       setAppPassword('')
+      setAddModelSource('list')
+      setAddCustomModel('')
+      // Reset to global defaults
+      setAddSummaryProvider(globalSettings.liteModelProvider || 'openai_compatibility')
+      setAddSummaryModel(globalSettings.liteModel || 'gpt-4o-mini')
       setSuccessMsg(t('settings.email.success.connected'))
       setTimeout(() => setSuccessMsg(null), 3000)
     } catch (e) {
@@ -266,8 +336,12 @@ const EmailSettingsPanel = ({ backendUrl }) => {
   const startEdit = config => {
     setEditingConfig(config)
     setEditPollInterval(config.poll_interval_minutes ?? 15)
-    setEditSummaryProvider(config.summary_provider ?? 'openai')
-    setEditSummaryModel(config.summary_model ?? 'gpt-4o-mini')
+    setEditSummaryProvider(config.summary_provider ?? 'openai_compatibility')
+    const modelValue = config.summary_model ?? 'gpt-4o-mini'
+    setEditSummaryModel(modelValue)
+    // Detect if model is from list or custom (will be verified when models load)
+    setEditModelSource('list')
+    setEditCustomModel('')
   }
 
   // Cancel editing
@@ -277,14 +351,18 @@ const EmailSettingsPanel = ({ backendUrl }) => {
 
   // Save config edits
   const handleSaveEdit = async () => {
-    if (!editingConfig) return
+    if (!editingConfig || !isEditFormValid) {
+      setError(t('settings.email.errors.modelRequired'))
+      return
+    }
     setSavingId(editingConfig.id)
     setError(null)
+    const finalModel = editModelSource === 'list' ? editSummaryModel : editCustomModel
     try {
       await saveConfig(backendUrl, editingConfig.id, {
         poll_interval_minutes: editPollInterval,
         summary_provider: editSummaryProvider,
-        summary_model: editSummaryModel,
+        summary_model: finalModel,
       })
       await loadConfigs()
       setEditingConfig(null)
@@ -478,55 +556,143 @@ const EmailSettingsPanel = ({ backendUrl }) => {
 
                   {/* Summary Model Selection */}
                   <div className="flex flex-col gap-2">
-                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                      {t('settings.email.summaryModel')}
-                    </label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <Select value={editSummaryProvider} onValueChange={setEditSummaryProvider}>
-                        <SelectTrigger className="w-full border-gray-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
-                          <SelectValue placeholder={t('settings.email.provider')} />
-                        </SelectTrigger>
-                        <SelectContent className="dark:border-zinc-700 dark:bg-zinc-900">
-                          {enabledSummaryProviders.map(pk => (
-                            <SelectItem key={pk} value={pk} className="dark:hover:bg-zinc-800">
-                              <div className="flex items-center gap-2">
-                                {renderProviderIcon(pk, 'h-4 w-4')}
-                                <span className="capitalize">{pk.replace('_', ' ')}</span>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                    <div className="flex items-center gap-3">
+                      <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                        {t('settings.email.summaryModel')}
+                      </label>
+                      <div className="flex rounded-lg border border-gray-200 bg-gray-100 p-0.5 dark:border-zinc-700 dark:bg-zinc-800">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditModelSource('list')
+                            const existsInList = availableModels.some(m => m.value === editSummaryModel)
+                            if (!existsInList) setEditSummaryModel('')
+                          }}
+                          className={clsx(
+                            'rounded-md px-2 py-0.5 text-xs font-medium transition-all',
+                            editModelSource === 'list'
+                              ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-gray-100'
+                              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                          )}
+                        >
+                          {t('agents.model.sourceList')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditModelSource('custom')
+                            const nextValue = editSummaryModel || editCustomModel || ''
+                            setEditCustomModel(nextValue)
+                            setEditSummaryModel(nextValue)
+                          }}
+                          className={clsx(
+                            'rounded-md px-2 py-0.5 text-xs font-medium transition-all',
+                            editModelSource === 'custom'
+                              ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-gray-100'
+                              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                          )}
+                        >
+                          {t('agents.model.sourceCustom')}
+                        </button>
+                      </div>
+                    </div>
 
-                      <Select value={editSummaryModel} onValueChange={setEditSummaryModel}>
-                        <SelectTrigger className="w-full border-gray-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
-                          {fetchingModels ? (
-                            <div className="flex items-center gap-2">
-                              <Loader2 size={13} className="animate-spin" />
-                              <span>{t('settings.email.loadingModels')}</span>
-                            </div>
+                    <div className="rounded-lg border border-gray-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900">
+                      <div className="flex flex-col gap-3">
+                        {/* Provider selector */}
+                        <div className="flex flex-col gap-1.5">
+                          <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                            {t('agents.model.providers')}
+                          </span>
+                          <Select
+                            value={editSummaryProvider}
+                            onValueChange={val => {
+                              setEditSummaryProvider(val)
+                              if (editModelSource === 'list') {
+                                setEditSummaryModel('')
+                              }
+                            }}
+                            disabled={!enabledSummaryProviders.length}
+                          >
+                            <SelectTrigger className="h-9 w-full border-gray-200 dark:border-zinc-700">
+                              <SelectValue>
+                                <div className="flex items-center gap-2">
+                                  {renderProviderIcon(editSummaryProvider, 'h-4 w-4')}
+                                  <span className="capitalize">{editSummaryProvider.replace('_', ' ')}</span>
+                                </div>
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent className="dark:border-zinc-700 dark:bg-zinc-900">
+                              {enabledSummaryProviders.map(pk => (
+                                <SelectItem key={pk} value={pk} className="dark:hover:bg-zinc-800">
+                                  <div className="flex items-center gap-2">
+                                    {renderProviderIcon(pk, 'h-4 w-4')}
+                                    <span className="capitalize">{pk.replace('_', ' ')}</span>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Model selector */}
+                        <div className="flex flex-col gap-1.5">
+                          <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                            {t('agents.model.models')}
+                          </span>
+                          {editModelSource === 'list' ? (
+                            <Select
+                              value={editSummaryModel}
+                              onValueChange={setEditSummaryModel}
+                              disabled={!availableModels.length}
+                            >
+                              <SelectTrigger className="h-9 w-full border-gray-200 dark:border-zinc-700">
+                                {fetchingModels ? (
+                                  <div className="flex items-center gap-2">
+                                    <Loader2 size={13} className="animate-spin" />
+                                    <span>{t('settings.email.loadingModels')}</span>
+                                  </div>
+                                ) : (
+                                  <SelectValue placeholder={t('settings.email.model')} />
+                                )}
+                              </SelectTrigger>
+                              <SelectContent className="dark:border-zinc-700 dark:bg-zinc-900">
+                                {availableModels.length > 0 ? (
+                                  availableModels.map(m => (
+                                    <SelectItem key={m.value} value={m.value} className="dark:hover:bg-zinc-800">
+                                      <div className="flex items-center gap-2">
+                                        {getModelIcon(m.value) && (
+                                          <img
+                                            src={getModelIcon(m.value)}
+                                            alt=""
+                                            className={clsx('h-4 w-4 shrink-0', getModelIconClassName(m.value))}
+                                          />
+                                        )}
+                                        <span>{m.label}</span>
+                                      </div>
+                                    </SelectItem>
+                                  ))
+                                ) : (
+                                  <SelectItem value="__none__" disabled>
+                                    {t('settings.email.noModels')}
+                                  </SelectItem>
+                                )}
+                              </SelectContent>
+                            </Select>
                           ) : (
-                            <SelectValue placeholder={t('settings.email.model')} />
+                            <input
+                              type="text"
+                              value={editCustomModel}
+                              onChange={e => {
+                                setEditCustomModel(e.target.value)
+                                setEditSummaryModel(e.target.value)
+                              }}
+                              placeholder={t('agents.model.customPlaceholder')}
+                              className="focus:ring-primary-500/20 focus:border-primary-500 h-9 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600"
+                            />
                           )}
-                        </SelectTrigger>
-                        <SelectContent className="dark:border-zinc-700 dark:bg-zinc-900">
-                          {availableModels.length > 0 ? (
-                            availableModels.map(m => (
-                              <SelectItem
-                                key={m.value}
-                                value={m.value}
-                                className="dark:hover:bg-zinc-800"
-                              >
-                                {m.label}
-                              </SelectItem>
-                            ))
-                          ) : (
-                            <SelectItem value={editSummaryModel} disabled>
-                              {editSummaryModel || t('settings.email.noModels')}
-                            </SelectItem>
-                          )}
-                        </SelectContent>
-                      </Select>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
@@ -541,7 +707,7 @@ const EmailSettingsPanel = ({ backendUrl }) => {
                     </button>
                     <button
                       onClick={handleSaveEdit}
-                      disabled={savingId === config.id}
+                      disabled={savingId === config.id || !isEditFormValid}
                       className="bg-primary-500 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
                     >
                       {savingId === config.id && <Loader2 size={13} className="animate-spin" />}
@@ -567,6 +733,9 @@ const EmailSettingsPanel = ({ backendUrl }) => {
                 setShowAddForm(false)
                 setEmailAddr('')
                 setAppPassword('')
+                // Reset to global defaults
+                setAddSummaryProvider(globalSettings.liteModelProvider || 'openai_compatibility')
+                setAddSummaryModel(globalSettings.liteModel || 'gpt-4o-mini')
               }}
               className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-zinc-800 dark:hover:text-gray-200"
             >
@@ -642,9 +811,151 @@ const EmailSettingsPanel = ({ backendUrl }) => {
             </div>
           </div>
 
+          {/* Summary Model Selection */}
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-3">
+              <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                {t('settings.email.summaryModel')}
+              </label>
+              <div className="flex rounded-lg border border-gray-200 bg-gray-100 p-0.5 dark:border-zinc-700 dark:bg-zinc-800">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAddModelSource('list')
+                    const existsInList = addAvailableModels.some(m => m.value === addSummaryModel)
+                    if (!existsInList) setAddSummaryModel('')
+                  }}
+                  className={clsx(
+                    'rounded-md px-2 py-0.5 text-xs font-medium transition-all',
+                    addModelSource === 'list'
+                      ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-gray-100'
+                      : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                  )}
+                >
+                  {t('agents.model.sourceList')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAddModelSource('custom')
+                    const nextValue = addSummaryModel || addCustomModel || ''
+                    setAddCustomModel(nextValue)
+                    setAddSummaryModel(nextValue)
+                  }}
+                  className={clsx(
+                    'rounded-md px-2 py-0.5 text-xs font-medium transition-all',
+                    addModelSource === 'custom'
+                      ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-gray-100'
+                      : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                  )}
+                >
+                  {t('agents.model.sourceCustom')}
+                </button>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-gray-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900">
+              <div className="flex flex-col gap-3">
+                {/* Provider selector */}
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                    {t('agents.model.providers')}
+                  </span>
+                  <Select
+                    value={addSummaryProvider}
+                    onValueChange={val => {
+                      setAddSummaryProvider(val)
+                      if (addModelSource === 'list') {
+                        setAddSummaryModel('')
+                      }
+                    }}
+                    disabled={!enabledSummaryProviders.length}
+                  >
+                    <SelectTrigger className="h-9 w-full border-gray-200 dark:border-zinc-700">
+                      <SelectValue>
+                        <div className="flex items-center gap-2">
+                          {renderProviderIcon(addSummaryProvider, 'h-4 w-4')}
+                          <span className="capitalize">{addSummaryProvider.replace('_', ' ')}</span>
+                        </div>
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent className="dark:border-zinc-700 dark:bg-zinc-900">
+                      {enabledSummaryProviders.map(pk => (
+                        <SelectItem key={pk} value={pk} className="dark:hover:bg-zinc-800">
+                          <div className="flex items-center gap-2">
+                            {renderProviderIcon(pk, 'h-4 w-4')}
+                            <span className="capitalize">{pk.replace('_', ' ')}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Model selector */}
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                    {t('agents.model.models')}
+                  </span>
+                  {addModelSource === 'list' ? (
+                    <Select
+                      value={addSummaryModel}
+                      onValueChange={setAddSummaryModel}
+                      disabled={!addAvailableModels.length}
+                    >
+                      <SelectTrigger className="h-9 w-full border-gray-200 dark:border-zinc-700">
+                        {addFetchingModels ? (
+                          <div className="flex items-center gap-2">
+                            <Loader2 size={13} className="animate-spin" />
+                            <span>{t('settings.email.loadingModels')}</span>
+                          </div>
+                        ) : (
+                          <SelectValue placeholder={t('settings.email.model')} />
+                        )}
+                      </SelectTrigger>
+                      <SelectContent className="dark:border-zinc-700 dark:bg-zinc-900">
+                        {addAvailableModels.length > 0 ? (
+                          addAvailableModels.map(m => (
+                            <SelectItem key={m.value} value={m.value} className="dark:hover:bg-zinc-800">
+                              <div className="flex items-center gap-2">
+                                {getModelIcon(m.value) && (
+                                  <img
+                                    src={getModelIcon(m.value)}
+                                    alt=""
+                                    className={clsx('h-4 w-4 shrink-0', getModelIconClassName(m.value))}
+                                  />
+                                )}
+                                <span>{m.label}</span>
+                              </div>
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value="__none__" disabled>
+                            {t('settings.email.noModels')}
+                          </SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <input
+                      type="text"
+                      value={addCustomModel}
+                      onChange={e => {
+                        setAddCustomModel(e.target.value)
+                        setAddSummaryModel(e.target.value)
+                      }}
+                      placeholder={t('agents.model.customPlaceholder')}
+                      className="focus:ring-primary-500/20 focus:border-primary-500 h-9 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600"
+                    />
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
           <button
             onClick={handleConnect}
-            disabled={connecting || !emailAddr.trim() || !appPassword.trim()}
+            disabled={connecting || !isAddFormValid}
             className="flex items-center justify-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {connecting ? <Loader2 size={14} className="animate-spin" /> : <Mail size={14} />}

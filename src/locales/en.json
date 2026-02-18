@@ -316,6 +316,7 @@
       "model": "Model",
       "loadingModels": "Loading...",
       "noModels": "No models available",
+      "defaultsToGlobal": "defaults to global setting",
       "saving": "Saving...",
       "saved": "Settings saved!",
       "syncing": "Syncing...",
@@ -368,7 +369,8 @@
         "saveFailed": "Failed to save: {{message}}",
         "deleteFailed": "Failed to delete: {{message}}",
         "syncFailed": "Sync failed: {{message}}",
-        "noApiKey": "API key not configured for this provider. Please configure it in global settings first."
+        "noApiKey": "API key not configured for this provider. Please configure it in global settings first.",
+        "modelRequired": "Please select a summary model"
       },
       "success": {
         "connected": "Email connected successfully!",

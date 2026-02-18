@@ -855,7 +855,7 @@ const Sidebar = ({
           <div className="flex-1" />
 
           {/* Bottom Action Buttons */}
-          <div className="flex flex-col items-center gap-2 pb-2">
+          <div className="flex flex-col items-center gap-2 py-2">
             <button
               onClick={onToggleTheme}
               className="bg-user-bubble flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl text-gray-600 transition-all duration-300 hover:scale-105 hover:bg-gray-100 active:scale-95 dark:bg-zinc-800 dark:text-gray-300 dark:hover:bg-zinc-700"

@@ -63,6 +63,8 @@ TABLES_WITH_ID = {
     "memory_summaries",
     "user_tools",
     "pending_form_runs",
+    "email_provider_configs",
+    "email_notifications",
 }
 
 TABLES_WITH_UPDATED_AT = {
@@ -78,6 +80,7 @@ TABLES_WITH_UPDATED_AT = {
     "memory_domains",
     "memory_summaries",
     "user_tools",
+    "email_provider_configs",
 }
 
 TABLES_WITH_CREATED_AT = {
@@ -98,6 +101,8 @@ TABLES_WITH_CREATED_AT = {
     "memory_summaries",
     "user_tools",
     "pending_form_runs",
+    "email_provider_configs",
+    "email_notifications",
 }
 
 

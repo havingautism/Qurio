@@ -14,6 +14,7 @@ How to get an App Password:
 from __future__ import annotations
 
 import email
+import hashlib
 import imaplib
 import logging
 import socket
@@ -135,7 +136,7 @@ class GmailProvider(BaseEmailProvider):
         mail.logout()
         return True
 
-    def fetch_new_emails(self, max_results: int = 20) -> list[EmailMessage]:
+    def fetch_new_emails(self, max_results: int = 5) -> list[tuple[str, EmailMessage]]:
         """
         Fetch recent unread emails from Gmail INBOX via IMAP.
 
@@ -143,7 +144,8 @@ class GmailProvider(BaseEmailProvider):
             max_results: Maximum number of emails to return.
 
         Returns:
-            List of EmailMessage objects, newest first.
+            List of (imap_id, EmailMessage) tuples, newest first.
+            imap_id is the IMAP message ID needed for mark_as_read.
         """
         try:
             mail = self._connect()
@@ -161,18 +163,19 @@ class GmailProvider(BaseEmailProvider):
                 msg_ids = msg_ids[-max_results:]  # Take the last N (newest)
                 msg_ids = list(reversed(msg_ids))  # Reverse to newest-first order
 
-                results: list[EmailMessage] = []
+                results: list[tuple[str, EmailMessage]] = []
                 for msg_id in msg_ids:
                     try:
-                        status, msg_data = mail.fetch(msg_id, "(RFC822)")
+                        # Use BODY.PEEK[] to fetch without marking as read (not setting \Seen flag)
+                        status, msg_data = mail.fetch(msg_id, "(BODY.PEEK[])")
                         if status != "OK" or not msg_data or not msg_data[0]:
                             continue
 
                         raw_email = msg_data[0][1]
                         parsed = email.message_from_bytes(raw_email)
-                        email_msg = self._parse_message(parsed)
+                        email_msg = self._parse_message(parsed, raw_email)
                         if email_msg:
-                            results.append(email_msg)
+                            results.append((msg_id.decode() if isinstance(msg_id, bytes) else msg_id, email_msg))
                     except Exception as e:
                         logger.warning("[Gmail IMAP] Failed to fetch message %s: %s", msg_id, e)
 
@@ -189,7 +192,38 @@ class GmailProvider(BaseEmailProvider):
             logger.error("[Gmail IMAP] fetch_new_emails failed: %s", e)
             return []
 
-    def _parse_message(self, msg: email.message.Message) -> EmailMessage | None:
+    def mark_as_read(self, imap_id: str) -> bool:
+        """
+        Mark a single email as read (SEEN) on the IMAP server.
+
+        Args:
+            imap_id: The IMAP message ID returned by fetch_new_emails.
+
+        Returns:
+            True if successful, False otherwise.
+        """
+        try:
+            mail = self._connect()
+            try:
+                mail.select("INBOX")
+                # Add the \Seen flag to the message
+                status = mail.store(imap_id, "+FLAGS", "\\Seen")
+                if status[0] == "OK":
+                    logger.info("[Gmail IMAP] Marked message %s as read.", imap_id)
+                    return True
+                else:
+                    logger.warning("[Gmail IMAP] Failed to mark message %s as read: %s", imap_id, status)
+                    return False
+            finally:
+                try:
+                    mail.logout()
+                except Exception:
+                    pass
+        except Exception as e:
+            logger.error("[Gmail IMAP] mark_as_read failed for %s: %s", imap_id, e)
+            return False
+
+    def _parse_message(self, msg: email.message.Message, raw_email: bytes | None = None) -> EmailMessage | None:
         """Parse a Python email.message.Message into an EmailMessage."""
         try:
             subject = _decode_mime_header(msg.get("Subject", "(No Subject)"))
@@ -208,8 +242,16 @@ class GmailProvider(BaseEmailProvider):
 
             body_text = _extract_body_text(msg)
 
+            # Generate stable fallback message_id using hash of raw email content
+            if not message_id and raw_email:
+                message_id = hashlib.sha256(raw_email).hexdigest()[:32]
+            elif not message_id:
+                # Last resort: use timestamp + sender + subject hash
+                fallback_data = f"{date_str}:{sender}:{subject}"
+                message_id = hashlib.sha256(fallback_data.encode()).hexdigest()[:32]
+
             return EmailMessage(
-                message_id=message_id or f"{sender}:{subject}:{date_str}",
+                message_id=message_id,
                 subject=subject,
                 sender=sender,
                 received_at=received_at,

@@ -28,7 +28,7 @@ from agno.utils.log import logger as agno_logger
 from ..config import get_settings
 from ..services.agent_registry import _build_model
 from ..services.db_service import execute_db_async, get_db_adapter
-from ..models.db import DbFilter, DbQueryRequest
+from ..models.db import DbFilter, DbOrder, DbQueryRequest
 from .email_providers.base import EmailMessage
 from .email_providers.gmail import GmailProvider
 
@@ -37,8 +37,56 @@ logger = logging.getLogger(__name__)
 # Maximum characters of email body sent to the summarization model
 _MAX_BODY_CHARS = 2000
 
+# Maximum notifications to keep per email account (sliding window)
+_MAX_NOTIFICATIONS_PER_ACCOUNT = 5
+
 # Global scheduler instance (APScheduler)
 _scheduler = None
+
+# SSE broadcast: list of queues for connected clients
+_sse_subscribers: list[asyncio.Queue] = []
+
+
+def subscribe_notifications() -> asyncio.Queue:
+    """Subscribe to notification updates. Returns a queue that will receive events."""
+    q = asyncio.Queue()
+    _sse_subscribers.append(q)
+    return q
+
+
+def unsubscribe_notifications(q: asyncio.Queue) -> None:
+    """Unsubscribe from notification updates."""
+    if q in _sse_subscribers:
+        _sse_subscribers.remove(q)
+
+
+async def _broadcast_notification(event: dict) -> None:
+    """Broadcast a notification event to all connected SSE clients."""
+    for q in _sse_subscribers:
+        try:
+            q.put_nowait(event)
+        except Exception:
+            pass  # Queue full or closed, ignore
+
+
+async def _get_unread_count(database_provider: str | None) -> int:
+    """Get total unread notification count."""
+    try:
+        adapter = get_db_adapter(database_provider)
+        if not adapter:
+            return 0
+        req = DbQueryRequest(
+            providerId=adapter.config.id,
+            action="select",
+            table="email_notifications",
+            columns=["id"],
+            filters=[DbFilter(op="eq", column="is_read", value=False)],
+        )
+        result = await execute_db_async(adapter, req)
+        notifications = result.data if isinstance(result.data, list) else []
+        return len(notifications)
+    except Exception:
+        return 0
 
 
 # ---------------------------------------------------------------------------
@@ -49,17 +97,19 @@ async def _summarize_email(
     email: EmailMessage,
     summary_provider: str,
     summary_model: str,
-    summary_api_key: str,
-    summary_base_url: str | None,
+    database_provider: str | None = None,
 ) -> str:
     """
     Use Agno Agent to generate a concise summary of an email.
 
     Returns a plain-text summary string (2-4 sentences).
     Falls back to a simple excerpt if the model call fails.
+    API key is resolved from global settings (DB user_settings -> Env).
     """
     try:
-        model = _build_model(summary_provider, summary_api_key, summary_base_url, summary_model)
+        # Resolve API key from global settings
+        summary_api_key = await _resolve_provider_api_key(summary_provider, database_provider)
+        model = _build_model(summary_provider, summary_api_key, None, summary_model)
         agent = Agent(
             model=model,
             description="You are an email summarizer. Output concise plain text only.",
@@ -146,6 +196,55 @@ async def _save_notification(
             logger.info("[EmailMonitor] Saved notification for '%s'", email.subject)
     except Exception as e:
         logger.error("[EmailMonitor] _save_notification error: %s", e)
+
+
+async def _cleanup_old_notifications(config_id: str, database_provider: str | None) -> None:
+    """
+    Delete old notifications for a config, keeping only the newest N records.
+    Implements the sliding window behavior.
+    """
+    try:
+        adapter = get_db_adapter(database_provider)
+        if not adapter:
+            return
+
+        # Fetch all notification IDs for this config, ordered by received_at desc
+        req = DbQueryRequest(
+            providerId=adapter.config.id,
+            action="select",
+            table="email_notifications",
+            columns=["id"],
+            filters=[DbFilter(op="eq", column="config_id", value=config_id)],
+            order=[DbOrder(column="received_at", ascending=False)],
+            limit=100,  # Get enough to determine which to delete
+        )
+        result = await execute_db_async(adapter, req)
+        notifications = result.data if isinstance(result.data, list) else []
+
+        if len(notifications) <= _MAX_NOTIFICATIONS_PER_ACCOUNT:
+            return  # No cleanup needed
+
+        # Get IDs to delete (all except the newest N)
+        ids_to_keep = {n["id"] for n in notifications[:_MAX_NOTIFICATIONS_PER_ACCOUNT]}
+        ids_to_delete = [n["id"] for n in notifications if n["id"] not in ids_to_keep]
+
+        if not ids_to_delete:
+            return
+
+        # Delete old notifications
+        for old_id in ids_to_delete:
+            delete_req = DbQueryRequest(
+                providerId=adapter.config.id,
+                action="delete",
+                table="email_notifications",
+                filters=[DbFilter(op="eq", column="id", value=old_id)],
+            )
+            await execute_db_async(adapter, delete_req)
+
+        logger.info("[EmailMonitor] Cleaned up %d old notifications for config %s", len(ids_to_delete), config_id)
+
+    except Exception as e:
+        logger.warning("[EmailMonitor] Failed to cleanup old notifications: %s", e)
 
 
 
@@ -244,14 +343,11 @@ async def _poll_single_config(config: dict, database_provider: str | None) -> No
     email_provider._imap_host = imap_host
     email_provider._imap_port = imap_port
 
-    # Summarization model config (api_key is optional — falls back to global key)
-    # Priority: Email specific config -> Global settings (DB user_settings -> Env)
+    # Summarization model config — uses global API keys from settings
     settings = get_settings()
-    
+
     summary_provider = config.get("summary_provider")
     summary_model    = config.get("summary_model")
-    summary_api_key  = config.get("summary_api_key")
-    summary_base_url = config.get("summary_base_url")
 
     # Fallback missing model/provider to global lite model settings
     if not summary_provider:
@@ -262,34 +358,30 @@ async def _poll_single_config(config: dict, database_provider: str | None) -> No
         summary_model = await _resolve_db_setting(
             "summaryLiteModel", database_provider, settings.summary_lite_model
         )
-    
-    # If no base_url, we don't necessarily override from DB unless we want full 1:1 sync.
-    # For now, let's just use the env default in _build_model if None.
-    
-    # Resolve API Key if missing
-    if not summary_api_key:
-        summary_api_key = await _resolve_provider_api_key(summary_provider, database_provider)
 
     # Fetch emails in thread pool (IMAP is blocking I/O)
     loop = asyncio.get_event_loop()
-    emails: list[EmailMessage] = await loop.run_in_executor(
-        None, lambda: email_provider.fetch_new_emails(max_results=20)
+    email_tuples: list[tuple[str, EmailMessage]] = await loop.run_in_executor(
+        None, lambda: email_provider.fetch_new_emails(max_results=5)
     )
 
     new_count = 0
-    for msg in emails:
+    for imap_id, msg in email_tuples:
         # Skip already-processed messages (dedup by message_id)
         if await _is_already_processed(msg.message_id, database_provider):
             continue
 
         # Generate AI summary
         summary = await _summarize_email(
-            msg, summary_provider, summary_model, summary_api_key, summary_base_url
+            msg, summary_provider, summary_model, database_provider
         )
 
         # Persist notification
         await _save_notification(config_id, provider, msg, summary, database_provider)
         new_count += 1
+
+    # Sliding window: cleanup old notifications, keep only the newest N
+    await _cleanup_old_notifications(config_id, database_provider)
 
     logger.info("[EmailMonitor] %s: %d new notifications saved.", email_addr, new_count)
 
@@ -328,6 +420,17 @@ async def poll_all_accounts(database_provider: str | None = None) -> dict:
         await asyncio.gather(*tasks, return_exceptions=True)
 
         logger.info("[EmailMonitor] Poll cycle complete. Accounts: %d", len(configs))
+
+        # Broadcast update to SSE subscribers
+        try:
+            unread_count = await _get_unread_count(database_provider)
+            await _broadcast_notification({
+                "type": "notifications_updated",
+                "unread_count": unread_count,
+            })
+        except Exception as e:
+            logger.warning("[EmailMonitor] Failed to broadcast notification: %s", e)
+
         return {"polled": len(configs)}
 
     except Exception as e:

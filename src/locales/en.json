@@ -258,8 +258,122 @@
       "complete": "Complete"
     }
   },
+  "notificationCenter": {
+    "title": "Email Notifications",
+    "newCount": "{{count}} new",
+    "all": "All",
+    "markAllRead": "Mark all as read",
+    "refresh": "Refresh",
+    "close": "Close",
+    "empty": {
+      "title": "No email notifications yet",
+      "hint": "Connect Email in Settings to get started"
+    },
+    "emptyForAccount": {
+      "title": "No notifications for this account",
+      "hint": "Try selecting a different account"
+    },
+    "noSubject": "(No subject)",
+    "unknownSender": "Unknown sender",
+    "markAsRead": "Mark as read",
+    "delete": "Delete",
+    "timeAgo": {
+      "justNow": "just now",
+      "minutesAgo": "{{count}}m ago",
+      "hoursAgo": "{{count}}h ago",
+      "daysAgo": "{{count}}d ago"
+    },
+    "deleteFailed": "Delete failed: {{message}}",
+    "emailDetail": "Email Detail",
+    "from": "From",
+    "time": "Time",
+    "account": "Account",
+    "summary": "Summary",
+    "viewDetail": "View",
+    "openInMail": "Open in Mail"
+  },
   "settings": {
     "title": "Settings",
+    "email": {
+      "title": "Email Notifications",
+      "description": "Connect email accounts and Qurio will periodically fetch new emails and push AI-generated summaries as notifications. Supports multiple accounts.",
+      "connectedAccounts": "Connected Accounts",
+      "connectedCount": "{{count}} account(s)",
+      "noAccounts": "No email accounts connected yet.",
+      "noAccountsHint": "Click \"Add Email\" above to get started.",
+      "addEmail": "Add Email",
+      "disconnect": "Disconnect",
+      "disconnectConfirm": "Disconnect {{email}}? Associated notifications will also be deleted.",
+      "disconnected": "Email disconnected",
+      "settings": "Settings",
+      "pollInterval": "Check every {{minutes}} minutes",
+      "pollIntervalLabel": "Check frequency",
+      "pollIntervalHint": "How often Qurio checks for new emails",
+      "summaryModel": "AI Summary Model",
+      "summaryModelHint": "Model for generating email summaries, uses global API keys.",
+      "provider": "Provider",
+      "model": "Model",
+      "loadingModels": "Loading...",
+      "noModels": "No models available",
+      "saving": "Saving...",
+      "saved": "Settings saved!",
+      "syncing": "Syncing...",
+      "syncNow": "Sync Now",
+      "syncComplete": "Sync complete! Polled {{count}} account(s).",
+      "connectForm": {
+        "title": "Add Email",
+        "providerLabel": "Email type",
+        "emailLabel": "Email address",
+        "emailPlaceholder": "e.g., yourname@gmail.com",
+        "passwordLabel": "App Password",
+        "passwordHint": "(not your login password)",
+        "passwordPlaceholder": "xxxx xxxx xxxx xxxx",
+        "connectButton": "Connect Email",
+        "connecting": "Connecting..."
+      },
+      "providers": {
+        "gmail": {
+          "label": "Gmail",
+          "hint": "myaccount.google.com/apppasswords",
+          "hintText": "Enable 2-step verification, then generate an \"App Password\""
+        },
+        "outlook": {
+          "label": "Outlook / Hotmail",
+          "hint": "account.microsoft.com/security",
+          "hintText": "Generate an app password in Microsoft account security settings"
+        },
+        "qq": {
+          "label": "QQ Mail",
+          "hint": "mail.qq.com → Settings → Account → IMAP/SMTP",
+          "hintText": "Enable IMAP in QQ Mail settings and generate an authorization code"
+        },
+        "163": {
+          "label": "163 Mail",
+          "hint": "mail.163.com → Settings → POP3/SMTP/IMAP",
+          "hintText": "Enable IMAP in 163 Mail settings and generate an authorization code"
+        }
+      },
+      "pollIntervals": {
+        "5min": "5 minutes",
+        "15min": "15 minutes",
+        "30min": "30 minutes",
+        "1hour": "1 hour",
+        "2hours": "2 hours"
+      },
+      "errors": {
+        "connectFailed": "Connection failed: {{message}}",
+        "emailRequired": "Please enter email address and app password",
+        "emailExists": "Email {{email}} already exists",
+        "saveFailed": "Failed to save: {{message}}",
+        "deleteFailed": "Failed to delete: {{message}}",
+        "syncFailed": "Sync failed: {{message}}",
+        "noApiKey": "API key not configured for this provider. Please configure it in global settings first."
+      },
+      "success": {
+        "connected": "Email connected successfully!",
+        "saved": "Settings saved!"
+      }
+    },
     "menu": {
       "general": "General",
       "model": "Model",

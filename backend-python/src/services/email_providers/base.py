@@ -25,11 +25,11 @@ class EmailMessage:
 class BaseEmailProvider(ABC):
     """
     Abstract base class for email providers.
-    Each provider must implement fetch_new_emails().
+    Each provider must implement fetch_new_emails() and mark_as_read().
     """
 
     @abstractmethod
-    def fetch_new_emails(self, max_results: int = 20) -> list[EmailMessage]:
+    def fetch_new_emails(self, max_results: int = 5) -> list[tuple[str, EmailMessage]]:
         """
         Fetch recent unread emails from the provider.
 
@@ -37,7 +37,21 @@ class BaseEmailProvider(ABC):
             max_results: Maximum number of emails to return per poll cycle.
 
         Returns:
-            List of EmailMessage objects, ordered newest first.
+            List of (imap_id, EmailMessage) tuples, ordered newest first.
+            imap_id is the provider-specific ID needed for mark_as_read().
+        """
+        ...
+
+    @abstractmethod
+    def mark_as_read(self, imap_id: str) -> bool:
+        """
+        Mark an email as read on the provider's server.
+
+        Args:
+            imap_id: The provider-specific message ID returned by fetch_new_emails.
+
+        Returns:
+            True if successful, False otherwise.
         """
         ...
 

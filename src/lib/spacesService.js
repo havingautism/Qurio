@@ -117,8 +117,6 @@ export const listSpaceAgents = async spaceId => {
 
     if (error) {
       console.error('[Debug] listSpaceAgents Supabase error:', error)
-    } else {
-      console.log('[Debug] listSpaceAgents success, count:', data?.length)
     }
 
     if (!error) {

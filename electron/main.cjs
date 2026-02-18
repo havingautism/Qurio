@@ -24,6 +24,19 @@ ipcMain.handle('qurio:select-directory', async () => {
   return result.filePaths[0]
 })
 
+ipcMain.handle('qurio:select-sqlite-file', async () => {
+  const focusedWindow = BrowserWindow.getFocusedWindow() || null
+  const result = await dialog.showOpenDialog(focusedWindow, {
+    properties: ['openFile'],
+    filters: [
+      { name: 'SQLite Database', extensions: ['db', 'sqlite', 'sqlite3'] },
+      { name: 'All Files', extensions: ['*'] },
+    ],
+  })
+  if (result.canceled || !result.filePaths?.length) return ''
+  return result.filePaths[0]
+})
+
 function resolveBackendCommand() {
   if (!isDev) {
     const backendExe = path.join(process.resourcesPath, 'backend', 'QurioBackend.exe')

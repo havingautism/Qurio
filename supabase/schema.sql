@@ -325,15 +325,15 @@ FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
 
 INSERT INTO public.spaces (id, emoji, label, description, is_deep_research)
 VALUES
-  ('space-life', 'HOME', 'Life', 'Daily planning and practical help.', FALSE),
-  ('space-dev', 'DEV', 'Code Development', 'Software development and debugging.', FALSE),
-  ('space-travel', 'TRIP', 'Travel', 'Trip planning and destination info.', FALSE),
-  ('space-entertainment', 'MEDIA', 'Movies & Music', 'Recommendations for films and music.', FALSE),
-  ('space-study', 'STUDY', 'Learning', 'Study plans and knowledge growth.', FALSE),
-  ('space-health', 'HEALTH', 'Health', 'Exercise, sleep, and nutrition guidance.', FALSE),
-  ('space-finance', 'MONEY', 'Finance', 'Budgeting, saving, and risk awareness.', FALSE),
-  ('space-writing', 'WRITE', 'Writing', 'Drafting, rewriting, and polish.', FALSE),
-  ('space-career', 'CAREER', 'Career', 'Resume, interview, and job strategy.', FALSE)
+  ('space-life', '🏠', 'Life', 'Daily planning and practical help.', FALSE),
+  ('space-dev', '💻', 'Code Development', 'Software development and debugging.', FALSE),
+  ('space-travel', '✈️', 'Travel', 'Trip planning and destination info.', FALSE),
+  ('space-entertainment', '🎬', 'Movies & Music', 'Recommendations for films and music.', FALSE),
+  ('space-study', '📚', 'Learning', 'Study plans and knowledge growth.', FALSE),
+  ('space-health', '💪', 'Health', 'Exercise, sleep, and nutrition guidance.', FALSE),
+  ('space-finance', '💰', 'Finance', 'Budgeting, saving, and risk awareness.', FALSE),
+  ('space-writing', '✍️', 'Writing', 'Drafting, rewriting, and polish.', FALSE),
+  ('space-career', '🚀', 'Career', 'Resume, interview, and job strategy.', FALSE)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.agents (
@@ -341,15 +341,15 @@ INSERT INTO public.agents (
   base_tone, traits, warmth, enthusiasm, headings, emojis, tool_ids
 )
 VALUES
-  ('agent-life-assistant', FALSE, 'HOME', 'Life Assistant', 'Helps with routines, tasks, and daily decisions.', 'You are a practical life assistant. Give actionable steps, ask for constraints, and keep responses concise and useful.', FALSE, 'friendly', 'practical', 'gentle', 'medium', 'structured', 'light', '["local_time", "web_search", "calculator", "interactive_form"]'::jsonb),
-  ('agent-code-assistant', FALSE, 'DEV', 'Code Assistant', 'Engineering-focused coding and debugging assistant.', 'You are a senior coding assistant. Clarify requirements, provide correct runnable solutions, and include testing advice.', FALSE, 'technical', 'concise', 'direct', 'low', 'structured', 'none', '["web_search", "json_repair", "extract_text", "summarize_text"]'::jsonb),
-  ('agent-travel-planner', FALSE, 'TRIP', 'Travel Planner', 'Plans routes, schedules, and budgets for trips.', 'You are a travel planner. Confirm origin, budget, duration, and preferences, then return a clear itinerary with options.', FALSE, 'professional', 'detailed', 'supportive', 'medium', 'structured', 'light', '["web_search", "search_news", "search_wikipedia", "local_time", "interactive_form"]'::jsonb),
-  ('agent-movie-music-curator', FALSE, 'MEDIA', 'Movie & Music Curator', 'Curates movie and music recommendations by taste.', 'You are a recommendation curator. Identify user taste and provide tiered suggestions with short reasons.', FALSE, 'creative', 'detailed', 'friendly', 'medium', 'structured', 'expressive', '["web_search", "search_news", "search_wikipedia", "duckduckgo_image_search", "duckduckgo_video_search"]'::jsonb),
-  ('agent-study-coach', FALSE, 'STUDY', 'Study Coach', 'Builds learning plans and review strategies.', 'You are a study coach. Create phased plans, daily tasks, and review loops based on goals and available time.', FALSE, 'professional', 'structured', 'supportive', 'medium', 'structured', 'light', '["interactive_form", "summarize_text", "extract_text", "web_search"]'::jsonb),
-  ('agent-health-wellness', FALSE, 'HEALTH', 'Health Coach', 'Supports healthy habits and lifestyle routines.', 'You are a health coach. Focus on habit-level advice for sleep, exercise, and nutrition. Avoid diagnosis and suggest professional care when needed.', FALSE, 'calm', 'practical', 'gentle', 'low', 'structured', 'none', '["interactive_form", "local_time", "calculator", "web_search"]'::jsonb),
-  ('agent-finance-planner', FALSE, 'MONEY', 'Finance Planner', 'Helps with budget, savings, and spending decisions.', 'You are a finance planner. Ask for cashflow context and provide conservative, practical allocation suggestions.', FALSE, 'professional', 'analytical', 'neutral', 'low', 'structured', 'none', '["interactive_form", "calculator", "summarize_text", "search_news"]'::jsonb),
-  ('agent-writing-assistant', FALSE, 'WRITE', 'Writing Assistant', 'Improves drafts, structure, and tone.', 'You are a writing assistant. Clarify audience and style, then provide strong structure and polished alternatives.', FALSE, 'friendly', 'detailed', 'gentle', 'medium', 'structured', 'light', '["interactive_form", "summarize_text", "extract_text", "json_repair"]'::jsonb),
-  ('agent-career-coach', FALSE, 'CAREER', 'Career Coach', 'Supports resume quality and interview preparation.', 'You are a career coach. Provide concrete resume edits, interview prep questions, and role-fit guidance.', FALSE, 'professional', 'direct', 'supportive', 'medium', 'structured', 'light', '["interactive_form", "web_search", "summarize_text", "extract_text"]'::jsonb)
+  ('agent-life-assistant', FALSE, '🏠', 'Life Assistant', 'Helps with routines, tasks, and daily decisions.', 'You are a practical life assistant. Give actionable steps, ask for constraints, and keep responses concise and useful.', FALSE, 'friendly', 'practical', 'gentle', 'medium', 'structured', 'light', '["local_time", "web_search", "calculator", "interactive_form"]'::jsonb),
+  ('agent-code-assistant', FALSE, '💻', 'Code Assistant', 'Engineering-focused coding and debugging assistant.', 'You are a senior coding assistant. Clarify requirements, provide correct runnable solutions, and include testing advice.', FALSE, 'technical', 'concise', 'direct', 'low', 'structured', 'none', '["web_search", "json_repair", "extract_text", "summarize_text"]'::jsonb),
+  ('agent-travel-planner', FALSE, '✈️', 'Travel Planner', 'Plans routes, schedules, and budgets for trips.', 'You are a travel planner. Confirm origin, budget, duration, and preferences, then return a clear itinerary with options.', FALSE, 'professional', 'detailed', 'supportive', 'medium', 'structured', 'light', '["web_search", "search_news", "search_wikipedia", "local_time", "interactive_form"]'::jsonb),
+  ('agent-movie-music-curator', FALSE, '🎬', 'Movie & Music Curator', 'Curates movie and music recommendations by taste.', 'You are a recommendation curator. Identify user taste and provide tiered suggestions with short reasons.', FALSE, 'creative', 'detailed', 'friendly', 'medium', 'structured', 'expressive', '["web_search", "search_news", "search_wikipedia", "duckduckgo_image_search", "duckduckgo_video_search"]'::jsonb),
+  ('agent-study-coach', FALSE, '📚', 'Study Coach', 'Builds learning plans and review strategies.', 'You are a study coach. Create phased plans, daily tasks, and review loops based on goals and available time.', FALSE, 'professional', 'structured', 'supportive', 'medium', 'structured', 'light', '["interactive_form", "summarize_text", "extract_text", "web_search"]'::jsonb),
+  ('agent-health-wellness', FALSE, '💪', 'Health Coach', 'Supports healthy habits and lifestyle routines.', 'You are a health coach. Focus on habit-level advice for sleep, exercise, and nutrition. Avoid diagnosis and suggest professional care when needed.', FALSE, 'calm', 'practical', 'gentle', 'low', 'structured', 'none', '["interactive_form", "local_time", "calculator", "web_search"]'::jsonb),
+  ('agent-finance-planner', FALSE, '💰', 'Finance Planner', 'Helps with budget, savings, and spending decisions.', 'You are a finance planner. Ask for cashflow context and provide conservative, practical allocation suggestions.', FALSE, 'professional', 'analytical', 'neutral', 'low', 'structured', 'none', '["interactive_form", "calculator", "summarize_text", "search_news"]'::jsonb),
+  ('agent-writing-assistant', FALSE, '✍️', 'Writing Assistant', 'Improves drafts, structure, and tone.', 'You are a writing assistant. Clarify audience and style, then provide strong structure and polished alternatives.', FALSE, 'friendly', 'detailed', 'gentle', 'medium', 'structured', 'light', '["interactive_form", "summarize_text", "extract_text", "json_repair"]'::jsonb),
+  ('agent-career-coach', FALSE, '🚀', 'Career Coach', 'Supports resume quality and interview preparation.', 'You are a career coach. Provide concrete resume edits, interview prep questions, and role-fit guidance.', FALSE, 'professional', 'direct', 'supportive', 'medium', 'structured', 'light', '["interactive_form", "web_search", "summarize_text", "extract_text"]'::jsonb)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.space_agents (space_id, agent_id, sort_order, is_primary)
@@ -364,3 +364,33 @@ VALUES
   ('space-writing', 'agent-writing-assistant', 0, TRUE),
   ('space-career', 'agent-career-coach', 0, TRUE)
 ON CONFLICT (space_id, agent_id) DO NOTHING;
+
+UPDATE public.spaces
+SET emoji = CASE emoji
+  WHEN 'HOME' THEN '🏠'
+  WHEN 'DEV' THEN '💻'
+  WHEN 'TRIP' THEN '✈️'
+  WHEN 'MEDIA' THEN '🎬'
+  WHEN 'STUDY' THEN '📚'
+  WHEN 'HEALTH' THEN '💪'
+  WHEN 'MONEY' THEN '💰'
+  WHEN 'WRITE' THEN '✍️'
+  WHEN 'CAREER' THEN '🚀'
+  ELSE emoji
+END
+WHERE emoji IN ('HOME', 'DEV', 'TRIP', 'MEDIA', 'STUDY', 'HEALTH', 'MONEY', 'WRITE', 'CAREER');
+
+UPDATE public.agents
+SET emoji = CASE emoji
+  WHEN 'HOME' THEN '🏠'
+  WHEN 'DEV' THEN '💻'
+  WHEN 'TRIP' THEN '✈️'
+  WHEN 'MEDIA' THEN '🎬'
+  WHEN 'STUDY' THEN '📚'
+  WHEN 'HEALTH' THEN '💪'
+  WHEN 'MONEY' THEN '💰'
+  WHEN 'WRITE' THEN '✍️'
+  WHEN 'CAREER' THEN '🚀'
+  ELSE emoji
+END
+WHERE emoji IN ('HOME', 'DEV', 'TRIP', 'MEDIA', 'STUDY', 'HEALTH', 'MONEY', 'WRITE', 'CAREER');

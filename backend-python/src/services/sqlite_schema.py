@@ -282,15 +282,15 @@ SCHEMA_STATEMENTS: list[str] = [
     INSERT OR IGNORE INTO spaces (
       id, emoji, label, description, is_deep_research, created_at, updated_at
     ) VALUES
-      ('space-life', 'HOME', 'Life', 'Daily planning and practical help.', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-      ('space-dev', 'DEV', 'Code Development', 'Software development and debugging.', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-      ('space-travel', 'TRIP', 'Travel', 'Trip planning and destination info.', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-      ('space-entertainment', 'MEDIA', 'Movies & Music', 'Recommendations for films and music.', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-      ('space-study', 'STUDY', 'Learning', 'Study plans and knowledge growth.', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-      ('space-health', 'HEALTH', 'Health', 'Exercise, sleep, and nutrition guidance.', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-      ('space-finance', 'MONEY', 'Finance', 'Budgeting, saving, and risk awareness.', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-      ('space-writing', 'WRITE', 'Writing', 'Drafting, rewriting, and polish.', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-      ('space-career', 'CAREER', 'Career', 'Resume, interview, and job strategy.', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+      ('space-life', '🏠', 'Life', 'Daily planning and practical help.', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+      ('space-dev', '💻', 'Code Development', 'Software development and debugging.', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+      ('space-travel', '✈️', 'Travel', 'Trip planning and destination info.', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+      ('space-entertainment', '🎬', 'Movies & Music', 'Recommendations for films and music.', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+      ('space-study', '📚', 'Learning', 'Study plans and knowledge growth.', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+      ('space-health', '💪', 'Health', 'Exercise, sleep, and nutrition guidance.', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+      ('space-finance', '💰', 'Finance', 'Budgeting, saving, and risk awareness.', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+      ('space-writing', '✍️', 'Writing', 'Drafting, rewriting, and polish.', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+      ('space-career', '🚀', 'Career', 'Resume, interview, and job strategy.', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
     """,
     """
     INSERT OR IGNORE INTO agents (
@@ -299,7 +299,7 @@ SCHEMA_STATEMENTS: list[str] = [
       created_at, updated_at
     ) VALUES
       (
-        'agent-life-assistant', 0, 'HOME', 'Life Assistant',
+        'agent-life-assistant', 0, '🏠', 'Life Assistant',
         'Helps with routines, tasks, and daily decisions.',
         'You are a practical life assistant. Give actionable steps, ask for constraints, and keep responses concise and useful.',
         0, 'friendly', 'practical', 'gentle', 'medium', 'structured', 'light',
@@ -307,7 +307,7 @@ SCHEMA_STATEMENTS: list[str] = [
         CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
       ),
       (
-        'agent-code-assistant', 0, 'DEV', 'Code Assistant',
+        'agent-code-assistant', 0, '💻', 'Code Assistant',
         'Engineering-focused coding and debugging assistant.',
         'You are a senior coding assistant. Clarify requirements, provide correct runnable solutions, and include testing advice.',
         0, 'technical', 'concise', 'direct', 'low', 'structured', 'none',
@@ -315,7 +315,7 @@ SCHEMA_STATEMENTS: list[str] = [
         CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
       ),
       (
-        'agent-travel-planner', 0, 'TRIP', 'Travel Planner',
+        'agent-travel-planner', 0, '✈️', 'Travel Planner',
         'Plans routes, schedules, and budgets for trips.',
         'You are a travel planner. Confirm origin, budget, duration, and preferences, then return a clear itinerary with options.',
         0, 'professional', 'detailed', 'supportive', 'medium', 'structured', 'light',
@@ -323,7 +323,7 @@ SCHEMA_STATEMENTS: list[str] = [
         CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
       ),
       (
-        'agent-movie-music-curator', 0, 'MEDIA', 'Movie & Music Curator',
+        'agent-movie-music-curator', 0, '🎬', 'Movie & Music Curator',
         'Curates movie and music recommendations by taste.',
         'You are a recommendation curator. Identify user taste and provide tiered suggestions with short reasons.',
         0, 'creative', 'detailed', 'friendly', 'medium', 'structured', 'expressive',
@@ -331,7 +331,7 @@ SCHEMA_STATEMENTS: list[str] = [
         CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
       ),
       (
-        'agent-study-coach', 0, 'STUDY', 'Study Coach',
+        'agent-study-coach', 0, '📚', 'Study Coach',
         'Builds learning plans and review strategies.',
         'You are a study coach. Create phased plans, daily tasks, and review loops based on goals and available time.',
         0, 'professional', 'structured', 'supportive', 'medium', 'structured', 'light',
@@ -339,7 +339,7 @@ SCHEMA_STATEMENTS: list[str] = [
         CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
       ),
       (
-        'agent-health-wellness', 0, 'HEALTH', 'Health Coach',
+        'agent-health-wellness', 0, '💪', 'Health Coach',
         'Supports healthy habits and lifestyle routines.',
         'You are a health coach. Focus on habit-level advice for sleep, exercise, and nutrition. Avoid diagnosis and suggest professional care when needed.',
         0, 'calm', 'practical', 'gentle', 'low', 'structured', 'none',
@@ -347,7 +347,7 @@ SCHEMA_STATEMENTS: list[str] = [
         CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
       ),
       (
-        'agent-finance-planner', 0, 'MONEY', 'Finance Planner',
+        'agent-finance-planner', 0, '💰', 'Finance Planner',
         'Helps with budget, savings, and spending decisions.',
         'You are a finance planner. Ask for cashflow context and provide conservative, practical allocation suggestions.',
         0, 'professional', 'analytical', 'neutral', 'low', 'structured', 'none',
@@ -355,7 +355,7 @@ SCHEMA_STATEMENTS: list[str] = [
         CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
       ),
       (
-        'agent-writing-assistant', 0, 'WRITE', 'Writing Assistant',
+        'agent-writing-assistant', 0, '✍️', 'Writing Assistant',
         'Improves drafts, structure, and tone.',
         'You are a writing assistant. Clarify audience and style, then provide strong structure and polished alternatives.',
         0, 'friendly', 'detailed', 'gentle', 'medium', 'structured', 'light',
@@ -363,7 +363,7 @@ SCHEMA_STATEMENTS: list[str] = [
         CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
       ),
       (
-        'agent-career-coach', 0, 'CAREER', 'Career Coach',
+        'agent-career-coach', 0, '🚀', 'Career Coach',
         'Supports resume quality and interview preparation.',
         'You are a career coach. Provide concrete resume edits, interview prep questions, and role-fit guidance.',
         0, 'professional', 'direct', 'supportive', 'medium', 'structured', 'light',
@@ -384,5 +384,37 @@ SCHEMA_STATEMENTS: list[str] = [
       ('space-finance', 'agent-finance-planner', 0, 1, CURRENT_TIMESTAMP),
       ('space-writing', 'agent-writing-assistant', 0, 1, CURRENT_TIMESTAMP),
       ('space-career', 'agent-career-coach', 0, 1, CURRENT_TIMESTAMP);
+    """,
+    """
+    UPDATE spaces
+    SET emoji = CASE emoji
+      WHEN 'HOME' THEN '🏠'
+      WHEN 'DEV' THEN '💻'
+      WHEN 'TRIP' THEN '✈️'
+      WHEN 'MEDIA' THEN '🎬'
+      WHEN 'STUDY' THEN '📚'
+      WHEN 'HEALTH' THEN '💪'
+      WHEN 'MONEY' THEN '💰'
+      WHEN 'WRITE' THEN '✍️'
+      WHEN 'CAREER' THEN '🚀'
+      ELSE emoji
+    END
+    WHERE emoji IN ('HOME', 'DEV', 'TRIP', 'MEDIA', 'STUDY', 'HEALTH', 'MONEY', 'WRITE', 'CAREER');
+    """,
+    """
+    UPDATE agents
+    SET emoji = CASE emoji
+      WHEN 'HOME' THEN '🏠'
+      WHEN 'DEV' THEN '💻'
+      WHEN 'TRIP' THEN '✈️'
+      WHEN 'MEDIA' THEN '🎬'
+      WHEN 'STUDY' THEN '📚'
+      WHEN 'HEALTH' THEN '💪'
+      WHEN 'MONEY' THEN '💰'
+      WHEN 'WRITE' THEN '✍️'
+      WHEN 'CAREER' THEN '🚀'
+      ELSE emoji
+    END
+    WHERE emoji IN ('HOME', 'DEV', 'TRIP', 'MEDIA', 'STUDY', 'HEALTH', 'MONEY', 'WRITE', 'CAREER');
     """,
 ]

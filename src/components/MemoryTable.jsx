@@ -16,7 +16,7 @@ import {
   getMemoryDomains,
   upsertMemoryDomainSummary,
   deleteMemoryDomain,
-} from '../lib/longTermMemoryService'
+} from '../lib/lazyMemoryService'
 import clsx from 'clsx'
 
 const Badge = ({ children, className, variant = 'default' }) => {

@@ -12,4 +12,5 @@ contextBridge.exposeInMainWorld('qurioRuntime', {
   isElectron: true,
   backendUrl,
   selectDirectory: () => ipcRenderer.invoke('qurio:select-directory'),
+  selectSqliteFile: () => ipcRenderer.invoke('qurio:select-sqlite-file'),
 })

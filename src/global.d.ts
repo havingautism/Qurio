@@ -7,6 +7,7 @@ declare global {
       isElectron?: boolean
       backendUrl?: string
       selectDirectory?: () => Promise<string>
+      selectSqliteFile?: () => Promise<string>
     }
   }
 }

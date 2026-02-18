@@ -27,7 +27,7 @@ import {
 import { selectDocumentQuery } from './chat/contextService'
 import { fetchDocumentChunkContext } from './documentRetrievalService'
 import { formatDocumentAppendText } from './documentContextUtils'
-import { getMemoryDomains, upsertMemoryDomainSummary } from './longTermMemoryService'
+import { getMemoryDomains, upsertMemoryDomainSummary } from './lazyMemoryService'
 import { listSpaceAgents } from './spacesService'
 
 // Import constants
@@ -312,7 +312,9 @@ const useChatStore = create((set, get) => ({
         const lastMsgIndex = updated.length - 1
         if (lastMsgIndex < 0 || updated[lastMsgIndex].role !== 'ai') return { messages: updated }
         const lastMsg = { ...updated[lastMsgIndex] }
-        const nextResponses = Array.isArray(lastMsg.expertResponses) ? [...lastMsg.expertResponses] : []
+        const nextResponses = Array.isArray(lastMsg.expertResponses)
+          ? [...lastMsg.expertResponses]
+          : []
         const responseIndex = nextResponses.findIndex(
           item => String(item?.agentId) === String(targetAgentId),
         )
@@ -396,13 +398,22 @@ const useChatStore = create((set, get) => ({
       const getTargetRuntimeState = () => {
         const currentMessages = get().messages || []
         const currentLast = currentMessages[currentMessages.length - 1]
-        if (!currentLast || currentLast.role !== 'ai') return { streamSeq: 0, toolOrder: 0, thoughtOrder: 0 }
+        if (!currentLast || currentLast.role !== 'ai')
+          return { streamSeq: 0, toolOrder: 0, thoughtOrder: 0 }
         const currentResp = Array.isArray(currentLast.expertResponses)
-          ? currentLast.expertResponses.find(item => String(item?.agentId) === String(targetAgentId))
+          ? currentLast.expertResponses.find(
+              item => String(item?.agentId) === String(targetAgentId),
+            )
           : null
-        const currentBlocks = Array.isArray(currentResp?.streamBlocks) ? currentResp.streamBlocks : []
-        const currentTools = Array.isArray(currentResp?.toolCallHistory) ? currentResp.toolCallHistory : []
-        const currentThoughts = Array.isArray(currentResp?.thoughtHistory) ? currentResp.thoughtHistory : []
+        const currentBlocks = Array.isArray(currentResp?.streamBlocks)
+          ? currentResp.streamBlocks
+          : []
+        const currentTools = Array.isArray(currentResp?.toolCallHistory)
+          ? currentResp.toolCallHistory
+          : []
+        const currentThoughts = Array.isArray(currentResp?.thoughtHistory)
+          ? currentResp.thoughtHistory
+          : []
         const streamSeq = currentBlocks.reduce((acc, block, index) => {
           const seq = Number.isFinite(block?.seq) ? Number(block.seq) : index + 1
           return Math.max(acc, seq)
@@ -442,23 +453,21 @@ const useChatStore = create((set, get) => ({
         if (typeof chunk.reasoning_content !== 'undefined') return ''
         if (typeof chunk.delta?.content === 'string') return chunk.delta.content
         if (typeof chunk.message?.content === 'string') return chunk.message.content
-        if (typeof chunk.choices?.[0]?.delta?.content === 'string') return chunk.choices[0].delta.content
+        if (typeof chunk.choices?.[0]?.delta?.content === 'string')
+          return chunk.choices[0].delta.content
         return ''
       }
 
       const extractReasoningText = chunk => {
         if (!chunk || typeof chunk !== 'object') return ''
-        if (
-          chunk.type !== 'reasoning' &&
-          chunk.type !== 'thought' &&
-          chunk.type !== 'thinking'
-        ) {
+        if (chunk.type !== 'reasoning' && chunk.type !== 'thought' && chunk.type !== 'thinking') {
           return ''
         }
         if (typeof chunk.content === 'string') return chunk.content
         if (typeof chunk.text === 'string') return chunk.text
         if (typeof chunk.reasoning === 'string') return chunk.reasoning
-        if (typeof chunk.reasoning_content !== 'undefined') return readReasoningField(chunk.reasoning_content)
+        if (typeof chunk.reasoning_content !== 'undefined')
+          return readReasoningField(chunk.reasoning_content)
         if (typeof chunk.delta === 'string') return chunk.delta
         if (typeof chunk.delta?.reasoning_content !== 'undefined') {
           return readReasoningField(chunk.delta.reasoning_content)
@@ -476,7 +485,9 @@ const useChatStore = create((set, get) => ({
           const lastMsgIndex = updated.length - 1
           if (lastMsgIndex < 0 || updated[lastMsgIndex].role !== 'ai') return { messages: updated }
           const lastMsg = { ...updated[lastMsgIndex] }
-          const responses = Array.isArray(lastMsg.expertResponses) ? [...lastMsg.expertResponses] : []
+          const responses = Array.isArray(lastMsg.expertResponses)
+            ? [...lastMsg.expertResponses]
+            : []
           const responseIndex = responses.findIndex(
             item => String(item?.agentId) === String(targetAgentId),
           )
@@ -529,7 +540,9 @@ const useChatStore = create((set, get) => ({
                   })),
                 ]
 
-          lastMsg.content = normalizeExpertBrokenTokenLines(preferredResponse.content || lastMsg.content || '')
+          lastMsg.content = normalizeExpertBrokenTokenLines(
+            preferredResponse.content || lastMsg.content || '',
+          )
           lastMsg.toolCallHistory = Array.isArray(preferredResponse.toolCallHistory)
             ? preferredResponse.toolCallHistory
             : []
@@ -538,7 +551,9 @@ const useChatStore = create((set, get) => ({
             : []
           lastMsg.streamBlocks = mergedBlocks
           lastMsg.searchBackend =
-            typeof preferredResponse.searchBackend === 'string' ? preferredResponse.searchBackend : null
+            typeof preferredResponse.searchBackend === 'string'
+              ? preferredResponse.searchBackend
+              : null
           lastMsg.searchBackends = Array.isArray(preferredResponse.searchBackends)
             ? preferredResponse.searchBackends
             : []
@@ -588,7 +603,9 @@ const useChatStore = create((set, get) => ({
                       : 0
                 lastReasoningAtMs = now
                 updateTargetResponse(item => {
-                  const thoughtHistory = Array.isArray(item.thoughtHistory) ? [...item.thoughtHistory] : []
+                  const thoughtHistory = Array.isArray(item.thoughtHistory)
+                    ? [...item.thoughtHistory]
+                    : []
                   const blockId = chunk?.block_id || 'reasoning-stream'
                   const lastEntry = thoughtHistory[thoughtHistory.length - 1]
                   if (lastEntry && String(lastEntry.blockId) === String(blockId)) {
@@ -606,7 +623,9 @@ const useChatStore = create((set, get) => ({
                       durationMs: resolvedDurationMs,
                     })
                   }
-                  const streamBlocks = Array.isArray(item.streamBlocks) ? [...item.streamBlocks] : []
+                  const streamBlocks = Array.isArray(item.streamBlocks)
+                    ? [...item.streamBlocks]
+                    : []
                   streamBlocks.push({
                     seq: ++streamSeq,
                     type: 'reasoning',
@@ -670,7 +689,9 @@ const useChatStore = create((set, get) => ({
             ) {
               updateTargetResponse(item => {
                 const nextToolId = chunk.id || `${chunk.name || 'tool'}-${Date.now()}`
-                const toolCallHistory = Array.isArray(item.toolCallHistory) ? [...item.toolCallHistory] : []
+                const toolCallHistory = Array.isArray(item.toolCallHistory)
+                  ? [...item.toolCallHistory]
+                  : []
                 toolCallHistory.push({
                   id: nextToolId,
                   name: chunk.name || 'tool',
@@ -703,7 +724,9 @@ const useChatStore = create((set, get) => ({
               (chunk.type === 'tool_result' || chunk.type === 'tool_call_completed')
             ) {
               updateTargetResponse(item => {
-                const toolCallHistory = Array.isArray(item.toolCallHistory) ? [...item.toolCallHistory] : []
+                const toolCallHistory = Array.isArray(item.toolCallHistory)
+                  ? [...item.toolCallHistory]
+                  : []
                 const targetIndex = toolCallHistory.findIndex(entry =>
                   chunk.id ? entry.id === chunk.id : entry.name === chunk.name,
                 )
@@ -811,7 +834,9 @@ const useChatStore = create((set, get) => ({
               : []
             const preferredResponse =
               finalResponses.find(item => item.status === 'done' && item.content?.trim()) ||
-              finalResponses.find(item => item.status === 'waiting_input' && item.content?.trim()) ||
+              finalResponses.find(
+                item => item.status === 'waiting_input' && item.content?.trim(),
+              ) ||
               finalResponses.find(item => item.content?.trim()) ||
               null
 
@@ -1630,8 +1655,7 @@ const useChatStore = create((set, get) => ({
             const provider = getProvider(modelConfig.provider)
             const credentials = provider.getCredentials(settings)
             const searchProvider = settings.searchProvider || 'tavily'
-            const tavilyApiKey =
-              searchProvider === 'tavily' ? settings.tavilyApiKey : undefined
+            const tavilyApiKey = searchProvider === 'tavily' ? settings.tavilyApiKey : undefined
             const serpapiApiKey = settings.serpapiApiKey
             const languageInstruction = getLanguageInstruction(agent, settings)
             const taskPrompt = assignedTask
@@ -2051,9 +2075,7 @@ const useChatStore = create((set, get) => ({
                         : undefined
                     const finalThought =
                       typeof result?.thought === 'string'
-                        ? normalizeExpertBrokenTokenLines(
-                            sanitizeExpertStreamChunk(result.thought),
-                          )
+                        ? normalizeExpertBrokenTokenLines(sanitizeExpertStreamChunk(result.thought))
                         : typeof result?.reasoning === 'string'
                           ? normalizeExpertBrokenTokenLines(
                               sanitizeExpertStreamChunk(result.reasoning),
@@ -2073,7 +2095,8 @@ const useChatStore = create((set, get) => ({
                               ...item,
                               status: (() => {
                                 const hasPendingForm = (item.toolCallHistory || []).some(
-                                  entry => entry.name === 'interactive_form' && entry.status !== 'done',
+                                  entry =>
+                                    entry.name === 'interactive_form' && entry.status !== 'done',
                                 )
                                 return hasPendingForm ? 'waiting_input' : 'done'
                               })(),
@@ -2086,11 +2109,15 @@ const useChatStore = create((set, get) => ({
                                 if (finalToolCalls.length === 0) return existing
 
                                 const seen = new Set(
-                                  existing.map(tc => String(tc?.id || `${tc?.name}:${tc?.arguments || ''}`)),
+                                  existing.map(tc =>
+                                    String(tc?.id || `${tc?.name}:${tc?.arguments || ''}`),
+                                  ),
                                 )
                                 const mapped = finalToolCalls
                                   .map((tc, idx) => {
-                                    const id = tc?.id || `${tc?.name || tc?.function?.name || 'tool'}-finish-${idx}`
+                                    const id =
+                                      tc?.id ||
+                                      `${tc?.name || tc?.function?.name || 'tool'}-finish-${idx}`
                                     const name = tc?.name || tc?.function?.name || 'tool'
                                     const argumentsPayload =
                                       typeof tc?.arguments !== 'undefined'

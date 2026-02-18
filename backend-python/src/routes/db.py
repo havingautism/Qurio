@@ -14,7 +14,7 @@ from ..config import get_settings
 from ..models.db import DbProviderUpsertRequest, DbQueryRequest, DbQueryResponse
 from ..services.db_adapters import build_adapter
 from ..services.db_registry import ProviderConfig, get_provider_registry
-from ..services.db_service import initialize_provider_schema
+from ..services.db_service import initialize_provider_schema, invalidate_db_adapter_cache
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -38,8 +38,9 @@ def _invalidate_adapter_cache(provider_id: str | None = None):
     with _adapters_lock:
         if provider_id is None:
             _adapters.clear()
-            return
-        _adapters.pop(provider_id, None)
+        else:
+            _adapters.pop(provider_id, None)
+    invalidate_db_adapter_cache(provider_id)
 
 
 @router.get("/db/providers")

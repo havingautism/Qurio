@@ -5,6 +5,7 @@ import {
   ChevronDown,
   ChevronRight,
   Database,
+  FileUp,
   FolderOpen,
   Key,
   Pencil,
@@ -52,6 +53,15 @@ const extractSqliteDirectory = sqlitePath => {
   return parts.join(prefix)
 }
 
+const isLikelySqliteFilePath = value => {
+  const normalized = String(value || '').trim().toLowerCase()
+  return (
+    normalized.endsWith('.db') ||
+    normalized.endsWith('.sqlite') ||
+    normalized.endsWith('.sqlite3')
+  )
+}
+
 export default function DatabaseSetupModal({ isOpen, onClose }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -63,7 +73,9 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
   const [isSaving, setIsSaving] = useState(false)
   const [isAdding, setIsAdding] = useState(false)
   const [isInitializing, setIsInitializing] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
   const [isPickingDirectory, setIsPickingDirectory] = useState(false)
+  const [isPickingSqliteFile, setIsPickingSqliteFile] = useState(false)
   const [registryMutable, setRegistryMutable] = useState(false)
   const [error, setError] = useState('')
   const [healthStatus, setHealthStatus] = useState('idle')
@@ -77,6 +89,7 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
   const [supabaseUrl, setSupabaseUrl] = useState('')
   const [supabaseAnonKey, setSupabaseAnonKey] = useState('')
   const [sqliteDirectory, setSqliteDirectory] = useState('')
+  const [sqliteImportFile, setSqliteImportFile] = useState('')
   const [providerAccessKey, setProviderAccessKey] = useState('')
 
   const selectedProvider = providers.find(item => item.id === selectedId)
@@ -90,6 +103,7 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
     setSupabaseUrl('')
     setSupabaseAnonKey('')
     setSqliteDirectory('')
+    setSqliteImportFile('')
     setProviderAccessKey('')
     setIsEditingProvider(false)
   }
@@ -188,12 +202,33 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
       }
       const selectedPath = await picker()
       if (selectedPath) {
+        setSqliteImportFile('')
         setSqliteDirectory(selectedPath)
       }
     } catch {
       setError(t('settings.databaseSetup.errors.folderPickerNotAvailable'))
     } finally {
       setIsPickingDirectory(false)
+    }
+  }
+
+  const handlePickSqliteFile = async () => {
+    try {
+      setIsPickingSqliteFile(true)
+      const picker = window.qurioRuntime?.selectSqliteFile
+      if (typeof picker !== 'function') {
+        setError(t('settings.databaseSetup.errors.filePickerNotAvailable'))
+        return
+      }
+      const selectedPath = await picker()
+      if (selectedPath) {
+        setSqliteImportFile(selectedPath)
+        setSqliteDirectory('')
+      }
+    } catch {
+      setError(t('settings.databaseSetup.errors.filePickerNotAvailable'))
+    } finally {
+      setIsPickingSqliteFile(false)
     }
   }
 
@@ -204,7 +239,13 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
     setProviderLabel(provider.label || provider.id || '')
     setSupabaseUrl(provider.url || '')
     setSupabaseAnonKey(provider.anonKey || '')
-    setSqliteDirectory(extractSqliteDirectory(provider.path))
+    if (isLikelySqliteFilePath(provider.path)) {
+      setSqliteImportFile(provider.path || '')
+      setSqliteDirectory('')
+    } else {
+      setSqliteImportFile('')
+      setSqliteDirectory(extractSqliteDirectory(provider.path))
+    }
     setProviderAccessKey('')
     setIsEditingProvider(true)
     setIsProviderPanelOpen(true)
@@ -220,7 +261,7 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
       setError(t('settings.databaseSetup.errors.supabaseRequired'))
       return
     }
-    if (providerType === 'sqlite' && !sqliteDirectory.trim()) {
+    if (providerType === 'sqlite' && !sqliteDirectory.trim() && !sqliteImportFile.trim()) {
       setError(t('settings.databaseSetup.errors.sqliteDirectoryRequired'))
       return
     }
@@ -239,9 +280,14 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
             id: providerId.trim(),
             type: 'sqlite',
             label: providerLabel.trim() || providerId.trim(),
-            path: buildSqlitePath(sqliteDirectory, providerId),
+            path: sqliteImportFile.trim() || buildSqlitePath(sqliteDirectory, providerId),
             accessKey: providerAccessKey.trim() || undefined,
           }
+
+    const confirmed = window.confirm(
+      t('settings.databaseSetup.initializeConfirm', { id: payload.id }),
+    )
+    if (!confirmed) return
 
     setIsAdding(true)
     setError('')
@@ -265,6 +311,44 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
       setError(err.message || t('settings.databaseSetup.errors.addProviderFailed'))
     } finally {
       setIsAdding(false)
+    }
+  }
+
+  const handleDeleteProvider = async () => {
+    const targetId = providerId.trim()
+    if (!targetId) return
+    const confirmed = window.confirm(
+      t('settings.databaseSetup.deleteProviderConfirm', { id: targetId }),
+    )
+    if (!confirmed) return
+
+    setIsDeleting(true)
+    setError('')
+    try {
+      const response = await fetch(`${getBackendUrl()}/api/db/providers/${encodeURIComponent(targetId)}`, {
+        method: 'DELETE',
+      })
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(payload.detail || t('settings.databaseSetup.errors.deleteProviderFailed'))
+      }
+
+      if (selectedId === targetId) {
+        await saveSettings({
+          dbAccessKey: dbAccessKey.trim(),
+          databaseProviderId: '',
+          databaseProvider: '',
+        })
+      }
+
+      await fetchProviders()
+      resetProviderForm()
+      setHealthMessage(t('settings.databaseSetup.messages.providerDeleted'))
+      setHealthStatus('success')
+    } catch (err) {
+      setError(err.message || t('settings.databaseSetup.errors.deleteProviderFailed'))
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -402,7 +486,11 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
                         value={providerId}
                         disabled={isEditingProvider}
                         onChange={e => setProviderId(e.target.value)}
-                        placeholder="sqlite-local"
+                        placeholder={
+                          providerType === 'supabase'
+                            ? t('settings.databaseSetup.providerIdPlaceholderSupabase')
+                            : t('settings.databaseSetup.providerIdPlaceholderSqlite')
+                        }
                         className="h-9 w-full rounded-md border border-gray-200 px-2 text-xs disabled:cursor-not-allowed disabled:bg-gray-100 dark:border-zinc-700 dark:bg-zinc-900 dark:disabled:bg-zinc-800"
                       />
                     </div>
@@ -414,7 +502,11 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
                     <input
                       value={providerLabel}
                       onChange={e => setProviderLabel(e.target.value)}
-                      placeholder="My Local DB"
+                      placeholder={
+                        providerType === 'supabase'
+                          ? t('settings.databaseSetup.labelPlaceholderSupabase')
+                          : t('settings.databaseSetup.labelPlaceholderSqlite')
+                      }
                       className="h-9 w-full rounded-md border border-gray-200 px-2 text-xs dark:border-zinc-700 dark:bg-zinc-900"
                     />
                   </div>
@@ -447,13 +539,26 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
                   ) : (
                     <div className="space-y-1">
                       <label className="text-[11px] text-gray-500 dark:text-gray-400">
-                        {t('settings.databaseSetup.sqliteDirectory')}
+                        {sqliteImportFile.trim()
+                          ? t('settings.databaseSetup.sqliteFilePath')
+                          : t('settings.databaseSetup.sqliteDirectory')}
                       </label>
                       <div className="flex items-center gap-2">
                         <input
-                          value={sqliteDirectory}
-                          onChange={e => setSqliteDirectory(e.target.value)}
-                          placeholder="C:\\Users\\you\\QurioData"
+                          value={sqliteImportFile || sqliteDirectory}
+                          onChange={e => {
+                            const value = e.target.value
+                            if (sqliteImportFile.trim()) {
+                              setSqliteImportFile(value)
+                            } else {
+                              setSqliteDirectory(value)
+                            }
+                          }}
+                          placeholder={
+                            sqliteImportFile.trim()
+                              ? 'C:\\Users\\you\\QurioData\\existing.db'
+                              : 'C:\\Users\\you\\QurioData'
+                          }
                           className="h-9 w-full rounded-md border border-gray-200 px-2 text-xs dark:border-zinc-700 dark:bg-zinc-900"
                         />
                         <button
@@ -469,7 +574,27 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
                           )}
                           {t('settings.databaseSetup.browseFolder')}
                         </button>
+                        <button
+                          type="button"
+                          onClick={handlePickSqliteFile}
+                          disabled={isPickingSqliteFile}
+                          className="inline-flex h-9 shrink-0 items-center gap-1 rounded-md border border-gray-200 px-2 text-xs hover:bg-gray-50 disabled:opacity-60 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                        >
+                          {isPickingSqliteFile ? (
+                            <RefreshCw size={12} className="animate-spin" />
+                          ) : (
+                            <FileUp size={12} />
+                          )}
+                          {t('settings.databaseSetup.importDbFile')}
+                        </button>
                       </div>
+                      <p className="text-[11px] leading-relaxed text-gray-500 dark:text-gray-400">
+                        {t('settings.databaseSetup.sqliteUsageHint')}
+                        {' '}
+                        {t('settings.databaseSetup.sqliteUsageHintCreate')}
+                        {' '}
+                        {t('settings.databaseSetup.sqliteUsageHintImport')}
+                      </p>
                     </div>
                   )}
 
@@ -488,8 +613,8 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
                   <div className="flex items-center gap-2">
                     <button
                       onClick={handleUpsertProvider}
-                      disabled={isAdding || isInitializing}
-                      className="inline-flex items-center gap-2 rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium hover:bg-gray-50 disabled:opacity-60 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                      disabled={isAdding || isInitializing || isDeleting}
+                      className="inline-flex items-center gap-2 rounded-md border border-rose-200 px-3 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-60 dark:border-rose-900/40 dark:text-rose-300 dark:hover:bg-rose-900/20"
                     >
                       {isAdding || isInitializing ? (
                         <RefreshCw size={12} className="animate-spin" />
@@ -499,17 +624,33 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
                         <Plus size={12} />
                       )}
                       {isEditingProvider
-                        ? t('settings.databaseSetup.updateAndInitialize')
-                        : t('settings.databaseSetup.addAndInitialize')}
+                        ? t('settings.databaseSetup.rebuildAndInitialize')
+                        : t('settings.databaseSetup.initialize')}
                     </button>
                     {isEditingProvider && (
-                      <button
-                        type="button"
-                        onClick={resetProviderForm}
-                        className="inline-flex items-center gap-2 rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium hover:bg-gray-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
-                      >
-                        {t('settings.databaseSetup.cancelEdit')}
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          onClick={resetProviderForm}
+                          disabled={isDeleting}
+                          className="inline-flex items-center gap-2 rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium hover:bg-gray-50 disabled:opacity-60 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                        >
+                          {t('settings.databaseSetup.cancelEdit')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleDeleteProvider}
+                          disabled={isDeleting || isAdding || isInitializing}
+                          className="inline-flex items-center gap-2 rounded-md border border-rose-200 px-3 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-60 dark:border-rose-900/40 dark:text-rose-300 dark:hover:bg-rose-900/20"
+                        >
+                          {isDeleting ? (
+                            <RefreshCw size={12} className="animate-spin" />
+                          ) : (
+                            <XCircle size={12} />
+                          )}
+                          {t('settings.databaseSetup.deleteProvider')}
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>

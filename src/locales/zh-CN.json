@@ -469,6 +469,8 @@
     "documentResultScore": "相似度",
     "embeddingNoProvidersTitle": "未配置可用的提供商",
     "embeddingNoProvidersHint": "请先在常规中配置 API Key 后再选择向量模型。",
+    "chatNoProvidersTitle": "未配置可用的提供商",
+    "chatNoProvidersHint": "请先在常规中配置 API Key 后再选择对话模型。",
     "embeddingModelsLoaded": "已加载 {{count}} 个向量模型",
     "embeddingRefreshModels": "刷新模型",
     "modelSourceList": "列表",
@@ -601,6 +603,11 @@
       "sqliteDirectory": "SQLite 存储目录",
       "providerAccessKeyOptional": "提供方访问密钥（可选）",
       "providerAccessKeyPlaceholder": "可选：单独配置该提供方密钥",
+      "editProvider": "编辑提供方",
+      "cancelEdit": "取消编辑",
+      "updateAndInitialize": "更新并初始化",
+      "browseFolder": "选择文件夹",
+      "noProviderHint": "当前还没有提供方，请先添加后再选择或填写访问密钥。",
       "addAndInitialize": "添加并初始化",
       "loadingProviders": "正在加载提供方...",
       "errors": {
@@ -614,7 +621,8 @@
         "accessKeyRequired": "请输入访问密钥。",
         "accessKeyValidation": "访问密钥校验失败。",
         "connectionFailed": "数据库连接失败。",
-        "validationFailed": "校验失败。"
+        "validationFailed": "校验失败。",
+        "folderPickerNotAvailable": "当前运行环境不支持文件夹选择器。"
       },
       "messages": {
         "initialized": "数据库初始化完成。"

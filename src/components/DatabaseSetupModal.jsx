@@ -1,6 +1,17 @@
-import React, { useEffect, useMemo, useState } from 'react'
+﻿import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { Check, Database, Key, Plus, RefreshCw, XCircle } from 'lucide-react'
+import {
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Database,
+  FolderOpen,
+  Key,
+  Pencil,
+  Plus,
+  RefreshCw,
+  XCircle,
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { clsx } from 'clsx'
 import { loadSettings, saveSettings } from '../lib/settings'
@@ -30,6 +41,17 @@ const buildSqlitePath = (directory, providerId) => {
   return `${trimmedDir}${separator}${fileName}`
 }
 
+const extractSqliteDirectory = sqlitePath => {
+  const value = String(sqlitePath || '').trim()
+  if (!value) return ''
+  const normalized = value.replace(/\\/g, '/')
+  const index = normalized.lastIndexOf('/')
+  if (index <= 0) return value
+  const prefix = value.includes('\\') ? '\\' : '/'
+  const parts = normalized.slice(0, index).split('/')
+  return parts.join(prefix)
+}
+
 export default function DatabaseSetupModal({ isOpen, onClose }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -41,10 +63,13 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
   const [isSaving, setIsSaving] = useState(false)
   const [isAdding, setIsAdding] = useState(false)
   const [isInitializing, setIsInitializing] = useState(false)
+  const [isPickingDirectory, setIsPickingDirectory] = useState(false)
   const [registryMutable, setRegistryMutable] = useState(false)
   const [error, setError] = useState('')
   const [healthStatus, setHealthStatus] = useState('idle')
   const [healthMessage, setHealthMessage] = useState('')
+  const [isProviderPanelOpen, setIsProviderPanelOpen] = useState(true)
+  const [isEditingProvider, setIsEditingProvider] = useState(false)
 
   const [providerType, setProviderType] = useState('sqlite')
   const [providerId, setProviderId] = useState('')
@@ -56,6 +81,18 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
 
   const selectedProvider = providers.find(item => item.id === selectedId)
   const requireAccessKey = Boolean(selectedProvider?.requiresAccessKey)
+  const noProvidersInElectron = electron && providers.length === 0
+
+  const resetProviderForm = () => {
+    setProviderType('sqlite')
+    setProviderId('')
+    setProviderLabel('')
+    setSupabaseUrl('')
+    setSupabaseAnonKey('')
+    setSqliteDirectory('')
+    setProviderAccessKey('')
+    setIsEditingProvider(false)
+  }
 
   useEffect(() => {
     if (!isOpen) return
@@ -65,6 +102,8 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
     setError('')
     setHealthStatus('idle')
     setHealthMessage('')
+    resetProviderForm()
+    setIsProviderPanelOpen(true)
     checkBackendHealth()
     fetchProviders()
   }, [isOpen])
@@ -96,12 +135,17 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
       const list = Array.isArray(payload.providers) ? payload.providers : []
       setRegistryMutable(Boolean(payload.mutable))
       setProviders(list)
+
       if (list.length > 0) {
         const current = loadSettings().databaseProviderId || ''
         const target = list.find(item => item.id === current)?.id || list[0].id
         setSelectedId(target)
       } else {
         setSelectedId('')
+      }
+
+      if (electron && Boolean(payload.mutable)) {
+        setIsProviderPanelOpen(list.length === 0)
       }
     } catch (err) {
       setProviders([])
@@ -134,7 +178,40 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
     }
   }
 
-  const handleAddProvider = async () => {
+  const handlePickSqliteDirectory = async () => {
+    try {
+      setIsPickingDirectory(true)
+      const picker = window.qurioRuntime?.selectDirectory
+      if (typeof picker !== 'function') {
+        setError(t('settings.databaseSetup.errors.folderPickerNotAvailable'))
+        return
+      }
+      const selectedPath = await picker()
+      if (selectedPath) {
+        setSqliteDirectory(selectedPath)
+      }
+    } catch {
+      setError(t('settings.databaseSetup.errors.folderPickerNotAvailable'))
+    } finally {
+      setIsPickingDirectory(false)
+    }
+  }
+
+  const handleEditProvider = provider => {
+    if (!provider) return
+    setProviderType(provider.type || 'sqlite')
+    setProviderId(provider.id || '')
+    setProviderLabel(provider.label || provider.id || '')
+    setSupabaseUrl(provider.url || '')
+    setSupabaseAnonKey(provider.anonKey || '')
+    setSqliteDirectory(extractSqliteDirectory(provider.path))
+    setProviderAccessKey('')
+    setIsEditingProvider(true)
+    setIsProviderPanelOpen(true)
+    setError('')
+  }
+
+  const handleUpsertProvider = async () => {
     if (!providerId.trim()) {
       setError(t('settings.databaseSetup.errors.providerIdRequired'))
       return
@@ -182,12 +259,8 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
       await fetchProviders()
       setSelectedId(payload.id)
       await handleInitializeProvider(payload.id)
-      setProviderId('')
-      setProviderLabel('')
-      setSupabaseUrl('')
-      setSupabaseAnonKey('')
-      setSqliteDirectory('')
-      setProviderAccessKey('')
+      resetProviderForm()
+      setIsProviderPanelOpen(false)
     } catch (err) {
       setError(err.message || t('settings.databaseSetup.errors.addProviderFailed'))
     } finally {
@@ -198,16 +271,19 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
   const handleSave = async () => {
     setIsSaving(true)
     setError('')
+
     if (!selectedId) {
       setError(t('settings.databaseSetup.errors.selectProvider'))
       setIsSaving(false)
       return
     }
+
     if (requireAccessKey && !dbAccessKey.trim()) {
       setError(t('settings.databaseSetup.errors.accessKeyRequired'))
       setIsSaving(false)
       return
     }
+
     try {
       const headers = {
         'Content-Type': 'application/json',
@@ -253,7 +329,7 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
 
   return (
     <div className="fixed inset-0 z-200 flex items-center justify-center bg-black/80 px-4 backdrop-blur-sm">
-      <div className="animate-in zoom-in-95 w-full max-w-xl space-y-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl duration-200 md:p-8 dark:border-zinc-800 dark:bg-[#191a1a]">
+      <div className="animate-in zoom-in-95 w-full max-w-xl max-h-[90vh] space-y-6 overflow-y-auto rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl duration-200 md:p-8 dark:border-zinc-800 dark:bg-[#191a1a]">
         <div className="space-y-2 text-center">
           <div className="bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl">
             <Database size={24} />
@@ -287,121 +363,178 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
           )}
 
           {electron && registryMutable && (
-            <div className="space-y-3 rounded-lg border border-gray-200 p-3 dark:border-zinc-700">
-              <div className="text-xs font-semibold text-gray-600 dark:text-gray-300">
-                {t('settings.databaseSetup.addProvider')}
-              </div>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                <div className="space-y-1">
-                  <label className="text-[11px] text-gray-500 dark:text-gray-400">
-                    {t('settings.databaseSetup.type')}
-                  </label>
-                  <Select value={providerType} onValueChange={setProviderType}>
-                    <SelectTrigger className="h-9 w-full text-xs">
-                      <SelectValue placeholder={t('settings.databaseSetup.selectType')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="sqlite">SQLite</SelectItem>
-                      <SelectItem value="supabase">Supabase</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[11px] text-gray-500 dark:text-gray-400">
-                    {t('settings.databaseSetup.providerId')}
-                  </label>
-                  <input
-                    value={providerId}
-                    onChange={e => setProviderId(e.target.value)}
-                    placeholder="sqlite-local"
-                    className="h-9 w-full rounded-md border border-gray-200 px-2 text-xs dark:border-zinc-700 dark:bg-zinc-900"
-                  />
-                </div>
-              </div>
-              <div className="space-y-1">
-                <label className="text-[11px] text-gray-500 dark:text-gray-400">
-                  {t('settings.databaseSetup.label')}
-                </label>
-                <input
-                  value={providerLabel}
-                  onChange={e => setProviderLabel(e.target.value)}
-                  placeholder="My Local DB"
-                  className="h-9 w-full rounded-md border border-gray-200 px-2 text-xs dark:border-zinc-700 dark:bg-zinc-900"
-                />
-              </div>
+            <div className="rounded-lg border border-gray-200 p-3 dark:border-zinc-700">
+              <button
+                type="button"
+                onClick={() => setIsProviderPanelOpen(prev => !prev)}
+                className="flex w-full items-center justify-between text-left text-xs font-semibold text-gray-700 dark:text-gray-200"
+              >
+                <span>
+                  {isEditingProvider
+                    ? t('settings.databaseSetup.editProvider')
+                    : t('settings.databaseSetup.addProvider')}
+                </span>
+                {isProviderPanelOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+              </button>
 
-              {providerType === 'supabase' ? (
-                <>
-                  <div className="space-y-1">
-                    <label className="text-[11px] text-gray-500 dark:text-gray-400">
-                      {t('settings.databaseSetup.supabaseUrl')}
-                    </label>
-                    <input
-                      value={supabaseUrl}
-                      onChange={e => setSupabaseUrl(e.target.value)}
-                      placeholder="https://xxx.supabase.co"
-                      className="h-9 w-full rounded-md border border-gray-200 px-2 text-xs dark:border-zinc-700 dark:bg-zinc-900"
-                    />
+              {isProviderPanelOpen && (
+                <div className="mt-3 space-y-3">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <div className="space-y-1">
+                      <label className="text-[11px] text-gray-500 dark:text-gray-400">
+                        {t('settings.databaseSetup.type')}
+                      </label>
+                      <Select value={providerType} onValueChange={setProviderType}>
+                        <SelectTrigger className="h-9 w-full text-xs">
+                          <SelectValue placeholder={t('settings.databaseSetup.selectType')} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="sqlite">SQLite</SelectItem>
+                          <SelectItem value="supabase">Supabase</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] text-gray-500 dark:text-gray-400">
+                        {t('settings.databaseSetup.providerId')}
+                      </label>
+                      <input
+                        value={providerId}
+                        disabled={isEditingProvider}
+                        onChange={e => setProviderId(e.target.value)}
+                        placeholder="sqlite-local"
+                        className="h-9 w-full rounded-md border border-gray-200 px-2 text-xs disabled:cursor-not-allowed disabled:bg-gray-100 dark:border-zinc-700 dark:bg-zinc-900 dark:disabled:bg-zinc-800"
+                      />
+                    </div>
                   </div>
                   <div className="space-y-1">
                     <label className="text-[11px] text-gray-500 dark:text-gray-400">
-                      {t('settings.databaseSetup.anonKey')}
+                      {t('settings.databaseSetup.label')}
                     </label>
                     <input
-                      value={supabaseAnonKey}
-                      onChange={e => setSupabaseAnonKey(e.target.value)}
-                      placeholder="eyJ..."
+                      value={providerLabel}
+                      onChange={e => setProviderLabel(e.target.value)}
+                      placeholder="My Local DB"
                       className="h-9 w-full rounded-md border border-gray-200 px-2 text-xs dark:border-zinc-700 dark:bg-zinc-900"
                     />
                   </div>
-                </>
-              ) : (
-                <div className="space-y-1">
-                  <label className="text-[11px] text-gray-500 dark:text-gray-400">
-                    {t('settings.databaseSetup.sqliteDirectory')}
-                  </label>
-                  <input
-                    value={sqliteDirectory}
-                    onChange={e => setSqliteDirectory(e.target.value)}
-                    placeholder="C:\\Users\\you\\QurioData"
-                    className="h-9 w-full rounded-md border border-gray-200 px-2 text-xs dark:border-zinc-700 dark:bg-zinc-900"
-                  />
+
+                  {providerType === 'supabase' ? (
+                    <>
+                      <div className="space-y-1">
+                        <label className="text-[11px] text-gray-500 dark:text-gray-400">
+                          {t('settings.databaseSetup.supabaseUrl')}
+                        </label>
+                        <input
+                          value={supabaseUrl}
+                          onChange={e => setSupabaseUrl(e.target.value)}
+                          placeholder="https://xxx.supabase.co"
+                          className="h-9 w-full rounded-md border border-gray-200 px-2 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[11px] text-gray-500 dark:text-gray-400">
+                          {t('settings.databaseSetup.anonKey')}
+                        </label>
+                        <input
+                          value={supabaseAnonKey}
+                          onChange={e => setSupabaseAnonKey(e.target.value)}
+                          placeholder="eyJ..."
+                          className="h-9 w-full rounded-md border border-gray-200 px-2 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="space-y-1">
+                      <label className="text-[11px] text-gray-500 dark:text-gray-400">
+                        {t('settings.databaseSetup.sqliteDirectory')}
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          value={sqliteDirectory}
+                          onChange={e => setSqliteDirectory(e.target.value)}
+                          placeholder="C:\\Users\\you\\QurioData"
+                          className="h-9 w-full rounded-md border border-gray-200 px-2 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                        />
+                        <button
+                          type="button"
+                          onClick={handlePickSqliteDirectory}
+                          disabled={isPickingDirectory}
+                          className="inline-flex h-9 shrink-0 items-center gap-1 rounded-md border border-gray-200 px-2 text-xs hover:bg-gray-50 disabled:opacity-60 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                        >
+                          {isPickingDirectory ? (
+                            <RefreshCw size={12} className="animate-spin" />
+                          ) : (
+                            <FolderOpen size={12} />
+                          )}
+                          {t('settings.databaseSetup.browseFolder')}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="space-y-1">
+                    <label className="text-[11px] text-gray-500 dark:text-gray-400">
+                      {t('settings.databaseSetup.providerAccessKeyOptional')}
+                    </label>
+                    <input
+                      value={providerAccessKey}
+                      onChange={e => setProviderAccessKey(e.target.value)}
+                      placeholder={t('settings.databaseSetup.providerAccessKeyPlaceholder')}
+                      className="h-9 w-full rounded-md border border-gray-200 px-2 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleUpsertProvider}
+                      disabled={isAdding || isInitializing}
+                      className="inline-flex items-center gap-2 rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium hover:bg-gray-50 disabled:opacity-60 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                    >
+                      {isAdding || isInitializing ? (
+                        <RefreshCw size={12} className="animate-spin" />
+                      ) : isEditingProvider ? (
+                        <Pencil size={12} />
+                      ) : (
+                        <Plus size={12} />
+                      )}
+                      {isEditingProvider
+                        ? t('settings.databaseSetup.updateAndInitialize')
+                        : t('settings.databaseSetup.addAndInitialize')}
+                    </button>
+                    {isEditingProvider && (
+                      <button
+                        type="button"
+                        onClick={resetProviderForm}
+                        className="inline-flex items-center gap-2 rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium hover:bg-gray-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                      >
+                        {t('settings.databaseSetup.cancelEdit')}
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
-
-              <div className="space-y-1">
-                <label className="text-[11px] text-gray-500 dark:text-gray-400">
-                  {t('settings.databaseSetup.providerAccessKeyOptional')}
-                </label>
-                <input
-                  value={providerAccessKey}
-                  onChange={e => setProviderAccessKey(e.target.value)}
-                  placeholder={t('settings.databaseSetup.providerAccessKeyPlaceholder')}
-                  className="h-9 w-full rounded-md border border-gray-200 px-2 text-xs dark:border-zinc-700 dark:bg-zinc-900"
-                />
-              </div>
-
-              <button
-                onClick={handleAddProvider}
-                disabled={isAdding || isInitializing}
-                className="inline-flex items-center gap-2 rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium hover:bg-gray-50 disabled:opacity-60 dark:border-zinc-700 dark:hover:bg-zinc-800"
-              >
-                {isAdding || isInitializing ? (
-                  <RefreshCw size={12} className="animate-spin" />
-                ) : (
-                  <Plus size={12} />
-                )}
-                {t('settings.databaseSetup.addAndInitialize')}
-              </button>
             </div>
           )}
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              {t('settings.databaseSetup.provider') || 'Provider'}
-            </label>
+            <div className="flex items-center justify-between gap-2">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                {t('settings.databaseSetup.provider') || 'Provider'}
+              </label>
+              {electron && registryMutable && selectedProvider && (
+                <button
+                  type="button"
+                  onClick={() => handleEditProvider(selectedProvider)}
+                  className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-[11px] hover:bg-gray-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                >
+                  <Pencil size={12} />
+                  {t('settings.databaseSetup.editProvider')}
+                </button>
+              )}
+            </div>
             <div className="relative w-full">
-              <Select value={selectedId} onValueChange={setSelectedId}>
+              <Select value={selectedId} onValueChange={setSelectedId} disabled={noProvidersInElectron}>
                 <SelectTrigger className="h-10 w-full pl-10">
                   <div className="absolute top-1/2 left-3 flex -translate-y-1/2 items-center">
                     <Database size={16} className="text-gray-400" />
@@ -429,7 +562,13 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
                 </SelectContent>
               </Select>
             </div>
+            {noProvidersInElectron && (
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                {t('settings.databaseSetup.noProviderHint')}
+              </p>
+            )}
           </div>
+
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
               {t('settings.databaseSetup.accessKey') || 'Access Key'}
@@ -441,13 +580,14 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
               <input
                 type="password"
                 value={dbAccessKey}
+                disabled={noProvidersInElectron}
                 onChange={e => setDbAccessKey(e.target.value)}
                 placeholder={
                   requireAccessKey
                     ? t('settings.databaseSetup.accessKeyPlaceholder') || 'Enter backend access key'
                     : t('settings.databaseSetup.accessKeyOptional')
                 }
-                className="focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border border-gray-200 bg-gray-50 py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100"
+                className="focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border border-gray-200 bg-gray-50 py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:disabled:bg-zinc-800"
               />
             </div>
           </div>
@@ -463,7 +603,7 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
         <div className="flex flex-col gap-3">
           <button
             onClick={handleSave}
-            disabled={!selectedId || isSaving}
+            disabled={!selectedId || isSaving || noProvidersInElectron}
             className="bg-primary-600 hover:bg-primary-700 shadow-primary-500/20 flex w-full items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold text-white shadow-lg transition-all disabled:cursor-not-allowed disabled:opacity-50"
           >
             <span>

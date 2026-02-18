@@ -1,4 +1,4 @@
-const { app, BrowserWindow } = require('electron')
+const { app, BrowserWindow, dialog, ipcMain } = require('electron')
 const path = require('node:path')
 const fs = require('node:fs')
 const http = require('node:http')
@@ -14,6 +14,15 @@ const BACKEND_STARTUP_MARKER = 'Application startup complete.'
 let backendProcess = null
 let webProcess = null
 let backendStartupLogged = false
+
+ipcMain.handle('qurio:select-directory', async () => {
+  const focusedWindow = BrowserWindow.getFocusedWindow() || null
+  const result = await dialog.showOpenDialog(focusedWindow, {
+    properties: ['openDirectory', 'createDirectory'],
+  })
+  if (result.canceled || !result.filePaths?.length) return ''
+  return result.filePaths[0]
+})
 
 function resolveBackendCommand() {
   if (!isDev) {

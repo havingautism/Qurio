@@ -1,4 +1,4 @@
-const { contextBridge } = require('electron')
+const { contextBridge, ipcRenderer } = require('electron')
 
 function readArg(prefix) {
   const match = process.argv.find(arg => arg.startsWith(prefix))
@@ -11,5 +11,5 @@ const backendUrl = readArg('--qurio-backend-url=')
 contextBridge.exposeInMainWorld('qurioRuntime', {
   isElectron: true,
   backendUrl,
+  selectDirectory: () => ipcRenderer.invoke('qurio:select-directory'),
 })
-

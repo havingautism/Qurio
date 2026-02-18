@@ -47,12 +47,18 @@ def list_db_providers():
     registry = get_provider_registry()
     settings = get_settings()
     global_requires_key = bool((settings.db_access_key or "").strip())
+    include_details = registry.is_mutable()
     data = [
         {
             "id": provider.id,
             "type": provider.type,
             "label": provider.label,
             "requiresAccessKey": bool(provider.access_key) or global_requires_key,
+            "url": provider.supabase_url if include_details and provider.type == "supabase" else None,
+            "anonKey": (
+                provider.supabase_anon_key if include_details and provider.type == "supabase" else None
+            ),
+            "path": provider.sqlite_path if include_details and provider.type == "sqlite" else None,
         }
         for provider in registry.list()
     ]
@@ -108,6 +114,9 @@ def upsert_db_provider(request: DbProviderUpsertRequest):
             "type": saved.type,
             "label": saved.label,
             "requiresAccessKey": bool(saved.access_key),
+            "url": saved.supabase_url if saved.type == "supabase" else None,
+            "anonKey": saved.supabase_anon_key if saved.type == "supabase" else None,
+            "path": saved.sqlite_path if saved.type == "sqlite" else None,
         }
     }
 

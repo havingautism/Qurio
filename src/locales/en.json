@@ -485,6 +485,8 @@
     "documentResultScore": "Score",
     "embeddingNoProvidersTitle": "No providers configured yet",
     "embeddingNoProvidersHint": "Add API keys in General to enable embedding model selection.",
+    "chatNoProvidersTitle": "No providers configured yet",
+    "chatNoProvidersHint": "Add API keys in General to enable chat model selection.",
     "embeddingModelsLoaded": "{{count}} embedding models loaded",
     "embeddingRefreshModels": "Refresh models",
     "modelSourceList": "List",
@@ -616,6 +618,11 @@
       "sqliteDirectory": "SQLite Directory",
       "providerAccessKeyOptional": "Provider Access Key (optional)",
       "providerAccessKeyPlaceholder": "Optional per-provider key",
+      "editProvider": "Edit Provider",
+      "cancelEdit": "Cancel Edit",
+      "updateAndInitialize": "Update & Initialize",
+      "browseFolder": "Browse",
+      "noProviderHint": "No provider yet. Please add one before selecting or entering access key.",
       "addAndInitialize": "Add & Initialize",
       "loadingProviders": "Loading providers...",
       "errors": {
@@ -629,7 +636,8 @@
         "accessKeyRequired": "Please enter access key.",
         "accessKeyValidation": "Access key validation failed.",
         "connectionFailed": "Database connection failed.",
-        "validationFailed": "Validation failed."
+        "validationFailed": "Validation failed.",
+        "folderPickerNotAvailable": "Folder picker is unavailable in current runtime."
       },
       "messages": {
         "initialized": "Database initialized."

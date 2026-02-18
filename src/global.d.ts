@@ -6,7 +6,7 @@ declare global {
     qurioRuntime?: {
       isElectron?: boolean
       backendUrl?: string
+      selectDirectory?: () => Promise<string>
     }
   }
 }
-

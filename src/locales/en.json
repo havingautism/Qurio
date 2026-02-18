@@ -297,6 +297,7 @@
     "email": {
       "title": "Email Notifications",
       "description": "Connect email accounts and Qurio will periodically fetch new emails and push AI-generated summaries as notifications. Supports multiple accounts.",
+      "limitHint": "Note: To ensure performance, Qurio only syncs the latest 5 unread emails per account and keeps their summaries.",
       "connectedAccounts": "Connected Accounts",
       "connectedCount": "{{count}} account(s)",
       "noAccounts": "No email accounts connected yet.",

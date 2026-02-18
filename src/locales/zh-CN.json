@@ -281,6 +281,7 @@
     "email": {
       "title": "邮件通知",
       "description": "连接邮箱账号，Qurio 会定时拉取新邮件并用 AI 生成摘要推送为通知。支持同时连接多个邮箱。",
+      "limitHint": "注意：为保证性能，Qurio 每次仅同步各邮箱最新的 5 封未读邮件并保留其摘要。",
       "connectedAccounts": "已连接邮箱",
       "connectedCount": "{{count}} 个邮箱",
       "noAccounts": "尚未连接任何邮箱。",

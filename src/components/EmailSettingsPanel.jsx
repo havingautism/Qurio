@@ -86,7 +86,9 @@ const saveConfig = async (backendUrl, configId, payload) => {
 }
 
 const deleteConfig = async (backendUrl, configId) => {
-  const res = await fetch(buildUrl(backendUrl, `/api/email/config/${configId}`), { method: 'DELETE' })
+  const res = await fetch(buildUrl(backendUrl, `/api/email/config/${configId}`), {
+    method: 'DELETE',
+  })
   if (!res.ok) {
     const data = await res.json().catch(() => ({}))
     throw new Error(data.detail || `Delete failed: ${res.status}`)
@@ -132,45 +134,51 @@ const EmailSettingsPanel = ({ backendUrl }) => {
   const globalSettings = useMemo(() => loadSettings(), [])
 
   // Provider definitions with i18n keys
-  const PROVIDERS = useMemo(() => [
-    {
-      id: 'gmail',
-      label: t('settings.email.providers.gmail.label'),
-      hint: t('settings.email.providers.gmail.hint'),
-      hintUrl: 'https://myaccount.google.com/apppasswords',
-      hintText: t('settings.email.providers.gmail.hintText'),
-    },
-    {
-      id: 'outlook',
-      label: t('settings.email.providers.outlook.label'),
-      hint: t('settings.email.providers.outlook.hint'),
-      hintUrl: 'https://account.microsoft.com/security',
-      hintText: t('settings.email.providers.outlook.hintText'),
-    },
-    {
-      id: 'qq',
-      label: t('settings.email.providers.qq.label'),
-      hint: t('settings.email.providers.qq.hint'),
-      hintUrl: 'https://mail.qq.com',
-      hintText: t('settings.email.providers.qq.hintText'),
-    },
-    {
-      id: '163',
-      label: t('settings.email.providers.163.label'),
-      hint: t('settings.email.providers.163.hint'),
-      hintUrl: 'https://mail.163.com',
-      hintText: t('settings.email.providers.163.hintText'),
-    },
-  ], [t])
+  const PROVIDERS = useMemo(
+    () => [
+      {
+        id: 'gmail',
+        label: t('settings.email.providers.gmail.label'),
+        hint: t('settings.email.providers.gmail.hint'),
+        hintUrl: 'https://myaccount.google.com/apppasswords',
+        hintText: t('settings.email.providers.gmail.hintText'),
+      },
+      {
+        id: 'outlook',
+        label: t('settings.email.providers.outlook.label'),
+        hint: t('settings.email.providers.outlook.hint'),
+        hintUrl: 'https://account.microsoft.com/security',
+        hintText: t('settings.email.providers.outlook.hintText'),
+      },
+      {
+        id: 'qq',
+        label: t('settings.email.providers.qq.label'),
+        hint: t('settings.email.providers.qq.hint'),
+        hintUrl: 'https://mail.qq.com',
+        hintText: t('settings.email.providers.qq.hintText'),
+      },
+      {
+        id: '163',
+        label: t('settings.email.providers.163.label'),
+        hint: t('settings.email.providers.163.hint'),
+        hintUrl: 'https://mail.163.com',
+        hintText: t('settings.email.providers.163.hintText'),
+      },
+    ],
+    [t],
+  )
 
   // Poll interval options with i18n
-  const POLL_INTERVAL_OPTIONS = useMemo(() => [
-    { label: t('settings.email.pollIntervals.5min'), value: 5 },
-    { label: t('settings.email.pollIntervals.15min'), value: 15 },
-    { label: t('settings.email.pollIntervals.30min'), value: 30 },
-    { label: t('settings.email.pollIntervals.1hour'), value: 60 },
-    { label: t('settings.email.pollIntervals.2hours'), value: 120 },
-  ], [t])
+  const POLL_INTERVAL_OPTIONS = useMemo(
+    () => [
+      { label: t('settings.email.pollIntervals.5min'), value: 5 },
+      { label: t('settings.email.pollIntervals.15min'), value: 15 },
+      { label: t('settings.email.pollIntervals.30min'), value: 30 },
+      { label: t('settings.email.pollIntervals.1hour'), value: 60 },
+      { label: t('settings.email.pollIntervals.2hours'), value: 120 },
+    ],
+    [t],
+  )
 
   // Filter providers that have a configured API key
   const enabledSummaryProviders = useMemo(() => {
@@ -329,10 +337,12 @@ const EmailSettingsPanel = ({ backendUrl }) => {
       gmail: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
       outlook: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
       qq: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-      '163': 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
+      163: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
     }
     return (
-      <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${colors[providerId] || colors.gmail}`}>
+      <span
+        className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${colors[providerId] || colors.gmail}`}
+      >
         {providerData?.label || providerId}
       </span>
     )
@@ -360,6 +370,9 @@ const EmailSettingsPanel = ({ backendUrl }) => {
         </h3>
         <p className="text-xs text-gray-500 dark:text-gray-400">
           {t('settings.email.description')}
+        </p>
+        <p className="mt-1 text-[11px] leading-relaxed text-blue-600/80 dark:text-blue-400/70">
+          {t('settings.email.limitHint')}
         </p>
       </div>
 
@@ -615,7 +628,9 @@ const EmailSettingsPanel = ({ backendUrl }) => {
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
                 {t('settings.email.connectForm.passwordLabel')}
-                <span className="ml-1 font-normal text-gray-400">{t('settings.email.connectForm.passwordHint')}</span>
+                <span className="ml-1 font-normal text-gray-400">
+                  {t('settings.email.connectForm.passwordHint')}
+                </span>
               </label>
               <input
                 type="password"
@@ -633,7 +648,9 @@ const EmailSettingsPanel = ({ backendUrl }) => {
             className="flex items-center justify-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {connecting ? <Loader2 size={14} className="animate-spin" /> : <Mail size={14} />}
-            {connecting ? t('settings.email.connectForm.connecting') : t('settings.email.connectForm.connectButton')}
+            {connecting
+              ? t('settings.email.connectForm.connecting')
+              : t('settings.email.connectForm.connectButton')}
           </button>
         </div>
       ) : (

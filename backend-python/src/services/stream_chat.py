@@ -209,6 +209,159 @@ def _preview(text: Any, limit: int = 140) -> str:
     return raw[:limit] + ("..." if len(raw) > limit else "")
 
 
+def _extract_text_chunk(run_event: Any) -> str:
+    """Extract assistant text only from explicit content fields.
+
+    Shared between stream_chat() and _continue_hitl_run() to avoid duplication.
+    """
+    provider_data = getattr(run_event, "model_provider_data", None)
+    if isinstance(provider_data, dict):
+        choices = provider_data.get("choices") or []
+        if choices and isinstance(choices[0], dict):
+            delta = choices[0].get("delta") or {}
+            raw_content = delta.get("content")
+            if isinstance(raw_content, str) and raw_content:
+                return raw_content
+            if isinstance(raw_content, list):
+                parts: list[str] = []
+                for item in raw_content:
+                    if isinstance(item, dict):
+                        text_part = item.get("text") or item.get("content")
+                        if text_part:
+                            parts.append(str(text_part))
+                    elif isinstance(item, str) and item:
+                        parts.append(item)
+                if parts:
+                    return "".join(parts)
+            raw_reasoning = delta.get("reasoning_content")
+            if isinstance(raw_reasoning, str) and raw_reasoning:
+                return ""
+            if isinstance(raw_reasoning, list):
+                reasoning_parts: list[str] = []
+                for item in raw_reasoning:
+                    if isinstance(item, dict):
+                        text_part = item.get("text") or item.get("content")
+                        if text_part:
+                            reasoning_parts.append(str(text_part))
+                    elif isinstance(item, str) and item:
+                        reasoning_parts.append(item)
+                if reasoning_parts:
+                    return ""
+
+    content = getattr(run_event, "content", None)
+    if isinstance(content, str) and content:
+        return content
+    if isinstance(content, list):
+        parts: list[str] = []
+        for item in content:
+            if isinstance(item, dict):
+                text_part = item.get("text") or item.get("content")
+                if isinstance(text_part, str) and text_part:
+                    parts.append(text_part)
+            elif isinstance(item, str) and item:
+                parts.append(item)
+        if parts:
+            return "".join(parts)
+
+    if isinstance(provider_data, dict):
+        choices = provider_data.get("choices") or []
+        if choices and isinstance(choices[0], dict):
+            delta = choices[0].get("delta") or {}
+            raw_content = delta.get("content")
+            if isinstance(raw_content, str) and raw_content:
+                return raw_content
+            if isinstance(raw_content, list):
+                parts: list[str] = []
+                for item in raw_content:
+                    if isinstance(item, dict):
+                        text_part = item.get("text") or item.get("content")
+                        if text_part:
+                            parts.append(str(text_part))
+                    elif isinstance(item, str) and item:
+                        parts.append(item)
+                if parts:
+                    return "".join(parts)
+    return ""
+
+
+def _extract_reasoning_chunk(
+    run_event: Any,
+    trace_fn: Any = None,
+) -> str:
+    """Extract reasoning/thought content from a stream event.
+
+    Shared between stream_chat() and _continue_hitl_run() to avoid duplication.
+    ``trace_fn`` is an optional callable(stage, **kwargs) for trace logging.
+    """
+    def _trace(stage: str, **kwargs: Any) -> None:
+        if trace_fn:
+            trace_fn(stage, **kwargs)
+
+    provider_data = getattr(run_event, "model_provider_data", None)
+    if isinstance(provider_data, dict):
+        choices = provider_data.get("choices") or []
+        if choices and isinstance(choices[0], dict):
+            delta = choices[0].get("delta") or {}
+            raw_reasoning = delta.get("reasoning_content")
+            if isinstance(raw_reasoning, str) and raw_reasoning:
+                _trace("reasoning_source", source="provider_data.delta.reasoning_content")
+                return raw_reasoning
+            if isinstance(raw_reasoning, list):
+                parts: list[str] = []
+                for item in raw_reasoning:
+                    if isinstance(item, dict):
+                        text_part = item.get("text") or item.get("content")
+                        if text_part:
+                            parts.append(str(text_part))
+                    elif isinstance(item, str) and item:
+                        parts.append(item)
+                if parts:
+                    _trace("reasoning_source", source="provider_data.delta.reasoning_content[]")
+                    return "".join(parts)
+
+    reasoning = getattr(run_event, "reasoning_content", None)
+    if isinstance(reasoning, str) and reasoning:
+        _trace("reasoning_source", source="run_event.reasoning_content")
+        return reasoning
+    if isinstance(reasoning, list):
+        parts: list[str] = []
+        for item in reasoning:
+            if isinstance(item, dict):
+                text_part = item.get("text") or item.get("content")
+                if text_part:
+                    parts.append(str(text_part))
+            elif isinstance(item, str) and item:
+                parts.append(item)
+        if parts:
+            _trace("reasoning_source", source="run_event.reasoning_content[]")
+            return "".join(parts)
+
+    if isinstance(provider_data, dict):
+        choices = provider_data.get("choices") or []
+        if choices and isinstance(choices[0], dict):
+            delta = choices[0].get("delta") or {}
+            raw_reasoning = delta.get("reasoning_content")
+            if isinstance(raw_reasoning, str) and raw_reasoning:
+                _trace("reasoning_source", source="provider_data.delta.reasoning_content")
+                return raw_reasoning
+            if isinstance(raw_reasoning, list):
+                parts: list[str] = []
+                for item in raw_reasoning:
+                    if isinstance(item, dict):
+                        text_part = item.get("text") or item.get("content")
+                        if text_part:
+                            parts.append(str(text_part))
+                if parts:
+                    _trace("reasoning_source", source="provider_data.delta.reasoning_content[]")
+                    return "".join(parts)
+            # NOTE:
+            # Some providers (e.g. DeepSeek-compatible streams) may place
+            # assistant answer tokens under `delta.reasoning`.
+            # Treating that field as reasoning can misclassify answer text as thought.
+            # Keep reasoning extraction strict to `reasoning_content` only.
+    return ""
+
+
 def _normalize_interactive_form_fields(raw_fields: Any) -> list[dict[str, Any]]:
     """
     Normalize interactive_form fields to a strict list[dict].
@@ -337,146 +490,6 @@ class StreamChatService:
                         reasoning_closed_for_current_cycle = True
                     full_content += clean_text
                     yield TextEvent(content=clean_text).model_dump()
-
-            def _extract_text_chunk(run_event: Any) -> str:
-                """Extract assistant text only from explicit content fields."""
-                provider_data = getattr(run_event, "model_provider_data", None)
-                if isinstance(provider_data, dict):
-                    # NVIDIA dedicated split:
-                    # text -> delta.content, reasoning -> delta.reasoning_content
-                    choices = provider_data.get("choices") or []
-                    if choices and isinstance(choices[0], dict):
-                        delta = choices[0].get("delta") or {}
-                        raw_content = delta.get("content")
-                        if isinstance(raw_content, str) and raw_content:
-                            return raw_content
-                        if isinstance(raw_content, list):
-                            parts: list[str] = []
-                            for item in raw_content:
-                                if isinstance(item, dict):
-                                    text_part = item.get("text") or item.get("content")
-                                    if text_part:
-                                        parts.append(str(text_part))
-                                elif isinstance(item, str) and item:
-                                    parts.append(item)
-                            if parts:
-                                return "".join(parts)
-                        raw_reasoning = delta.get("reasoning_content")
-                        if isinstance(raw_reasoning, str) and raw_reasoning:
-                            return ""
-                        if isinstance(raw_reasoning, list):
-                            reasoning_parts: list[str] = []
-                            for item in raw_reasoning:
-                                if isinstance(item, dict):
-                                    text_part = item.get("text") or item.get("content")
-                                    if text_part:
-                                        reasoning_parts.append(str(text_part))
-                                elif isinstance(item, str) and item:
-                                    reasoning_parts.append(item)
-                            if reasoning_parts:
-                                return ""
-                    # Fall through to generic extraction when no explicit NVIDIA split fields.
-
-                content = getattr(run_event, "content", None)
-                if isinstance(content, str) and content:
-                    return content
-                if isinstance(content, list):
-                    parts: list[str] = []
-                    for item in content:
-                        if isinstance(item, dict):
-                            text_part = item.get("text") or item.get("content")
-                            if isinstance(text_part, str) and text_part:
-                                parts.append(text_part)
-                        elif isinstance(item, str) and item:
-                            parts.append(item)
-                    if parts:
-                        return "".join(parts)
-
-                if isinstance(provider_data, dict):
-                    choices = provider_data.get("choices") or []
-                    if choices and isinstance(choices[0], dict):
-                        delta = choices[0].get("delta") or {}
-                        raw_content = delta.get("content")
-                        if isinstance(raw_content, str) and raw_content:
-                            return raw_content
-                        if isinstance(raw_content, list):
-                            parts: list[str] = []
-                            for item in raw_content:
-                                if isinstance(item, dict):
-                                    text_part = item.get("text") or item.get("content")
-                                    if text_part:
-                                        parts.append(str(text_part))
-                                elif isinstance(item, str) and item:
-                                    parts.append(item)
-                            if parts:
-                                return "".join(parts)
-                return ""
-
-            def _extract_reasoning_chunk(run_event: Any) -> str:
-                provider_data = getattr(run_event, "model_provider_data", None)
-                if isinstance(provider_data, dict):
-                    choices = provider_data.get("choices") or []
-                    if choices and isinstance(choices[0], dict):
-                        delta = choices[0].get("delta") or {}
-                        raw_reasoning = delta.get("reasoning_content")
-                        if isinstance(raw_reasoning, str) and raw_reasoning:
-                            trace_stream("reasoning_source", source="provider_data.delta.reasoning_content")
-                            return raw_reasoning
-                        if isinstance(raw_reasoning, list):
-                            parts: list[str] = []
-                            for item in raw_reasoning:
-                                if isinstance(item, dict):
-                                    text_part = item.get("text") or item.get("content")
-                                    if text_part:
-                                        parts.append(str(text_part))
-                                elif isinstance(item, str) and item:
-                                    parts.append(item)
-                            if parts:
-                                trace_stream("reasoning_source", source="provider_data.delta.reasoning_content[]")
-                                return "".join(parts)
-                    # Fall through to generic extraction when no explicit NVIDIA reasoning delta.
-
-                reasoning = getattr(run_event, "reasoning_content", None)
-                if isinstance(reasoning, str) and reasoning:
-                    trace_stream("reasoning_source", source="run_event.reasoning_content")
-                    return reasoning
-                if isinstance(reasoning, list):
-                    parts: list[str] = []
-                    for item in reasoning:
-                        if isinstance(item, dict):
-                            text_part = item.get("text") or item.get("content")
-                            if text_part:
-                                parts.append(str(text_part))
-                        elif isinstance(item, str) and item:
-                            parts.append(item)
-                    if parts:
-                        trace_stream("reasoning_source", source="run_event.reasoning_content[]")
-                        return "".join(parts)
-
-                if isinstance(provider_data, dict):
-                    choices = provider_data.get("choices") or []
-                    if choices and isinstance(choices[0], dict):
-                        delta = choices[0].get("delta") or {}
-                        raw_reasoning = delta.get("reasoning_content")
-                        if isinstance(raw_reasoning, str) and raw_reasoning:
-                            trace_stream("reasoning_source", source="provider_data.delta.reasoning_content")
-                            return raw_reasoning
-                        if isinstance(raw_reasoning, list):
-                            parts: list[str] = []
-                            for item in raw_reasoning:
-                                if isinstance(item, dict):
-                                    text_part = item.get("text") or item.get("content")
-                                    if text_part:
-                                        parts.append(str(text_part))
-                            if parts:
-                                trace_stream("reasoning_source", source="provider_data.delta.reasoning_content[]")
-                                return "".join(parts)
-                        # NOTE:
-                        # Some providers (e.g. DeepSeek-compatible streams) may place
-                        # assistant answer tokens under `delta.reasoning`.
-                        # Treating that field as reasoning can misclassify answer text as thought.
-                        # Keep reasoning extraction strict to `reasoning_content` only.
-                return ""
 
             # Context management now handled by Agno's num_history_runs parameter
             messages = request.messages
@@ -743,7 +756,7 @@ class StreamChatService:
                                     tail_len=len(inline_protocol_tail),
                                     cleaned_preview=_preview(raw_content_chunk),
                                 )
-                            raw_reasoning = _extract_reasoning_chunk(run_event)
+                            raw_reasoning = _extract_reasoning_chunk(run_event, trace_fn=trace_stream)
                             content_segments, in_content_think_block = _split_content_by_think_tags(
                                 raw_content_chunk,
                                 in_content_think_block,
@@ -1170,149 +1183,6 @@ class StreamChatService:
                     full_content += clean_text
                     yield TextEvent(content=clean_text).model_dump()
 
-            def _extract_text_chunk(run_event: Any) -> str:
-                provider_data = getattr(run_event, "model_provider_data", None)
-                if isinstance(provider_data, dict):
-                    # NVIDIA-compatible stream split (per provider example):
-                    # content -> delta.content, reasoning -> delta.reasoning_content
-                    choices = provider_data.get("choices") or []
-                    if choices and isinstance(choices[0], dict):
-                        delta = choices[0].get("delta") or {}
-                        raw_content = delta.get("content")
-                        if isinstance(raw_content, str) and raw_content:
-                            return raw_content
-                        if isinstance(raw_content, list):
-                            parts: list[str] = []
-                            for item in raw_content:
-                                if isinstance(item, dict):
-                                    text_part = item.get("text") or item.get("content")
-                                    if text_part:
-                                        parts.append(str(text_part))
-                                elif isinstance(item, str) and item:
-                                    parts.append(item)
-                            if parts:
-                                return "".join(parts)
-                        # NVIDIA strict split:
-                        # If this chunk carries reasoning_content, never route it into text.
-                        raw_reasoning = delta.get("reasoning_content")
-                        if isinstance(raw_reasoning, str) and raw_reasoning:
-                            return ""
-                        if isinstance(raw_reasoning, list):
-                            reasoning_parts: list[str] = []
-                            for item in raw_reasoning:
-                                if isinstance(item, dict):
-                                    text_part = item.get("text") or item.get("content")
-                                    if text_part:
-                                        reasoning_parts.append(str(text_part))
-                                elif isinstance(item, str) and item:
-                                    reasoning_parts.append(item)
-                            if reasoning_parts:
-                                return ""
-                    # Fall through to generic extraction only when no explicit NVIDIA split fields.
-
-                content = getattr(run_event, "content", None)
-                if isinstance(content, str) and content:
-                    return content
-                if isinstance(content, list):
-                    parts: list[str] = []
-                    for item in content:
-                        if isinstance(item, dict):
-                            text_part = item.get("text") or item.get("content")
-                            if isinstance(text_part, str) and text_part:
-                                parts.append(text_part)
-                        elif isinstance(item, str) and item:
-                            parts.append(item)
-                    if parts:
-                        return "".join(parts)
-
-                if isinstance(provider_data, dict):
-                    choices = provider_data.get("choices") or []
-                    if choices and isinstance(choices[0], dict):
-                        delta = choices[0].get("delta") or {}
-                        raw_content = delta.get("content")
-                        if isinstance(raw_content, str) and raw_content:
-                            return raw_content
-                        if isinstance(raw_content, list):
-                            parts: list[str] = []
-                            for item in raw_content:
-                                if isinstance(item, dict):
-                                    text_part = item.get("text") or item.get("content")
-                                    if text_part:
-                                        parts.append(str(text_part))
-                            if parts:
-                                return "".join(parts)
-                        # IMPORTANT:
-                        # Do not route `delta.reasoning` into assistant text during HITL continuation.
-                        # Some providers emit hidden chain-of-thought in this field, which must never
-                        # be rendered in normal answer paragraphs.
-                return ""
-
-            def _extract_reasoning_chunk(run_event: Any) -> str:
-                provider_data = getattr(run_event, "model_provider_data", None)
-                if isinstance(provider_data, dict):
-                    choices = provider_data.get("choices") or []
-                    if choices and isinstance(choices[0], dict):
-                        delta = choices[0].get("delta") or {}
-                        raw_reasoning = delta.get("reasoning_content")
-                        if isinstance(raw_reasoning, str) and raw_reasoning:
-                            trace_stream("reasoning_source", source="provider_data.delta.reasoning_content")
-                            return raw_reasoning
-                        if isinstance(raw_reasoning, list):
-                            parts: list[str] = []
-                            for item in raw_reasoning:
-                                if isinstance(item, dict):
-                                    text_part = item.get("text") or item.get("content")
-                                    if text_part:
-                                        parts.append(str(text_part))
-                                elif isinstance(item, str) and item:
-                                    parts.append(item)
-                            if parts:
-                                trace_stream("reasoning_source", source="provider_data.delta.reasoning_content[]")
-                                return "".join(parts)
-                    # Fall through to generic extraction when this chunk has no NVIDIA reasoning delta.
-
-                reasoning = getattr(run_event, "reasoning_content", None)
-                if isinstance(reasoning, str) and reasoning:
-                    trace_stream("reasoning_source", source="run_event.reasoning_content")
-                    return reasoning
-                if isinstance(reasoning, list):
-                    parts: list[str] = []
-                    for item in reasoning:
-                        if isinstance(item, dict):
-                            text_part = item.get("text") or item.get("content")
-                            if text_part:
-                                parts.append(str(text_part))
-                        elif isinstance(item, str) and item:
-                            parts.append(item)
-                    if parts:
-                        trace_stream("reasoning_source", source="run_event.reasoning_content[]")
-                        return "".join(parts)
-
-                if isinstance(provider_data, dict):
-                    choices = provider_data.get("choices") or []
-                    if choices and isinstance(choices[0], dict):
-                        delta = choices[0].get("delta") or {}
-                        raw_reasoning = delta.get("reasoning_content")
-                        if isinstance(raw_reasoning, str) and raw_reasoning:
-                            trace_stream("reasoning_source", source="provider_data.delta.reasoning_content")
-                            return raw_reasoning
-                        if isinstance(raw_reasoning, list):
-                            parts: list[str] = []
-                            for item in raw_reasoning:
-                                if isinstance(item, dict):
-                                    text_part = item.get("text") or item.get("content")
-                                    if text_part:
-                                        parts.append(str(text_part))
-                            if parts:
-                                trace_stream("reasoning_source", source="provider_data.delta.reasoning_content[]")
-                                return "".join(parts)
-                        # NOTE:
-                        # Some providers (e.g. DeepSeek-compatible streams) may place
-                        # assistant answer tokens under `delta.reasoning`.
-                        # Treating that field as reasoning can misclassify answer text as thought.
-                        # Keep reasoning extraction strict to `reasoning_content` only.
-                return ""
-
             async def _stream_events(stream):
                 nonlocal full_content, full_thought, sources_map, tool_start_times, paused_again, stream_had_error
                 nonlocal in_reasoning_phase, should_break_next_thought, reasoning_closed_for_current_cycle
@@ -1402,7 +1272,7 @@ class StreamChatService:
                                         tail_len=len(inline_protocol_tail),
                                         cleaned_preview=_preview(raw_content_chunk),
                                     )
-                                raw_reasoning = _extract_reasoning_chunk(run_event)
+                                raw_reasoning = _extract_reasoning_chunk(run_event, trace_fn=trace_stream)
                                 content_segments, in_content_think_block = _split_content_by_think_tags(
                                     raw_content_chunk,
                                     in_content_think_block,

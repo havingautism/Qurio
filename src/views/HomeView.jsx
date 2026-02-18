@@ -17,7 +17,7 @@ import LayoutGrid from 'lucide-react/dist/esm/icons/layout-grid'
 import Menu from 'lucide-react/dist/esm/icons/menu'
 import Paperclip from 'lucide-react/dist/esm/icons/paperclip'
 import X from 'lucide-react/dist/esm/icons/x'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Drawer, DrawerContent } from '@/components/ui/drawer'
 import { useTranslation } from 'react-i18next'
 import { useAppContext } from '../App'
@@ -1600,4 +1600,4 @@ const HomeView = () => {
   )
 }
 
-export default HomeView
+export default React.memo(HomeView)

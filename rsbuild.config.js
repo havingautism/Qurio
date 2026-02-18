@@ -47,6 +47,18 @@ export default defineConfig(({ env }) => {
         '@': './src',
       },
     },
+    tools: {
+      rspack: {
+        module: {
+          rules: [
+            {
+              test: /\.sql$/,
+              type: 'asset/source',
+            },
+          ],
+        },
+      },
+    },
     server: {
       host: '0.0.0.0',
       client: {

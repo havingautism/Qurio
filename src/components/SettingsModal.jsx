@@ -9,6 +9,7 @@ import {
   Key,
   Link,
   Loader2,
+  Mail,
   MessageSquare,
   Monitor,
   Search,
@@ -44,6 +45,7 @@ import { upsertMemoryDomainSummary, ensureLongTermMemoryIndex } from '../lib/lon
 import { getProvider } from '../lib/providers'
 import { FALLBACK_MODEL_OPTIONS, PROVIDER_KEYS } from '../lib/modelConstants'
 import MemoryTable from './MemoryTable'
+import EmailSettingsPanel from './EmailSettingsPanel'
 import { useToast } from '../contexts/ToastContext'
 
 const ENV_VARS = {
@@ -804,6 +806,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
     // { id: 'personalization', icon: User },
     { id: 'interface', icon: Monitor },
     { id: 'account', icon: Key },
+    { id: 'email', icon: Mail },
     { id: 'advanced', icon: Terminal },
     { id: 'about', icon: Info },
   ]
@@ -1744,8 +1747,9 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
     availableProviders = [],
   }) => {
     const providers = availableProviders
-    const resolvedProvider =
-      providers.includes(activeProvider) ? activeProvider : providers[0] || activeProvider
+    const resolvedProvider = providers.includes(activeProvider)
+      ? activeProvider
+      : providers[0] || activeProvider
     const activeModels = chatGroupedModels[resolvedProvider] || []
     const selectedLabel = getModelLabel(value)
     const showList = modelSource === 'list'
@@ -4057,6 +4061,9 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                 </div>
               </div>
             )}
+
+            {/* Gmail Settings Panel */}
+            {activeTab === 'email' && <EmailSettingsPanel backendUrl={getBackendUrl()} />}
           </div>
 
           {/* Footer */}

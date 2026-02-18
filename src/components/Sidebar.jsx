@@ -38,6 +38,7 @@ import { deleteConversation } from '../lib/supabase'
 import DotLoader from './DotLoader'
 import EmojiDisplay from './EmojiDisplay'
 import Logo from './Logo'
+import NotificationCenter from './NotificationCenter'
 import { useDeepResearchGuide } from '../contexts/DeepResearchGuideContext'
 
 const SIDEBAR_FETCH_LIMIT = 20
@@ -862,6 +863,9 @@ const Sidebar = ({
             >
               {getThemeIcon()}
             </button>
+
+            {/* Email Notification Center */}
+            <NotificationCenter />
 
             <button
               onClick={onOpenTools}

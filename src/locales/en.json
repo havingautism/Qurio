@@ -268,6 +268,7 @@
       "interface": "Interface",
       "personalization": "Personalization",
       "account": "Account",
+      "email": "Email",
       "advanced": "Advanced",
       "about": "About"
     },

@@ -28,9 +28,9 @@ from agno.utils.log import logger as agno_logger
 from ..config import get_settings
 from ..services.agent_registry import _build_model
 from ..services.db_service import execute_db_async, get_db_adapter
-from ..models.db import DbFilter, DbOrder, DbQueryRequest
+from ..models.db import DbFilter, DbQueryRequest
 from .email_providers.base import EmailMessage
-from .email_providers.gmail import GmailProvider
+from .email_providers.imap import ImapProvider
 
 logger = logging.getLogger(__name__)
 
@@ -139,25 +139,6 @@ async def _summarize_email(
 # Core poll logic
 # ---------------------------------------------------------------------------
 
-async def _is_already_processed(message_id: str, database_provider: str | None) -> bool:
-    """Check if a message_id already exists in email_notifications (prevents duplicates)."""
-    try:
-        adapter = get_db_adapter(database_provider)
-        if not adapter:
-            return False
-        req = DbQueryRequest(
-            providerId=adapter.config.id,
-            action="select",
-            table="email_notifications",
-            columns=["id"],
-            filters=[DbFilter(op="eq", column="message_id", value=message_id)],
-            maybeSingle=True,
-        )
-        result = await execute_db_async(adapter, req)
-        return bool(result.data)
-    except Exception as e:
-        logger.warning("[EmailMonitor] Duplicate check failed for %s: %s", message_id, e)
-        return False
 
 
 async def _save_notification(
@@ -197,54 +178,6 @@ async def _save_notification(
     except Exception as e:
         logger.error("[EmailMonitor] _save_notification error: %s", e)
 
-
-async def _cleanup_old_notifications(config_id: str, database_provider: str | None) -> None:
-    """
-    Delete old notifications for a config, keeping only the newest N records.
-    Implements the sliding window behavior.
-    """
-    try:
-        adapter = get_db_adapter(database_provider)
-        if not adapter:
-            return
-
-        # Fetch all notification IDs for this config, ordered by received_at desc
-        req = DbQueryRequest(
-            providerId=adapter.config.id,
-            action="select",
-            table="email_notifications",
-            columns=["id"],
-            filters=[DbFilter(op="eq", column="config_id", value=config_id)],
-            order=[DbOrder(column="received_at", ascending=False)],
-            limit=100,  # Get enough to determine which to delete
-        )
-        result = await execute_db_async(adapter, req)
-        notifications = result.data if isinstance(result.data, list) else []
-
-        if len(notifications) <= _MAX_NOTIFICATIONS_PER_ACCOUNT:
-            return  # No cleanup needed
-
-        # Get IDs to delete (all except the newest N)
-        ids_to_keep = {n["id"] for n in notifications[:_MAX_NOTIFICATIONS_PER_ACCOUNT]}
-        ids_to_delete = [n["id"] for n in notifications if n["id"] not in ids_to_keep]
-
-        if not ids_to_delete:
-            return
-
-        # Delete old notifications
-        for old_id in ids_to_delete:
-            delete_req = DbQueryRequest(
-                providerId=adapter.config.id,
-                action="delete",
-                table="email_notifications",
-                filters=[DbFilter(op="eq", column="id", value=old_id)],
-            )
-            await execute_db_async(adapter, delete_req)
-
-        logger.info("[EmailMonitor] Cleaned up %d old notifications for config %s", len(ids_to_delete), config_id)
-
-    except Exception as e:
-        logger.warning("[EmailMonitor] Failed to cleanup old notifications: %s", e)
 
 
 
@@ -311,11 +244,14 @@ async def _resolve_provider_api_key(provider: str, database_provider: str | None
 async def _poll_single_config(config: dict, database_provider: str | None) -> None:
     """
     Poll one email account config: fetch new emails, summarize, and save.
-    Uses IMAP + App Password (no OAuth required).
 
-    Args:
-        config: Row from email_provider_configs table.
-        database_provider: DB provider ID to use for reads/writes.
+    Sliding window logic:
+      1. Fetch the latest N unread emails from IMAP.
+      2. Compare with existing DB notifications for this config.
+      3. New emails (not in DB) → summarize and save.
+         Overlapping emails (already in DB) → skip.
+         Old emails (in DB but not in new fetch) → delete.
+    Result: DB always mirrors the current latest N unread emails.
     """
     config_id = config.get("id", "")
     provider = config.get("provider", "gmail")
@@ -328,7 +264,7 @@ async def _poll_single_config(config: dict, database_provider: str | None) -> No
         logger.warning("[EmailMonitor] Missing email or password for config %s; skipping.", config_id)
         return
 
-    # Build IMAP provider — all providers use GmailProvider logic, only host differs
+    # Build IMAP provider — all providers use ImapProvider logic, only host differs
     _IMAP_SERVERS = {
         "gmail":   ("imap.gmail.com", 993),
         "outlook": ("outlook.office365.com", 993),
@@ -336,16 +272,10 @@ async def _poll_single_config(config: dict, database_provider: str | None) -> No
         "163":     ("imap.163.com", 993),
     }
     imap_host, imap_port = _IMAP_SERVERS.get(provider, ("imap.gmail.com", 993))
-
-    email_provider = GmailProvider.__new__(GmailProvider)
-    email_provider._email = email_addr
-    email_provider._password = imap_password.replace(" ", "")
-    email_provider._imap_host = imap_host
-    email_provider._imap_port = imap_port
+    email_provider = ImapProvider(email_addr, imap_password, imap_host, imap_port)
 
     # Summarization model config — uses global API keys from settings
     settings = get_settings()
-
     summary_provider = config.get("summary_provider")
     summary_model    = config.get("summary_model")
 
@@ -359,31 +289,59 @@ async def _poll_single_config(config: dict, database_provider: str | None) -> No
             "summaryLiteModel", database_provider, settings.summary_lite_model
         )
 
-    # Fetch emails in thread pool (IMAP is blocking I/O)
+    # Step 1: Fetch latest N unread emails from IMAP (blocking I/O → thread pool)
     loop = asyncio.get_event_loop()
     email_tuples: list[tuple[str, EmailMessage]] = await loop.run_in_executor(
-        None, lambda: email_provider.fetch_new_emails(max_results=5)
+        None, lambda: email_provider.fetch_new_emails(max_results=_MAX_NOTIFICATIONS_PER_ACCOUNT)
     )
 
+    # Build a set of message_ids from the current fetch
+    fetched_message_ids: set[str] = {msg.message_id for _, msg in email_tuples}
+
+    # Step 2: Load all existing DB notifications for this config
+    adapter = get_db_adapter(database_provider)
+    if not adapter:
+        logger.warning("[EmailMonitor] No DB adapter; skipping poll for %s.", email_addr)
+        return
+
+    existing_req = DbQueryRequest(
+        providerId=adapter.config.id,
+        action="select",
+        table="email_notifications",
+        columns=["id", "message_id"],
+        filters=[DbFilter(op="eq", column="config_id", value=config_id)],
+    )
+    existing_result = await execute_db_async(adapter, existing_req)
+    existing_notifications = existing_result.data if isinstance(existing_result.data, list) else []
+    existing_message_ids: set[str] = {n["message_id"] for n in existing_notifications if n.get("message_id")}
+
+    # Step 3: Save new emails (in fetch but not in DB)
     new_count = 0
-    for imap_id, msg in email_tuples:
-        # Skip already-processed messages (dedup by message_id)
-        if await _is_already_processed(msg.message_id, database_provider):
-            continue
+    for _, msg in email_tuples:
+        if msg.message_id in existing_message_ids:
+            continue  # Already in DB — skip
 
-        # Generate AI summary
-        summary = await _summarize_email(
-            msg, summary_provider, summary_model, database_provider
-        )
-
-        # Persist notification
+        summary = await _summarize_email(msg, summary_provider, summary_model, database_provider)
         await _save_notification(config_id, provider, msg, summary, database_provider)
         new_count += 1
 
-    # Sliding window: cleanup old notifications, keep only the newest N
-    await _cleanup_old_notifications(config_id, database_provider)
+    # Step 4: Delete old notifications (in DB but not in current fetch)
+    deleted_count = 0
+    for notif in existing_notifications:
+        if notif.get("message_id") not in fetched_message_ids:
+            delete_req = DbQueryRequest(
+                providerId=adapter.config.id,
+                action="delete",
+                table="email_notifications",
+                filters=[DbFilter(op="eq", column="id", value=notif["id"])],
+            )
+            await execute_db_async(adapter, delete_req)
+            deleted_count += 1
 
-    logger.info("[EmailMonitor] %s: %d new notifications saved.", email_addr, new_count)
+    logger.info(
+        "[EmailMonitor] %s: %d new saved, %d old deleted.",
+        email_addr, new_count, deleted_count,
+    )
 
 
 async def poll_all_accounts(database_provider: str | None = None) -> dict:

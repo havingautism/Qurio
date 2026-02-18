@@ -71,22 +71,10 @@ _IMAP_SERVERS = {
 
 def _get_imap_provider(provider: str, email_address: str, app_password: str):
     """Instantiate the correct IMAP provider class."""
-    from ..services.email_providers.gmail import GmailProvider
+    from ..services.email_providers.imap import ImapProvider
 
     host, port = _IMAP_SERVERS.get(provider, ("imap.gmail.com", 993))
-
-    # All providers currently use the same IMAP logic; only host/port differ
-    # Future: create OutlookProvider, QQProvider etc. with provider-specific quirks
-    p = GmailProvider.__new__(GmailProvider)
-    p._email = email_address
-    p._password = app_password.replace(" ", "")
-
-    import imaplib, socket
-    # Override host/port for non-Gmail providers
-    p._imap_host = host
-    p._imap_port = port
-
-    return p
+    return ImapProvider(email_address, app_password, host, port)
 
 
 # ---------------------------------------------------------------------------

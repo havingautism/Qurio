@@ -1,14 +1,16 @@
 """
-Gmail email provider using IMAP + App Password.
+Generic IMAP email provider using IMAP4_SSL + App Password.
+
+Supports any email service that uses standard IMAP:
+  - Gmail (imap.gmail.com:993)
+  - Outlook (outlook.office365.com:993)
+  - QQ Mail (imap.qq.com:993)
+  - 163 Mail (imap.163.com:993)
+  - Any other standard IMAP server
 
 Authentication:
-  User provides their Gmail address and a Google App Password (16-char).
-  No OAuth2, no Google Cloud Console setup required.
-
-How to get an App Password:
-  1. Enable 2-Step Verification on your Google account
-  2. Go to: myaccount.google.com/apppasswords
-  3. Select "Mail" → Generate → copy the 16-char password
+  User provides their email address and an App Password (or IMAP password).
+  No OAuth2 required — uses standard IMAP LOGIN command.
 """
 
 from __future__ import annotations
@@ -26,9 +28,9 @@ from .base import BaseEmailProvider, EmailMessage
 
 logger = logging.getLogger(__name__)
 
-# Gmail IMAP server settings
-_IMAP_HOST = "imap.gmail.com"
-_IMAP_PORT = 993
+# Default IMAP server settings (Gmail fallback)
+_DEFAULT_IMAP_HOST = "imap.gmail.com"
+_DEFAULT_IMAP_PORT = 993
 
 # Maximum body length sent to the summarization model (keeps token usage low)
 _MAX_BODY_CHARS = 2000
@@ -94,38 +96,43 @@ def _extract_body_text(msg: email.message.Message) -> str:
     return ""
 
 
-class GmailProvider(BaseEmailProvider):
+class ImapProvider(BaseEmailProvider):
     """
-    Gmail email provider using IMAP + App Password.
+    Generic IMAP email provider supporting Gmail, Outlook, QQ, 163, and any
+    standard IMAP server.
 
     Args:
-        email_address: The Gmail address to connect to.
-        app_password: Google App Password (16-char, no spaces).
+        email_address: The email address to connect to.
+        app_password: App Password or IMAP password (spaces are stripped automatically).
+        imap_host: IMAP server hostname (default: imap.gmail.com).
+        imap_port: IMAP server port (default: 993).
     """
 
-    def __init__(self, email_address: str, app_password: str) -> None:
+    def __init__(
+        self,
+        email_address: str,
+        app_password: str,
+        imap_host: str = _DEFAULT_IMAP_HOST,
+        imap_port: int = _DEFAULT_IMAP_PORT,
+    ) -> None:
         self._email = email_address
         self._password = app_password.replace(" ", "")  # Remove spaces if user copied with spaces
+        self._imap_host = imap_host
+        self._imap_port = imap_port
 
     def get_provider_name(self) -> str:
-        return "gmail"
+        return "imap"
 
     def _connect(self) -> imaplib.IMAP4_SSL:
-        """
-        Open an authenticated IMAP4_SSL connection.
-        Uses _imap_host/_imap_port if set (for non-Gmail providers),
-        otherwise falls back to Gmail defaults.
-        """
-        host = getattr(self, "_imap_host", _IMAP_HOST)
-        port = getattr(self, "_imap_port", _IMAP_PORT)
+        """Open an authenticated IMAP4_SSL connection."""
         try:
-            mail = imaplib.IMAP4_SSL(host, port)
+            mail = imaplib.IMAP4_SSL(self._imap_host, self._imap_port)
             mail.login(self._email, self._password)
             return mail
         except imaplib.IMAP4.error as e:
             raise ValueError(f"IMAP login failed: {e}") from e
         except socket.gaierror as e:
-            raise ConnectionError(f"Cannot reach {host}: {e}") from e
+            raise ConnectionError(f"Cannot reach {self._imap_host}: {e}") from e
 
     def test_connection(self) -> bool:
         """
@@ -138,7 +145,7 @@ class GmailProvider(BaseEmailProvider):
 
     def fetch_new_emails(self, max_results: int = 5) -> list[tuple[str, EmailMessage]]:
         """
-        Fetch recent unread emails from Gmail INBOX via IMAP.
+        Fetch recent unread emails from INBOX via IMAP.
 
         Args:
             max_results: Maximum number of emails to return.
@@ -152,10 +159,10 @@ class GmailProvider(BaseEmailProvider):
             try:
                 mail.select("INBOX")
 
-                # Search for UNSEEN (unread) messages
+                # Search for all UNSEEN (unread) messages
                 status, data = mail.search(None, "UNSEEN")
                 if status != "OK" or not data or not data[0]:
-                    logger.info("[Gmail IMAP] No unread messages found.")
+                    logger.info("[IMAP] No unread messages found.")
                     return []
 
                 # Get message IDs, newest first, limited to max_results
@@ -177,9 +184,9 @@ class GmailProvider(BaseEmailProvider):
                         if email_msg:
                             results.append((msg_id.decode() if isinstance(msg_id, bytes) else msg_id, email_msg))
                     except Exception as e:
-                        logger.warning("[Gmail IMAP] Failed to fetch message %s: %s", msg_id, e)
+                        logger.warning("[IMAP] Failed to fetch message %s: %s", msg_id, e)
 
-                logger.info("[Gmail IMAP] Fetched %d unread emails.", len(results))
+                logger.info("[IMAP] Fetched %d unread emails.", len(results))
                 return results
 
             finally:
@@ -189,8 +196,63 @@ class GmailProvider(BaseEmailProvider):
                     pass
 
         except Exception as e:
-            logger.error("[Gmail IMAP] fetch_new_emails failed: %s", e)
+            logger.error("[IMAP] fetch_new_emails failed: %s", e)
             return []
+
+    def check_messages_unread_status(self, message_ids: list[str]) -> set[str]:
+        """
+        Check which of the given Message-IDs are still UNSEEN on the IMAP server.
+
+        Instead of fetching ALL unread emails (which could be thousands),
+        we only query the specific message_ids we care about (at most 5 from DB).
+        Uses IMAP SEARCH with HEADER Message-ID filter — very lightweight.
+
+        Args:
+            message_ids: List of email Message-ID strings to check.
+
+        Returns:
+            Set of Message-ID strings that are still UNSEEN (unread) on the server.
+        """
+        if not message_ids:
+            return set()
+
+        try:
+            mail = self._connect()
+            try:
+                mail.select("INBOX")
+                still_unread: set[str] = set()
+
+                for msg_id in message_ids:
+                    try:
+                        # Search for this specific message that is still UNSEEN
+                        # IMAP SEARCH: UNSEEN + HEADER Message-ID <id>
+                        status, data = mail.search(
+                            None, "UNSEEN", f'HEADER Message-ID "{msg_id}"'
+                        )
+                        if status == "OK" and data and data[0]:
+                            # If search returns any result, the message is still unread
+                            still_unread.add(msg_id)
+                    except Exception as e:
+                        logger.warning(
+                            "[IMAP] Failed to check unread status for %s: %s", msg_id, e
+                        )
+
+                logger.info(
+                    "[IMAP] Checked %d message IDs, %d still unread.",
+                    len(message_ids), len(still_unread),
+                )
+                return still_unread
+
+            finally:
+                try:
+                    mail.logout()
+                except Exception:
+                    pass
+
+        except Exception as e:
+            logger.error("[IMAP] check_messages_unread_status failed: %s", e)
+            # On error, assume all are still unread to avoid false positives
+            return set(message_ids)
 
     def mark_as_read(self, imap_id: str) -> bool:
         """
@@ -209,10 +271,10 @@ class GmailProvider(BaseEmailProvider):
                 # Add the \Seen flag to the message
                 status = mail.store(imap_id, "+FLAGS", "\\Seen")
                 if status[0] == "OK":
-                    logger.info("[Gmail IMAP] Marked message %s as read.", imap_id)
+                    logger.info("[IMAP] Marked message %s as read.", imap_id)
                     return True
                 else:
-                    logger.warning("[Gmail IMAP] Failed to mark message %s as read: %s", imap_id, status)
+                    logger.warning("[IMAP] Failed to mark message %s as read: %s", imap_id, status)
                     return False
             finally:
                 try:
@@ -220,7 +282,7 @@ class GmailProvider(BaseEmailProvider):
                 except Exception:
                     pass
         except Exception as e:
-            logger.error("[Gmail IMAP] mark_as_read failed for %s: %s", imap_id, e)
+            logger.error("[IMAP] mark_as_read failed for %s: %s", imap_id, e)
             return False
 
     def _parse_message(self, msg: email.message.Message, raw_email: bytes | None = None) -> EmailMessage | None:
@@ -258,20 +320,24 @@ class GmailProvider(BaseEmailProvider):
                 body_text=body_text,
             )
         except Exception as e:
-            logger.warning("[Gmail IMAP] Failed to parse message: %s", e)
+            logger.warning("[IMAP] Failed to parse message: %s", e)
             return None
 
     @staticmethod
     def build_imap_provider(
         email_address: str,
         app_password: str,
-        imap_host: str = _IMAP_HOST,
-        imap_port: int = _IMAP_PORT,
-    ) -> "GmailProvider":
+        imap_host: str = _DEFAULT_IMAP_HOST,
+        imap_port: int = _DEFAULT_IMAP_PORT,
+    ) -> "ImapProvider":
         """
-        Factory method — creates a GmailProvider and validates credentials.
+        Factory method — creates an ImapProvider and validates credentials.
         Raises ValueError if login fails.
         """
-        provider = GmailProvider(email_address, app_password)
+        provider = ImapProvider(email_address, app_password, imap_host, imap_port)
         provider.test_connection()
         return provider
+
+
+# Backward compatibility alias — keeps old imports working during transition
+GmailProvider = ImapProvider

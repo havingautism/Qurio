@@ -52,8 +52,11 @@ class SiliconFlowAdapter(OpenAIAdapter):
             else:
                 budget = 1024
 
+            model_id_lower = resolved_model.lower()
+            is_kimi_thinking_model = "kimi" in model_id_lower and "thinking" in model_id_lower
             extra_body["thinking_budget"] = budget
-            extra_body["enable_thinking"] = True
+            if not is_kimi_thinking_model:
+                extra_body["enable_thinking"] = True
 
         # Add tools support
         if tools:

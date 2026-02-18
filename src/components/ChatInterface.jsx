@@ -1803,15 +1803,6 @@ const ChatInterface = ({
       }
       partnerIds.unshift(aiMsg.id)
 
-      const idsToDelete = partnerIds.filter(Boolean)
-      if (idsToDelete.length > 0) {
-        try {
-          await Promise.all(idsToDelete.map(id => deleteMessageById(id)))
-        } catch (err) {
-          console.error('Failed to delete messages on regenerate:', err)
-        }
-      }
-
       const editingInfoOverride = {
         index: userIndex,
         targetId: userMsg.id || null,
@@ -1871,15 +1862,6 @@ const ChatInterface = ({
         partnerIds.push(messages[cutEnd].id)
         cutEnd += 1
       }
-      const idsToDelete = partnerIds.filter(Boolean)
-      if (idsToDelete.length > 0) {
-        try {
-          await Promise.all(idsToDelete.map(id => deleteMessageById(id)))
-        } catch (err) {
-          console.error('Failed to delete messages on question regenerate:', err)
-        }
-      }
-
       const editingInfoOverride = {
         index: userIndex,
         targetId: userMsg.id || null,

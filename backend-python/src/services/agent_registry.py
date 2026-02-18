@@ -131,11 +131,26 @@ def _apply_thinking_params(model: Any, provider: str, thinking: dict[str, Any] |
             budget = thinking.get("budget_tokens") or thinking.get("budgetTokens")
         if budget is None:
             budget = 1024
-        _merge_model_dict_attr(
-            model,
-            "extra_body",
-            {"enable_thinking": True, "thinking_budget": budget},
+        model_id_lower = str(getattr(model, "id", "") or "").lower()
+        is_siliconflow_kimi_thinking = (
+            provider == "siliconflow"
+            and "kimi" in model_id_lower
+            and "thinking" in model_id_lower
         )
+        # SiliconFlow Kimi-thinking models may reject `enable_thinking`.
+        if is_siliconflow_kimi_thinking:
+            _merge_model_dict_attr(model, "extra_body", {"thinking_budget": budget})
+            current_extra = getattr(model, "extra_body", None)
+            if isinstance(current_extra, dict) and "enable_thinking" in current_extra:
+                merged = dict(current_extra)
+                merged.pop("enable_thinking", None)
+                setattr(model, "extra_body", merged)
+        else:
+            _merge_model_dict_attr(
+                model,
+                "extra_body",
+                {"enable_thinking": True, "thinking_budget": budget},
+            )
         # _merge_model_dict_attr(
         #     model,
         #     "request_params",

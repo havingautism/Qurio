@@ -39,18 +39,22 @@ MEMORY_OPTIMIZE_THRESHOLD = 50
 MEMORY_OPTIMIZE_INTERVAL_SECONDS = 60 * 60 * 12
 THINK_TAG_REGEX = re.compile(r"</?(?:think|thought)>", re.IGNORECASE)
 PROTOCOL_TAG_REGEX = re.compile(
-    r"(?:<[|｜](?P<tag>[a-zA-Z0-9_]+)[|｜]>)"
+    r"(?:<\s*[|｜]\s*(?P<tag>[a-zA-Z0-9_]+)\s*[|｜]\s*>)"
     r"|(?:<\s*(?P<dsml_close>/?)\s*[|｜]\s*DSML\s*[|｜]\s*(?P<dsml_body>[^>]+)>)",
     re.IGNORECASE,
 )
 TOOL_TRACE_BEGIN_TAGS = {
+    "tool_calls_begin",
     "tool_calls_section_begin",
     "tool_call_begin",
+    "tool_argument_begin",
     "tool_call_argument_begin",
 }
 TOOL_TRACE_END_TAGS = {
+    "tool_argument_end",
     "tool_call_argument_end",
     "tool_call_end",
+    "tool_calls_end",
     "tool_calls_section_end",
 }
 
@@ -61,11 +65,18 @@ def _strip_internal_tool_trace(text: str) -> str:
         return ""
     cleaned = str(text)
     cleaned = re.sub(r"</?(?:think|thought)>", "", cleaned, flags=re.IGNORECASE)
-    # Strip internal protocol markers/tags so stream_blocks never persist them.
-    cleaned = re.sub(r"<\|[^|>]*\|>", "", cleaned, flags=re.IGNORECASE)
+    # Remove protocol markers like <|tool_calls_begin|> and spaced variants.
+    cleaned = re.sub(r"<\s*[|｜]\s*[^|>|｜]*\s*[|｜]\s*>", "", cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r"</?\s*[|｜]\s*DSML\s*[|｜]\s*[^>]*>", "", cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r"</?(?:session_memory|today_local_time)>", "", cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r"\[SYSTEM INJECTED CONTEXT\]", "", cleaned, flags=re.IGNORECASE)
+    # Remove inline tool-call-like snippets leaked by some models.
+    cleaned = re.sub(
+        r"([:：]\s*)?[a-zA-Z_][a-zA-Z0-9_]{1,80}\s*\{[^{}\n]{0,1200}\}",
+        "",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
     return cleaned
 
 def _split_content_by_think_tags(text: str, in_think: bool) -> tuple[list[tuple[str, str]], bool]:
@@ -118,57 +129,14 @@ def _strip_inline_tool_protocol(
     if not combined:
         return "", tool_trace_depth, tail, bool(tail)
 
-    parts: list[str] = []
-    cursor = 0
-    depth = max(0, int(tool_trace_depth))
-    had_protocol = False
+    # Non-destructive stripping: remove marker tokens only.
+    matches = list(PROTOCOL_TAG_REGEX.finditer(combined))
+    had_protocol = bool(matches)
+    if not had_protocol:
+        return combined, 0, tail, bool(tail)
 
-    def _resolve_tag(match: re.Match[str]) -> str | None:
-        direct = match.group("tag")
-        if direct:
-            return direct.lower()
-
-        dsml_body = (match.group("dsml_body") or "").strip()
-        if not dsml_body:
-            return None
-        dsml_close = (match.group("dsml_close") or "") == "/"
-        dsml_name = re.split(r"\s+", dsml_body, maxsplit=1)[0].strip().lower()
-        if not dsml_name:
-            return None
-
-        mapping = {
-            "function_calls": ("tool_calls_section_begin", "tool_calls_section_end"),
-            "invoke": ("tool_call_begin", "tool_call_end"),
-            "parameter": ("tool_call_argument_begin", "tool_call_argument_end"),
-        }
-        mapped = mapping.get(dsml_name)
-        if not mapped:
-            return None
-        return mapped[1] if dsml_close else mapped[0]
-
-    for match in PROTOCOL_TAG_REGEX.finditer(combined):
-        start, end = match.span()
-        tag = _resolve_tag(match)
-        if not tag:
-            continue
-        had_protocol = True
-        if depth == 0 and start > cursor:
-            parts.append(combined[cursor:start])
-
-        if tag in TOOL_TRACE_BEGIN_TAGS:
-            depth += 1
-        elif tag in TOOL_TRACE_END_TAGS:
-            if depth > 0:
-                depth -= 1
-        # Other protocol markers are stripped as marker-only tokens.
-
-        cursor = end
-
-    if cursor < len(combined) and depth == 0:
-        parts.append(combined[cursor:])
-
-    cleaned = "".join(parts)
-    return cleaned, depth, tail, had_protocol
+    cleaned = PROTOCOL_TAG_REGEX.sub("", combined)
+    return cleaned, 0, tail, True
 
 
 def _squash_whitespace(text: Any) -> str:
@@ -207,6 +175,124 @@ def _is_stream_trace_enabled() -> bool:
 def _preview(text: Any, limit: int = 140) -> str:
     raw = str(text or "").replace("\n", "\\n")
     return raw[:limit] + ("..." if len(raw) > limit else "")
+
+
+def _extract_message_from_payload(payload: Any) -> str | None:
+    if payload is None:
+        return None
+    if hasattr(payload, "model_dump"):
+        try:
+            payload = payload.model_dump()
+        except Exception:
+            payload = str(payload)
+
+    if isinstance(payload, dict):
+        for key in ("message", "error", "detail", "msg"):
+            value = payload.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+            nested = _extract_message_from_payload(value)
+            if nested:
+                return nested
+        for value in payload.values():
+            nested = _extract_message_from_payload(value)
+            if nested:
+                return nested
+        return None
+
+    if isinstance(payload, (list, tuple)):
+        for item in payload:
+            nested = _extract_message_from_payload(item)
+            if nested:
+                return nested
+        return None
+
+    text = str(payload).strip()
+    if not text:
+        return None
+
+    # Agno RunErrorEvent repr: RunErrorEvent(..., content='Unknown model error', ...)
+    run_error_content_match = re.search(
+        r"""content\s*=\s*(['"])(.*?)\1""",
+        text,
+        re.IGNORECASE | re.DOTALL,
+    )
+    if run_error_content_match and run_error_content_match.group(2).strip():
+        return run_error_content_match.group(2).strip()
+
+    for parser in (json.loads, ast.literal_eval):
+        try:
+            parsed = parser(text)
+            nested = _extract_message_from_payload(parsed)
+            if nested:
+                return nested
+        except Exception:
+            pass
+
+    json_like = re.search(r"(\{[\s\S]*\})", text)
+    if json_like:
+        snippet = json_like.group(1)
+        for parser in (json.loads, ast.literal_eval):
+            try:
+                parsed = parser(snippet)
+                nested = _extract_message_from_payload(parsed)
+                if nested:
+                    return nested
+            except Exception:
+                pass
+
+    message_match = re.search(r"""['"]message['"]\s*:\s*['"](.+?)['"]""", text, re.IGNORECASE)
+    if message_match and message_match.group(1).strip():
+        return message_match.group(1).strip()
+
+    return text
+
+
+def _extract_best_error_message(exc: Exception | Any) -> str:
+    """Extract the most actionable provider message from nested exceptions."""
+    generic_markers = ("unknown model error", "unknown error", "model provider error")
+
+    def _is_generic(text: str) -> bool:
+        lowered = text.strip().lower()
+        return any(marker in lowered for marker in generic_markers)
+
+    candidates: list[str] = []
+    queue: list[Any] = [exc]
+    seen: set[int] = set()
+    while queue:
+        current = queue.pop(0)
+        if current is None:
+            continue
+        marker = id(current)
+        if marker in seen:
+            continue
+        seen.add(marker)
+
+        extracted = _extract_message_from_payload(current)
+        if extracted and extracted.strip():
+            candidates.append(extracted.strip())
+
+        if isinstance(current, BaseException):
+            queue.append(getattr(current, "__cause__", None))
+            queue.append(getattr(current, "__context__", None))
+            args = getattr(current, "args", None)
+            if isinstance(args, tuple):
+                queue.extend(args)
+
+        for attr in ("content", "error", "message", "detail", "model_provider_data"):
+            if hasattr(current, attr):
+                queue.append(getattr(current, attr, None))
+
+    for msg in candidates:
+        if not _is_generic(msg):
+            return msg
+    if candidates:
+        # Avoid dumping full event repr like "RunErrorEvent(...)" to UI.
+        filtered = [msg for msg in candidates if not msg.strip().lower().startswith("runerrorevent(")]
+        if filtered:
+            return min(filtered, key=len)
+        return min(candidates, key=len)
+    return str(exc or "Unknown error")
 
 
 def _extract_text_chunk(run_event: Any) -> str:
@@ -536,7 +622,7 @@ class StreamChatService:
                                 if isinstance(raw_summary, str):
                                     try:
                                         old_summary_json = json.loads(raw_summary)
-                                    except:
+                                    except (ValueError, json.JSONDecodeError):
                                         pass
                                 elif isinstance(raw_summary, dict):
                                     old_summary_json = raw_summary
@@ -1016,8 +1102,8 @@ class StreamChatService:
                             return
 
                         case RunEvent.run_error.value:
-                            error_msg = getattr(run_event, "content", None) or "Unknown error"
-                            yield ErrorEvent(error=str(error_msg)).model_dump()
+                            error_msg = _extract_best_error_message(run_event)
+                            yield ErrorEvent(error=error_msg).model_dump()
                             return
                 else:
                     # Simple event Fallback (no detailed event type), just check for content
@@ -1050,7 +1136,7 @@ class StreamChatService:
 
         except Exception as exc:
             logger.error(f"Stream chat error: {exc}")
-            yield ErrorEvent(error=str(exc)).model_dump()
+            yield ErrorEvent(error=_extract_best_error_message(exc)).model_dump()
 
     async def _continue_hitl_run(
         self,
@@ -1104,7 +1190,7 @@ class StreamChatService:
                                 if isinstance(raw_summary, str):
                                     try:
                                         old_summary_json = json.loads(raw_summary)
-                                    except:
+                                    except (ValueError, json.JSONDecodeError):
                                         pass
                                 elif isinstance(raw_summary, dict):
                                     old_summary_json = raw_summary
@@ -1482,9 +1568,9 @@ class StreamChatService:
                                     completed_content_fallback = agn_content
 
                             case RunEvent.run_error.value:
-                                error_msg = getattr(run_event, "content", None) or "Unknown error"
+                                error_msg = _extract_best_error_message(run_event)
                                 stream_had_error = True
-                                yield ErrorEvent(error=str(error_msg)).model_dump()
+                                yield ErrorEvent(error=error_msg).model_dump()
                                 return
                     else:
                         # Simple event Fallback
@@ -1671,7 +1757,7 @@ class StreamChatService:
             import traceback
             error_details = traceback.format_exc()
             logger.error(f"HITL continuation error: {exc}\n{error_details}")
-            yield ErrorEvent(error=str(exc)).model_dump()
+            yield ErrorEvent(error=_extract_best_error_message(exc)).model_dump()
 
 
 

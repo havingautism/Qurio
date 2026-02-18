@@ -1137,7 +1137,9 @@ const useChatStore = create((set, get) => ({
       spaceInfo?.isManualSpaceSelection &&
       spaceInfo?.selectedSpace
     // In auto mode, always preselect agent (including first turn)
-    const shouldPreselectAgent = isAgentAutoMode && text.trim() && !isDeepResearchMode
+    // For regenerate/edit flows, skip extra auto-agent preselect network call to reduce latency.
+    const shouldPreselectAgent =
+      isAgentAutoMode && text.trim() && !isDeepResearchMode && !hasEditingInfo
     const shouldPreselectDeepResearchTitle = isFirstTurn && isDeepResearchMode && text.trim()
     const shouldGenerateTitleAsync =
       isFirstTurn &&

@@ -1803,15 +1803,6 @@ const ChatInterface = ({
       }
       partnerIds.unshift(aiMsg.id)
 
-      const idsToDelete = partnerIds.filter(Boolean)
-      if (idsToDelete.length > 0) {
-        try {
-          await Promise.all(idsToDelete.map(id => deleteMessageById(id)))
-        } catch (err) {
-          console.error('Failed to delete messages on regenerate:', err)
-        }
-      }
-
       const editingInfoOverride = {
         index: userIndex,
         targetId: userMsg.id || null,
@@ -1871,15 +1862,6 @@ const ChatInterface = ({
         partnerIds.push(messages[cutEnd].id)
         cutEnd += 1
       }
-      const idsToDelete = partnerIds.filter(Boolean)
-      if (idsToDelete.length > 0) {
-        try {
-          await Promise.all(idsToDelete.map(id => deleteMessageById(id)))
-        } catch (err) {
-          console.error('Failed to delete messages on question regenerate:', err)
-        }
-      }
-
       const editingInfoOverride = {
         index: userIndex,
         targetId: userMsg.id || null,
@@ -2173,7 +2155,8 @@ const ChatInterface = ({
                 onClick={() => scrollToBottom('smooth')}
                 className={clsx(
                   'animate-in fade-in slide-in-from-bottom-2 absolute -top-14 left-1/2 z-30 -translate-x-1/2 rounded-full border border-gray-200/60 bg-white p-2.5 shadow-lg transition-all duration-300 hover:scale-105 hover:bg-gray-50 active:scale-95 dark:border-zinc-700/60 dark:bg-zinc-800 dark:hover:bg-zinc-700',
-                  isLoading && 'scroll-to-bottom-breathing border-primary-400/70 dark:border-primary-500/70',
+                  isLoading &&
+                    'scroll-to-bottom-breathing border-primary-400/70 dark:border-primary-500/70',
                 )}
               >
                 <ArrowDown size={18} className="text-gray-700 dark:text-gray-300" strokeWidth={2} />
@@ -2285,4 +2268,4 @@ const ChatInterface = ({
   )
 }
 
-export default ChatInterface
+export default React.memo(ChatInterface)

@@ -990,7 +990,7 @@ class QurioLocalTools(Toolkit):
                 parsed = json.loads(aliases)
                 if isinstance(parsed, list):
                     actual_aliases = parsed
-            except:
+            except (ValueError, json.JSONDecodeError):
                 pass
 
         existing_memory = self._load_existing_memory_summary(

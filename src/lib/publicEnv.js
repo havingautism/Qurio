@@ -5,6 +5,10 @@ const PUBLIC_ENV = {
   PUBLIC_SILICONFLOW_BASE_URL: import.meta.env.PUBLIC_SILICONFLOW_BASE_URL,
   PUBLIC_GLM_API_KEY: import.meta.env.PUBLIC_GLM_API_KEY,
   PUBLIC_GLM_BASE_URL: import.meta.env.PUBLIC_GLM_BASE_URL,
+  PUBLIC_DEEPSEEK_API_KEY: import.meta.env.PUBLIC_DEEPSEEK_API_KEY,
+  PUBLIC_DEEPSEEK_BASE_URL: import.meta.env.PUBLIC_DEEPSEEK_BASE_URL,
+  PUBLIC_VOLCENGINE_API_KEY: import.meta.env.PUBLIC_VOLCENGINE_API_KEY,
+  PUBLIC_VOLCENGINE_BASE_URL: import.meta.env.PUBLIC_VOLCENGINE_BASE_URL,
   PUBLIC_MODELSCOPE_API_KEY: import.meta.env.PUBLIC_MODELSCOPE_API_KEY,
   PUBLIC_MODELSCOPE_BASE_URL: import.meta.env.PUBLIC_MODELSCOPE_BASE_URL,
   PUBLIC_MODELSCOPE_PROXY_TARGET: import.meta.env.PUBLIC_MODELSCOPE_PROXY_TARGET,
@@ -18,7 +22,23 @@ const PUBLIC_ENV = {
   PUBLIC_NOTION_OAUTH_URL: import.meta.env.PUBLIC_NOTION_OAUTH_URL,
 }
 
+const isElectronRuntime = () => {
+  if (typeof window === 'undefined') return false
+  const hasBackendOverrideInQuery = window.location.search.includes('backend_url=')
+  return (
+    window.location.protocol === 'file:' ||
+    navigator.userAgent.includes('Electron') ||
+    hasBackendOverrideInQuery
+  )
+}
+
 export const getPublicEnv = key => {
+  if (key === 'PUBLIC_BACKEND_URL' && isElectronRuntime()) {
+    return undefined
+  }
+
+  if (isElectronRuntime()) return undefined
+
   if (Object.prototype.hasOwnProperty.call(PUBLIC_ENV, key)) {
     const value = PUBLIC_ENV[key]
     if (value !== undefined && value !== null && value !== '') return value

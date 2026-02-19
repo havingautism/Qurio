@@ -19,6 +19,14 @@ export const FALLBACK_MODEL_OPTIONS = {
     { value: 'glm-4', label: 'GLM-4' },
     { value: 'glm-4-flash', label: 'GLM-4 Flash' },
   ],
+  deepseek: [
+    { value: 'deepseek-chat', label: 'DeepSeek Chat' },
+    { value: 'deepseek-reasoner', label: 'DeepSeek Reasoner' },
+  ],
+  volcengine: [
+    { value: 'doubao-seed-1-6-thinking-250615', label: 'Doubao Seed 1.6 Thinking' },
+    { value: 'doubao-1.5-pro-32k-250115', label: 'Doubao 1.5 Pro 32K' },
+  ],
   nvidia: [
     { value: 'moonshotai/kimi-k2.5', label: 'kimi-k2.5' },
     { value: 'moonshotai/kimi-k2-thinking', label: 'kimi-k2-thinking' },
@@ -47,6 +55,8 @@ export const PROVIDER_KEYS = [
   'nvidia',
   'minimax',
   'glm',
+  'deepseek',
+  'volcengine',
   'modelscope',
   'kimi',
 ]

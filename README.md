@@ -142,6 +142,8 @@ Out-of-the-box support for:
 
 1. **Prerequisites**
    - [Bun](https://bun.sh/) 1.3+
+   - [Python](https://www.python.org/) 3.11+
+   - [uv](https://docs.astral.sh/uv/) (Python package manager)
    - A [Supabase](https://supabase.com/) project (for persistence)
    - [Tavily](https://tavily.com/) API Key (essential for Web Search & Deep Research)
 
@@ -151,8 +153,9 @@ Out-of-the-box support for:
    git clone <your-repo-url>
    cd qurio
    bun install
-   cd backend
-   bun install
+   cd backend-python
+   uv sync
+   cd ..
    ```
 
 3. **Environment**
@@ -173,27 +176,32 @@ Out-of-the-box support for:
 4. **Database Setup**
    In your Supabase dashboard, open the SQL Editor and run the contents of `supabase/schema.sql`. This creates the necessary tables (spaces, conversations, messages, settings, etc.) and Row Level Security (RLS) policies.
 
-5. **Run (Frontend + Backend)**
+5. **Run (Frontend + Python Backend)**
 
    ```bash
-   # One command (frontend + backend)
-   bun run dev:full
+   # Web + Python backend
+   bun run dev:electron
    ```
 
-   Frontend: `http://localhost:5173`  
-   Backend: `http://localhost:3001`
+   Frontend: `http://localhost:3000`  
+   Backend: `http://127.0.0.1:3002`
 
    ```bash
    # Frontend only
-   bun run dev
+   bun run dev:web
 
-   # Backend only
-   bun run dev:backend
+   # Python backend only
+   bun run dev:py
    ```
 
 6. **Build**
    ```bash
    bun run build
+   ```
+
+7. **Build Windows Installer (.exe)**
+   ```bash
+   bun run build:electron
    ```
 
 ## Usage Tips

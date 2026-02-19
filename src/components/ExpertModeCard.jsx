@@ -40,7 +40,7 @@ const ExpertModeCard = memo(({ onClick }) => {
               <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-2">
                   <EmojiDisplay emoji="🧠" size="1.6rem" className="drop-shadow-md" />
-                  <h3 className="text-xl font-bold tracking-tight text-[#2f315f] md:text-2xl dark:text-[#eef1ff] dark:drop-shadow-md">
+                  <h3 className="text-lg font-bold tracking-tight whitespace-nowrap text-[#2f315f] md:text-xl lg:text-2xl dark:text-[#eef1ff] dark:drop-shadow-md">
                     {t('homeView.expertEntry')}
                   </h3>
                 </div>

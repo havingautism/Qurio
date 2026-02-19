@@ -9,6 +9,7 @@ import {
   Key,
   Link,
   Loader2,
+  Mail,
   MessageSquare,
   Monitor,
   Search,
@@ -34,17 +35,24 @@ import { extractTextFromFile, normalizeExtractedText } from '../lib/documentPars
 import { renderProviderIcon, getModelIcon, getModelIconClassName } from '../lib/modelIcons'
 import { getModelsForProvider } from '../lib/models_api'
 import { getPublicEnv } from '../lib/publicEnv'
-import { GLM_BASE_URL, SILICONFLOW_BASE_URL } from '../lib/providerConstants'
+import {
+  DEEPSEEK_BASE_URL,
+  GLM_BASE_URL,
+  SILICONFLOW_BASE_URL,
+  VOLCENGINE_BASE_URL,
+} from '../lib/providerConstants'
 import { loadSettings, saveSettings } from '../lib/settings'
 import { fetchRemoteSettings, saveRemoteSettings, testConnection } from '../lib/supabase'
 import { THEMES } from '../lib/themes'
 import Logo from './Logo'
 import { useAppContext } from '../App'
-import { upsertMemoryDomainSummary, ensureLongTermMemoryIndex } from '../lib/longTermMemoryService'
+import { upsertMemoryDomainSummary, ensureLongTermMemoryIndex } from '../lib/lazyMemoryService'
 import { getProvider } from '../lib/providers'
 import { FALLBACK_MODEL_OPTIONS, PROVIDER_KEYS } from '../lib/modelConstants'
 import MemoryTable from './MemoryTable'
+import EmailSettingsPanel from './EmailSettingsPanel'
 import { useToast } from '../contexts/ToastContext'
+import INIT_SQL_SCRIPT from '../assets/init-schema.sql'
 
 const ENV_VARS = {
   supabaseUrl: getPublicEnv('PUBLIC_SUPABASE_URL'),
@@ -54,6 +62,8 @@ const ENV_VARS = {
   googleApiKey: getPublicEnv('PUBLIC_GOOGLE_API_KEY'),
   siliconFlowKey: getPublicEnv('PUBLIC_SILICONFLOW_API_KEY'),
   glmKey: getPublicEnv('PUBLIC_GLM_API_KEY'),
+  deepseekKey: getPublicEnv('PUBLIC_DEEPSEEK_API_KEY'),
+  volcengineKey: getPublicEnv('PUBLIC_VOLCENGINE_API_KEY'),
   modelscopeKey: getPublicEnv('PUBLIC_MODELSCOPE_API_KEY'),
   kimiKey: getPublicEnv('PUBLIC_KIMI_API_KEY'),
   tavilyApiKey: getPublicEnv('PUBLIC_TAVILY_API_KEY'),
@@ -63,298 +73,12 @@ const ENV_VARS = {
 
 const getBackendUrl = () => {
   const settings = loadSettings()
-  return settings.backendUrl || 'http://localhost:3001'
+  return settings.backendUrl || 'http://127.0.0.1:3002'
 }
 
-// Minimal copy of supabase/init.sql for quick remediation in-app
-const INIT_SQL_SCRIPT = `-- Supabase initialization script (local-first, single-user)
--- Run in Supabase SQL editor to create core tables for spaces, conversations, messages, and attachments.
-
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
-
-CREATE OR REPLACE FUNCTION public.set_updated_at()
-RETURNS trigger AS $$
-BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE OR REPLACE FUNCTION public.set_conversation_updated_at()
-RETURNS trigger AS $$
-BEGIN
-  IF (
-    (NEW.title IS DISTINCT FROM OLD.title OR NEW.title_emojis IS DISTINCT FROM OLD.title_emojis OR NEW.is_favorited IS DISTINCT FROM OLD.is_favorited OR NEW.space_id IS DISTINCT FROM OLD.space_id)
-    AND NEW.last_agent_id IS NOT DISTINCT FROM OLD.last_agent_id
-    AND NEW.agent_selection_mode IS NOT DISTINCT FROM OLD.agent_selection_mode
-    AND NEW.api_provider IS NOT DISTINCT FROM OLD.api_provider
-    AND NEW.is_search_enabled IS NOT DISTINCT FROM OLD.is_search_enabled
-    AND NEW.is_thinking_enabled IS NOT DISTINCT FROM OLD.is_thinking_enabled
-  ) THEN
-    NEW.updated_at = OLD.updated_at;
-  ELSE
-    NEW.updated_at = NOW();
-  END IF;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE OR REPLACE FUNCTION public.touch_conversation_updated_at()
-RETURNS trigger AS $$
-BEGIN
-  UPDATE public.conversations
-  SET updated_at = NOW()
-  WHERE id = NEW.conversation_id;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TABLE IF NOT EXISTS public.spaces (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  emoji TEXT NOT NULL DEFAULT '',
-  label TEXT NOT NULL,
-  description TEXT,
-  prompt TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TRIGGER trg_spaces_updated_at
-BEFORE UPDATE ON public.spaces
-FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
-
-
-CREATE TABLE IF NOT EXISTS public.agents (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  is_default BOOLEAN NOT NULL DEFAULT FALSE,
-  emoji TEXT NOT NULL DEFAULT '',
-  name TEXT NOT NULL,
-  description TEXT,
-  prompt TEXT,
-  provider TEXT,
-  default_model_source TEXT NOT NULL DEFAULT 'list',
-  lite_model_source TEXT NOT NULL DEFAULT 'list',
-  use_global_model_settings BOOLEAN NOT NULL DEFAULT TRUE,
-  lite_model TEXT,
-  default_model TEXT,
-  response_language TEXT,
-  base_tone TEXT,
-  traits TEXT,
-  warmth TEXT,
-  enthusiasm TEXT,
-  headings TEXT,
-  emojis TEXT,
-  custom_instruction TEXT,
-  temperature DOUBLE PRECISION,
-  top_p DOUBLE PRECISION,
-  frequency_penalty DOUBLE PRECISION,
-  presence_penalty DOUBLE PRECISION,
-  tool_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-ALTER TABLE public.agents
-ADD COLUMN IF NOT EXISTS use_global_model_settings BOOLEAN NOT NULL DEFAULT TRUE;
-
-CREATE INDEX IF NOT EXISTS idx_agents_created_at ON public.agents(created_at DESC);
-
-CREATE TRIGGER trg_agents_updated_at
-BEFORE UPDATE ON public.agents
-FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
-
-CREATE TABLE IF NOT EXISTS public.conversations (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  space_id UUID REFERENCES public.spaces(id) ON DELETE SET NULL,
-  last_agent_id UUID REFERENCES public.agents(id) ON DELETE SET NULL,
-  title TEXT NOT NULL DEFAULT 'New Conversation',
-  title_emojis JSONB NOT NULL DEFAULT '[]'::jsonb,
-  api_provider TEXT NOT NULL DEFAULT 'gemini',
-  is_search_enabled BOOLEAN NOT NULL DEFAULT FALSE,
-  is_thinking_enabled BOOLEAN NOT NULL DEFAULT FALSE,
-  is_favorited BOOLEAN NOT NULL DEFAULT FALSE,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_conversations_space_id ON public.conversations(space_id);
-CREATE INDEX IF NOT EXISTS idx_conversations_created_at ON public.conversations(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_conversations_updated_at ON public.conversations(updated_at DESC);
-CREATE INDEX IF NOT EXISTS idx_conversations_title ON public.conversations(title);
-CREATE INDEX IF NOT EXISTS idx_conversations_space_created ON public.conversations(space_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_conversations_space_updated ON public.conversations(space_id, updated_at DESC);
-
-CREATE TRIGGER trg_conversations_updated_at
-BEFORE UPDATE ON public.conversations
-FOR EACH ROW EXECUTE PROCEDURE public.set_conversation_updated_at();
-
-CREATE TABLE IF NOT EXISTS public.conversation_messages (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  conversation_id UUID NOT NULL REFERENCES public.conversations(id) ON DELETE CASCADE,
-  role TEXT NOT NULL CHECK (role IN ('system', 'user', 'assistant', 'tool')),
-  content JSONB NOT NULL,
-  provider TEXT,
-  model TEXT,
-  agent_id UUID,
-  agent_name TEXT,
-  agent_emoji TEXT,
-  agent_is_default BOOLEAN NOT NULL DEFAULT FALSE,
-  thinking_process TEXT,
-  tool_calls JSONB,
-  tool_call_history JSONB NOT NULL DEFAULT '[]'::jsonb,
-  research_step_history JSONB NOT NULL DEFAULT '[]'::jsonb,
-  related_questions JSONB,
-  sources JSONB,
-  document_sources JSONB DEFAULT '[]'::jsonb,
-  grounding_supports JSONB,
-  stream_blocks JSONB NOT NULL DEFAULT '[]'::jsonb,
-  stream_schema_version SMALLINT NOT NULL DEFAULT 1,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_messages_conversation_created_at
-  ON public.conversation_messages(conversation_id, created_at);
-CREATE INDEX IF NOT EXISTS idx_messages_stream_blocks_gin
-  ON public.conversation_messages USING GIN (stream_blocks);
-
-CREATE TRIGGER trg_messages_touch_conversation
-AFTER INSERT OR UPDATE ON public.conversation_messages
-FOR EACH ROW EXECUTE PROCEDURE public.touch_conversation_updated_at();
-
-CREATE TABLE IF NOT EXISTS public.conversation_events (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  conversation_id UUID NOT NULL REFERENCES public.conversations(id) ON DELETE CASCADE,
-  event_type TEXT NOT NULL,
-  payload JSONB,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_events_conversation_created_at
-  ON public.conversation_events(conversation_id, created_at);
-
-CREATE TABLE IF NOT EXISTS public.attachments (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  message_id UUID NOT NULL REFERENCES public.conversation_messages(id) ON DELETE CASCADE,
-  type TEXT NOT NULL,
-  data JSONB NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_attachments_message_id ON public.attachments(message_id);
-
-CREATE TABLE IF NOT EXISTS public.space_documents (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  space_id UUID NOT NULL REFERENCES public.spaces(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  file_type TEXT NOT NULL,
-  content_text TEXT NOT NULL,
-  embedding_provider TEXT,
-  embedding_model TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_space_documents_space_id ON public.space_documents(space_id);
-
-CREATE TRIGGER trg_space_documents_updated_at
-BEFORE UPDATE ON public.space_documents
-FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
-
-CREATE TABLE IF NOT EXISTS public.conversation_documents (
-  conversation_id UUID NOT NULL REFERENCES public.conversations(id) ON DELETE CASCADE,
-  document_id UUID NOT NULL REFERENCES public.space_documents(id) ON DELETE CASCADE,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY (conversation_id, document_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_conversation_documents_conversation_id
-  ON public.conversation_documents(conversation_id);
-CREATE INDEX IF NOT EXISTS idx_conversation_documents_document_id
-  ON public.conversation_documents(document_id);
-
-CREATE TABLE IF NOT EXISTS public.space_agents (
-  space_id UUID NOT NULL REFERENCES public.spaces(id) ON DELETE CASCADE,
-  agent_id UUID NOT NULL REFERENCES public.agents(id) ON DELETE CASCADE,
-  sort_order INTEGER NOT NULL DEFAULT 0,
-  is_primary BOOLEAN NOT NULL DEFAULT FALSE,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY (space_id, agent_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_space_agents_agent_id ON public.space_agents(agent_id);
-CREATE INDEX IF NOT EXISTS idx_space_agents_space_order
-  ON public.space_agents(space_id, sort_order);
-
-CREATE TABLE IF NOT EXISTS public.home_notes (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  content TEXT NOT NULL DEFAULT '',
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_home_notes_updated_at
-  ON public.home_notes(updated_at DESC);
-
-CREATE TRIGGER trg_home_notes_updated_at
-BEFORE UPDATE ON public.home_notes
-FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
-
-CREATE TABLE IF NOT EXISTS public.user_settings (
-  key TEXT PRIMARY KEY,
-  value TEXT,
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TRIGGER trg_user_settings_updated_at
-BEFORE UPDATE ON public.user_settings
-FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
-
-CREATE TABLE IF NOT EXISTS public.memory_domains (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  domain_key TEXT NOT NULL,
-  aliases TEXT[] NOT NULL DEFAULT '{}'::text[],
-  scope TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_memory_domains_updated_at
-  ON public.memory_domains(updated_at DESC);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_memory_domains_user_key
-  ON public.memory_domains(user_id, domain_key);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_memory_domains_key_single_user
-  ON public.memory_domains(domain_key)
-  WHERE user_id IS NULL;
-
-CREATE TRIGGER trg_memory_domains_updated_at
-BEFORE UPDATE ON public.memory_domains
-FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
-
-CREATE TABLE IF NOT EXISTS public.memory_summaries (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  domain_id UUID NOT NULL REFERENCES public.memory_domains(id) ON DELETE CASCADE,
-  summary TEXT NOT NULL,
-  evidence TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_memory_summaries_domain_id
-  ON public.memory_summaries(domain_id);
-CREATE INDEX IF NOT EXISTS idx_memory_summaries_updated_at
-  ON public.memory_summaries(updated_at DESC);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_memory_summaries_domain_id_unique
-  ON public.memory_summaries(domain_id);
-
-CREATE TRIGGER trg_memory_summaries_updated_at
-BEFORE UPDATE ON public.memory_summaries
-FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
-
--- Enable RLS (Security Best Practice)
--- ALTER TABLE public.user_settings ENABLE ROW LEVEL SECURITY;
--- CREATE POLICY "Allow all actions for authenticated users" ON public.user_settings FOR ALL USING (auth.role() = 'authenticated');
-`
+const isElectronRuntime = () =>
+  typeof window !== 'undefined' &&
+  (window.location.protocol === 'file:' || navigator.userAgent.includes('Electron'))
 
 const TOOLS_API_PROVIDER_KEYS = ['tavily', 'serpapi']
 
@@ -458,13 +182,13 @@ const buildMemoryDomainExtractionPrompt = introText => {
     `}`,
     ``,
     `Example Input (Chinese):`,
-    `"我是一名全栈开发，喜欢单机游戏。"`,
+    `"闁瑰瓨鍨跺Σ鍛婄▔閳ь剟宕ュ鍛伎闁哄秴鐗嗙槐鎴﹀矗閹搭垳绀夐柛鐘崇矋椤愪粙宕￠弴鐔哥皻婵炴挸鎲￠崹娆撳Υ?`,
     ``,
     `Example Output (Chinese):`,
     `{`,
     `  "domains": [`,
-    `    {"tags": ["career", "fullstack", "developer"], "summary": "用户是一名全栈软件开发程序员。", "scope": "职业背景"},`,
-    `    {"tags": ["gaming", "single-player"], "summary": "用户喜欢有剧情的单机游戏。", "scope": "兴趣爱好"}`,
+    `    {"tags": ["career", "fullstack", "developer"], "summary": "闁活潿鍔嶉崺娑㈠及椤栨瑧顏遍柛姘Т閸欏繘寮介崼锝堟嫬濞寸姾娉涚槐鎴﹀矗閹寸姭鏌ら幖鏉戠箰閹叉娊濡?, "scope": "闁煎崬濂旂粭鐔兼嚄鐏炵偓鐝?},`,
+    `    {"tags": ["gaming", "single-player"], "summary": "闁活潿鍔嶉崺娑㈠窗濠婂嫷鍋ㄩ柡鍫濐槸婢т粙骞嗛崨顖涚暠闁告娲樺┃鈧繛鎾虫啞閸ㄦ瑩濡?, "scope": "闁稿繒顥愰崣顕€鎮ラ崡鐐仺"}`,
     `  ]`,
     `}`,
     ``,
@@ -523,6 +247,12 @@ const getEnvManagedSettingKeys = () => {
   if (ENV_VARS.glmKey) {
     keys.push('GlmKey')
   }
+  if (ENV_VARS.deepseekKey) {
+    keys.push('DeepSeekKey')
+  }
+  if (ENV_VARS.volcengineKey) {
+    keys.push('VolcengineKey')
+  }
   if (ENV_VARS.modelscopeKey) {
     keys.push('ModelScopeKey')
   }
@@ -546,6 +276,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
   const navigate = useNavigate()
   const { defaultAgent, showConfirmation } = useAppContext()
   const toast = useToast()
+  const electronMode = useMemo(() => isElectronRuntime(), [])
 
   const renderEnvHint = hasEnv =>
     hasEnv ? (
@@ -561,6 +292,8 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
   const [NvidiaKey, setNvidiaKey] = useState('')
   const [MinimaxKey, setMinimaxKey] = useState('')
   const [GlmKey, setGlmKey] = useState('')
+  const [DeepSeekKey, setDeepSeekKey] = useState('')
+  const [VolcengineKey, setVolcengineKey] = useState('')
   const [ModelScopeKey, setModelScopeKey] = useState('')
   const [KimiKey, setKimiKey] = useState('')
   const [apiProvider, setApiProvider] = useState('gemini')
@@ -721,6 +454,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
     // { id: 'personalization', icon: User },
     { id: 'interface', icon: Monitor },
     { id: 'account', icon: Key },
+    { id: 'email', icon: Mail },
     { id: 'advanced', icon: Terminal },
     { id: 'about', icon: Info },
   ]
@@ -749,6 +483,8 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       nvidia: Boolean((NvidiaKey || '').trim()),
       minimax: Boolean((MinimaxKey || '').trim()),
       glm: Boolean((GlmKey || '').trim() || ENV_VARS.glmKey),
+      deepseek: Boolean((DeepSeekKey || '').trim() || ENV_VARS.deepseekKey),
+      volcengine: Boolean((VolcengineKey || '').trim() || ENV_VARS.volcengineKey),
       modelscope: Boolean((ModelScopeKey || '').trim() || ENV_VARS.modelscopeKey),
       kimi: Boolean((KimiKey || '').trim() || ENV_VARS.kimiKey),
     }),
@@ -759,9 +495,15 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       NvidiaKey,
       MinimaxKey,
       GlmKey,
+      DeepSeekKey,
+      VolcengineKey,
       ModelScopeKey,
       KimiKey,
     ],
+  )
+  const configuredChatProviders = useMemo(
+    () => PROVIDER_KEYS.filter(key => Boolean(providerConfiguredMap[key])),
+    [providerConfiguredMap],
   )
 
   const toolsApiProviderOptions = useMemo(
@@ -839,6 +581,8 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       if (settings.NvidiaKey) setNvidiaKey(settings.NvidiaKey)
       if (settings.MinimaxKey) setMinimaxKey(settings.MinimaxKey)
       if (settings.GlmKey) setGlmKey(settings.GlmKey)
+      if (settings.DeepSeekKey) setDeepSeekKey(settings.DeepSeekKey)
+      if (settings.VolcengineKey) setVolcengineKey(settings.VolcengineKey)
       if (settings.ModelScopeKey) setModelScopeKey(settings.ModelScopeKey)
       if (settings.KimiKey) setKimiKey(settings.KimiKey)
       if (settings.apiProvider) setApiProvider(settings.apiProvider)
@@ -921,6 +665,8 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
             if (data.NvidiaKey) setNvidiaKey(data.NvidiaKey)
             if (data.MinimaxKey) setMinimaxKey(data.MinimaxKey)
             if (data.GlmKey) setGlmKey(data.GlmKey)
+            if (data.DeepSeekKey) setDeepSeekKey(data.DeepSeekKey)
+            if (data.VolcengineKey) setVolcengineKey(data.VolcengineKey)
             if (data.ModelScopeKey) setModelScopeKey(data.ModelScopeKey)
             if (data.KimiKey) setKimiKey(data.KimiKey)
             if (data.googleApiKey) setGoogleApiKey(data.googleApiKey)
@@ -934,6 +680,17 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
             if (data.embeddingModel) setEmbeddingModel(data.embeddingModel)
             if (data.embeddingModelSource === 'custom')
               setEmbeddingCustomModel(data.embeddingModel || '')
+            if (data.defaultModel !== undefined) setDefaultModel(data.defaultModel || '')
+            if (data.liteModel !== undefined) setLiteModel(data.liteModel || '')
+            if (data.defaultModelProvider !== undefined)
+              setDefaultModelProvider(data.defaultModelProvider || '')
+            if (data.liteModelProvider !== undefined)
+              setLiteModelProvider(data.liteModelProvider || '')
+            if (data.defaultModelSource) setDefaultModelSource(data.defaultModelSource || 'list')
+            if (data.liteModelSource) setLiteModelSource(data.liteModelSource || 'list')
+            if (data.defaultModelSource === 'custom')
+              setDefaultCustomModel(data.defaultModel || '')
+            if (data.liteModelSource === 'custom') setLiteCustomModel(data.liteModel || '')
             if (data.enableLongTermMemory !== undefined) {
               setEnableLongTermMemory(String(data.enableLongTermMemory) === 'true')
             }
@@ -1413,6 +1170,8 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       nvidia: NvidiaKey,
       minimax: MinimaxKey,
       glm: GlmKey || ENV_VARS.glmKey,
+      deepseek: DeepSeekKey || ENV_VARS.deepseekKey,
+      volcengine: VolcengineKey || ENV_VARS.volcengineKey,
       modelscope: ModelScopeKey || ENV_VARS.modelscopeKey,
       kimi: KimiKey || ENV_VARS.kimiKey,
     }
@@ -1428,6 +1187,10 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       else if (key === 'nvidia')
         credentials = { apiKey: keys.nvidia, baseUrl: 'https://integrate.api.nvidia.com/v1' } // Hardcode or import constant? I cannot import constant in React component easily if not already imported or if it conflicts. But I imported SILICONFLOW_BASE_URL. I should import NVIDIA_BASE_URL or just hardcode as I did. Wait, check imports.
       else if (key === 'glm') credentials = { apiKey: keys.glm }
+      else if (key === 'deepseek')
+        credentials = { apiKey: keys.deepseek, baseUrl: DEEPSEEK_BASE_URL }
+      else if (key === 'volcengine')
+        credentials = { apiKey: keys.volcengine, baseUrl: VOLCENGINE_BASE_URL }
       else if (key === 'modelscope') credentials = { apiKey: keys.modelscope }
       else if (key === 'kimi') credentials = { apiKey: keys.kimi }
       else if (key === 'openai_compatibility')
@@ -1630,7 +1393,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       }
       setLiteTestAction({
         status: 'success',
-        message: `${t('agents.model.testConnectivityOk')} • ${t('agents.model.testStructuredOk')}`,
+        message: `${t('agents.model.testConnectivityOk')} 闁?${t('agents.model.testStructuredOk')}`,
       })
     } catch (err) {
       setLiteTestAction({
@@ -1654,10 +1417,13 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
     allowEmpty = false,
     hideProviderSelector = false,
     testAction,
+    availableProviders = [],
   }) => {
-    const providers =
-      Object.keys(chatGroupedModels).length > 0 ? Object.keys(chatGroupedModels) : PROVIDER_KEYS
-    const activeModels = chatGroupedModels[activeProvider] || []
+    const providers = availableProviders
+    const resolvedProvider = providers.includes(activeProvider)
+      ? activeProvider
+      : providers[0] || activeProvider
+    const activeModels = chatGroupedModels[resolvedProvider] || []
     const selectedLabel = getModelLabel(value)
     const showList = modelSource === 'list'
     const displayLabel = showList ? selectedLabel : customValue || value || t('agents.model.custom')
@@ -1793,13 +1559,14 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                   {t('agents.model.providers')}
                 </span>
                 <Select
-                  value={activeProvider}
+                  value={resolvedProvider}
                   onValueChange={val => {
                     onProviderChange(val)
                     if (modelSource === 'list' && val !== activeProvider) {
                       onChange('')
                     }
                   }}
+                  disabled={!providers.length}
                 >
                   <SelectTrigger className="h-10 w-full">
                     <SelectValue>
@@ -1915,13 +1682,15 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       nvidia: NvidiaKey,
       minimax: MinimaxKey,
       glm: GlmKey || ENV_VARS.glmKey,
+      deepseek: DeepSeekKey || ENV_VARS.deepseekKey,
+      volcengine: VolcengineKey || ENV_VARS.volcengineKey,
       modelscope: ModelScopeKey || ENV_VARS.modelscopeKey,
       kimi: KimiKey || ENV_VARS.kimiKey,
     }
 
     const grouped = {}
     const enabledProviders = []
-    const promises = PROVIDER_KEYS.map(async key => {
+    const promises = configuredChatProviders.map(async key => {
       let credentials = {}
       if (key === 'gemini') credentials = { apiKey: keys.gemini }
       else if (key === 'siliconflow')
@@ -1929,19 +1698,14 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       else if (key === 'nvidia')
         credentials = { apiKey: keys.nvidia, baseUrl: 'https://integrate.api.nvidia.com/v1' }
       else if (key === 'glm') credentials = { apiKey: keys.glm }
+      else if (key === 'deepseek')
+        credentials = { apiKey: keys.deepseek, baseUrl: DEEPSEEK_BASE_URL }
+      else if (key === 'volcengine')
+        credentials = { apiKey: keys.volcengine, baseUrl: VOLCENGINE_BASE_URL }
       else if (key === 'modelscope') credentials = { apiKey: keys.modelscope }
       else if (key === 'kimi') credentials = { apiKey: keys.kimi }
       else if (key === 'openai_compatibility')
         credentials = { apiKey: keys.openai_compatibility, baseUrl: keys.openai_compatibility_url }
-
-      const hasApiKey =
-        credentials.apiKey ||
-        ENV_VARS[`${key}Key`] ||
-        ENV_VARS[`${key}ApiKey`] ||
-        (key === 'gemini' && ENV_VARS.googleApiKey) ||
-        (key === 'openai_compatibility' && ENV_VARS.openAIKey)
-
-      if (!hasApiKey && !credentials.apiKey) return null
 
       try {
         const models = await getModelsForProvider(key, credentials)
@@ -1968,13 +1732,17 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
 
     setChatGroupedModels(grouped)
     const uniqueProviders = Array.from(new Set(enabledProviders))
-    if (uniqueProviders.length > 0) {
-      if (!uniqueProviders.includes(defaultModelProvider)) {
-        setDefaultModelProvider(uniqueProviders[0])
-      }
-      if (!uniqueProviders.includes(liteModelProvider)) {
-        setLiteModelProvider(uniqueProviders[0])
-      }
+    if (uniqueProviders.length === 0) {
+      setDefaultModelProvider('')
+      setLiteModelProvider('')
+      setIsChatModelsLoading(false)
+      return
+    }
+    if (!uniqueProviders.includes(defaultModelProvider)) {
+      setDefaultModelProvider(uniqueProviders[0])
+    }
+    if (!uniqueProviders.includes(liteModelProvider)) {
+      setLiteModelProvider(uniqueProviders[0])
     }
     setIsChatModelsLoading(false)
   }
@@ -2094,7 +1862,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
 
   const resolveBackendUrlForHealthCheck = () => {
     const settings = loadSettings()
-    return ENV_VARS.backendUrl || backendUrl || settings.backendUrl || 'http://localhost:3001'
+    return ENV_VARS.backendUrl || backendUrl || settings.backendUrl || 'http://127.0.0.1:3002'
   }
 
   const handleBackendHealthCheck = async () => {
@@ -2145,6 +1913,8 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
         NvidiaKey,
         MinimaxKey,
         GlmKey,
+        DeepSeekKey,
+        VolcengineKey,
         ModelScopeKey,
         KimiKey,
         // Providers
@@ -2250,6 +2020,12 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                   case 'glm':
                     extractionApiKey = GlmKey
                     break
+                  case 'deepseek':
+                    extractionApiKey = DeepSeekKey
+                    break
+                  case 'volcengine':
+                    extractionApiKey = VolcengineKey
+                    break
                   case 'kimi':
                     extractionApiKey = KimiKey
                     break
@@ -2319,6 +2095,8 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
               'OpenAICompatibilityUrl',
               'SiliconFlowKey',
               'GlmKey',
+              'DeepSeekKey',
+              'VolcengineKey',
               'ModelScopeKey',
               'KimiKey',
               'googleApiKey',
@@ -2330,6 +2108,12 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
               'embeddingProvider',
               'embeddingModel',
               'embeddingModelSource',
+              'defaultModel',
+              'liteModel',
+              'defaultModelProvider',
+              'liteModelProvider',
+              'defaultModelSource',
+              'liteModelSource',
               'enableLongTermMemory',
               'userSelfIntro',
             ]
@@ -2740,6 +2524,70 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                     </div>
                   )}
 
+                  {/* DeepSeek Settings */}
+                  {apiProvider === 'deepseek' && (
+                    <div className="animate-in fade-in slide-in-from-top-2 flex flex-col gap-4 duration-200">
+                      <div className="flex flex-col gap-2">
+                        <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                          {t('settings.deepseekApiKey')}
+                        </label>
+                        <div className="relative">
+                          <div className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400">
+                            <Key size={16} />
+                          </div>
+                          <input
+                            type="password"
+                            value={DeepSeekKey}
+                            onChange={e => setDeepSeekKey(e.target.value)}
+                            placeholder={t('settings.deepseekApiKeyPlaceholder')}
+                            disabled={Boolean(ENV_VARS.deepseekKey)}
+                            className={clsx(
+                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border border-gray-200 bg-white py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600',
+                              ENV_VARS.deepseekKey && 'cursor-not-allowed opacity-70',
+                            )}
+                          />
+                        </div>
+                        {ENV_VARS.deepseekKey && (
+                          <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                            {t('settings.loadedFromEnvironment')}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Volcengine Settings */}
+                  {apiProvider === 'volcengine' && (
+                    <div className="animate-in fade-in slide-in-from-top-2 flex flex-col gap-4 duration-200">
+                      <div className="flex flex-col gap-2">
+                        <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                          {t('settings.volcengineApiKey')}
+                        </label>
+                        <div className="relative">
+                          <div className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400">
+                            <Key size={16} />
+                          </div>
+                          <input
+                            type="password"
+                            value={VolcengineKey}
+                            onChange={e => setVolcengineKey(e.target.value)}
+                            placeholder={t('settings.volcengineApiKeyPlaceholder')}
+                            disabled={Boolean(ENV_VARS.volcengineKey)}
+                            className={clsx(
+                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border border-gray-200 bg-white py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600',
+                              ENV_VARS.volcengineKey && 'cursor-not-allowed opacity-70',
+                            )}
+                          />
+                        </div>
+                        {ENV_VARS.volcengineKey && (
+                          <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                            {t('settings.loadedFromEnvironment')}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   {/* ModelScope Settings */}
                   {apiProvider === 'modelscope' && (
                     <div className="animate-in fade-in slide-in-from-top-2 flex flex-col gap-4 duration-200">
@@ -2813,36 +2661,47 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                       {t('settings.backendConfiguration')}
                     </label>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {t('settings.backendConfigurationHint')}
+                      {electronMode
+                        ? t('settings.backendConfigurationElectronHint')
+                        : t('settings.backendConfigurationHint')}
                     </p>
                   </div>
 
                   <div className="flex flex-col gap-4">
-                    <div className="flex flex-col gap-2">
-                      <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                        {t('settings.backendUrl')}
-                      </label>
-                      <div className="relative">
-                        <div className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400">
-                          <Link size={16} />
+                    {!electronMode && (
+                      <div className="flex flex-col gap-2">
+                        <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                          {t('settings.backendUrl')}
+                        </label>
+                        <div className="relative">
+                          <div className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400">
+                            <Link size={16} />
+                          </div>
+                          <input
+                            type="text"
+                            value={backendUrl}
+                            onChange={e => {
+                              setBackendUrl(e.target.value)
+                              setBackendHealthState({ status: 'idle', message: '' })
+                            }}
+                            placeholder={t('settings.backendUrlPlaceholder')}
+                            disabled={Boolean(ENV_VARS.backendUrl)}
+                            className={clsx(
+                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border border-gray-200 bg-white py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600',
+                              ENV_VARS.backendUrl && 'cursor-not-allowed opacity-70',
+                            )}
+                          />
                         </div>
-                        <input
-                          type="text"
-                          value={backendUrl}
-                          onChange={e => {
-                            setBackendUrl(e.target.value)
-                            setBackendHealthState({ status: 'idle', message: '' })
-                          }}
-                          placeholder={t('settings.backendUrlPlaceholder')}
-                          disabled={Boolean(ENV_VARS.backendUrl)}
-                          className={clsx(
-                            'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border border-gray-200 bg-white py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600',
-                            ENV_VARS.backendUrl && 'cursor-not-allowed opacity-70',
-                          )}
-                        />
+                        {renderEnvHint(Boolean(ENV_VARS.backendUrl))}
                       </div>
-                      {renderEnvHint(Boolean(ENV_VARS.backendUrl))}
-                    </div>
+                    )}
+                    {electronMode && (
+                      <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700 dark:border-blue-900/40 dark:bg-blue-900/20 dark:text-blue-300">
+                        {t('settings.backendDesktopManaged', {
+                          backendUrl: backendUrl || 'http://127.0.0.1:3002',
+                        })}
+                      </div>
+                    )}
                     <div className="flex items-center gap-3">
                       <button
                         onClick={handleBackendHealthCheck}
@@ -2923,7 +2782,9 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                         )}
                       >
                         <Settings size={12} />
-                        {t('settings.configureDatabase') || 'Configure Database'}
+                        {electronMode
+                          ? t('settings.openDatabaseManager')
+                          : t('settings.configureDatabase') || 'Configure Database'}
                       </button>
 
                       {databaseProviderId && (
@@ -3126,45 +2987,61 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                     </div>
                   </div>
 
-                  <div className="flex flex-col gap-8">
-                    {renderModelPicker({
-                      label: t('settings.defaultModel'),
-                      hint: t('settings.defaultModelHelper'),
-                      value: defaultModel,
-                      onChange: setDefaultModel,
-                      activeProvider: defaultModelProvider || apiProvider,
-                      onProviderChange: setDefaultModelProvider,
-                      customValue: defaultCustomModel,
-                      onCustomValueChange: setDefaultCustomModel,
-                      modelSource: defaultModelSource,
-                      onModelSourceChange: setDefaultModelSource,
-                      testAction: {
-                        label: t('agents.model.testDefault'),
-                        onClick: handleDefaultModelTest,
-                        status: defaultTestAction.status,
-                        message: defaultTestAction.message,
-                      },
-                    })}
+                  {isChatModelsLoading ? (
+                    <div className="flex items-center justify-center gap-2 py-8 text-gray-500">
+                      <RefreshCw className="animate-spin" size={20} />
+                      <span>{t('settings.loadingModels')}</span>
+                    </div>
+                  ) : configuredChatProviders.length === 0 ? (
+                    <div className="rounded-lg border border-dashed border-gray-200 p-6 text-center text-sm text-gray-500 dark:border-zinc-700 dark:text-gray-400">
+                      <p className="font-medium text-gray-700 dark:text-gray-300">
+                        {t('settings.chatNoProvidersTitle')}
+                      </p>
+                      <p className="mt-1">{t('settings.chatNoProvidersHint')}</p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-8">
+                      {renderModelPicker({
+                        label: t('settings.defaultModel'),
+                        hint: t('settings.defaultModelHelper'),
+                        value: defaultModel,
+                        onChange: setDefaultModel,
+                        activeProvider: defaultModelProvider || apiProvider,
+                        onProviderChange: setDefaultModelProvider,
+                        customValue: defaultCustomModel,
+                        onCustomValueChange: setDefaultCustomModel,
+                        modelSource: defaultModelSource,
+                        onModelSourceChange: setDefaultModelSource,
+                        availableProviders: configuredChatProviders,
+                        testAction: {
+                          label: t('agents.model.testDefault'),
+                          onClick: handleDefaultModelTest,
+                          status: defaultTestAction.status,
+                          message: defaultTestAction.message,
+                        },
+                      })}
 
-                    {renderModelPicker({
-                      label: t('settings.liteModel'),
-                      hint: t('settings.liteModelHelper'),
-                      value: liteModel,
-                      onChange: setLiteModel,
-                      activeProvider: liteModelProvider || apiProvider,
-                      onProviderChange: setLiteModelProvider,
-                      customValue: liteCustomModel,
-                      onCustomValueChange: setLiteCustomModel,
-                      modelSource: liteModelSource,
-                      onModelSourceChange: setLiteModelSource,
-                      testAction: {
-                        label: t('agents.model.testLite'),
-                        onClick: handleLiteModelTest,
-                        status: liteTestAction.status,
-                        message: liteTestAction.message,
-                      },
-                    })}
-                  </div>
+                      {renderModelPicker({
+                        label: t('settings.liteModel'),
+                        hint: t('settings.liteModelHelper'),
+                        value: liteModel,
+                        onChange: setLiteModel,
+                        activeProvider: liteModelProvider || apiProvider,
+                        onProviderChange: setLiteModelProvider,
+                        customValue: liteCustomModel,
+                        onCustomValueChange: setLiteCustomModel,
+                        modelSource: liteModelSource,
+                        onModelSourceChange: setLiteModelSource,
+                        availableProviders: configuredChatProviders,
+                        testAction: {
+                          label: t('agents.model.testLite'),
+                          onClick: handleLiteModelTest,
+                          status: liteTestAction.status,
+                          message: liteTestAction.message,
+                        },
+                      })}
+                    </div>
+                  )}
                 </div>
 
                 <div className="h-px bg-gray-100 dark:bg-zinc-800" />
@@ -3943,6 +3820,9 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                 </div>
               </div>
             )}
+
+            {/* Gmail Settings Panel */}
+            {activeTab === 'email' && <EmailSettingsPanel backendUrl={getBackendUrl()} />}
           </div>
 
           {/* Footer */}
@@ -4011,7 +3891,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                           )}
                         >
                           {exists ? t('settings.initModal.ready') : t('settings.initModal.missing')}{' '}
-                          · {table}
+                          鐠?{table}
                         </span>
                       )
                     })}

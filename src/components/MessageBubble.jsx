@@ -62,6 +62,7 @@ import DocumentSourcesPanel from './DocumentSourcesPanel'
 import ShareModal from './ShareModal'
 import YoutubeLogo from '../assets/youtube.svg?url'
 import BilibiliLogo from '../assets/bilibili.png?url'
+import useSettings from '../hooks/useSettings'
 
 const PROVIDER_META = {
   gemini: {
@@ -83,6 +84,16 @@ const PROVIDER_META = {
     label: 'GLM',
     id: 'glm',
     fallback: 'G',
+  },
+  deepseek: {
+    label: 'DeepSeek',
+    id: 'deepseek',
+    fallback: 'D',
+  },
+  volcengine: {
+    label: 'Volcengine',
+    id: 'volcengine',
+    fallback: 'V',
   },
   modelscope: {
     label: '魔塔社区',
@@ -265,7 +276,6 @@ const ToolEnter = ({ children, className }) => {
  * MessageBubble component that directly accesses messages from chatStore via index
  * Reduces props drilling and improves component independence
  */
-import useSettings from '../hooks/useSettings'
 
 const MessageBubble = ({
   messageIndex,
@@ -1145,7 +1155,9 @@ const MessageBubble = ({
           const lastPart = parts[parts.length - 1]
           if (lastPart?.type === 'thought') {
             lastPart.content = `${lastPart.content || ''}${block.content || ''}`
-            const prevDuration = Number.isFinite(lastPart.durationMs) ? Number(lastPart.durationMs) : 0
+            const prevDuration = Number.isFinite(lastPart.durationMs)
+              ? Number(lastPart.durationMs)
+              : 0
             const nextDuration = Number.isFinite(block.durationMs) ? Number(block.durationMs) : 0
             lastPart.durationMs = prevDuration + nextDuration
           } else {
@@ -1170,7 +1182,8 @@ const MessageBubble = ({
         continue
       }
       if (block.type === 'tool' || block.type === 'tool_call' || block.type === 'tool_result') {
-        const matchedTool = toolCallHistory.find(item => item?.id && item.id === block.toolCallId) || null
+        const matchedTool =
+          toolCallHistory.find(item => item?.id && item.id === block.toolCallId) || null
         const toolItem =
           matchedTool ||
           (block.toolCallId
@@ -1229,12 +1242,7 @@ const MessageBubble = ({
     }
 
     return parts.length > 0 ? parts : [{ type: 'text', content: rawContent }]
-  }, [
-    mainContent,
-    toolCallHistory,
-    isDeepResearch,
-    normalizedStreamBlocks,
-  ])
+  }, [mainContent, toolCallHistory, isDeepResearch, normalizedStreamBlocks])
 
   // Effect to handle copy success timeout with proper cleanup
   useEffect(() => {
@@ -1769,22 +1777,25 @@ const MessageBubble = ({
     return id
   }, [messageIndex])
 
-  const createHeadingComponent = (Tag, className, withAnchors) => {
-    const Heading = ({ children, ...props }) => {
-      const headingId = withAnchors ? getNextHeadingId() : undefined
-      return (
-        <Tag
-          className={className}
-          {...(headingId ? { id: headingId, 'data-heading-id': headingId } : {})}
-          {...props}
-        >
-          {parseChildrenWithEmojis(children)}
-        </Tag>
-      )
-    }
-    Heading.displayName = `Heading\${Tag}`
-    return Heading
-  }
+  const createHeadingComponent = useCallback(
+    (Tag, className, withAnchors) => {
+      const Heading = ({ children, ...props }) => {
+        const headingId = withAnchors ? getNextHeadingId() : undefined
+        return (
+          <Tag
+            className={className}
+            {...(headingId ? { id: headingId, 'data-heading-id': headingId } : {})}
+            {...props}
+          >
+            {parseChildrenWithEmojis(children)}
+          </Tag>
+        )
+      }
+      Heading.displayName = `Heading\${Tag}`
+      return Heading
+    },
+    [getNextHeadingId],
+  )
 
   // Handle interactive form submission
   const handleFormSubmit = useCallback(
@@ -1796,102 +1807,115 @@ const MessageBubble = ({
     [onFormSubmit],
   )
 
-  const MarkdownLinkRenderer = ({ href, children, ...props }) => {
-    const isInTable = React.useContext(InTableContext)
-    const safeHref = sanitizeMarkdownUrl(href)
-    let citationIndices = null
+  const MarkdownLinkRenderer = useMemo(() => {
+    const LinkRenderer = ({ href, children, ...props }) => {
+      const isInTable = React.useContext(InTableContext)
+      const safeHref = sanitizeMarkdownUrl(href)
+      let citationIndices = null
 
-    if (safeHref?.startsWith('citation:')) {
-      citationIndices = safeHref
-        .replace('citation:', '')
-        .split(',')
-        .map(Number)
-        .filter(n => !isNaN(n))
-    } else if (safeHref?.startsWith('https://citation.local/')) {
-      const path = safeHref.replace('https://citation.local/', '')
-      citationIndices = path
-        .split(',')
-        .map(Number)
-        .filter(n => !isNaN(n))
-    }
+      if (safeHref?.startsWith('citation:')) {
+        citationIndices = safeHref
+          .replace('citation:', '')
+          .split(',')
+          .map(Number)
+          .filter(n => !isNaN(n))
+      } else if (safeHref?.startsWith('https://citation.local/')) {
+        const path = safeHref.replace('https://citation.local/', '')
+        citationIndices = path
+          .split(',')
+          .map(Number)
+          .filter(n => !isNaN(n))
+      }
 
-    if (citationIndices) {
-      return (
-        <CitationChip
-          indices={citationIndices}
-          sources={mergedMessage.sources}
-          isMobile={isMobile}
-          onMobileClick={sources => handleMobileSourceClick(sources, t('sources.citationSources'))}
-          label={children}
-        />
-      )
-    }
-    if (!safeHref) {
-      return <span {...props}>{parseChildrenWithEmojis(children)}</span>
-    }
-
-    const embedUrl = getVideoEmbedUrl(safeHref)
-    if (embedUrl) {
-      const videoInfo = videoMetadataRef.current.find(v => v.url === safeHref)
-      if (isInTable) {
-        const platform = getVideoPlatform(safeHref)
-        const platformMeta =
-          platform === 'youtube'
-            ? {
-                label: 'YouTube',
-                logo: YoutubeLogo,
-                className: 'bg-red-600 text-white',
-              }
-            : platform === 'bilibili'
-              ? {
-                  label: 'Bilibili',
-                  logo: BilibiliLogo,
-                  className: 'bg-sky-500 text-white',
-                }
-              : {
-                  label: '视频',
-                  logo: null,
-                  className: 'bg-rose-500 text-white',
-                }
-
+      if (citationIndices) {
         return (
-          <a
-            href={safeHref}
-            target="_blank"
-            rel="noreferrer"
-            className={clsx(
-              'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium',
-              platformMeta.className,
-            )}
-            title={videoInfo?.title || platformMeta.label}
-          >
-            {platformMeta.logo ? (
-              <img
-                src={platformMeta.logo}
-                alt={platformMeta.label}
-                className="h-3.5 w-3.5 shrink-0 rounded-sm bg-white/90 p-[1px]"
-                loading="lazy"
-              />
-            ) : null}
-            <span>{platformMeta.label}</span>
-          </a>
+          <CitationChip
+            indices={citationIndices}
+            sources={mergedMessage.sources}
+            isMobile={isMobile}
+            onMobileClick={sources =>
+              handleMobileSourceClick(sources, t('sources.citationSources'))
+            }
+            label={children}
+          />
         )
       }
-      return <InlineVideoEmbed embedUrl={embedUrl} title={videoInfo?.title || 'Video'} />
-    }
+      if (!safeHref) {
+        return <span {...props}>{parseChildrenWithEmojis(children)}</span>
+      }
 
-    return (
-      <a
-        href={safeHref}
-        {...props}
-        target="_blank"
-        rel="noreferrer"
-        className="hover:bg-primary-300/50 dark:hover:bg-primary-700/50 dark:bg-primary-900/50 bg-primary-200/50 text-primary-700 dark:text-primary-300 mx-0.5 rounded-lg px-1 py-0.5 text-[12px]"
-      >
-        {parseChildrenWithEmojis(children)}
-      </a>
-    )
-  }
+      const embedUrl = getVideoEmbedUrl(safeHref)
+      if (embedUrl) {
+        const videoInfo = videoMetadataRef.current.find(v => v.url === safeHref)
+        if (isInTable) {
+          const platform = getVideoPlatform(safeHref)
+          const platformMeta =
+            platform === 'youtube'
+              ? {
+                  label: 'YouTube',
+                  logo: YoutubeLogo,
+                  className: 'bg-red-600 text-white',
+                }
+              : platform === 'bilibili'
+                ? {
+                    label: 'Bilibili',
+                    logo: BilibiliLogo,
+                    className: 'bg-sky-500 text-white',
+                  }
+                : {
+                    label: '视频',
+                    logo: null,
+                    className: 'bg-rose-500 text-white',
+                  }
+
+          return (
+            <a
+              href={safeHref}
+              target="_blank"
+              rel="noreferrer"
+              className={clsx(
+                'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium',
+                platformMeta.className,
+              )}
+              title={videoInfo?.title || platformMeta.label}
+            >
+              {platformMeta.logo ? (
+                <img
+                  src={platformMeta.logo}
+                  alt={platformMeta.label}
+                  className="h-3.5 w-3.5 shrink-0 rounded-sm bg-white/90 p-[1px]"
+                  loading="lazy"
+                />
+              ) : null}
+              <span>{platformMeta.label}</span>
+            </a>
+          )
+        }
+        return <InlineVideoEmbed embedUrl={embedUrl} title={videoInfo?.title || 'Video'} />
+      }
+
+      return (
+        <a
+          href={safeHref}
+          {...props}
+          target="_blank"
+          rel="noreferrer"
+          className="hover:bg-primary-300/50 dark:hover:bg-primary-700/50 dark:bg-primary-900/50 bg-primary-200/50 text-primary-700 dark:text-primary-300 mx-0.5 rounded-lg px-1 py-0.5 text-[12px]"
+        >
+          {parseChildrenWithEmojis(children)}
+        </a>
+      )
+    }
+    LinkRenderer.displayName = 'MarkdownLinkRenderer'
+    return LinkRenderer
+  }, [
+    mergedMessage.sources,
+    isMobile,
+    handleMobileSourceClick,
+    t,
+    getVideoEmbedUrl,
+    getVideoPlatform,
+  ])
 
   const markdownComponents = useMemo(
     () => ({
@@ -2888,7 +2912,9 @@ const MessageBubble = ({
       <div className="mb-4">
         <div className="mb-2 flex items-center gap-2 text-gray-600 dark:text-gray-300">
           <BrainCircuit size={15} className="text-primary-500/80 dark:text-primary-300/75" />
-          <span className="text-sm font-medium tracking-tight">{t('messageBubble.expertPlan')}</span>
+          <span className="text-sm font-medium tracking-tight">
+            {t('messageBubble.expertPlan')}
+          </span>
         </div>
         <div className="border-primary-200/45 bg-primary-50/30 dark:border-primary-700/25 dark:bg-primary-900/12 rounded-xl border px-3.5 py-3 text-sm leading-relaxed text-gray-700 dark:text-gray-300">
           <Streamdown
@@ -4011,4 +4037,4 @@ const CitationChip = ({ indices, sources, isMobile, onMobileClick, label }) => {
   )
 }
 
-export default MessageBubble
+export default React.memo(MessageBubble)

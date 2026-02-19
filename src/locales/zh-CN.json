@@ -242,8 +242,125 @@
     },
     "agents": "智能体"
   },
+  "notificationCenter": {
+    "title": "邮件通知",
+    "newCount": "{{count}} 条新消息",
+    "all": "全部",
+    "markAllRead": "全部标记已读",
+    "refresh": "刷新",
+    "close": "关闭",
+    "empty": {
+      "title": "暂无邮件通知",
+      "hint": "在设置中连接邮箱以开始接收通知"
+    },
+    "emptyForAccount": {
+      "title": "该邮箱暂无通知",
+      "hint": "试试选择其他邮箱"
+    },
+    "noSubject": "（无主题）",
+    "unknownSender": "未知发件人",
+    "markAsRead": "标记已读",
+    "delete": "删除",
+    "timeAgo": {
+      "justNow": "刚刚",
+      "minutesAgo": "{{count}} 分钟前",
+      "hoursAgo": "{{count}} 小时前",
+      "daysAgo": "{{count}} 天前"
+    },
+    "deleteFailed": "删除失败：{{message}}",
+    "emailDetail": "邮件详情",
+    "from": "发件人",
+    "time": "时间",
+    "account": "账号",
+    "summary": "摘要",
+    "viewDetail": "查看",
+    "openInMail": "在邮箱中打开"
+  },
   "settings": {
     "title": "设置",
+    "email": {
+      "title": "邮件通知",
+      "description": "连接邮箱账号，Qurio 会定时拉取新邮件并用 AI 生成摘要推送为通知。支持同时连接多个邮箱。",
+      "limitHint": "注意：为保证性能，Qurio 每次仅同步各邮箱最新的 5 封未读邮件并保留其摘要。",
+      "connectedAccounts": "已连接邮箱",
+      "connectedCount": "{{count}} 个邮箱",
+      "noAccounts": "尚未连接任何邮箱。",
+      "noAccountsHint": "点击上方「添加邮箱」按钮开始配置。",
+      "addEmail": "添加邮箱",
+      "disconnect": "断开",
+      "disconnectConfirm": "确认断开 {{email}} 的连接？该邮箱的通知记录也将被删除。",
+      "disconnected": "已断开邮箱连接",
+      "settings": "设置",
+      "pollInterval": "每 {{minutes}} 分钟检查一次",
+      "pollIntervalLabel": "检查频率",
+      "pollIntervalHint": "Qurio 检查新邮件的频率",
+      "summaryModel": "AI 摘要模型",
+      "summaryModelHint": "用于生成邮件摘要的模型，使用全局 API Key。",
+      "provider": "厂商",
+      "model": "模型",
+      "loadingModels": "加载中...",
+      "noModels": "无可用模型",
+      "defaultsToGlobal": "默认使用全局设置",
+      "saving": "保存中...",
+      "saved": "设置已保存！",
+      "syncing": "同步中...",
+      "syncNow": "立即同步",
+      "syncComplete": "同步完成！抓取了 {{count}} 个账号。",
+      "connectForm": {
+        "title": "添加邮箱",
+        "providerLabel": "邮箱类型",
+        "emailLabel": "邮箱地址",
+        "emailPlaceholder": "例如: yourname@gmail.com",
+        "passwordLabel": "应用专用密码",
+        "passwordHint": "（非登录密码）",
+        "passwordPlaceholder": "xxxx xxxx xxxx xxxx",
+        "connectButton": "连接邮箱",
+        "connecting": "正在连接..."
+      },
+      "providers": {
+        "gmail": {
+          "label": "Gmail",
+          "hint": "myaccount.google.com/apppasswords",
+          "hintText": "需要开启两步验证，然后生成「应用专用密码」"
+        },
+        "outlook": {
+          "label": "Outlook / Hotmail",
+          "hint": "account.microsoft.com/security",
+          "hintText": "在 Microsoft 账户安全设置中生成应用密码"
+        },
+        "qq": {
+          "label": "QQ 邮箱",
+          "hint": "mail.qq.com → 设置 → 账户 → IMAP/SMTP",
+          "hintText": "在 QQ 邮箱设置中开启 IMAP 并生成授权码"
+        },
+        "163": {
+          "label": "163 邮箱",
+          "hint": "mail.163.com → 设置 → POP3/SMTP/IMAP",
+          "hintText": "在 163 邮箱设置中开启 IMAP 并生成授权码"
+        }
+      },
+      "pollIntervals": {
+        "5min": "5 分钟",
+        "15min": "15 分钟",
+        "30min": "30 分钟",
+        "1hour": "1 小时",
+        "2hours": "2 小时"
+      },
+      "errors": {
+        "connectFailed": "连接失败：{{message}}",
+        "emailRequired": "请填写邮箱地址和应用专用密码",
+        "emailExists": "邮箱 {{email}} 已存在",
+        "saveFailed": "保存失败：{{message}}",
+        "deleteFailed": "删除失败：{{message}}",
+        "syncFailed": "同步失败：{{message}}",
+        "noApiKey": "该厂商未配置 API Key，请先在全局设置中配置。",
+        "modelRequired": "请选择摘要模型"
+      },
+      "success": {
+        "connected": "邮箱连接成功！",
+        "saved": "设置已保存！"
+      }
+    },
     "menu": {
       "general": "常规",
       "model": "模型",
@@ -252,6 +369,7 @@
       "interface": "界面",
       "personalization": "个性化",
       "account": "账户",
+      "email": "邮件通知",
       "advanced": "高级",
       "about": "关于"
     },
@@ -305,8 +423,10 @@
     "tavilyApiKeyPlaceholder": "输入 Tavily API 密钥",
     "backendConfiguration": "后端配置",
     "backendConfigurationHint": "用于配置应用连接的后端 API。",
+    "backendConfigurationElectronHint": "Electron 模式下后端由桌面端运行时管理。",
+    "backendDesktopManaged": "桌面模式使用内置后端：{{backendUrl}}",
     "backendUrl": "后端 URL",
-    "backendUrlPlaceholder": "http://localhost:3001",
+    "backendUrlPlaceholder": "http://127.0.0.1:3002",
     "backendHealthCheck": "检测后端健康",
     "backendHealthChecking": "正在检测后端…",
     "backendHealthCheckSuccess": "后端可访问",
@@ -334,6 +454,8 @@
       "openai_compatibility": "OpenAI 兼容",
       "siliconflow": "SiliconFlow",
       "glm": "GLM (智谱 AI)",
+      "deepseek": "DeepSeek",
+      "volcengine": "火山引擎 (Doubao)",
       "modelscope": "魔塔社区",
       "kimi": "Kimi (月之暗面)",
       "nvidia": "NVIDIA NIM",
@@ -467,6 +589,8 @@
     "documentResultScore": "相似度",
     "embeddingNoProvidersTitle": "未配置可用的提供商",
     "embeddingNoProvidersHint": "请先在常规中配置 API Key 后再选择向量模型。",
+    "chatNoProvidersTitle": "未配置可用的提供商",
+    "chatNoProvidersHint": "请先在常规中配置 API Key 后再选择对话模型。",
     "embeddingModelsLoaded": "已加载 {{count}} 个向量模型",
     "embeddingRefreshModels": "刷新模型",
     "modelSourceList": "列表",
@@ -531,6 +655,10 @@
     "siliconflowApiKeyPlaceholder": "sk-...",
     "glmApiKey": "GLM (智谱 AI) API 密钥",
     "glmApiKeyPlaceholder": "您的 GLM API 密钥",
+    "deepseekApiKey": "DeepSeek API 密钥",
+    "deepseekApiKeyPlaceholder": "您的 DeepSeek API 密钥",
+    "volcengineApiKey": "火山引擎 (Doubao) API 密钥",
+    "volcengineApiKeyPlaceholder": "您的火山引擎 API 密钥",
     "modelscopeApiKey": "魔塔社区 API 密钥",
     "modelscopeApiKeyPlaceholder": "您的魔塔社区 API 密钥",
     "kimiApiKey": "Kimi (月之暗面) API 密钥",
@@ -575,17 +703,72 @@
       "developerModeHint": "控制聊天中工具调用的显示详细程度。"
     },
     "configureDatabase": "配置数据库",
+    "openDatabaseManager": "打开数据库管理器",
     "databaseConfigDisabled": "数据库配置已禁用",
     "testDatabaseConnection": "测试数据库连接",
     "databaseSetup": {
       "title": "数据库设置",
       "description": "输入访问密钥以加载数据库提供程序，然后选择一个使用。",
+      "electronDescription": "配置数据库提供方（Supabase / SQLite）并选择当前使用项。",
       "accessKey": "访问密钥",
       "accessKeyPlaceholder": "输入后端访问密钥",
+      "accessKeyOptional": "可选（当前提供方未设置访问密钥）",
       "provider": "提供程序",
       "selectProvider": "选择提供程序",
       "saveAndReload": "保存并重新加载",
-      "saving": "正在保存..."
+      "saving": "正在保存...",
+      "addProvider": "新增提供方",
+      "type": "类型",
+      "selectType": "选择类型",
+      "providerId": "提供方 ID",
+      "providerIdPlaceholderSqlite": "sqlite-local",
+      "providerIdPlaceholderSupabase": "supabase-prod",
+      "label": "显示名称",
+      "labelPlaceholderSqlite": "我的本地数据库",
+      "labelPlaceholderSupabase": "我的 Supabase 数据库",
+      "supabaseUrl": "Supabase URL",
+      "anonKey": "Anon Key",
+      "sqliteDirectory": "SQLite 存储目录",
+      "sqliteFilePath": "SQLite 文件路径",
+      "providerAccessKeyOptional": "提供方访问密钥（可选）",
+      "providerAccessKeyPlaceholder": "可选：单独配置该提供方密钥",
+      "editProvider": "编辑提供方",
+      "deleteProvider": "删除提供方",
+      "deleteProviderConfirm": "确认删除提供方 {{id}} 吗？仅删除配置，不会删除数据库文件或目录。",
+      "cancelEdit": "取消编辑",
+      "saveProvider": "保存提供方",
+      "saveProviderChanges": "保存更改",
+      "rebuildAndInitialize": "初始化（重建）",
+      "browseFolder": "选择文件夹",
+      "importDbFile": "导入 DB 文件",
+      "sqliteUsageHint": "使用说明：",
+      "sqliteUsageHintCreate": "首次新建数据库请选择“选择文件夹”（会在该目录创建新 .db 文件）；",
+      "sqliteUsageHintImport": "已有历史数据库请选择“导入 DB 文件”（直接复用旧文件）。",
+      "noProviderHint": "当前还没有提供方，请先添加后再选择或填写访问密钥。",
+      "initialize": "初始化",
+      "initializeConfirm": "确认初始化提供方 {{id}} 吗？将删除该提供方所有业务表并重建。",
+      "loadingProviders": "正在加载提供方...",
+      "errors": {
+        "loadProviders": "加载提供方失败",
+        "initializeFailed": "初始化失败",
+        "providerIdRequired": "请输入提供方 ID。",
+        "supabaseRequired": "Supabase URL 和 Anon Key 必填。",
+        "sqliteDirectoryRequired": "SQLite 存储目录必填。",
+        "addProviderFailed": "添加提供方失败",
+        "deleteProviderFailed": "删除提供方失败",
+        "selectProvider": "请选择提供方。",
+        "accessKeyRequired": "请输入访问密钥。",
+        "accessKeyValidation": "访问密钥校验失败。",
+        "connectionFailed": "数据库连接失败。",
+        "validationFailed": "校验失败。",
+        "folderPickerNotAvailable": "当前运行环境不支持文件夹选择器。",
+        "filePickerNotAvailable": "当前运行环境不支持文件选择器。"
+      },
+      "messages": {
+        "initialized": "数据库初始化完成。",
+        "providerSaved": "提供方配置已保存。",
+        "providerDeleted": "提供方配置已删除（未删除数据库文件或目录）。"
+      }
     }
   },
   "agents": {

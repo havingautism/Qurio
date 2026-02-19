@@ -94,7 +94,7 @@ async def update_session_summary(
                         if isinstance(raw_summary, str):
                             try:
                                 old_summary = json.loads(raw_summary)
-                            except:
+                            except (ValueError, json.JSONDecodeError):
                                 pass
                         elif isinstance(raw_summary, dict):
                             old_summary = raw_summary

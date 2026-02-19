@@ -98,6 +98,8 @@ const ENV_VARS = {
   googleApiKey: getPublicEnv('PUBLIC_GOOGLE_API_KEY'),
   siliconFlowKey: getPublicEnv('PUBLIC_SILICONFLOW_API_KEY'),
   glmKey: getPublicEnv('PUBLIC_GLM_API_KEY'),
+  deepseekKey: getPublicEnv('PUBLIC_DEEPSEEK_API_KEY'),
+  volcengineKey: getPublicEnv('PUBLIC_VOLCENGINE_API_KEY'),
   modelscopeKey: getPublicEnv('PUBLIC_MODELSCOPE_API_KEY'),
   kimiKey: getPublicEnv('PUBLIC_KIMI_API_KEY'),
 }
@@ -317,6 +319,8 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
       openai_compatibility: settings.OpenAICompatibilityKey,
       siliconflow: settings.SiliconFlowKey,
       glm: settings.GlmKey,
+      deepseek: settings.DeepSeekKey,
+      volcengine: settings.VolcengineKey,
       modelscope: settings.ModelScopeKey,
       kimi: settings.KimiKey,
       nvidia: settings.NvidiaKey,
@@ -332,6 +336,17 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
       else if (key === 'siliconflow')
         credentials = { apiKey: keys.siliconflow, baseUrl: SILICONFLOW_BASE_URL }
       else if (key === 'glm') credentials = { apiKey: keys.glm }
+      else if (key === 'deepseek')
+        credentials = {
+          apiKey: keys.deepseek,
+          baseUrl: getPublicEnv('PUBLIC_DEEPSEEK_BASE_URL') || 'https://api.deepseek.com/v1',
+        }
+      else if (key === 'volcengine')
+        credentials = {
+          apiKey: keys.volcengine,
+          baseUrl:
+            getPublicEnv('PUBLIC_VOLCENGINE_BASE_URL') || 'https://ark.cn-beijing.volces.com/api/v3',
+        }
       else if (key === 'modelscope') credentials = { apiKey: keys.modelscope }
       else if (key === 'kimi') credentials = { apiKey: keys.kimi }
       else if (key === 'nvidia')
@@ -375,9 +390,6 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
     setAvailableProviders(uniqueProviders)
     setGroupedModels(newGroupedModels)
     setIsLoadingModels(false)
-    if (uniqueProviders.length === 0) {
-      setModelsError(t('agents.model.noProviders'))
-    }
   }
 
   useEffect(() => {
@@ -937,8 +949,11 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
     disabled = false,
     disabledDisplayValue = '',
   }) => {
-    const providers = availableProviders.length > 0 ? availableProviders : PROVIDER_KEYS
-    const activeModels = groupedModels[activeProvider] || []
+    const providers = availableProviders
+    const resolvedProvider = providers.includes(activeProvider)
+      ? activeProvider
+      : providers[0] || activeProvider
+    const activeModels = groupedModels[resolvedProvider] || []
     const selectedLabel = getModelLabel(value)
     const showList = modelSource === 'list'
     const displayLabel = showList ? selectedLabel : customValue || value || t('agents.model.custom')
@@ -1088,24 +1103,28 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   {t('agents.model.providers')}
                 </span>
                 <Select
-                  value={activeProvider}
+                  value={resolvedProvider}
                   onValueChange={val => {
                     onProviderChange(val)
                     if (modelSource === 'list' && val !== activeProvider) {
                       onChange('')
                     }
                   }}
-                  disabled={disabled}
+                  disabled={disabled || !providers.length}
                 >
                   <SelectTrigger className="h-10 w-full">
                     <SelectValue>
-                      <div className="flex items-center gap-3">
-                        {renderProviderIcon(activeProvider, {
-                          size: 16,
-                          alt: t(`settings.providers.${activeProvider}`),
-                        })}
-                        <span>{t(`settings.providers.${activeProvider}`)}</span>
-                      </div>
+                      {resolvedProvider ? (
+                        <div className="flex items-center gap-3">
+                          {renderProviderIcon(resolvedProvider, {
+                            size: 16,
+                            alt: t(`settings.providers.${resolvedProvider}`),
+                          })}
+                          <span>{t(`settings.providers.${resolvedProvider}`)}</span>
+                        </div>
+                      ) : (
+                        <span>{t('agents.model.noProviders')}</span>
+                      )}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
@@ -1438,6 +1457,22 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   </div>
                 </div>
 
+                <div className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50/50 p-3 dark:border-zinc-800 dark:bg-zinc-800/50">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">
+                      {t('agents.model.useGlobal')}
+                    </span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      {t('agents.model.useGlobalHint')}
+                    </span>
+                  </div>
+                  <Checkbox
+                    checked={useGlobalModelSettings}
+                    onCheckedChange={checked => setUseGlobalModelSettings(Boolean(checked))}
+                    className="h-5 w-5"
+                  />
+                </div>
+
                 {isLoadingModels ? (
                   <div className="flex items-center justify-center gap-2 py-8 text-gray-500">
                     <RefreshCw className="animate-spin" size={20} />
@@ -1446,9 +1481,9 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                 ) : availableProviders.length === 0 ? (
                   <div className="rounded-lg border border-dashed border-gray-200 p-6 text-center text-sm text-gray-500 dark:border-zinc-700 dark:text-gray-400">
                     <p className="font-medium text-gray-700 dark:text-gray-300">
-                      {t('agents.model.noProvidersTitle')}
+                      {t('settings.chatNoProvidersTitle')}
                     </p>
-                    <p className="mt-1">{t('agents.model.noProvidersHint')}</p>
+                    <p className="mt-1">{t('settings.chatNoProvidersHint')}</p>
                   </div>
                 ) : (
                   <>
@@ -1462,22 +1497,6 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                         <RefreshCw size={14} />
                         {t('agents.model.refresh')}
                       </button>
-                    </div>
-
-                    <div className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50/50 p-3 dark:border-zinc-800 dark:bg-zinc-800/50">
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-sm font-medium text-gray-900 dark:text-white">
-                          {t('agents.model.useGlobal')}
-                        </span>
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
-                          {t('agents.model.useGlobalHint')}
-                        </span>
-                      </div>
-                      <Checkbox
-                        checked={useGlobalModelSettings}
-                        onCheckedChange={checked => setUseGlobalModelSettings(Boolean(checked))}
-                        className="h-5 w-5"
-                      />
                     </div>
 
                     {renderModelPicker({
@@ -1534,9 +1553,9 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     })}
                   </>
                 )}
-                {(error || modelsError) && (
+                {/* {(error || modelsError) && (
                   <div className="mt-4 text-sm text-red-500">{error || modelsError}</div>
-                )}
+                )} */}
               </div>
             )}
 

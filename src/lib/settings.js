@@ -1,5 +1,29 @@
 import { getPublicEnv } from './publicEnv'
 
+const isElectronRuntime = () =>
+  typeof window !== 'undefined' &&
+  (window.location.protocol === 'file:' || navigator.userAgent.includes('Electron'))
+
+const getElectronBackendUrlFromBridge = () => {
+  if (!isElectronRuntime() || typeof window === 'undefined') return ''
+  const raw = window.qurioRuntime?.backendUrl
+  const trimmed = String(raw || '').trim()
+  if (!trimmed) return ''
+  return /^https?:\/\/[^/]+$/i.test(trimmed) ? trimmed : ''
+}
+
+const getElectronBackendUrlOverride = () => {
+  if (!isElectronRuntime() || typeof window === 'undefined') return ''
+  try {
+    const value = new URLSearchParams(window.location.search).get('backend_url') || ''
+    const trimmed = value.trim()
+    if (!trimmed) return ''
+    return /^https?:\/\/[^/]+/i.test(trimmed) ? trimmed.replace(/\/+$/, '') : ''
+  } catch {
+    return ''
+  }
+}
+
 /**
  * Centralized Settings Management
  *
@@ -135,6 +159,8 @@ const MEMORY_SETTINGS_KEYS = [
   'OpenAICompatibilityUrl',
   'SiliconFlowKey',
   'GlmKey',
+  'DeepSeekKey',
+  'VolcengineKey',
   'ModelScopeKey',
   'KimiKey',
   'googleApiKey',
@@ -147,6 +173,12 @@ const MEMORY_SETTINGS_KEYS = [
   'embeddingProvider',
   'embeddingModel',
   'embeddingModelSource',
+  'defaultModel',
+  'liteModel',
+  'defaultModelProvider',
+  'liteModelProvider',
+  'defaultModelSource',
+  'liteModelSource',
   'enableLongTermMemory',
   'userSelfIntro',
 ]
@@ -163,17 +195,21 @@ export const updateMemorySettings = settings => {
 }
 
 export const loadSettings = (overrides = {}) => {
+  const electronMode = isElectronRuntime()
+  const electronBackendUrl =
+    getElectronBackendUrlFromBridge() || getElectronBackendUrlOverride()
+
   // Supabase Env Vars
-  const envSupabaseUrl = getPublicEnv('PUBLIC_SUPABASE_URL')
-  const envSupabaseKey = getPublicEnv('PUBLIC_SUPABASE_KEY')
-  const envBackendUrl = getPublicEnv('PUBLIC_BACKEND_URL')
-  const envDbProviderId = getPublicEnv('PUBLIC_DB_PROVIDER_ID')
-  const envDbAccessKey = getPublicEnv('PUBLIC_DB_ACCESS_KEY')
+  const envSupabaseUrl = electronMode ? '' : getPublicEnv('PUBLIC_SUPABASE_URL')
+  const envSupabaseKey = electronMode ? '' : getPublicEnv('PUBLIC_SUPABASE_KEY')
+  const envBackendUrl = electronMode ? '' : getPublicEnv('PUBLIC_BACKEND_URL')
+  const envDbProviderId = electronMode ? '' : getPublicEnv('PUBLIC_DB_PROVIDER_ID')
+  const envDbAccessKey = electronMode ? '' : getPublicEnv('PUBLIC_DB_ACCESS_KEY')
 
   // OpenAI Env Vars
-  const envOpenAIKey = getPublicEnv('PUBLIC_OPENAI_API_KEY')
-  const envOpenAIBaseUrl = getPublicEnv('PUBLIC_OPENAI_BASE_URL')
-  const envTavilyApiKey = getPublicEnv('PUBLIC_TAVILY_API_KEY')
+  const envOpenAIKey = electronMode ? '' : getPublicEnv('PUBLIC_OPENAI_API_KEY')
+  const envOpenAIBaseUrl = electronMode ? '' : getPublicEnv('PUBLIC_OPENAI_BASE_URL')
+  const envTavilyApiKey = electronMode ? '' : getPublicEnv('PUBLIC_TAVILY_API_KEY')
 
   // LocalStorage - Only load non-sensitive or essential connection configs
   const localDatabaseProvider = localStorage.getItem('databaseProvider')
@@ -298,7 +334,12 @@ export const loadSettings = (overrides = {}) => {
     defaultModelSource: overrides.defaultModelSource || localDefaultModelSource || 'list',
 
     // Backend API
-    backendUrl: envBackendUrl || localBackendUrl || overrides.backendUrl || 'http://localhost:3001',
+    backendUrl:
+      electronBackendUrl ||
+      envBackendUrl ||
+      localBackendUrl ||
+      overrides.backendUrl ||
+      'http://127.0.0.1:3002',
 
     // Search provider
     searchProvider: localSearchProvider || overrides.searchProvider || 'tavily',
@@ -350,7 +391,9 @@ export const loadSettings = (overrides = {}) => {
   // This overrides everything else for keys
   const mergedSettings = { ...settings, ...memorySettings }
 
-  if (envBackendUrl) {
+  if (electronBackendUrl) {
+    mergedSettings.backendUrl = electronBackendUrl
+  } else if (envBackendUrl) {
     mergedSettings.backendUrl = envBackendUrl
   }
 
@@ -360,19 +403,28 @@ export const loadSettings = (overrides = {}) => {
   if (!mergedSettings.OpenAICompatibilityUrl)
     mergedSettings.OpenAICompatibilityUrl = envOpenAIBaseUrl || ''
   if (!mergedSettings.SiliconFlowKey)
-    mergedSettings.SiliconFlowKey = getPublicEnv('PUBLIC_SILICONFLOW_API_KEY') || ''
-  if (!mergedSettings.GlmKey) mergedSettings.GlmKey = getPublicEnv('PUBLIC_GLM_API_KEY') || ''
+    mergedSettings.SiliconFlowKey = electronMode
+      ? ''
+      : getPublicEnv('PUBLIC_SILICONFLOW_API_KEY') || ''
+  if (!mergedSettings.GlmKey)
+    mergedSettings.GlmKey = electronMode ? '' : getPublicEnv('PUBLIC_GLM_API_KEY') || ''
+  if (!mergedSettings.DeepSeekKey)
+    mergedSettings.DeepSeekKey = electronMode ? '' : getPublicEnv('PUBLIC_DEEPSEEK_API_KEY') || ''
+  if (!mergedSettings.VolcengineKey)
+    mergedSettings.VolcengineKey =
+      electronMode ? '' : getPublicEnv('PUBLIC_VOLCENGINE_API_KEY') || ''
   if (!mergedSettings.ModelScopeKey)
-    mergedSettings.ModelScopeKey = getPublicEnv('PUBLIC_MODELSCOPE_API_KEY') || ''
-  if (!mergedSettings.KimiKey) mergedSettings.KimiKey = getPublicEnv('PUBLIC_KIMI_API_KEY') || ''
+    mergedSettings.ModelScopeKey = electronMode ? '' : getPublicEnv('PUBLIC_MODELSCOPE_API_KEY') || ''
+  if (!mergedSettings.KimiKey)
+    mergedSettings.KimiKey = electronMode ? '' : getPublicEnv('PUBLIC_KIMI_API_KEY') || ''
   if (!mergedSettings.googleApiKey)
-    mergedSettings.googleApiKey = getPublicEnv('PUBLIC_GOOGLE_API_KEY') || ''
+    mergedSettings.googleApiKey = electronMode ? '' : getPublicEnv('PUBLIC_GOOGLE_API_KEY') || ''
   if (!mergedSettings.tavilyApiKey) mergedSettings.tavilyApiKey = envTavilyApiKey || ''
   if (!mergedSettings.serpapiApiKey)
-    mergedSettings.serpapiApiKey = getPublicEnv('PUBLIC_SERPAPI_API_KEY') || ''
+    mergedSettings.serpapiApiKey = electronMode ? '' : getPublicEnv('PUBLIC_SERPAPI_API_KEY') || ''
   if (!mergedSettings.NvidiaKey) mergedSettings.NvidiaKey = ''
   if (!mergedSettings.MinimaxKey)
-    mergedSettings.MinimaxKey = getPublicEnv('PUBLIC_MINIMAX_API_KEY') || ''
+    mergedSettings.MinimaxKey = electronMode ? '' : getPublicEnv('PUBLIC_MINIMAX_API_KEY') || ''
   if (typeof mergedSettings.enableLongTermMemory === 'string') {
     mergedSettings.enableLongTermMemory = mergedSettings.enableLongTermMemory === 'true'
   }
@@ -391,6 +443,10 @@ export const loadSettings = (overrides = {}) => {
 export const saveSettings = async settings => {
   // Update Memory Cache
   updateMemorySettings(settings)
+  if (isElectronRuntime()) {
+    const runtimeUrl = getElectronBackendUrlFromBridge() || getElectronBackendUrlOverride()
+    if (runtimeUrl) settings.backendUrl = runtimeUrl
+  }
 
   // Persist Non-Sensitive to LocalStorage
   if (settings.databaseProvider !== undefined) {
@@ -421,6 +477,8 @@ export const saveSettings = async settings => {
     'OpenAICompatibilityUrl',
     'SiliconFlowKey',
     'GlmKey',
+    'DeepSeekKey',
+    'VolcengineKey',
     'ModelScopeKey',
     'KimiKey',
     'googleApiKey',

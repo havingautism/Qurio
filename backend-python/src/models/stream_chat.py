@@ -55,7 +55,7 @@ class StreamChatRequest(BaseModel):
     # Provider configuration
     provider: Literal[
         "gemini", "openai", "openai_compatibility", "siliconflow",
-        "glm", "modelscope", "kimi", "nvidia", "minimax"
+        "glm", "deepseek", "volcengine", "modelscope", "kimi", "nvidia", "minimax"
     ]
     api_key: str = Field(..., alias="apiKey")
     base_url: str | None = Field(default=None, alias="baseUrl")

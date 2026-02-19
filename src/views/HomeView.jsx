@@ -17,7 +17,7 @@ import LayoutGrid from 'lucide-react/dist/esm/icons/layout-grid'
 import Menu from 'lucide-react/dist/esm/icons/menu'
 import Paperclip from 'lucide-react/dist/esm/icons/paperclip'
 import X from 'lucide-react/dist/esm/icons/x'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Drawer, DrawerContent } from '@/components/ui/drawer'
 import { useTranslation } from 'react-i18next'
 import { useAppContext } from '../App'
@@ -1091,7 +1091,7 @@ const HomeView = () => {
         )}
       >
         {/* Main Container */}
-        <div className="flex w-full max-w-3xl flex-col items-center gap-4 sm:mt-12 sm:gap-8">
+        <div className="flex w-full max-w-5xl flex-col items-center gap-4 pb-4 sm:mt-12 sm:gap-8">
           <div className="mb-2 block rounded-3xl p-4 sm:hidden">
             <div className="relative flex items-center justify-center">
               <div
@@ -1111,7 +1111,7 @@ const HomeView = () => {
           </h1>
 
           {/* Search Box */}
-          <div className="home-search-box group relative z-20 w-full">
+          <div className="home-search-box group relative z-20 w-full max-w-3xl">
             <div className="input-glow-veil pointer-events-none absolute inset-0 rounded-xl opacity-0 blur-2xl transition-opacity duration-500 group-focus-within:opacity-100 group-hover:opacity-100" />
             <div className="relative rounded-2xl border border-stone-200/60 bg-white p-4 shadow-sm transition-all duration-300 hover:shadow-md dark:border-zinc-700/60 dark:bg-zinc-900">
               {(homeAttachments.length > 0 || homeSelectedDocuments.length > 0) && (
@@ -1600,4 +1600,4 @@ const HomeView = () => {
   )
 }
 
-export default HomeView
+export default React.memo(HomeView)

@@ -63,6 +63,8 @@ TABLES_WITH_ID = {
     "memory_summaries",
     "user_tools",
     "pending_form_runs",
+    "email_provider_configs",
+    "email_notifications",
 }
 
 TABLES_WITH_UPDATED_AT = {
@@ -78,6 +80,7 @@ TABLES_WITH_UPDATED_AT = {
     "memory_domains",
     "memory_summaries",
     "user_tools",
+    "email_provider_configs",
 }
 
 TABLES_WITH_CREATED_AT = {
@@ -98,6 +101,8 @@ TABLES_WITH_CREATED_AT = {
     "memory_summaries",
     "user_tools",
     "pending_form_runs",
+    "email_provider_configs",
+    "email_notifications",
 }
 
 
@@ -789,8 +794,15 @@ class SupabaseAdapter:
         values = req.values if req.values is not None else req.payload
         if values is None:
             return DbQueryResponse(error="Missing values")
-        query = query.insert(values)
-        result = query.execute()
+        # Use upsert with ignoreDuplicates=False to get data back, or just insert
+        # Supabase insert returns 204 by default; we handle this gracefully
+        try:
+            result = query.insert(values).execute()
+        except Exception as exc:
+            # 204 No Content is not an error — insert succeeded but no data returned
+            if "204" in str(exc) or "Missing response" in str(exc):
+                return DbQueryResponse(data=None)
+            raise
         error = getattr(result, "error", None)
         if error:
             return DbQueryResponse(error=str(error))
@@ -799,12 +811,19 @@ class SupabaseAdapter:
             data = data[0] if data else None
         return DbQueryResponse(data=data)
 
+
     def _update(self, req: DbQueryRequest) -> DbQueryResponse:
         query = self._table(req.table)
         payload = req.payload or {}
         query = query.update(payload)
         query = self._apply_filters(query, req.filters)
-        result = query.execute()
+        # Supabase update returns 204 by default; handle gracefully
+        try:
+            result = query.execute()
+        except Exception as exc:
+            if "204" in str(exc) or "Missing response" in str(exc):
+                return DbQueryResponse(data=None)
+            raise
         error = getattr(result, "error", None)
         if error:
             return DbQueryResponse(error=str(error))
@@ -812,6 +831,7 @@ class SupabaseAdapter:
         if (req.single or req.maybe_single) and isinstance(data, list):
             data = data[0] if data else None
         return DbQueryResponse(data=data)
+
 
     def _delete(self, req: DbQueryRequest) -> DbQueryResponse:
         pending_cleanup_all = False

@@ -10,7 +10,11 @@ import { getNodeEnv, getPublicEnv } from './lib/publicEnv'
 // Initialize emoji-mart with reliable CDN for Twitter emojis
 // Using emoji-datasource-twitter explicitly as @emoji-mart/data might not serve images on all CDNs
 // Register Service Worker
-if ('serviceWorker' in navigator) {
+if (
+  'serviceWorker' in navigator &&
+  typeof window !== 'undefined' &&
+  (window.location.protocol === 'http:' || window.location.protocol === 'https:')
+) {
   if (getNodeEnv() === 'production') {
     window.addEventListener('load', () => {
       const basePath = (getPublicEnv('PUBLIC_BASE_PATH') || '/Qurio/').replace(/\/?$/, '/')

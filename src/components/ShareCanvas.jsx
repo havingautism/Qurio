@@ -26,6 +26,16 @@ const PROVIDER_META = {
     logo: PROVIDER_ICONS.glm,
     fallback: 'G',
   },
+  deepseek: {
+    label: 'DeepSeek',
+    logo: PROVIDER_ICONS.deepseek,
+    fallback: 'D',
+  },
+  volcengine: {
+    label: 'Volcengine',
+    logo: PROVIDER_ICONS.volcengine,
+    fallback: 'V',
+  },
   modelscope: {
     label: '魔塔社区',
     logo: PROVIDER_ICONS.glm,

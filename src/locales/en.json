@@ -258,8 +258,125 @@
       "complete": "Complete"
     }
   },
+  "notificationCenter": {
+    "title": "Email Notifications",
+    "newCount": "{{count}} new",
+    "all": "All",
+    "markAllRead": "Mark all as read",
+    "refresh": "Refresh",
+    "close": "Close",
+    "empty": {
+      "title": "No email notifications yet",
+      "hint": "Connect Email in Settings to get started"
+    },
+    "emptyForAccount": {
+      "title": "No notifications for this account",
+      "hint": "Try selecting a different account"
+    },
+    "noSubject": "(No subject)",
+    "unknownSender": "Unknown sender",
+    "markAsRead": "Mark as read",
+    "delete": "Delete",
+    "timeAgo": {
+      "justNow": "just now",
+      "minutesAgo": "{{count}}m ago",
+      "hoursAgo": "{{count}}h ago",
+      "daysAgo": "{{count}}d ago"
+    },
+    "deleteFailed": "Delete failed: {{message}}",
+    "emailDetail": "Email Detail",
+    "from": "From",
+    "time": "Time",
+    "account": "Account",
+    "summary": "Summary",
+    "viewDetail": "View",
+    "openInMail": "Open in Mail"
+  },
   "settings": {
     "title": "Settings",
+    "email": {
+      "title": "Email Notifications",
+      "description": "Connect email accounts and Qurio will periodically fetch new emails and push AI-generated summaries as notifications. Supports multiple accounts.",
+      "limitHint": "Note: To ensure performance, Qurio only syncs the latest 5 unread emails per account and keeps their summaries.",
+      "connectedAccounts": "Connected Accounts",
+      "connectedCount": "{{count}} account(s)",
+      "noAccounts": "No email accounts connected yet.",
+      "noAccountsHint": "Click \"Add Email\" above to get started.",
+      "addEmail": "Add Email",
+      "disconnect": "Disconnect",
+      "disconnectConfirm": "Disconnect {{email}}? Associated notifications will also be deleted.",
+      "disconnected": "Email disconnected",
+      "settings": "Settings",
+      "pollInterval": "Check every {{minutes}} minutes",
+      "pollIntervalLabel": "Check frequency",
+      "pollIntervalHint": "How often Qurio checks for new emails",
+      "summaryModel": "AI Summary Model",
+      "summaryModelHint": "Model for generating email summaries, uses global API keys.",
+      "provider": "Provider",
+      "model": "Model",
+      "loadingModels": "Loading...",
+      "noModels": "No models available",
+      "defaultsToGlobal": "defaults to global setting",
+      "saving": "Saving...",
+      "saved": "Settings saved!",
+      "syncing": "Syncing...",
+      "syncNow": "Sync Now",
+      "syncComplete": "Sync complete! Polled {{count}} account(s).",
+      "connectForm": {
+        "title": "Add Email",
+        "providerLabel": "Email type",
+        "emailLabel": "Email address",
+        "emailPlaceholder": "e.g., yourname@gmail.com",
+        "passwordLabel": "App Password",
+        "passwordHint": "(not your login password)",
+        "passwordPlaceholder": "xxxx xxxx xxxx xxxx",
+        "connectButton": "Connect Email",
+        "connecting": "Connecting..."
+      },
+      "providers": {
+        "gmail": {
+          "label": "Gmail",
+          "hint": "myaccount.google.com/apppasswords",
+          "hintText": "Enable 2-step verification, then generate an \"App Password\""
+        },
+        "outlook": {
+          "label": "Outlook / Hotmail",
+          "hint": "account.microsoft.com/security",
+          "hintText": "Generate an app password in Microsoft account security settings"
+        },
+        "qq": {
+          "label": "QQ Mail",
+          "hint": "mail.qq.com → Settings → Account → IMAP/SMTP",
+          "hintText": "Enable IMAP in QQ Mail settings and generate an authorization code"
+        },
+        "163": {
+          "label": "163 Mail",
+          "hint": "mail.163.com → Settings → POP3/SMTP/IMAP",
+          "hintText": "Enable IMAP in 163 Mail settings and generate an authorization code"
+        }
+      },
+      "pollIntervals": {
+        "5min": "5 minutes",
+        "15min": "15 minutes",
+        "30min": "30 minutes",
+        "1hour": "1 hour",
+        "2hours": "2 hours"
+      },
+      "errors": {
+        "connectFailed": "Connection failed: {{message}}",
+        "emailRequired": "Please enter email address and app password",
+        "emailExists": "Email {{email}} already exists",
+        "saveFailed": "Failed to save: {{message}}",
+        "deleteFailed": "Failed to delete: {{message}}",
+        "syncFailed": "Sync failed: {{message}}",
+        "noApiKey": "API key not configured for this provider. Please configure it in global settings first.",
+        "modelRequired": "Please select a summary model"
+      },
+      "success": {
+        "connected": "Email connected successfully!",
+        "saved": "Settings saved!"
+      }
+    },
     "menu": {
       "general": "General",
       "model": "Model",
@@ -268,6 +385,7 @@
       "interface": "Interface",
       "personalization": "Personalization",
       "account": "Account",
+      "email": "Email",
       "advanced": "Advanced",
       "about": "About"
     },
@@ -321,8 +439,10 @@
     "tavilyApiKeyPlaceholder": "Enter your Tavily API key",
     "backendConfiguration": "Backend Configuration",
     "backendConfigurationHint": "Configure the backend API used by the app.",
+    "backendConfigurationElectronHint": "Electron mode: backend is managed by desktop runtime.",
+    "backendDesktopManaged": "Desktop mode uses built-in backend at {{backendUrl}}",
     "backendUrl": "Backend URL",
-    "backendUrlPlaceholder": "http://localhost:3001",
+    "backendUrlPlaceholder": "http://127.0.0.1:3002",
     "backendHealthCheck": "Test backend health",
     "backendHealthChecking": "Checking backend health…",
     "backendHealthCheckSuccess": "Backend is reachable",
@@ -350,6 +470,8 @@
       "openai_compatibility": "OpenAI Compatible",
       "siliconflow": "SiliconFlow",
       "glm": "GLM (Zhipu AI)",
+      "deepseek": "DeepSeek",
+      "volcengine": "Volcengine (Doubao)",
       "modelscope": "ModelScope",
       "kimi": "Kimi (Moonshot AI)",
       "nvidia": "NVIDIA NIM",
@@ -483,6 +605,8 @@
     "documentResultScore": "Score",
     "embeddingNoProvidersTitle": "No providers configured yet",
     "embeddingNoProvidersHint": "Add API keys in General to enable embedding model selection.",
+    "chatNoProvidersTitle": "No providers configured yet",
+    "chatNoProvidersHint": "Add API keys in General to enable chat model selection.",
     "embeddingModelsLoaded": "{{count}} embedding models loaded",
     "embeddingRefreshModels": "Refresh models",
     "modelSourceList": "List",
@@ -547,6 +671,10 @@
     "siliconflowApiKeyPlaceholder": "sk-...",
     "glmApiKey": "GLM (Zhipu AI) API Key",
     "glmApiKeyPlaceholder": "Your GLM API key",
+    "deepseekApiKey": "DeepSeek API Key",
+    "deepseekApiKeyPlaceholder": "Your DeepSeek API key",
+    "volcengineApiKey": "Volcengine (Doubao) API Key",
+    "volcengineApiKeyPlaceholder": "Your Volcengine API key",
     "modelscopeApiKey": "ModelScope API Key",
     "modelscopeApiKeyPlaceholder": "Your ModelScope API key",
     "kimiApiKey": "Kimi (Moonshot AI) API Key",
@@ -590,17 +718,72 @@
       "developerModeHint": "Control how detailed tool calls are displayed in the chat."
     },
     "configureDatabase": "Configure Database",
+    "openDatabaseManager": "Open Database Manager",
     "databaseConfigDisabled": "Run backend health check first.",
     "testDatabaseConnection": "Test database connection",
     "databaseSetup": {
       "title": "Database Setup",
       "description": "Enter the access key to load database providers, then choose one to use.",
+      "electronDescription": "Configure database providers (Supabase / SQLite) and select active provider.",
       "accessKey": "Access Key",
       "accessKeyPlaceholder": "Enter backend access key",
+      "accessKeyOptional": "Optional (provider has no access key)",
       "provider": "Provider",
       "selectProvider": "Select provider",
       "saveAndReload": "Save & Reload",
-      "saving": "Validating..."
+      "saving": "Validating...",
+      "addProvider": "Add Provider",
+      "type": "Type",
+      "selectType": "Select type",
+      "providerId": "Provider ID",
+      "providerIdPlaceholderSqlite": "sqlite-local",
+      "providerIdPlaceholderSupabase": "supabase-prod",
+      "label": "Label",
+      "labelPlaceholderSqlite": "My Local DB",
+      "labelPlaceholderSupabase": "My Supabase DB",
+      "supabaseUrl": "Supabase URL",
+      "anonKey": "Anon Key",
+      "sqliteDirectory": "SQLite Directory",
+      "sqliteFilePath": "SQLite File Path",
+      "providerAccessKeyOptional": "Provider Access Key (optional)",
+      "providerAccessKeyPlaceholder": "Optional per-provider key",
+      "editProvider": "Edit Provider",
+      "deleteProvider": "Delete Provider",
+      "deleteProviderConfirm": "Delete provider {{id}}? This only removes provider config and will not delete DB files or directories.",
+      "cancelEdit": "Cancel Edit",
+      "saveProvider": "Save Provider",
+      "saveProviderChanges": "Save Changes",
+      "rebuildAndInitialize": "Initialize (Rebuild)",
+      "browseFolder": "Browse",
+      "importDbFile": "Import DB File",
+      "sqliteUsageHint": "Usage:",
+      "sqliteUsageHintCreate": "choose Browse when creating a new database (a new .db file will be created in that folder);",
+      "sqliteUsageHintImport": "choose Import DB File when reusing an existing database file.",
+      "noProviderHint": "No provider yet. Please add one before selecting or entering access key.",
+      "initialize": "Initialize",
+      "initializeConfirm": "Initialize provider {{id}} now? This will drop all app tables for this provider and rebuild them.",
+      "loadingProviders": "Loading providers...",
+      "errors": {
+        "loadProviders": "Failed to load providers",
+        "initializeFailed": "Initialization failed",
+        "providerIdRequired": "Please enter provider id.",
+        "supabaseRequired": "Supabase URL and anon key are required.",
+        "sqliteDirectoryRequired": "SQLite directory is required.",
+        "addProviderFailed": "Failed to add provider",
+        "deleteProviderFailed": "Failed to delete provider",
+        "selectProvider": "Please select a provider.",
+        "accessKeyRequired": "Please enter access key.",
+        "accessKeyValidation": "Access key validation failed.",
+        "connectionFailed": "Database connection failed.",
+        "validationFailed": "Validation failed.",
+        "folderPickerNotAvailable": "Folder picker is unavailable in current runtime.",
+        "filePickerNotAvailable": "File picker is unavailable in current runtime."
+      },
+      "messages": {
+        "initialized": "Database initialized.",
+        "providerSaved": "Provider configuration saved.",
+        "providerDeleted": "Provider config deleted (DB file/directory was not removed)."
+      }
     }
   },
   "agents": {

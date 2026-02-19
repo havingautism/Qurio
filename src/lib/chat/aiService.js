@@ -10,7 +10,7 @@ import {
   upsertMemoryDomainSummary,
   getMemoryDomains,
   deleteMemoryDomain,
-} from '../longTermMemoryService'
+} from '../lazyMemoryService'
 import { getModelConfigForAgent, resolveProviderConfigWithCredentials } from './modelConfig'
 import { getLanguageInstruction, applyLanguageInstructionToText } from './prompts'
 import { buildSpaceAgentOptions, resolveAgentForSpace } from './conversationSetup'
@@ -59,7 +59,10 @@ const clampToUnicodeBoundary = (text, index) => {
 
 const findParagraphEndIndex = (content, index) => {
   if (typeof content !== 'string' || content.length === 0) return 0
-  const safeIndex = Math.max(0, Math.min(Number.isFinite(index) ? Number(index) : 0, content.length))
+  const safeIndex = Math.max(
+    0,
+    Math.min(Number.isFinite(index) ? Number(index) : 0, content.length),
+  )
 
   const nextDoubleBreak = content.indexOf('\n\n', safeIndex)
   if (nextDoubleBreak !== -1) return Math.min(content.length, nextDoubleBreak + 2)
@@ -450,7 +453,9 @@ export const callAIAPI = async (
             ) {
               lastEntry.textIndex = Number(entry.textIndex)
             }
-            const lastDuration = Number.isFinite(lastEntry.durationMs) ? Number(lastEntry.durationMs) : 0
+            const lastDuration = Number.isFinite(lastEntry.durationMs)
+              ? Number(lastEntry.durationMs)
+              : 0
             const nextDuration = Number.isFinite(entry.durationMs) ? Number(entry.durationMs) : 0
             lastEntry.durationMs = Math.max(0, lastDuration + nextDuration)
           } else {
@@ -530,7 +535,10 @@ export const callAIAPI = async (
   }
 
   const resolveToolAnchorIndex = (content, index, toolName) => {
-    const safeIndex = Math.max(0, Math.min(Number.isFinite(index) ? Number(index) : 0, content.length))
+    const safeIndex = Math.max(
+      0,
+      Math.min(Number.isFinite(index) ? Number(index) : 0, content.length),
+    )
     if (toolName === 'interactive_form') return safeIndex
     return findParagraphEndIndex(content, safeIndex)
   }
@@ -1127,12 +1135,11 @@ export const callAIAPI = async (
             const fallbackIndex = (lastStreamMsg.content || '').length + (pendingText || '').length
             const thoughtIndex = normalizeStreamTextIndex(chunk.textIndex, fallbackIndex)
             const now = Date.now()
-            const resolvedDurationMs =
-              Number.isFinite(chunk.duration_ms)
-                ? Number(chunk.duration_ms)
-                : Number.isFinite(lastThoughtEventAtMs)
-                  ? Math.max(0, now - lastThoughtEventAtMs)
-                  : Math.max(0, now - thoughtStreamStartAtMs)
+            const resolvedDurationMs = Number.isFinite(chunk.duration_ms)
+              ? Number(chunk.duration_ms)
+              : Number.isFinite(lastThoughtEventAtMs)
+                ? Math.max(0, now - lastThoughtEventAtMs)
+                : Math.max(0, now - thoughtStreamStartAtMs)
             lastThoughtEventAtMs = now
             if (hasNonThoughtEvent) {
               thoughtBlockCounter += 1
@@ -1173,7 +1180,7 @@ export const callAIAPI = async (
         flushPending()
         set({ isLoading: false })
         const currentStore = get()
-        const finalThought = hitlRunId ? streamedThought : result.thought ?? streamedThought
+        const finalThought = hitlRunId ? streamedThought : (result.thought ?? streamedThought)
         await finalizeMessage(
           { ...result, thought: finalThought },
           currentStore,
@@ -2011,4 +2018,3 @@ export const finalizeMessage = async (
     })()
   }
 }
-

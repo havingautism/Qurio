@@ -34,6 +34,8 @@ DEFAULT_MODELS: dict[str, str] = {
     "openai_compatibility": os.getenv("OPENAI_COMPAT_MODEL", "gpt-4o-mini"),
     "siliconflow": os.getenv("SILICONFLOW_MODEL", "Qwen/Qwen2.5-7B-Instruct"),
     "glm": os.getenv("GLM_MODEL", "glm-4-flash"),
+    "deepseek": os.getenv("DEEPSEEK_MODEL", "deepseek-chat"),
+    "volcengine": os.getenv("VOLCENGINE_MODEL", "doubao-seed-1-6-thinking-250615"),
     "modelscope": os.getenv("MODELSCOPE_MODEL", "AI-ModelScope/glm-4-9b-chat"),
     "kimi": os.getenv("KIMI_MODEL", "moonshot-v1-8k"),
     "gemini": os.getenv("GEMINI_MODEL", "gemini-2.0-flash-exp"),
@@ -46,6 +48,8 @@ DEFAULT_BASE_URLS: dict[str, str] = {
     "openai_compatibility": os.getenv("OPENAI_COMPAT_BASE_URL", "https://api.openai.com/v1"),
     "siliconflow": os.getenv("SILICONFLOW_BASE_URL", "https://api.siliconflow.cn/v1"),
     "glm": os.getenv("GLM_BASE_URL", "https://open.bigmodel.cn/api/paas/v4"),
+    "deepseek": os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1"),
+    "volcengine": os.getenv("VOLCENGINE_BASE_URL", "https://ark.cn-beijing.volces.com/api/v3"),
     "modelscope": os.getenv("MODELSCOPE_BASE_URL", "https://api-inference.modelscope.cn/v1"),
     "kimi": os.getenv("KIMI_BASE_URL", "https://api.moonshot.cn/v1"),
     "nvidia": os.getenv("NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1"),
@@ -131,11 +135,26 @@ def _apply_thinking_params(model: Any, provider: str, thinking: dict[str, Any] |
             budget = thinking.get("budget_tokens") or thinking.get("budgetTokens")
         if budget is None:
             budget = 1024
-        _merge_model_dict_attr(
-            model,
-            "extra_body",
-            {"enable_thinking": True, "thinking_budget": budget},
+        model_id_lower = str(getattr(model, "id", "") or "").lower()
+        is_siliconflow_kimi_thinking = (
+            provider == "siliconflow"
+            and "kimi" in model_id_lower
+            and "thinking" in model_id_lower
         )
+        # SiliconFlow Kimi-thinking models may reject `enable_thinking`.
+        if is_siliconflow_kimi_thinking:
+            _merge_model_dict_attr(model, "extra_body", {"thinking_budget": budget})
+            current_extra = getattr(model, "extra_body", None)
+            if isinstance(current_extra, dict) and "enable_thinking" in current_extra:
+                merged = dict(current_extra)
+                merged.pop("enable_thinking", None)
+                setattr(model, "extra_body", merged)
+        else:
+            _merge_model_dict_attr(
+                model,
+                "extra_body",
+                {"enable_thinking": True, "thinking_budget": budget},
+            )
         # _merge_model_dict_attr(
         #     model,
         #     "request_params",
@@ -154,7 +173,7 @@ def _apply_thinking_params(model: Any, provider: str, thinking: dict[str, Any] |
             _merge_model_dict_attr(model, "extra_body", {"reasoning_split": True})
         return
 
-    if provider == "glm":
+    if provider in {"glm", "deepseek", "volcengine"}:
         if isinstance(thinking, dict) and thinking.get("type"):
             payload = {"thinking": {"type": thinking.get("type")}}
             _merge_model_dict_attr(model, "extra_body", payload)

@@ -14,6 +14,7 @@ import TavilyIcon from '../assets/tavily-color.svg?url'
 import SerpApiIcon from '../assets/search-icons/serp.png?url'
 import NvidiaIcon from '../assets/nvidia-color.svg?url'
 import MinimaxIcon from '../assets/minimax-color.svg?url'
+import VolcengineIcon from '../assets/volcengine-color.svg?url'
 import SupabaseIcon from '../assets/supabase.svg?url'
 import SqliteIcon from '../assets/sqlite.svg?url'
 import StepFunIcon from '../assets/stepfun.svg?url'
@@ -30,6 +31,8 @@ export const PROVIDER_ICON_META = {
   },
   siliconflow: { src: SiliconCloudIcon, alt: 'SiliconFlow', bgClassName: DEFAULT_ICON_BG_CLASS },
   glm: { src: ZhipuIcon, alt: 'GLM', bgClassName: DEFAULT_ICON_BG_CLASS },
+  deepseek: { src: DeepSeekIcon, alt: 'DeepSeek', bgClassName: DEFAULT_ICON_BG_CLASS },
+  volcengine: { src: VolcengineIcon, alt: 'Volcengine', bgClassName: DEFAULT_ICON_BG_CLASS },
   modelscope: { src: ModelScopeIcon, alt: 'ModelScope', bgClassName: DEFAULT_ICON_BG_CLASS },
   kimi: {
     src: MoonshotIcon,
@@ -112,6 +115,8 @@ export const getModelIcon = modelId => {
   const lowerId = modelId.toLowerCase()
   if (lowerId.includes('gemini')) return GeminiIcon
   if (lowerId.includes('deepseek')) return DeepSeekIcon
+  if (lowerId.includes('doubao') || lowerId.includes('volcengine') || lowerId.includes('volces'))
+    return VolcengineIcon
   if (lowerId.includes('qwen')) return QwenIcon
   if (lowerId.includes('moonshot') || lowerId.includes('kimi')) return KimiIcon
   if (lowerId.includes('glm') || lowerId.includes('zhipu')) return ChatGLMIcon

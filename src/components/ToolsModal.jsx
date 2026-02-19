@@ -1,4 +1,4 @@
-﻿import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import {
   X,
   Plus,
@@ -204,7 +204,7 @@ const ToolsModal = ({ isOpen, onClose }) => {
     try {
       const settings = JSON.parse(localStorage.getItem('qurio-settings') || '{}')
       const backendUrl =
-        getPublicEnv('PUBLIC_BACKEND_URL') || settings.backendUrl || 'http://localhost:3001'
+        getPublicEnv('PUBLIC_BACKEND_URL') || settings.backendUrl || 'http://127.0.0.1:3002'
 
       console.log('[MCP] Loading tools from:', {
         name: formData.serverName,

@@ -48,6 +48,10 @@ def get_provider_adapter(
             adapter = KimiAdapter()
         case "glm":
             adapter = GLMAdapter()
+        case "deepseek":
+            adapter = GLMAdapter()
+        case "volcengine":
+            adapter = GLMAdapter()
         case "modelscope":
             adapter = ModelScopeAdapter()
         case "gemini":
@@ -76,6 +80,8 @@ def is_provider_supported(provider: str) -> bool:
         "siliconflow",
         "kimi",
         "glm",
+        "deepseek",
+        "volcengine",
         "modelscope",
         "gemini",
         "nvidia",
@@ -90,6 +96,8 @@ SUPPORTED_PROVIDERS: list[str] = [
     "siliconflow",
     "kimi",
     "glm",
+    "deepseek",
+    "volcengine",
     "modelscope",
     "gemini",
     "nvidia",

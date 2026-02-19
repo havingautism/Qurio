@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { AlertCircle, RefreshCw } from 'lucide-react'
 import { useLocation } from '@tanstack/react-router'
 import { useShallow } from 'zustand/react/shallow'
 import { useAppContext } from '../App'
@@ -20,30 +21,61 @@ const ExpertConversationView = () => {
   )
   const [conversation, setConversation] = useState(null)
   const [fetchError, setFetchError] = useState(null)
+  const [reloadToken, setReloadToken] = useState(0)
   const initialChatState = location.state
 
   useEffect(() => {
+    let cancelled = false
+
+    const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
+
+    const isRetriableError = error => {
+      const message = String(error?.message || '').toLowerCase()
+      return (
+        message.includes('failed to fetch') ||
+        message.includes('network') ||
+        message.includes('timeout') ||
+        message.includes('database error') ||
+        message.includes('http 5')
+      )
+    }
+
     const fetchConversation = async () => {
       if (!conversationId) return
       setConversation(prev =>
         prev?.id === conversationId ? prev : { id: conversationId, _isPlaceholder: true },
       )
       setFetchError(null)
-      try {
-        const { data, error } = await getConversation(conversationId)
-        if (error) throw error
-        if (!data) throw new Error('Conversation not found')
-        setConversation(data)
-        if (optimisticSelection?.conversationId === conversationId) {
-          clearOptimisticSelection()
+      const maxAttempts = 3
+      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        try {
+          const { data, error } = await getConversation(conversationId)
+          if (cancelled) return
+          if (error) throw error
+          if (!data) throw new Error('Conversation not found')
+          setConversation(data)
+          if (optimisticSelection?.conversationId === conversationId) {
+            clearOptimisticSelection()
+          }
+          return
+        } catch (error) {
+          if (cancelled) return
+          const shouldRetry = attempt < maxAttempts && isRetriableError(error)
+          if (shouldRetry) {
+            await sleep(220 * attempt)
+            continue
+          }
+          console.error('Failed to fetch expert conversation:', error)
+          setFetchError(error)
+          return
         }
-      } catch (error) {
-        console.error('Failed to fetch expert conversation:', error)
-        setFetchError(error)
       }
     }
     fetchConversation()
-  }, [conversationId, optimisticSelection?.conversationId, clearOptimisticSelection])
+    return () => {
+      cancelled = true
+    }
+  }, [conversationId, reloadToken, optimisticSelection?.conversationId, clearOptimisticSelection])
 
   useEffect(() => {
     const handleConversationChanged = async () => {
@@ -106,14 +138,34 @@ const ExpertConversationView = () => {
 
   if (fetchError) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center p-4">
-        <div className="mb-2 text-red-500">Failed to load expert conversation</div>
-        <button
-          onClick={() => window.location.reload()}
-          className="bg-primary text-primary-foreground hover:bg-primary/90 rounded px-4 py-2"
-        >
-          Retry
-        </button>
+      <div className="flex flex-1 items-center justify-center p-6">
+        <div className="bg-card w-full max-w-md rounded-2xl border border-red-200/60 p-6 shadow-sm dark:border-red-900/60">
+          <div className="mb-3 flex items-center gap-2 text-red-500">
+            <AlertCircle className="h-5 w-5" />
+            <h2 className="text-lg font-semibold">Failed to load expert conversation</h2>
+          </div>
+          <p className="text-muted-foreground text-sm">
+            The conversation data could not be fetched just now. Please retry.
+          </p>
+          <div className="mt-4 flex gap-2">
+            <button
+              onClick={() => setReloadToken(prev => prev + 1)}
+              className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Retry
+            </button>
+            <button
+              onClick={() => window.location.reload()}
+              className="border-border bg-background text-foreground hover:bg-accent rounded-lg border px-4 py-2 text-sm"
+            >
+              Refresh Page
+            </button>
+          </div>
+          <p className="text-muted-foreground mt-3 text-xs">
+            {fetchError?.message ? `Details: ${fetchError.message}` : 'No additional error details.'}
+          </p>
+        </div>
       </div>
     )
   }

@@ -16,31 +16,44 @@ const NoteWidget = () => {
   // Load notes on mount
   // Load notes on mount
   const loadNotes = async () => {
-    setIsLoading(true)
-    const { data } = await fetchHomeNotes()
-    if (data) {
-      setNotes(data)
-      // Reset index if out of bounds
-      if (currentIndex >= data.length) {
-        setCurrentIndex(Math.max(0, data.length - 1))
+    try {
+      setIsLoading(true)
+      const { data } = await fetchHomeNotes()
+      if (data) {
+        setNotes(data)
+        // Reset index if out of bounds
+        if (currentIndex >= data.length) {
+          setCurrentIndex(Math.max(0, data.length - 1))
+        }
       }
+    } catch (error) {
+      console.error('Failed to load home notes:', error)
+    } finally {
+      setIsLoading(false)
     }
-    setIsLoading(false)
   }
 
   useEffect(() => {
     let isMounted = true
     const load = async () => {
-      setIsLoading(true)
-      const { data } = await fetchHomeNotes()
-      if (!isMounted) return
-      if (data) {
-        setNotes(data)
-        if (currentIndex >= data.length) {
-          setCurrentIndex(Math.max(0, data.length - 1))
+      try {
+        setIsLoading(true)
+        const { data } = await fetchHomeNotes()
+        if (!isMounted) return
+        if (data) {
+          setNotes(data)
+          if (currentIndex >= data.length) {
+            setCurrentIndex(Math.max(0, data.length - 1))
+          }
+        }
+      } catch (error) {
+        if (!isMounted) return
+        console.error('Failed to load home notes:', error)
+      } finally {
+        if (isMounted) {
+          setIsLoading(false)
         }
       }
-      setIsLoading(false)
     }
     load()
     return () => {

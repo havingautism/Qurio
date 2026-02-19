@@ -119,12 +119,17 @@ const ShortcutsWidget = () => {
 
   // Load shortcuts
   const loadShortcuts = useCallback(async () => {
-    setIsLoading(true)
-    const { data } = await fetchHomeShortcuts()
-    if (data) {
-      setShortcuts(data)
+    try {
+      setIsLoading(true)
+      const { data } = await fetchHomeShortcuts()
+      if (data) {
+        setShortcuts(data)
+      }
+    } catch (error) {
+      console.error('Failed to load home shortcuts:', error)
+    } finally {
+      setIsLoading(false)
     }
-    setIsLoading(false)
   }, [])
 
   useEffect(() => {

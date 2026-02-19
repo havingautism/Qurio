@@ -6,6 +6,7 @@ Supports persistent DB-backed storage (Supabase/SQLite provider) with in-memory 
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 from datetime import UTC, datetime, timedelta
@@ -53,6 +54,34 @@ def _to_uuid_or_none(value: Any) -> str | None:
         return None
 
 
+def _normalize_stored_messages(raw_messages: Any) -> tuple[Any, Any]:
+    """
+    Backward/adapter compatibility for pending_form_runs.messages.
+
+    messages may come back as:
+    - list (legacy history-only)
+    - dict {"history": [...], "run_output": {...}} (current)
+    - JSON string for either of the above (provider/adapter dependent)
+    """
+    parsed = raw_messages
+    if isinstance(parsed, str):
+        text = parsed.strip()
+        if text:
+            try:
+                parsed = json.loads(text)
+            except Exception:
+                parsed = raw_messages
+
+    saved_messages = parsed
+    saved_run_output = None
+    if isinstance(parsed, dict):
+        if "history" in parsed:
+            saved_messages = parsed.get("history")
+        if "run_output" in parsed:
+            saved_run_output = parsed.get("run_output")
+    return saved_messages, saved_run_output
+
+
 def _extract_missing_column_from_error(error: Any) -> str | None:
     text = str(error or "")
     # Supabase/PostgREST PGRST204 example:
@@ -78,9 +107,16 @@ class InMemoryHITLStorage:
         agent_model: str | None = None,
         ttl_minutes: int = 30,
         messages: list[dict[str, Any]] | None = None,
+        run_output: dict[str, Any] | None = None,
     ) -> dict[str, Any] | None:
         requirements_data = serialize_requirements(requirements)
         expires_at = (_utc_now() + timedelta(minutes=ttl_minutes)).isoformat()
+        stored_messages: Any = messages
+        if run_output is not None:
+            stored_messages = {
+                "history": messages,
+                "run_output": run_output,
+            }
         record = {
             "run_id": run_id,
             "requirements_data": requirements_data,
@@ -89,7 +125,7 @@ class InMemoryHITLStorage:
             "conversation_id": conversation_id,
             "user_id": user_id,
             "agent_model": agent_model,
-            "messages": messages,
+            "messages": stored_messages,
             "created_at": _utc_now_iso(),
         }
         self._store[run_id] = record
@@ -103,9 +139,22 @@ class InMemoryHITLStorage:
             return None
         requirements_data = record.get("requirements_data") or []
         requirements = deserialize_requirements(requirements_data)
+        saved_messages, saved_run_output = _normalize_stored_messages(record.get("messages"))
+
+        # If provider record exists but lacks rich continuation payload
+        # (e.g., older schema or messages column dropped during compatibility retry),
+        # hydrate from global in-memory shadow copy written at pause time.
+        if saved_run_output is None or saved_messages is None:
+            shadow_pending = await _ensure_global_memory_storage().get_pending_run(run_id)
+            if isinstance(shadow_pending, dict):
+                if saved_messages is None:
+                    saved_messages = shadow_pending.get("messages")
+                if saved_run_output is None:
+                    saved_run_output = shadow_pending.get("run_output")
         return {
             "requirements": requirements,
-            "messages": record.get("messages"),
+            "messages": saved_messages,
+            "run_output": saved_run_output,
             "record": record,
         }
 
@@ -150,6 +199,7 @@ class DbHITLStorage:
         agent_model: str | None = None,
         ttl_minutes: int = 30,
         messages: list[dict[str, Any]] | None = None,
+        run_output: dict[str, Any] | None = None,
     ) -> dict[str, Any] | None:
         # Global shadow copy: protects against provider-id mismatch between
         # pause and submit when provider-backed storage fell back to memory.
@@ -161,6 +211,7 @@ class DbHITLStorage:
             agent_model=agent_model,
             ttl_minutes=ttl_minutes,
             messages=messages,
+            run_output=run_output,
         )
 
         if self._use_memory_fallback:
@@ -172,6 +223,7 @@ class DbHITLStorage:
                 agent_model=agent_model,
                 ttl_minutes=ttl_minutes,
                 messages=messages,
+                run_output=run_output,
             )
 
         requirements_data = serialize_requirements(requirements)
@@ -193,8 +245,11 @@ class DbHITLStorage:
             "agent_model": agent_model,
             "submitted_at": None,
         }
-        if messages is not None:
-            payload["messages"] = messages
+        if messages is not None or run_output is not None:
+            payload["messages"] = {
+                "history": messages,
+                "run_output": run_output,
+            }
 
         req = DbQueryRequest(
             providerId=self.provider.id,
@@ -245,6 +300,7 @@ class DbHITLStorage:
                         agent_model=agent_model,
                         ttl_minutes=ttl_minutes,
                         messages=messages,
+                        run_output=run_output,
                     )
                 logger.error(
                     "[HITL] Failed to persist pending run %s in provider=%s: %s",
@@ -294,9 +350,11 @@ class DbHITLStorage:
 
         requirements_data = record.get("requirements_data") or []
         requirements = deserialize_requirements(requirements_data)
+        saved_messages, saved_run_output = _normalize_stored_messages(record.get("messages"))
         return {
             "requirements": requirements,
-            "messages": record.get("messages"),
+            "messages": saved_messages,
+            "run_output": saved_run_output,
             "record": record,
         }
 

@@ -1,8 +1,8 @@
 import { AlertCircle, RefreshCw } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { conversationRoute } from '../router'
-import { useLocation } from '@tanstack/react-router'
-import { getConversation } from '../lib/conversationsService'
+import { useLocation, useNavigate } from '@tanstack/react-router'
+import { getConversation, isExpertConversation } from '../lib/conversationsService'
 import { useAppContext } from '../App'
 import ChatInterface from '../components/ChatInterface'
 import DeepResearchChatInterface from '../components/DeepResearchChatInterface'
@@ -12,6 +12,7 @@ import useChatStore from '../lib/chatStore'
 const ConversationView = () => {
   const { conversationId } = conversationRoute.useParams()
   const location = useLocation()
+  const navigate = useNavigate()
   const { spaces, deepResearchSpace, isSidebarPinned, spacesLoading } = useAppContext()
   const { optimisticSelection, clearOptimisticSelection } = useChatStore(
     useShallow(state => ({
@@ -59,6 +60,18 @@ const ConversationView = () => {
           if (cancelled) return
           if (error) throw error
           if (data) {
+            const { isExpert, error: expertCheckError } = await isExpertConversation(conversationId)
+            if (expertCheckError) {
+              console.warn('Failed to check expert conversation marker:', expertCheckError)
+            }
+            if (!expertCheckError && isExpert) {
+              navigate({
+                to: '/expert/$conversationId',
+                params: { conversationId: String(conversationId) },
+                replace: true,
+              })
+              return
+            }
             setConversation(data)
             if (optimisticSelection?.conversationId === conversationId) {
               clearOptimisticSelection()
@@ -84,7 +97,13 @@ const ConversationView = () => {
     return () => {
       cancelled = true
     }
-  }, [conversationId, reloadToken, optimisticSelection?.conversationId, clearOptimisticSelection])
+  }, [
+    conversationId,
+    reloadToken,
+    optimisticSelection?.conversationId,
+    clearOptimisticSelection,
+    navigate,
+  ])
 
   const shouldDelayRender =
     !initialChatState &&

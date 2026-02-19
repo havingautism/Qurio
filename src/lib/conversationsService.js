@@ -5,6 +5,7 @@ const CACHE_TTL_MS = 1500
 const listCache = new Map()
 const inFlight = new Map()
 let conversationsChangedTimer = null
+const EXPERT_IDS_CACHE_KEY = '__expert_conversation_ids__'
 
 const getCacheKey = (prefix, params) => {
   try {
@@ -31,6 +32,42 @@ const setCached = (key, value) => {
 const invalidateConversationCaches = () => {
   listCache.clear()
   inFlight.clear()
+}
+
+const _sanitizeInFilterValue = value => String(value || '').replace(/[,()]/g, '').trim()
+
+const listExpertConversationIds = async supabase => {
+  const cacheKey = getCacheKey(EXPERT_IDS_CACHE_KEY, {})
+  const cached = getCached(cacheKey)
+  if (cached) return cached
+  if (inFlight.has(cacheKey)) return inFlight.get(cacheKey)
+
+  const request = (async () => {
+    const { data, error } = await supabase
+      .from('conversation_events')
+      .select('conversation_id')
+      .eq('event_type', 'expert_mode_start')
+
+    if (error) return { data: [], error }
+
+    const ids = Array.from(
+      new Set(
+        (Array.isArray(data) ? data : [])
+          .map(row => _sanitizeInFilterValue(row?.conversation_id))
+          .filter(Boolean),
+      ),
+    )
+    const result = { data: ids, error: null }
+    setCached(cacheKey, result)
+    return result
+  })()
+
+  inFlight.set(cacheKey, request)
+  try {
+    return await request
+  } finally {
+    inFlight.delete(cacheKey)
+  }
 }
 
 export const notifyConversationsChanged = (delayMs = 150) => {
@@ -67,6 +104,11 @@ export const listConversations = async (options = {}) => {
     }
 
   // Build query
+  const { data: expertIds, error: expertIdsError } = await listExpertConversationIds(supabase)
+  if (expertIdsError) {
+    console.warn('Failed to load expert conversation ids for listConversations:', expertIdsError)
+  }
+
   let query = supabase
     .from(table)
     .select(
@@ -76,6 +118,10 @@ export const listConversations = async (options = {}) => {
       },
     )
     .order(sortBy, { ascending })
+
+  if (!expertIdsError && Array.isArray(expertIds) && expertIds.length > 0) {
+    query = query.not('id', 'in', `(${expertIds.join(',')})`)
+  }
 
   // Handle Search
   if (search && search.trim()) {
@@ -177,6 +223,14 @@ export const listBookmarkedConversations = async (options = {}) => {
     }
 
   // Build query with cursor support and is_favorited filter
+  const { data: expertIds, error: expertIdsError } = await listExpertConversationIds(supabase)
+  if (expertIdsError) {
+    console.warn(
+      'Failed to load expert conversation ids for listBookmarkedConversations:',
+      expertIdsError,
+    )
+  }
+
   let query = supabase
     .from(table)
     .select(
@@ -185,6 +239,10 @@ export const listBookmarkedConversations = async (options = {}) => {
     .eq('is_favorited', true)
     .order(sortBy, { ascending })
     .limit(limit)
+
+  if (!expertIdsError && Array.isArray(expertIds) && expertIds.length > 0) {
+    query = query.not('id', 'in', `(${expertIds.join(',')})`)
+  }
 
   if (Array.isArray(excludeSpaceIds) && excludeSpaceIds.length > 0) {
     const normalized = excludeSpaceIds.map(String).filter(Boolean)
@@ -257,6 +315,22 @@ export const getConversation = async id => {
     .eq('id', id)
     .single()
   return { data, error }
+}
+
+export const isExpertConversation = async conversationId => {
+  const supabase = getSupabaseClient()
+  if (!supabase) return { isExpert: false, error: new Error('Supabase not configured') }
+  if (!conversationId) return { isExpert: false, error: null }
+
+  const { data, error } = await supabase
+    .from('conversation_events')
+    .select('conversation_id')
+    .eq('conversation_id', conversationId)
+    .eq('event_type', 'expert_mode_start')
+    .limit(1)
+
+  if (error) return { isExpert: false, error }
+  return { isExpert: Array.isArray(data) && data.length > 0, error: null }
 }
 
 export const createConversation = async payload => {

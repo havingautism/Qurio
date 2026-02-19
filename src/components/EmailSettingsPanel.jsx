@@ -38,6 +38,8 @@ const PROVIDER_TO_KEY = {
   openai_compatibility: 'OpenAICompatibilityKey',
   siliconflow: 'SiliconFlowKey',
   glm: 'GlmKey',
+  deepseek: 'DeepSeekKey',
+  volcengine: 'VolcengineKey',
   modelscope: 'ModelScopeKey',
   kimi: 'KimiKey',
   gemini: 'googleApiKey',

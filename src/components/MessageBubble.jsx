@@ -85,6 +85,16 @@ const PROVIDER_META = {
     id: 'glm',
     fallback: 'G',
   },
+  deepseek: {
+    label: 'DeepSeek',
+    id: 'deepseek',
+    fallback: 'D',
+  },
+  volcengine: {
+    label: 'Volcengine',
+    id: 'volcengine',
+    fallback: 'V',
+  },
   modelscope: {
     label: '魔塔社区',
     id: 'modelscope',

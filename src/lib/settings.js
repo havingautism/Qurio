@@ -159,6 +159,8 @@ const MEMORY_SETTINGS_KEYS = [
   'OpenAICompatibilityUrl',
   'SiliconFlowKey',
   'GlmKey',
+  'DeepSeekKey',
+  'VolcengineKey',
   'ModelScopeKey',
   'KimiKey',
   'googleApiKey',
@@ -171,6 +173,12 @@ const MEMORY_SETTINGS_KEYS = [
   'embeddingProvider',
   'embeddingModel',
   'embeddingModelSource',
+  'defaultModel',
+  'liteModel',
+  'defaultModelProvider',
+  'liteModelProvider',
+  'defaultModelSource',
+  'liteModelSource',
   'enableLongTermMemory',
   'userSelfIntro',
 ]
@@ -400,6 +408,11 @@ export const loadSettings = (overrides = {}) => {
       : getPublicEnv('PUBLIC_SILICONFLOW_API_KEY') || ''
   if (!mergedSettings.GlmKey)
     mergedSettings.GlmKey = electronMode ? '' : getPublicEnv('PUBLIC_GLM_API_KEY') || ''
+  if (!mergedSettings.DeepSeekKey)
+    mergedSettings.DeepSeekKey = electronMode ? '' : getPublicEnv('PUBLIC_DEEPSEEK_API_KEY') || ''
+  if (!mergedSettings.VolcengineKey)
+    mergedSettings.VolcengineKey =
+      electronMode ? '' : getPublicEnv('PUBLIC_VOLCENGINE_API_KEY') || ''
   if (!mergedSettings.ModelScopeKey)
     mergedSettings.ModelScopeKey = electronMode ? '' : getPublicEnv('PUBLIC_MODELSCOPE_API_KEY') || ''
   if (!mergedSettings.KimiKey)
@@ -464,6 +477,8 @@ export const saveSettings = async settings => {
     'OpenAICompatibilityUrl',
     'SiliconFlowKey',
     'GlmKey',
+    'DeepSeekKey',
+    'VolcengineKey',
     'ModelScopeKey',
     'KimiKey',
     'googleApiKey',

@@ -8,13 +8,17 @@ const OPENAI_DEFAULT_BASE = 'https://api.openai.com/v1'
 const SILICONFLOW_BASE = SILICONFLOW_BASE_URL
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta'
 const GLM_BASE = getPublicEnv('PUBLIC_GLM_BASE_URL') || GLM_BASE_URL
+const DEEPSEEK_BASE = getPublicEnv('PUBLIC_DEEPSEEK_BASE_URL') || DEEPSEEK_BASE_URL
+const VOLCENGINE_BASE = getPublicEnv('PUBLIC_VOLCENGINE_BASE_URL') || VOLCENGINE_BASE_URL
 const MODELSCOPE_BASE = getPublicEnv('PUBLIC_MODELSCOPE_BASE_URL') || MODELSCOPE_CONST_BASE
 const KIMI_BASE = getPublicEnv('PUBLIC_KIMI_BASE_URL') || 'https://api.moonshot.cn/v1'
 const MINIMAX_BASE = getPublicEnv('PUBLIC_MINIMAX_BASE_URL') || MINIMAX_BASE_URL
 import {
+  DEEPSEEK_BASE_URL,
   GLM_BASE_URL,
   MODELSCOPE_BASE_URL as MODELSCOPE_CONST_BASE,
   SILICONFLOW_BASE_URL,
+  VOLCENGINE_BASE_URL,
   MINIMAX_BASE_URL,
 } from './providerConstants'
 
@@ -120,6 +124,60 @@ const fetchGLMModels = async ({ apiKey }, options = {}) => {
   }))
 }
 
+const fetchDeepSeekModels = async ({ apiKey }, options = {}) => {
+  const resolvedKey = apiKey || getPublicEnv('PUBLIC_DEEPSEEK_API_KEY')
+  if (!resolvedKey) return []
+
+  const { controller, timeoutId } = withTimeout(options.signal)
+  const response = await fetch(`${DEEPSEEK_BASE}/models`, {
+    headers: { Authorization: `Bearer ${resolvedKey}` },
+    signal: controller.signal,
+  })
+
+  clearTimeout(timeoutId)
+
+  if (!response.ok) {
+    if (response.status === 403) {
+      throw new Error('Invalid API key or insufficient permissions')
+    }
+    const message = await response.text().catch(() => '')
+    throw new Error(message || `HTTP error! status: ${response.status}`)
+  }
+
+  const data = await response.json()
+  return (data?.data || []).map(model => ({
+    value: model.id,
+    label: model.id,
+  }))
+}
+
+const fetchVolcengineModels = async ({ apiKey }, options = {}) => {
+  const resolvedKey = apiKey || getPublicEnv('PUBLIC_VOLCENGINE_API_KEY')
+  if (!resolvedKey) return []
+
+  const { controller, timeoutId } = withTimeout(options.signal)
+  const response = await fetch(`${VOLCENGINE_BASE}/models`, {
+    headers: { Authorization: `Bearer ${resolvedKey}` },
+    signal: controller.signal,
+  })
+
+  clearTimeout(timeoutId)
+
+  if (!response.ok) {
+    if (response.status === 403) {
+      throw new Error('Invalid API key or insufficient permissions')
+    }
+    const message = await response.text().catch(() => '')
+    throw new Error(message || `HTTP error! status: ${response.status}`)
+  }
+
+  const data = await response.json()
+  return (data?.data || []).map(model => ({
+    value: model.id,
+    label: model.id,
+  }))
+}
+
 // ModelScope - intentionally skip fetching models for now.
 const fetchModelScopeModels = async () => []
 
@@ -166,6 +224,10 @@ export const getModelsForProvider = async (provider, credentials, options = {}) 
       )
     case 'glm':
       return await fetchGLMModels({ apiKey: credentials.apiKey }, options)
+    case 'deepseek':
+      return await fetchDeepSeekModels({ apiKey: credentials.apiKey }, options)
+    case 'volcengine':
+      return await fetchVolcengineModels({ apiKey: credentials.apiKey }, options)
     case 'modelscope':
       return await fetchModelScopeModels()
     case 'kimi':

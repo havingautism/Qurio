@@ -216,6 +216,8 @@ async def _resolve_provider_api_key(provider: str, database_provider: str | None
         "openai_compatibility": "OpenAICompatibilityKey",
         "siliconflow": "SiliconFlowKey",
         "glm": "GlmKey",
+        "deepseek": "DeepSeekKey",
+        "volcengine": "VolcengineKey",
         "modelscope": "ModelScopeKey",
         "kimi": "KimiKey",
         "nvidia": "NvidiaKey",
@@ -237,7 +239,11 @@ async def _resolve_provider_api_key(provider: str, database_provider: str | None
         return os.getenv("GOOGLE_API_KEY", "")
     elif provider == "siliconflow":
         return os.getenv("SILICONFLOW_API_KEY", "")
-    
+    elif provider == "deepseek":
+        return os.getenv("DEEPSEEK_API_KEY", "")
+    elif provider == "volcengine":
+        return os.getenv("VOLCENGINE_API_KEY", "")
+
     return os.getenv("OPENAI_API_KEY", "")
 
 

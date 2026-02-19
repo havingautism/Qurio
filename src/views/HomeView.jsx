@@ -1091,7 +1091,7 @@ const HomeView = () => {
         )}
       >
         {/* Main Container */}
-        <div className="flex w-full max-w-3xl flex-col items-center gap-4 sm:mt-12 sm:gap-8">
+        <div className="flex w-full max-w-3xl flex-col items-center gap-4 pb-4 sm:mt-12 sm:gap-8">
           <div className="mb-2 block rounded-3xl p-4 sm:hidden">
             <div className="relative flex items-center justify-center">
               <div

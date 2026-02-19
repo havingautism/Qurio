@@ -1,7 +1,9 @@
 import { createBackendProvider } from './backendProviderForBackend'
 import {
+  DEEPSEEK_BASE_URL,
   GLM_BASE_URL,
   MODELSCOPE_BASE_URL,
+  VOLCENGINE_BASE_URL,
   NVIDIA_BASE_URL,
   SILICONFLOW_BASE_URL,
   MINIMAX_BASE_URL,
@@ -235,6 +237,36 @@ export const PROVIDERS = {
     getCredentials: settings => ({
       apiKey: settings.GlmKey || settings.GLMKey || getPublicEnv('PUBLIC_GLM_API_KEY'),
       baseUrl: GLM_BASE_URL,
+    }),
+    getTools: (isSearchActive, searchTool, enableMemory) =>
+      resolveTools(isSearchActive, searchTool, enableMemory),
+    getThinking: isThinkingActive => ({
+      type: isThinkingActive ? 'enabled' : 'disabled',
+    }),
+    parseMessage: defaultParseMessage,
+  },
+  deepseek: {
+    ...createBackendProvider('deepseek'),
+    id: 'deepseek',
+    name: 'DeepSeek',
+    getCredentials: settings => ({
+      apiKey: settings.DeepSeekKey || getPublicEnv('PUBLIC_DEEPSEEK_API_KEY'),
+      baseUrl: DEEPSEEK_BASE_URL,
+    }),
+    getTools: (isSearchActive, searchTool, enableMemory) =>
+      resolveTools(isSearchActive, searchTool, enableMemory),
+    getThinking: isThinkingActive => ({
+      type: isThinkingActive ? 'enabled' : 'disabled',
+    }),
+    parseMessage: defaultParseMessage,
+  },
+  volcengine: {
+    ...createBackendProvider('volcengine'),
+    id: 'volcengine',
+    name: 'Volcengine (Doubao)',
+    getCredentials: settings => ({
+      apiKey: settings.VolcengineKey || getPublicEnv('PUBLIC_VOLCENGINE_API_KEY'),
+      baseUrl: VOLCENGINE_BASE_URL,
     }),
     getTools: (isSearchActive, searchTool, enableMemory) =>
       resolveTools(isSearchActive, searchTool, enableMemory),

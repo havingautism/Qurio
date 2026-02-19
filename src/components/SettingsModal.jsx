@@ -35,7 +35,12 @@ import { extractTextFromFile, normalizeExtractedText } from '../lib/documentPars
 import { renderProviderIcon, getModelIcon, getModelIconClassName } from '../lib/modelIcons'
 import { getModelsForProvider } from '../lib/models_api'
 import { getPublicEnv } from '../lib/publicEnv'
-import { GLM_BASE_URL, SILICONFLOW_BASE_URL } from '../lib/providerConstants'
+import {
+  DEEPSEEK_BASE_URL,
+  GLM_BASE_URL,
+  SILICONFLOW_BASE_URL,
+  VOLCENGINE_BASE_URL,
+} from '../lib/providerConstants'
 import { loadSettings, saveSettings } from '../lib/settings'
 import { fetchRemoteSettings, saveRemoteSettings, testConnection } from '../lib/supabase'
 import { THEMES } from '../lib/themes'
@@ -57,6 +62,8 @@ const ENV_VARS = {
   googleApiKey: getPublicEnv('PUBLIC_GOOGLE_API_KEY'),
   siliconFlowKey: getPublicEnv('PUBLIC_SILICONFLOW_API_KEY'),
   glmKey: getPublicEnv('PUBLIC_GLM_API_KEY'),
+  deepseekKey: getPublicEnv('PUBLIC_DEEPSEEK_API_KEY'),
+  volcengineKey: getPublicEnv('PUBLIC_VOLCENGINE_API_KEY'),
   modelscopeKey: getPublicEnv('PUBLIC_MODELSCOPE_API_KEY'),
   kimiKey: getPublicEnv('PUBLIC_KIMI_API_KEY'),
   tavilyApiKey: getPublicEnv('PUBLIC_TAVILY_API_KEY'),
@@ -240,6 +247,12 @@ const getEnvManagedSettingKeys = () => {
   if (ENV_VARS.glmKey) {
     keys.push('GlmKey')
   }
+  if (ENV_VARS.deepseekKey) {
+    keys.push('DeepSeekKey')
+  }
+  if (ENV_VARS.volcengineKey) {
+    keys.push('VolcengineKey')
+  }
   if (ENV_VARS.modelscopeKey) {
     keys.push('ModelScopeKey')
   }
@@ -279,6 +292,8 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
   const [NvidiaKey, setNvidiaKey] = useState('')
   const [MinimaxKey, setMinimaxKey] = useState('')
   const [GlmKey, setGlmKey] = useState('')
+  const [DeepSeekKey, setDeepSeekKey] = useState('')
+  const [VolcengineKey, setVolcengineKey] = useState('')
   const [ModelScopeKey, setModelScopeKey] = useState('')
   const [KimiKey, setKimiKey] = useState('')
   const [apiProvider, setApiProvider] = useState('gemini')
@@ -468,6 +483,8 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       nvidia: Boolean((NvidiaKey || '').trim()),
       minimax: Boolean((MinimaxKey || '').trim()),
       glm: Boolean((GlmKey || '').trim() || ENV_VARS.glmKey),
+      deepseek: Boolean((DeepSeekKey || '').trim() || ENV_VARS.deepseekKey),
+      volcengine: Boolean((VolcengineKey || '').trim() || ENV_VARS.volcengineKey),
       modelscope: Boolean((ModelScopeKey || '').trim() || ENV_VARS.modelscopeKey),
       kimi: Boolean((KimiKey || '').trim() || ENV_VARS.kimiKey),
     }),
@@ -478,6 +495,8 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       NvidiaKey,
       MinimaxKey,
       GlmKey,
+      DeepSeekKey,
+      VolcengineKey,
       ModelScopeKey,
       KimiKey,
     ],
@@ -562,6 +581,8 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       if (settings.NvidiaKey) setNvidiaKey(settings.NvidiaKey)
       if (settings.MinimaxKey) setMinimaxKey(settings.MinimaxKey)
       if (settings.GlmKey) setGlmKey(settings.GlmKey)
+      if (settings.DeepSeekKey) setDeepSeekKey(settings.DeepSeekKey)
+      if (settings.VolcengineKey) setVolcengineKey(settings.VolcengineKey)
       if (settings.ModelScopeKey) setModelScopeKey(settings.ModelScopeKey)
       if (settings.KimiKey) setKimiKey(settings.KimiKey)
       if (settings.apiProvider) setApiProvider(settings.apiProvider)
@@ -644,6 +665,8 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
             if (data.NvidiaKey) setNvidiaKey(data.NvidiaKey)
             if (data.MinimaxKey) setMinimaxKey(data.MinimaxKey)
             if (data.GlmKey) setGlmKey(data.GlmKey)
+            if (data.DeepSeekKey) setDeepSeekKey(data.DeepSeekKey)
+            if (data.VolcengineKey) setVolcengineKey(data.VolcengineKey)
             if (data.ModelScopeKey) setModelScopeKey(data.ModelScopeKey)
             if (data.KimiKey) setKimiKey(data.KimiKey)
             if (data.googleApiKey) setGoogleApiKey(data.googleApiKey)
@@ -657,6 +680,17 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
             if (data.embeddingModel) setEmbeddingModel(data.embeddingModel)
             if (data.embeddingModelSource === 'custom')
               setEmbeddingCustomModel(data.embeddingModel || '')
+            if (data.defaultModel !== undefined) setDefaultModel(data.defaultModel || '')
+            if (data.liteModel !== undefined) setLiteModel(data.liteModel || '')
+            if (data.defaultModelProvider !== undefined)
+              setDefaultModelProvider(data.defaultModelProvider || '')
+            if (data.liteModelProvider !== undefined)
+              setLiteModelProvider(data.liteModelProvider || '')
+            if (data.defaultModelSource) setDefaultModelSource(data.defaultModelSource || 'list')
+            if (data.liteModelSource) setLiteModelSource(data.liteModelSource || 'list')
+            if (data.defaultModelSource === 'custom')
+              setDefaultCustomModel(data.defaultModel || '')
+            if (data.liteModelSource === 'custom') setLiteCustomModel(data.liteModel || '')
             if (data.enableLongTermMemory !== undefined) {
               setEnableLongTermMemory(String(data.enableLongTermMemory) === 'true')
             }
@@ -1136,6 +1170,8 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       nvidia: NvidiaKey,
       minimax: MinimaxKey,
       glm: GlmKey || ENV_VARS.glmKey,
+      deepseek: DeepSeekKey || ENV_VARS.deepseekKey,
+      volcengine: VolcengineKey || ENV_VARS.volcengineKey,
       modelscope: ModelScopeKey || ENV_VARS.modelscopeKey,
       kimi: KimiKey || ENV_VARS.kimiKey,
     }
@@ -1151,6 +1187,10 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       else if (key === 'nvidia')
         credentials = { apiKey: keys.nvidia, baseUrl: 'https://integrate.api.nvidia.com/v1' } // Hardcode or import constant? I cannot import constant in React component easily if not already imported or if it conflicts. But I imported SILICONFLOW_BASE_URL. I should import NVIDIA_BASE_URL or just hardcode as I did. Wait, check imports.
       else if (key === 'glm') credentials = { apiKey: keys.glm }
+      else if (key === 'deepseek')
+        credentials = { apiKey: keys.deepseek, baseUrl: DEEPSEEK_BASE_URL }
+      else if (key === 'volcengine')
+        credentials = { apiKey: keys.volcengine, baseUrl: VOLCENGINE_BASE_URL }
       else if (key === 'modelscope') credentials = { apiKey: keys.modelscope }
       else if (key === 'kimi') credentials = { apiKey: keys.kimi }
       else if (key === 'openai_compatibility')
@@ -1642,6 +1682,8 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       nvidia: NvidiaKey,
       minimax: MinimaxKey,
       glm: GlmKey || ENV_VARS.glmKey,
+      deepseek: DeepSeekKey || ENV_VARS.deepseekKey,
+      volcengine: VolcengineKey || ENV_VARS.volcengineKey,
       modelscope: ModelScopeKey || ENV_VARS.modelscopeKey,
       kimi: KimiKey || ENV_VARS.kimiKey,
     }
@@ -1656,6 +1698,10 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       else if (key === 'nvidia')
         credentials = { apiKey: keys.nvidia, baseUrl: 'https://integrate.api.nvidia.com/v1' }
       else if (key === 'glm') credentials = { apiKey: keys.glm }
+      else if (key === 'deepseek')
+        credentials = { apiKey: keys.deepseek, baseUrl: DEEPSEEK_BASE_URL }
+      else if (key === 'volcengine')
+        credentials = { apiKey: keys.volcengine, baseUrl: VOLCENGINE_BASE_URL }
       else if (key === 'modelscope') credentials = { apiKey: keys.modelscope }
       else if (key === 'kimi') credentials = { apiKey: keys.kimi }
       else if (key === 'openai_compatibility')
@@ -1867,6 +1913,8 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
         NvidiaKey,
         MinimaxKey,
         GlmKey,
+        DeepSeekKey,
+        VolcengineKey,
         ModelScopeKey,
         KimiKey,
         // Providers
@@ -1972,6 +2020,12 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                   case 'glm':
                     extractionApiKey = GlmKey
                     break
+                  case 'deepseek':
+                    extractionApiKey = DeepSeekKey
+                    break
+                  case 'volcengine':
+                    extractionApiKey = VolcengineKey
+                    break
                   case 'kimi':
                     extractionApiKey = KimiKey
                     break
@@ -2041,6 +2095,8 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
               'OpenAICompatibilityUrl',
               'SiliconFlowKey',
               'GlmKey',
+              'DeepSeekKey',
+              'VolcengineKey',
               'ModelScopeKey',
               'KimiKey',
               'googleApiKey',
@@ -2052,6 +2108,12 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
               'embeddingProvider',
               'embeddingModel',
               'embeddingModelSource',
+              'defaultModel',
+              'liteModel',
+              'defaultModelProvider',
+              'liteModelProvider',
+              'defaultModelSource',
+              'liteModelSource',
               'enableLongTermMemory',
               'userSelfIntro',
             ]
@@ -2454,6 +2516,70 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                           />
                         </div>
                         {ENV_VARS.glmKey && (
+                          <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                            {t('settings.loadedFromEnvironment')}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* DeepSeek Settings */}
+                  {apiProvider === 'deepseek' && (
+                    <div className="animate-in fade-in slide-in-from-top-2 flex flex-col gap-4 duration-200">
+                      <div className="flex flex-col gap-2">
+                        <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                          {t('settings.deepseekApiKey')}
+                        </label>
+                        <div className="relative">
+                          <div className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400">
+                            <Key size={16} />
+                          </div>
+                          <input
+                            type="password"
+                            value={DeepSeekKey}
+                            onChange={e => setDeepSeekKey(e.target.value)}
+                            placeholder={t('settings.deepseekApiKeyPlaceholder')}
+                            disabled={Boolean(ENV_VARS.deepseekKey)}
+                            className={clsx(
+                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border border-gray-200 bg-white py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600',
+                              ENV_VARS.deepseekKey && 'cursor-not-allowed opacity-70',
+                            )}
+                          />
+                        </div>
+                        {ENV_VARS.deepseekKey && (
+                          <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                            {t('settings.loadedFromEnvironment')}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Volcengine Settings */}
+                  {apiProvider === 'volcengine' && (
+                    <div className="animate-in fade-in slide-in-from-top-2 flex flex-col gap-4 duration-200">
+                      <div className="flex flex-col gap-2">
+                        <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                          {t('settings.volcengineApiKey')}
+                        </label>
+                        <div className="relative">
+                          <div className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400">
+                            <Key size={16} />
+                          </div>
+                          <input
+                            type="password"
+                            value={VolcengineKey}
+                            onChange={e => setVolcengineKey(e.target.value)}
+                            placeholder={t('settings.volcengineApiKeyPlaceholder')}
+                            disabled={Boolean(ENV_VARS.volcengineKey)}
+                            className={clsx(
+                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border border-gray-200 bg-white py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600',
+                              ENV_VARS.volcengineKey && 'cursor-not-allowed opacity-70',
+                            )}
+                          />
+                        </div>
+                        {ENV_VARS.volcengineKey && (
                           <p className="text-xs text-emerald-600 dark:text-emerald-400">
                             {t('settings.loadedFromEnvironment')}
                           </p>

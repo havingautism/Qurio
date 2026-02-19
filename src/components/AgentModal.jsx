@@ -98,6 +98,8 @@ const ENV_VARS = {
   googleApiKey: getPublicEnv('PUBLIC_GOOGLE_API_KEY'),
   siliconFlowKey: getPublicEnv('PUBLIC_SILICONFLOW_API_KEY'),
   glmKey: getPublicEnv('PUBLIC_GLM_API_KEY'),
+  deepseekKey: getPublicEnv('PUBLIC_DEEPSEEK_API_KEY'),
+  volcengineKey: getPublicEnv('PUBLIC_VOLCENGINE_API_KEY'),
   modelscopeKey: getPublicEnv('PUBLIC_MODELSCOPE_API_KEY'),
   kimiKey: getPublicEnv('PUBLIC_KIMI_API_KEY'),
 }
@@ -317,6 +319,8 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
       openai_compatibility: settings.OpenAICompatibilityKey,
       siliconflow: settings.SiliconFlowKey,
       glm: settings.GlmKey,
+      deepseek: settings.DeepSeekKey,
+      volcengine: settings.VolcengineKey,
       modelscope: settings.ModelScopeKey,
       kimi: settings.KimiKey,
       nvidia: settings.NvidiaKey,
@@ -332,6 +336,17 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
       else if (key === 'siliconflow')
         credentials = { apiKey: keys.siliconflow, baseUrl: SILICONFLOW_BASE_URL }
       else if (key === 'glm') credentials = { apiKey: keys.glm }
+      else if (key === 'deepseek')
+        credentials = {
+          apiKey: keys.deepseek,
+          baseUrl: getPublicEnv('PUBLIC_DEEPSEEK_BASE_URL') || 'https://api.deepseek.com/v1',
+        }
+      else if (key === 'volcengine')
+        credentials = {
+          apiKey: keys.volcengine,
+          baseUrl:
+            getPublicEnv('PUBLIC_VOLCENGINE_BASE_URL') || 'https://ark.cn-beijing.volces.com/api/v3',
+        }
       else if (key === 'modelscope') credentials = { apiKey: keys.modelscope }
       else if (key === 'kimi') credentials = { apiKey: keys.kimi }
       else if (key === 'nvidia')

@@ -570,6 +570,8 @@ export const saveRemoteSettings = async settings => {
     'OpenAICompatibilityUrl',
     'SiliconFlowKey',
     'GlmKey',
+    'DeepSeekKey',
+    'VolcengineKey',
     'ModelScopeKey',
     'KimiKey',
     'googleApiKey',
@@ -584,6 +586,12 @@ export const saveRemoteSettings = async settings => {
     'embeddingModelSource',
     'enableLongTermMemory',
     'contextTurns',
+    'defaultModel',
+    'liteModel',
+    'defaultModelProvider',
+    'liteModelProvider',
+    'defaultModelSource',
+    'liteModelSource',
     'userSelfIntro',
     // We do NOT sync Supabase credentials to the DB itself usually, but user might want to?
     // Syncing supabase credentials to the database that requires them to be accessed is paradoxical if you don't have them.

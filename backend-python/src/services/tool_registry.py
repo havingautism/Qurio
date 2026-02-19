@@ -6,7 +6,9 @@ from __future__ import annotations
 
 from typing import Any
 
-TOOL_ALIASES: dict[str, str] = {}
+TOOL_ALIASES: dict[str, str] = {
+    "web_search_using_tavily": "Tavily_web_search",
+}
 
 GLOBAL_TOOLS: list[dict[str, Any]] = [
     {
@@ -19,10 +21,6 @@ GLOBAL_TOOLS: list[dict[str, Any]] = [
             "required": ["query"],
             "properties": {
                 "query": {"type": "string", "description": "Search query."},
-                "max_results": {
-                    "type": "integer",
-                    "description": "Maximum number of results to return (default 5).",
-                },
             },
         },
     },
@@ -139,9 +137,9 @@ AGENT_TOOLS: list[dict[str, Any]] = [
                     "type": "string",
                     "description": "Academic search query (e.g., research topic, paper title, author name).",
                 },
-                "max_results": {
-                    "type": "integer",
-                    "description": "Maximum number of academic results to return (default 5).",
+                "min_score": {
+                    "type": "number",
+                    "description": "Only keep results with score strictly greater than this value (default 0.9).",
                 },
             },
         },
@@ -156,36 +154,40 @@ AGENT_TOOLS: list[dict[str, Any]] = [
         ),
         "parameters": {
             "type": "object",
-            "required": ["id", "title", "fields"],
+            "required": ["fields"],
             "properties": {
-                "id": {"type": "string", "description": "Unique identifier for this form"},
-                "title": {"type": "string", "description": "Form title displayed to user"},
+                "id": {"type": "string", "description": "Optional identifier for this form"},
+                "title": {"type": "string", "description": "Optional form title displayed to user"},
                 "description": {"type": "string", "description": "Optional form description"},
                 "fields": {
                     "type": "array",
-                    "description": "Form fields to collect",
+                    "description": "Form fields to collect. Minimal mode supported.",
                     "items": {
-                        "type": "object",
-                        "required": ["name", "label", "type"],
-                        "properties": {
-                            "name": {"type": "string", "description": "Field identifier"},
-                            "label": {"type": "string", "description": "Field label"},
-                            "type": {
-                                "type": "string",
-                                "enum": ["text", "number", "select", "checkbox", "range"],
-                                "description": "Field type",
+                        "anyOf": [
+                            {"type": "string", "description": "Short field label, backend will normalize."},
+                            {
+                                "type": "object",
+                                "properties": {
+                                    "name": {"type": "string", "description": "Field identifier (preferred)"},
+                                    "label": {"type": "string", "description": "Field label (optional)"},
+                                    "type": {
+                                        "type": "string",
+                                        "enum": ["text", "number", "select", "checkbox", "range"],
+                                        "description": "Field type (optional, defaults to text)",
+                                    },
+                                    "required": {"type": "boolean", "description": "Is this field required"},
+                                    "options": {
+                                        "type": "array",
+                                        "items": {"type": "string"},
+                                        "description": "Options for select/checkbox fields",
+                                    },
+                                    "default": {"description": "Default value"},
+                                    "min": {"type": "number", "description": "Min value for number/range"},
+                                    "max": {"type": "number", "description": "Max value for number/range"},
+                                    "step": {"type": "number", "description": "Step for number/range"},
+                                },
                             },
-                            "required": {"type": "boolean", "description": "Is this field required"},
-                            "options": {
-                                "type": "array",
-                                "items": {"type": "string"},
-                                "description": "Options for select/checkbox fields",
-                            },
-                            "default": {"description": "Default value"},
-                            "min": {"type": "number", "description": "Min value for number/range"},
-                            "max": {"type": "number", "description": "Max value for number/range"},
-                            "step": {"type": "number", "description": "Step for number/range"},
-                        },
+                        ],
                     },
                 },
             },
@@ -310,10 +312,6 @@ AGNO_TOOLS: list[dict[str, Any]] = [
             "required": ["query"],
             "properties": {
                 "query": {"type": "string", "description": "Search query."},
-                "max_results": {
-                    "type": "integer",
-                    "description": "Maximum number of results to return (default 5).",
-                },
             },
         },
     },
@@ -356,10 +354,6 @@ AGNO_TOOLS: list[dict[str, Any]] = [
             "required": ["query"],
             "properties": {
                 "query": {"type": "string", "description": "Search query."},
-                "max_results": {
-                    "type": "integer",
-                    "description": "Maximum number of results to return (default 5).",
-                },
             },
         },
     },
@@ -373,10 +367,6 @@ AGNO_TOOLS: list[dict[str, Any]] = [
             "required": ["query"],
             "properties": {
                 "query": {"type": "string", "description": "News query."},
-                "max_results": {
-                    "type": "integer",
-                    "description": "Maximum number of results to return (default 5).",
-                },
             },
         },
     },
@@ -569,10 +559,6 @@ IMAGE_SEARCH_TOOLS: list[dict[str, Any]] = [
             "required": ["query"],
             "properties": {
                 "query": {"type": "string", "description": "Search query."},
-                "max_results": {
-                    "type": "integer",
-                    "description": "Maximum number of results to return (default 5).",
-                },
             },
         },
     },
@@ -616,10 +602,6 @@ IMAGE_SEARCH_TOOLS: list[dict[str, Any]] = [
                     "type": "string",
                     "description": "The search engine to use (e.g., google_images, bing_images). Default is google_images.",
                 },
-                "max_results": {
-                    "type": "integer",
-                    "description": "Maximum number of results to return (default 5).",
-                },
             },
         },
     },
@@ -636,10 +618,6 @@ VIDEO_SEARCH_TOOLS: list[dict[str, Any]] = [
             "required": ["query"],
             "properties": {
                 "query": {"type": "string", "description": "Search query."},
-                "max_results": {
-                    "type": "integer",
-                    "description": "Maximum number of results to return (default 5).",
-                },
             },
         },
     },

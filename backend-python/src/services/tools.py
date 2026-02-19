@@ -46,6 +46,7 @@ EXTERNAL_SEARCH_TOOL_NAMES = {
     "search_arxiv_and_return_articles",
     "search_wikipedia",
 }
+FIXED_SEARCH_MAX_RESULTS = 5
 
 
 def _tool_timeout_seconds(default: float = 20.0) -> float:
@@ -279,7 +280,7 @@ async def _execute_tavily_web_search(
     search_depth: str = "basic",
 ) -> dict[str, Any]:
     query = str(args.get("query", "")).strip()
-    max_results = int(args.get("max_results") or 5)
+    max_results = FIXED_SEARCH_MAX_RESULTS
     if not query:
         raise ValueError("Missing required field: query")
 
@@ -318,7 +319,11 @@ async def _execute_tavily_academic_search(
     tool_config: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     query = str(args.get("query", "")).strip()
-    max_results = int(args.get("max_results") or 5)
+    max_results = FIXED_SEARCH_MAX_RESULTS
+    try:
+        min_score = float(args.get("min_score", 0.9))
+    except Exception:
+        min_score = 0.9
     if not query:
         raise ValueError("Missing required field: query")
 
@@ -350,8 +355,10 @@ async def _execute_tavily_academic_search(
                 "score": item.get("score"),
             }
             for item in data.get("results", []) or []
+            if float(item.get("score") or 0.0) > min_score
         ],
         "query_type": "academic",
+        "min_score": min_score,
     }
 
 

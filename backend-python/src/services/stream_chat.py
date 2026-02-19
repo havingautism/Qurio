@@ -696,11 +696,58 @@ def _normalize_interactive_form_fields(raw_fields: Any) -> list[dict[str, Any]]:
         return []
 
     normalized: list[dict[str, Any]] = []
-    for item in parsed:
-        if isinstance(item, dict):
-            normalized.append(item)
-        else:
+    used_names: set[str] = set()
+
+    def _slugify_name(value: Any, fallback_index: int) -> str:
+        base = re.sub(r"[^a-zA-Z0-9_]+", "_", str(value or "").strip().lower()).strip("_")
+        if not base:
+            base = f"field_{fallback_index}"
+        candidate = base
+        suffix = 2
+        while candidate in used_names:
+            candidate = f"{base}_{suffix}"
+            suffix += 1
+        used_names.add(candidate)
+        return candidate
+
+    def _normalize_field_type(value: Any) -> str:
+        candidate = str(value or "").strip().lower()
+        if candidate in {"text", "number", "select", "checkbox", "range"}:
+            return candidate
+        return "text"
+
+    for idx, item in enumerate(parsed, start=1):
+        if isinstance(item, str):
+            label = item.strip()
+            if not label:
+                continue
+            normalized.append(
+                {
+                    "name": _slugify_name(label, idx),
+                    "label": label,
+                    "type": "text",
+                    "required": False,
+                }
+            )
+            continue
+
+        if not isinstance(item, dict):
             logger.warning("interactive_form field item is not dict, skipped: %s", type(item).__name__)
+            continue
+
+        raw_name = item.get("name")
+        raw_label = item.get("label")
+        label = str(raw_label or raw_name or f"Field {idx}").strip() or f"Field {idx}"
+        field_name = _slugify_name(raw_name or label, idx)
+        field_type = _normalize_field_type(item.get("type"))
+
+        normalized_item = dict(item)
+        normalized_item["name"] = field_name
+        normalized_item["label"] = label
+        normalized_item["type"] = field_type
+        normalized_item["required"] = bool(item.get("required", False))
+        normalized.append(normalized_item)
+
     return normalized
 
 
@@ -2274,6 +2321,11 @@ class StreamChatService:
                 "CRITICAL: DO NOT list questions in text or markdown. YOU MUST USE the 'interactive_form' tool to "
                 "display fields.\n"
                 "Keep forms concise (3-6 fields).\n\n"
+                "[SIMPLIFIED PAYLOAD]\n"
+                "You may use a minimal payload to reduce tool-call size.\n"
+                "- 'id' and 'title' are optional.\n"
+                "- Each field may be minimal (e.g., {'name':'budget'}) or even a short string label.\n"
+                "- Backend will auto-fill missing label/type defaults.\n\n"
                 "[MANDATORY TEXT-FIRST RULE]\n"
                 "CRITICAL: You MUST output meaningful introductory text BEFORE calling 'interactive_form'.\n"
                 "- NEVER call 'interactive_form' as the very first thing in your response\n"

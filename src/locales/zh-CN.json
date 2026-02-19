@@ -1063,6 +1063,7 @@
     "workflowToolCalling": "{{tool}} 调用中",
     "deepThinking": "已深度思考",
     "thinking": "深度思考中...",
+    "deepThinkingStreaming": "正在深度思考",
     "thinkingDuration": "(用时{{duration}}秒)",
     "planProcess": "规划过程",
     "researchProcess": "研究过程",

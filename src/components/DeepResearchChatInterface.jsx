@@ -1598,6 +1598,40 @@ const DeepResearchChatInterface = ({
     return () => observer.disconnect()
   }, [])
 
+  // Keep following streamed output only when user is already near bottom.
+  useEffect(() => {
+    if (!isLoading || showScrollButton) return
+    const container = messagesContainerRef.current
+    if (!container) return
+
+    const lastMessage = messages[messages.length - 1]
+    const isStreamingAi = lastMessage?.role === 'ai'
+    const hasStreamingText = (() => {
+      if (!isStreamingAi) return false
+      const content = lastMessage?.content
+      if (typeof content === 'string') return content.trim().length > 0
+      if (Array.isArray(content)) {
+        return content.some(part => {
+          if (typeof part === 'string') return part.trim().length > 0
+          if (part?.type === 'text' && typeof part.text === 'string') {
+            return part.text.trim().length > 0
+          }
+          if (part?.text != null) return String(part.text).trim().length > 0
+          return false
+        })
+      }
+      return false
+    })()
+
+    // Once visible text starts streaming, avoid hard sticking to bottom.
+    if (hasStreamingText) return
+
+    const rafId = window.requestAnimationFrame(() => {
+      scrollToBottom('auto')
+    })
+    return () => window.cancelAnimationFrame(rafId)
+  }, [isLoading, messages, scrollToBottom, showScrollButton])
+
   const handleRegenerateTitle = useCallback(async () => {
     if (isRegeneratingTitle) return
 

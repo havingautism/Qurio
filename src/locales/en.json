@@ -1071,6 +1071,7 @@
     "workflowToolCalling": "{{tool}} calling",
     "deepThinking": "Thinking Content",
     "thinking": "Thinking...",
+    "deepThinkingStreaming": "Deep thinking...",
     "thinkingDuration": "(took {{duration}}s)",
     "planProcess": "Plan Process",
     "researchProcess": "Research Process",

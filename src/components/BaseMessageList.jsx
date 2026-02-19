@@ -32,10 +32,11 @@ const BaseMessageList = ({
 
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col pb-5 sm:pb-16">
-      {renderableEntries.map(({ msg, originalIndex }) => (
+      {renderableEntries.map(({ msg, originalIndex }, renderIndex) => (
         <BubbleComponent
           key={originalIndex}
           messageId={`message-${originalIndex}`}
+          isLastRenderable={renderIndex === renderableEntries.length - 1}
           bubbleRef={el =>
             onMessageRef ? onMessageRef(`message-${originalIndex}`, msg, el) : undefined
           }

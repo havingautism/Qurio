@@ -290,6 +290,7 @@ const MessageBubble = ({
   onUserRegenerate,
   onQuote,
   onFormSubmit,
+  isLastRenderable = false,
   messageOverride = null,
   headerExtraContent = null,
   compactStreamingTextBlocks = false,
@@ -316,7 +317,9 @@ const MessageBubble = ({
 
   const isStreamingMessage =
     mergedMessage?.isStreaming ??
-    (isLoading && mergedMessage?.role === 'ai' && messageIndex === messages.length - 1)
+    (isLoading &&
+      mergedMessage?.role === 'ai' &&
+      (isLastRenderable || messageIndex === messages.length - 1))
 
   const baseToolCallHistory = Array.isArray(mergedMessage?.toolCallHistory)
     ? mergedMessage.toolCallHistory
@@ -2053,6 +2056,7 @@ const MessageBubble = ({
     () => interleavedContent.filter(part => part.type === 'thought'),
     [interleavedContent],
   )
+  const isDeepThinkingStreaming = isStreaming && !hasMainText && workflowThoughtParts.length > 0
   const workflowTextParts = useMemo(
     () => interleavedContent.filter(part => part.type === 'workflow_text'),
     [interleavedContent],
@@ -2287,18 +2291,8 @@ const MessageBubble = ({
     const shouldShowSkeleton = isStreaming || item.status !== 'done'
     if (shouldShowSkeleton) {
       return (
-        <div key={`form-skeleton-${formKey}`} className="mb-4 animate-pulse space-y-4 rounded-xl">
-          <div className="h-6 w-1/3 rounded bg-gray-200 dark:bg-zinc-700"></div>
-          <div className="h-4 w-2/3 rounded bg-gray-200 dark:bg-zinc-700"></div>
-          <div className="space-y-2">
-            <div className="h-4 w-1/4 rounded bg-gray-200 dark:bg-zinc-700"></div>
-            <div className="h-10 w-full rounded bg-gray-200 dark:bg-zinc-700"></div>
-          </div>
-          <div className="space-y-2">
-            <div className="h-4 w-1/4 rounded bg-gray-200 dark:bg-zinc-700"></div>
-            <div className="h-10 w-full rounded bg-gray-200 dark:bg-zinc-700"></div>
-          </div>
-          <div className="mt-4 h-10 w-full rounded bg-gray-200 dark:bg-zinc-700"></div>
+        <div key={`form-skeleton-${formKey}`} className="mb-4 flex items-center py-3">
+          <DotLoader />
         </div>
       )
     }
@@ -3497,28 +3491,29 @@ const MessageBubble = ({
           {renderInitialSkeleton && (
             <div
               className={clsx(
-                'flex animate-pulse flex-col gap-2 transition-opacity duration-300 ease-[cubic-bezier(0.2,0.6,0.2,1)]',
+                'mt-3 inline-flex items-center gap-2 transition-opacity duration-300 ease-[cubic-bezier(0.2,0.6,0.2,1)]',
                 showInitialSkeleton ? 'opacity-100' : 'opacity-0',
               )}
             >
-              <div className="h-4 w-3/4 rounded bg-gray-200 dark:bg-zinc-700"></div>
-              <div className="h-4 w-1/2 rounded bg-gray-200 dark:bg-zinc-700"></div>
-              <div className="h-4 w-5/6 rounded bg-gray-200 dark:bg-zinc-700"></div>
+              {isDeepThinkingStreaming && (
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  {t('messageBubble.deepThinkingStreaming')}
+                </span>
+              )}
+              <DotLoader />
             </div>
           )}
           {!isDeepResearch && isStreaming && hasMainText && (
-            <div className="mt-4 flex animate-pulse flex-col gap-2">
-              <div className="h-4 w-3/4 rounded bg-gray-200 dark:bg-zinc-700"></div>
-              <div className="h-4 w-1/2 rounded bg-gray-200 dark:bg-zinc-700"></div>
-              <div className="h-4 w-5/6 rounded bg-gray-200 dark:bg-zinc-700"></div>
+            <div className="mt-3 inline-flex items-center pl-1">
+              <DotLoader />
             </div>
           )}
           {isDeepResearch && isStreaming && !hasMainText && !hasActiveResearchStep && (
-            <div className="mt-4 flex animate-pulse items-center gap-2 pl-1 text-gray-500 dark:text-gray-400">
-              <DotLoader />
-              <span className="text-sm font-medium transition-opacity duration-200 ease-out">
-                {t('chat.deepResearchDrafting')}
+            <div className="mt-4 flex items-center gap-2 pl-1">
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                {t('messageBubble.deepThinkingStreaming')}
               </span>
+              <DotLoader />
             </div>
           )}
         </>

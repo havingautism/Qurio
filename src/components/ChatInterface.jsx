@@ -538,7 +538,9 @@ const ChatInterface = ({
   const isRelatedEnabled = Boolean(settings.enableRelatedQuestions)
   const messageRefs = useRef({})
   const bottomRef = useRef(null)
+  const inputAreaRef = useRef(null)
   const [showScrollButton, setShowScrollButton] = useState(false)
+  const [inputAreaHeight, setInputAreaHeight] = useState(0)
   const [isRegeneratingTitle, setIsRegeneratingTitle] = useState(false)
   const lastLoadedConversationIdRef = useRef(null)
   const hasPendingHitlInput = useMemo(() => {
@@ -1993,6 +1995,40 @@ const ChatInterface = ({
     return () => observer.disconnect()
   }, [])
 
+  // Keep following streamed output only when user is already near bottom.
+  useEffect(() => {
+    if (!isLoading || showScrollButton) return
+    const container = messagesContainerRef.current
+    if (!container) return
+
+    const lastMessage = messages[messages.length - 1]
+    const isStreamingAi = lastMessage?.role === 'ai'
+    const hasStreamingText = (() => {
+      if (!isStreamingAi) return false
+      const content = lastMessage?.content
+      if (typeof content === 'string') return content.trim().length > 0
+      if (Array.isArray(content)) {
+        return content.some(part => {
+          if (typeof part === 'string') return part.trim().length > 0
+          if (part?.type === 'text' && typeof part.text === 'string') {
+            return part.text.trim().length > 0
+          }
+          if (part?.text != null) return String(part.text).trim().length > 0
+          return false
+        })
+      }
+      return false
+    })()
+
+    // Once visible text starts streaming, avoid hard sticking to bottom.
+    if (hasStreamingText) return
+
+    const rafId = window.requestAnimationFrame(() => {
+      scrollToBottom('auto')
+    })
+    return () => window.cancelAnimationFrame(rafId)
+  }, [isLoading, messages, scrollToBottom, showScrollButton])
+
   const handleRegenerateTitle = useCallback(async () => {
     if (isRegeneratingTitle) return
 
@@ -2055,6 +2091,31 @@ const ChatInterface = ({
   const messagesContainerRef = useRef(null)
   const inputAgent = selectedAgent
   const inputAgentAutoMode = isAgentAutoMode
+  const bottomSpacerHeight = Math.max(96, inputAreaHeight + 20)
+
+  useEffect(() => {
+    const inputAreaEl = inputAreaRef.current
+    if (!inputAreaEl) return
+
+    const measure = () => {
+      const nextHeight = Math.ceil(inputAreaEl.getBoundingClientRect().height || 0)
+      setInputAreaHeight(prev => (prev === nextHeight ? prev : nextHeight))
+    }
+
+    measure()
+
+    let observer = null
+    if (typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(() => measure())
+      observer.observe(inputAreaEl)
+    }
+
+    window.addEventListener('resize', measure)
+    return () => {
+      if (observer) observer.disconnect()
+      window.removeEventListener('resize', measure)
+    }
+  }, [])
 
   return (
     <div
@@ -2117,6 +2178,8 @@ const ChatInterface = ({
             />
             {/* Bottom Anchor */}
             <div ref={bottomRef} className="h-1" />
+            {/* Reserve scroll space so last card won't be trapped behind input area */}
+            <div style={{ height: `${bottomSpacerHeight}px` }} />
           </div>
         </div>
 
@@ -2146,7 +2209,10 @@ const ChatInterface = ({
         />
 
         {/* Input Area */}
-        <div className="z-50 flex w-full shrink-0 justify-center rounded-b-3xl bg-transparent px-2 pt-0 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-0">
+        <div
+          ref={inputAreaRef}
+          className="z-50 flex w-full shrink-0 justify-center rounded-b-3xl bg-transparent px-2 pt-0 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-0"
+        >
           <div className="relative w-full max-w-3xl">
             {/* Scroll to bottom button - positioned relative to input area */}
 

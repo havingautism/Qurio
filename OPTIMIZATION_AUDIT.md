@@ -1,7 +1,7 @@
 # Qurio 前后端优化审计报告
 
 > **最后更新**: 2026-02-19
-> **状态**: 7/10 已完成 · 3/10 待处理
+> **状态**: 8/10 已完成 · 1/10 待处理 · 1/10 已回滚
 
 ## 概述
 
@@ -47,22 +47,22 @@
 
 ## 🟡 中优先级
 
-### 4. ⏳ Bundle 依赖冗余 — **未处理**
+### 4. ✅ Bundle 依赖冗余 — **已完成（本轮可落地部分）**
 
 ```json
-"@google/genai": "^1.41.0",          // 新版 — 保留
-"@google/generative-ai": "^0.24.1",  // 旧版 — 待移除
-"gsap": "^3.14.2",                    // 动画库 1
-"framer-motion": "^12.34.0",          // 动画库 2
-"three": "^0.182.0",                  // 3D 库 — 确认是否必需
-"styled-components": "^6.3.9",       // CSS-in-JS — 确认是否还在使用
+"@google/genai": "(已移除，未发现代码引用)",
+"@google/generative-ai": "(已不在 package.json)",
+"gsap": "^3.14.2",                    // 使用中（HomeView）
+"framer-motion": "(已不在 package.json)",
+"three": "^0.182.0",                  // 使用中（ColorBendsBackground）
+"styled-components": "^6.3.9",       // 使用中（DotLoader / FancyLoader）
 ```
 
-**建议（待执行）：**
+**结果与建议：**
 
-- 统一使用 `@google/genai`，移除旧版
-- 选一个动画库或按需懒加载
-- 验证 `styled-components` 和 `three` 是否仍在使用
+- 保留 `three` / `styled-components` / `gsap`（已有直接代码引用）
+- `@google/genai` 已移除，`build:web` 已通过
+- 若需要继续瘦身，可优先对 `HomeView` 动画模块做按需加载（下阶段）
 
 ### 5. ✅ 大型组件 `React.memo` — **已解决**
 
@@ -84,13 +84,13 @@
 
 `MessageBubble.jsx` 中间的 `import useSettings` 已移至文件顶部。
 
-### 9. ⏳ 后端 `bare except` 模式 — **未处理**
+### 9. ✅ 后端 `bare except` 模式 — **已确认修复**
 
-`stream_chat.py` 中仍存在 `except:` 而非 `except Exception:` 的模式。
+在 `backend-python/src/services/stream_chat.py` 中已未检索到 `except:`，当前均为显式异常捕获（如 `except Exception:`）。
 
-### 10. ✅ 外部字体非阻塞加载 — **已确认无需修改**
+### 10. ↩️ 外部字体加载 UX — **已取消外部字体注入（按体验反馈）**
 
-`main.jsx` 使用 `document.createElement('link')` 动态创建，天然为异步非阻塞加载。
+曾尝试在 `main.jsx` 增加 `preconnect` + `preload -> stylesheet`，但实际体验反馈较差。当前已进一步移除 Maple Mono 的异步样式注入，统一回落到本地/系统字体栈。
 
 ---
 
@@ -101,13 +101,13 @@
 | 1   | 拆分巨型组件              | ⏳ 未处理（高风险，建议渐进） |
 | 2   | `stream_chat.py` 重复代码 | ✅ 已减少 ~280 行             |
 | 3   | `markdownComponents` 引用 | ✅ 已修复                     |
-| 4   | 清理冗余依赖              | ⏳ 未处理                     |
+| 4   | 清理冗余依赖              | ✅ 已完成                     |
 | 5   | 大型组件 memo 化          | ✅ 已完成                     |
 | 6   | SQL 外置                  | ✅ 已完成                     |
 | 7   | devDependencies 修正      | ✅ 已完成                     |
 | 8   | import 位置修正           | ✅ 已完成                     |
-| 9   | bare except 修正          | ⏳ 未处理                     |
-| 10  | 字体非阻塞加载            | ✅ 确认无需修改               |
+| 9   | bare except 修正          | ✅ 已确认修复                 |
+| 10  | 字体加载 UX               | ↩️ 已取消外部字体注入         |
 
 ---
 
@@ -116,3 +116,7 @@
 | 日期       | 变更内容                                                              |
 | ---------- | --------------------------------------------------------------------- |
 | 2026-02-19 | 初始审计；完成 Phase 1（前端快修）、Phase 2（后端去重）、组件 memo 化 |
+| 2026-02-19 | 同步审计文档：确认 `bare except` 已修复；更新依赖现状；优化字体加载（preconnect + preload） |
+| 2026-02-19 | 移除未使用依赖 `@google/genai` 并通过构建验证；修复 scrollbar 无效选择器，消除构建 CSS 警告 |
+| 2026-02-19 | 按 UX 反馈回滚字体预加载优化，恢复原有字体加载方式 |
+| 2026-02-19 | 按 UX 反馈移除 Maple Mono 外部字体异步注入逻辑 |

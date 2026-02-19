@@ -45,17 +45,6 @@ init({
   },
 })
 
-// Load Maple Mono CN from CDN for code blocks.
-const mapleMonoStylesheetId = 'maple-mono-cn-stylesheet'
-if (!document.getElementById(mapleMonoStylesheetId)) {
-  const link = document.createElement('link')
-  link.id = mapleMonoStylesheetId
-  link.rel = 'stylesheet'
-  link.href =
-    'https://chinese-fonts-cdn.deno.dev/packages/maple-mono-cn/dist/MapleMono-CN-Regular/result.css'
-  document.head.appendChild(link)
-}
-
 const router = createAppRouter()
 
 createRoot(document.getElementById('root')).render(

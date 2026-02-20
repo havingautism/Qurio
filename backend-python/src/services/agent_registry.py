@@ -328,6 +328,7 @@ def _build_agno_toolkits(request: Any, include_agno: list[str]) -> list[Any]:
             toolkits.append(WikipediaTools(include_tools=["search_wikipedia"]))
 
     yfinance_tools = {
+        "yfinance_tools",
         "get_current_stock_price",
         "get_company_info",
         "get_stock_fundamentals",
@@ -344,8 +345,10 @@ def _build_agno_toolkits(request: Any, include_agno: list[str]) -> list[Any]:
         except Exception:
             YFinanceTools = None
         if YFinanceTools:
-            selected = [name for name in include_agno if name in yfinance_tools]
-            toolkits.append(YFinanceTools(include_tools=selected))
+            # Keep YFinance toolkit initialization aligned with Agno's default usage.
+            # Some SDK versions expose different subsets/names, which can make
+            # include_tools fail with "tool not present in toolkit".
+            toolkits.append(YFinanceTools())
 
     image_search_tools = {
         "duckduckgo_image_search",

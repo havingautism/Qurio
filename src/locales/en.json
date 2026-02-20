@@ -71,6 +71,8 @@
     "arxivReadInfo": "Download and read arXiv papers by id list.",
     "wikipediaSearch": "Wikipedia Search",
     "wikipediaSearchInfo": "Search Wikipedia and return a summary.",
+    "yfinanceTools": "Yahoo Finance Toolkit",
+    "yfinanceToolsInfo": "Enable Yahoo Finance tools for stock price, company profile, fundamentals, news, and historical data.",
     "stockPrice": "Stock Price",
     "stockPriceInfo": "Get the current stock price from Yahoo Finance.",
     "companyInfo": "Company Info",

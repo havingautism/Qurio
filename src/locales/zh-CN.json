@@ -71,6 +71,8 @@
     "arxivReadInfo": "根据论文 ID 下载并读取 arXiv 论文。",
     "wikipediaSearch": "维基百科搜索",
     "wikipediaSearchInfo": "搜索维基百科并返回摘要。",
+    "yfinanceTools": "Yahoo Finance 工具包",
+    "yfinanceToolsInfo": "启用 Yahoo Finance 工具，支持股价、公司概况、基本面、新闻和历史数据。",
     "stockPrice": "股价",
     "stockPriceInfo": "从 Yahoo Finance 获取当前股价。",
     "companyInfo": "公司信息",

@@ -8,6 +8,15 @@ from typing import Any
 
 TOOL_ALIASES: dict[str, str] = {
     "web_search_using_tavily": "Tavily_web_search",
+    "get_current_stock_price": "yfinance_tools",
+    "get_company_info": "yfinance_tools",
+    "get_stock_fundamentals": "yfinance_tools",
+    "get_income_statements": "yfinance_tools",
+    "get_key_financial_ratios": "yfinance_tools",
+    "get_analyst_recommendations": "yfinance_tools",
+    "get_company_news": "yfinance_tools",
+    "get_technical_indicators": "yfinance_tools",
+    "get_historical_stock_prices": "yfinance_tools",
 }
 
 GLOBAL_TOOLS: list[dict[str, Any]] = [
@@ -422,128 +431,13 @@ AGNO_TOOLS: list[dict[str, Any]] = [
         },
     },
     {
-        "id": "get_current_stock_price",
-        "name": "get_current_stock_price",
+        "id": "yfinance_tools",
+        "name": "yfinance_tools",
         "category": "agno",
-        "description": "Get the current stock price for a symbol (Yahoo Finance).",
+        "description": "Yahoo Finance toolkit for stock price, company profile, fundamentals, news, and historical data.",
         "parameters": {
             "type": "object",
-            "required": ["symbol"],
-            "properties": {
-                "symbol": {"type": "string", "description": "Stock symbol, e.g. AAPL."},
-            },
-        },
-    },
-    {
-        "id": "get_company_info",
-        "name": "get_company_info",
-        "category": "agno",
-        "description": "Get company profile and overview (Yahoo Finance).",
-        "parameters": {
-            "type": "object",
-            "required": ["symbol"],
-            "properties": {
-                "symbol": {"type": "string", "description": "Stock symbol."},
-            },
-        },
-    },
-    {
-        "id": "get_stock_fundamentals",
-        "name": "get_stock_fundamentals",
-        "category": "agno",
-        "description": "Get stock fundamentals (Yahoo Finance).",
-        "parameters": {
-            "type": "object",
-            "required": ["symbol"],
-            "properties": {
-                "symbol": {"type": "string", "description": "Stock symbol."},
-            },
-        },
-    },
-    {
-        "id": "get_income_statements",
-        "name": "get_income_statements",
-        "category": "agno",
-        "description": "Get income statements (Yahoo Finance).",
-        "parameters": {
-            "type": "object",
-            "required": ["symbol"],
-            "properties": {
-                "symbol": {"type": "string", "description": "Stock symbol."},
-            },
-        },
-    },
-    {
-        "id": "get_key_financial_ratios",
-        "name": "get_key_financial_ratios",
-        "category": "agno",
-        "description": "Get key financial ratios (Yahoo Finance).",
-        "parameters": {
-            "type": "object",
-            "required": ["symbol"],
-            "properties": {
-                "symbol": {"type": "string", "description": "Stock symbol."},
-            },
-        },
-    },
-    {
-        "id": "get_analyst_recommendations",
-        "name": "get_analyst_recommendations",
-        "category": "agno",
-        "description": "Get analyst recommendations (Yahoo Finance).",
-        "parameters": {
-            "type": "object",
-            "required": ["symbol"],
-            "properties": {
-                "symbol": {"type": "string", "description": "Stock symbol."},
-            },
-        },
-    },
-    {
-        "id": "get_company_news",
-        "name": "get_company_news",
-        "category": "agno",
-        "description": "Get company news (Yahoo Finance).",
-        "parameters": {
-            "type": "object",
-            "required": ["symbol"],
-            "properties": {
-                "symbol": {"type": "string", "description": "Stock symbol."},
-            },
-        },
-    },
-    {
-        "id": "get_technical_indicators",
-        "name": "get_technical_indicators",
-        "category": "agno",
-        "description": "Get technical indicators (Yahoo Finance).",
-        "parameters": {
-            "type": "object",
-            "required": ["symbol"],
-            "properties": {
-                "symbol": {"type": "string", "description": "Stock symbol."},
-            },
-        },
-    },
-    {
-        "id": "get_historical_stock_prices",
-        "name": "get_historical_stock_prices",
-        "category": "agno",
-        "description": "Get historical stock prices (Yahoo Finance).",
-        "parameters": {
-            "type": "object",
-            "required": ["symbol"],
-            "properties": {
-                "symbol": {"type": "string", "description": "Stock symbol."},
-                "period": {
-                    "type": "string",
-                    "description": "Period (e.g. 1mo, 6mo, 1y).",
-                },
-                "interval": {
-                    "type": "string",
-                    "description": "Interval (e.g. 1d, 1wk).",
-                },
-            },
+            "properties": {},
         },
     },
 ]

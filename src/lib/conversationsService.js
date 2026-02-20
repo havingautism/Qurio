@@ -118,11 +118,10 @@ export const listConversations = async (options = {}) => {
       },
     )
     .order(sortBy, { ascending })
-
   if (!expertIdsError && Array.isArray(expertIds) && expertIds.length > 0) {
     const normalizedExpertIds = expertIds.map(_sanitizeInFilterValue).filter(Boolean)
-    if (normalizedExpertIds.length > 0) {
-      query = query.or(`id.is.null,id.not.in.(${normalizedExpertIds.join(',')})`)
+    if (normalizedExpertIds.length > 0 && typeof query.not === 'function') {
+      query = query.not('id', 'in', `(${normalizedExpertIds.join(',')})`)
     }
   }
 
@@ -226,14 +225,6 @@ export const listBookmarkedConversations = async (options = {}) => {
     }
 
   // Build query with cursor support and is_favorited filter
-  const { data: expertIds, error: expertIdsError } = await listExpertConversationIds(supabase)
-  if (expertIdsError) {
-    console.warn(
-      'Failed to load expert conversation ids for listBookmarkedConversations:',
-      expertIdsError,
-    )
-  }
-
   let query = supabase
     .from(table)
     .select(
@@ -242,13 +233,6 @@ export const listBookmarkedConversations = async (options = {}) => {
     .eq('is_favorited', true)
     .order(sortBy, { ascending })
     .limit(limit)
-
-  if (!expertIdsError && Array.isArray(expertIds) && expertIds.length > 0) {
-    const normalizedExpertIds = expertIds.map(_sanitizeInFilterValue).filter(Boolean)
-    if (normalizedExpertIds.length > 0) {
-      query = query.or(`id.is.null,id.not.in.(${normalizedExpertIds.join(',')})`)
-    }
-  }
 
   if (Array.isArray(excludeSpaceIds) && excludeSpaceIds.length > 0) {
     const normalized = excludeSpaceIds.map(String).filter(Boolean)

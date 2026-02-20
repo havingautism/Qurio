@@ -12,7 +12,7 @@ import DatabaseSetupModal from './components/DatabaseSetupModal'
 import { ToastProvider } from './contexts/ToastContext'
 import KnowledgeBaseModal from './components/KnowledgeBaseModal'
 import { createAgent, deleteAgent, listAgents, updateAgent } from './lib/agentsService'
-import { listConversations } from './lib/conversationsService'
+import { isExpertConversation, listConversations } from './lib/conversationsService'
 import {
   DEEP_RESEARCH_AGENT_DESCRIPTION,
   DEEP_RESEARCH_AGENT_NAME,
@@ -424,20 +424,33 @@ function App() {
   }
 
   const handleOpenConversation = (conversation, source = 'default') => {
-    const proceed = () => {
+    const proceed = async () => {
       setIsSidebarOpen(false)
       if (conversation?.id) {
+        const conversationId = String(conversation.id)
         const deepResearchId = spaces.find(space => space.isDeepResearchSystem)?.id || null
         const isDeepResearchConversation =
           deepResearchId && String(conversation.space_id) === String(deepResearchId)
-        const isExpertConversation = source === 'expert'
+        let isExpertModeConversation = source === 'expert'
+
+        if (!isExpertModeConversation) {
+          try {
+            const { isExpert, error } = await isExpertConversation(conversationId)
+            if (!error && isExpert) {
+              isExpertModeConversation = true
+            }
+          } catch (error) {
+            console.warn('Failed to detect expert conversation route target:', error)
+          }
+        }
+
         navigate({
-          to: isExpertConversation
+          to: isExpertModeConversation
             ? '/expert/$conversationId'
             : isDeepResearchConversation
               ? '/deepresearch/$conversationId'
               : '/conversation/$conversationId',
-          params: { conversationId: String(conversation.id) },
+          params: { conversationId },
         })
       } else {
         navigate({ to: '/new_chat' })

@@ -140,6 +140,29 @@ class BackendQueryBuilder {
     return this
   }
 
+  // Compatibility with supabase-js: .not(column, operator, value)
+  // Currently we support the variant used by the app: .not('id', 'in', '(a,b,c)')
+  not(column, operator, value) {
+    const op = String(operator || '').trim().toLowerCase()
+    if (op === 'in') {
+      let values = []
+      if (Array.isArray(value)) {
+        values = value
+      } else if (typeof value === 'string') {
+        const raw = value.trim().replace(/^\(/, '').replace(/\)$/, '')
+        values = raw
+          .split(',')
+          .map(v => v.replace(/^"+|"+$/g, '').trim())
+          .filter(Boolean)
+      } else if (value != null) {
+        values = [value]
+      }
+      this.filters.push({ op: 'not_in', column, values })
+      return this
+    }
+    throw new Error(`Unsupported .not operator: ${operator}`)
+  }
+
   or(raw) {
     const parsed = parseOrFilter(raw)
     if (parsed.length > 0) {

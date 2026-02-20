@@ -161,6 +161,7 @@ export const handleEditingAndHistory = (
 
   // Initialize idsToRemove at the top level to avoid ReferenceError
   const idsToRemove = new Set()
+  const indexesToRemove = new Set()
 
   // UI state: remove edited user message (and its paired AI answer if any), then append the new user message at the end
   let newMessages
@@ -169,6 +170,7 @@ export const handleEditingAndHistory = (
     // Scan forward from the edited message to find the "chain" of interaction
 
     // Always remove the edited message itself
+    indexesToRemove.add(editingInfo.index)
     const editedMsgId = messages[editingInfo.index]?.id
     if (editedMsgId) idsToRemove.add(editedMsgId)
 
@@ -184,7 +186,8 @@ export const handleEditingAndHistory = (
 
       // 1. AI Messages: usually responses to the edited message or part of a form flow
       if (m.role === 'ai' || m.role === 'assistant') {
-        idsToRemove.add(m.id)
+        indexesToRemove.add(i)
+        if (m?.id) idsToRemove.add(m.id)
         continue
       }
 
@@ -198,7 +201,7 @@ export const handleEditingAndHistory = (
 
     // Filter out all identified messages
     const filtered = messages.filter((msg, idx) => {
-      if (idx === editingInfo.index) return false
+      if (indexesToRemove.has(idx)) return false
       return !idsToRemove.has(msg.id)
     })
 

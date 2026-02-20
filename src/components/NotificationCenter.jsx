@@ -12,7 +12,17 @@
  *  - ESC key to close
  */
 
-import { Bell, Check, CheckCheck, ExternalLink, Inbox, Mail, RefreshCw, Trash2, X } from 'lucide-react'
+import {
+  Bell,
+  Check,
+  CheckCheck,
+  ExternalLink,
+  Inbox,
+  Mail,
+  RefreshCw,
+  Trash2,
+  X,
+} from 'lucide-react'
 import { useCallback, useEffect, useState, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
@@ -62,7 +72,9 @@ const markRead = async id => {
 
 const markAllRead = async configId => {
   const params = configId ? { configId } : {}
-  const res = await fetch(buildUrl('/api/email/notifications/read-all', params), { method: 'PATCH' })
+  const res = await fetch(buildUrl('/api/email/notifications/read-all', params), {
+    method: 'PATCH',
+  })
   if (!res.ok) throw new Error(`Failed to mark all read: ${res.status}`)
 }
 
@@ -86,16 +98,19 @@ const NotificationCenter = () => {
   const [selectedNotification, setSelectedNotification] = useState(null)
 
   // Helper function for relative time with i18n
-  const formatRelativeTime = useCallback((dateStr) => {
-    if (!dateStr) return ''
-    const diff = Date.now() - new Date(dateStr).getTime()
-    const mins = Math.floor(diff / 60000)
-    if (mins < 1) return t('notificationCenter.timeAgo.justNow')
-    if (mins < 60) return t('notificationCenter.timeAgo.minutesAgo', { count: mins })
-    const hrs = Math.floor(mins / 60)
-    if (hrs < 24) return t('notificationCenter.timeAgo.hoursAgo', { count: hrs })
-    return t('notificationCenter.timeAgo.daysAgo', { count: Math.floor(hrs / 24) })
-  }, [t])
+  const formatRelativeTime = useCallback(
+    dateStr => {
+      if (!dateStr) return ''
+      const diff = Date.now() - new Date(dateStr).getTime()
+      const mins = Math.floor(diff / 60000)
+      if (mins < 1) return t('notificationCenter.timeAgo.justNow')
+      if (mins < 60) return t('notificationCenter.timeAgo.minutesAgo', { count: mins })
+      const hrs = Math.floor(mins / 60)
+      if (hrs < 24) return t('notificationCenter.timeAgo.hoursAgo', { count: hrs })
+      return t('notificationCenter.timeAgo.daysAgo', { count: Math.floor(hrs / 24) })
+    },
+    [t],
+  )
 
   // Build email URL for jumping to the email in webmail
   const buildEmailUrl = useCallback((provider, messageId) => {
@@ -114,10 +129,13 @@ const NotificationCenter = () => {
     }
   }, [])
 
-  const handleOpenEmail = useCallback((notif) => {
-    const url = buildEmailUrl(notif.provider, notif.message_id)
-    if (url) window.open(url, '_blank')
-  }, [buildEmailUrl])
+  const handleOpenEmail = useCallback(
+    notif => {
+      const url = buildEmailUrl(notif.provider, notif.message_id)
+      if (url) window.open(url, '_blank')
+    },
+    [buildEmailUrl],
+  )
 
   // Calculate unread counts
   const totalUnreadCount = useMemo(() => {
@@ -137,7 +155,9 @@ const NotificationCenter = () => {
   // Config id to email mapping
   const configEmailMap = useMemo(() => {
     const map = {}
-    configs.forEach(c => { map[c.id] = c.email })
+    configs.forEach(c => {
+      map[c.id] = c.email
+    })
     return map
   }, [configs])
 
@@ -183,7 +203,7 @@ const NotificationCenter = () => {
     const sseUrl = buildUrl('/api/email/notifications/stream')
     const eventSource = new EventSource(sseUrl)
 
-    eventSource.onmessage = (event) => {
+    eventSource.onmessage = event => {
       try {
         const data = JSON.parse(event.data)
         if (data.type === 'notifications_updated') {
@@ -207,7 +227,12 @@ const NotificationCenter = () => {
   // ESC key to close
   useEffect(() => {
     if (!isOpen) return undefined
-    const handler = e => { if (e.key === 'Escape') { setIsOpen(false); setSelectedNotification(null) } }
+    const handler = e => {
+      if (e.key === 'Escape') {
+        setIsOpen(false)
+        setSelectedNotification(null)
+      }
+    }
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
   }, [isOpen])
@@ -215,20 +240,30 @@ const NotificationCenter = () => {
   // Lock body scroll when open
   useEffect(() => {
     document.body.style.overflow = isOpen ? 'hidden' : ''
-    return () => { document.body.style.overflow = '' }
+    return () => {
+      document.body.style.overflow = ''
+    }
   }, [isOpen])
 
   const handleMarkRead = async id => {
     setNotifications(prev => prev.map(n => (n.id === id ? { ...n, is_read: true } : n)))
-    try { await markRead(id) }
-    catch { setNotifications(prev => prev.map(n => (n.id === id ? { ...n, is_read: false } : n))) }
+    try {
+      await markRead(id)
+    } catch {
+      setNotifications(prev => prev.map(n => (n.id === id ? { ...n, is_read: false } : n)))
+    }
   }
 
   const handleMarkAllRead = async () => {
     const configId = activeTab === 'all' ? null : activeTab
-    setNotifications(prev => prev.map(n => (configId && n.config_id !== configId ? n : { ...n, is_read: true })))
-    try { await markAllRead(configId) }
-    catch { load() }
+    setNotifications(prev =>
+      prev.map(n => (configId && n.config_id !== configId ? n : { ...n, is_read: true })),
+    )
+    try {
+      await markAllRead(configId)
+    } catch {
+      load()
+    }
   }
 
   const handleDelete = async (e, id) => {
@@ -236,14 +271,15 @@ const NotificationCenter = () => {
     const original = [...notifications]
     setNotifications(prev => prev.filter(n => n.id !== id))
     setSelectedNotification(null)
-    try { await deleteNotification(id) }
-    catch (err) {
+    try {
+      await deleteNotification(id)
+    } catch (err) {
       setError(t('notificationCenter.deleteFailed', { message: err.message }))
       setNotifications(original)
     }
   }
 
-  const handleSelectNotification = (notif) => {
+  const handleSelectNotification = notif => {
     setSelectedNotification(notif)
     if (!notif.is_read) handleMarkRead(notif.id)
   }
@@ -251,31 +287,40 @@ const NotificationCenter = () => {
   // Detail modal for selected notification
   const detailModal = selectedNotification
     ? createPortal(
-        <div className="fixed inset-0 z-10000 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+        <div
+          className="fixed inset-0 z-10000 flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+        >
           {/* Backdrop */}
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setSelectedNotification(null)} />
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setSelectedNotification(null)}
+          />
 
           {/* Detail Panel */}
-          <div className="relative z-10 w-full max-w-2xl bg-white rounded-xl shadow-2xl border border-gray-200/60 overflow-hidden dark:bg-zinc-900 dark:border-zinc-700/50">
+          <div className="relative z-10 w-full max-w-2xl overflow-hidden rounded-xl border border-gray-200/60 bg-white shadow-2xl dark:border-zinc-700/50 dark:bg-zinc-900">
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-zinc-800 bg-gray-50/50 dark:bg-zinc-800/50">
+            <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/50 px-6 py-4 dark:border-zinc-800 dark:bg-zinc-800/50">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center">
+                <div className="from-primary-400 to-primary-600 flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br">
                   <Mail size={20} className="text-white" />
                 </div>
-                <span className="text-base font-semibold text-gray-900 dark:text-gray-100">{t('notificationCenter.emailDetail')}</span>
+                <span className="text-base font-semibold text-gray-900 dark:text-gray-100">
+                  {t('notificationCenter.emailDetail')}
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => handleOpenEmail(selectedNotification)}
-                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-primary-600 hover:bg-primary-50 rounded-lg transition-colors dark:text-primary-400 dark:hover:bg-primary-900/20"
+                  className="text-primary-600 hover:bg-primary-50 dark:text-primary-400 dark:hover:bg-primary-900/20 flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors"
                 >
                   <ExternalLink size={16} />
                   {t('notificationCenter.openInMail')}
                 </button>
                 <button
                   onClick={() => setSelectedNotification(null)}
-                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors dark:hover:text-gray-300 dark:hover:bg-zinc-800"
+                  className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-zinc-800 dark:hover:text-gray-300"
                 >
                   <X size={18} />
                 </button>
@@ -283,10 +328,10 @@ const NotificationCenter = () => {
             </div>
 
             {/* Content */}
-            <div className="p-6 space-y-5 max-h-[65vh] overflow-y-auto">
+            <div className="max-h-[65vh] space-y-5 overflow-y-auto p-6">
               {/* Subject */}
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 leading-snug">
+                <h3 className="text-lg leading-snug font-semibold text-gray-900 dark:text-gray-100">
                   {selectedNotification.subject || t('notificationCenter.noSubject')}
                 </h3>
               </div>
@@ -295,16 +340,22 @@ const NotificationCenter = () => {
               <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500 dark:text-zinc-400">
                 <div className="flex items-center gap-1.5">
                   <span className="font-medium">{t('notificationCenter.from')}:</span>
-                  <span>{selectedNotification.sender || t('notificationCenter.unknownSender')}</span>
+                  <span>
+                    {selectedNotification.sender || t('notificationCenter.unknownSender')}
+                  </span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="font-medium">{t('notificationCenter.time')}:</span>
-                  <span>{formatRelativeTime(selectedNotification.received_at || selectedNotification.created_at)}</span>
+                  <span>
+                    {formatRelativeTime(
+                      selectedNotification.received_at || selectedNotification.created_at,
+                    )}
+                  </span>
                 </div>
                 {selectedNotification.config_id && configs.length > 1 && (
                   <div className="flex items-center gap-1.5">
                     <span className="font-medium">{t('notificationCenter.account')}:</span>
-                    <span className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-zinc-700">
+                    <span className="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-zinc-700">
                       {configEmailMap[selectedNotification.config_id]?.split('@')[0]}
                     </span>
                   </div>
@@ -313,11 +364,11 @@ const NotificationCenter = () => {
 
               {/* Summary */}
               {selectedNotification.summary && (
-                <div className="pt-4 border-t border-gray-100 dark:border-zinc-800">
-                  <h4 className="text-sm font-semibold text-gray-700 dark:text-zinc-300 mb-3 uppercase tracking-wide">
+                <div className="border-t border-gray-100 pt-4 dark:border-zinc-800">
+                  <h4 className="mb-3 text-sm font-semibold tracking-wide text-gray-700 uppercase dark:text-zinc-300">
                     {t('notificationCenter.summary')}
                   </h4>
-                  <p className="text-base text-gray-600 dark:text-zinc-400 leading-relaxed whitespace-pre-wrap">
+                  <p className="text-base leading-relaxed whitespace-pre-wrap text-gray-600 dark:text-zinc-400">
                     {selectedNotification.summary}
                   </p>
                 </div>
@@ -325,17 +376,17 @@ const NotificationCenter = () => {
             </div>
 
             {/* Footer actions */}
-            <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 dark:border-zinc-800 bg-gray-50/50 dark:bg-zinc-800/50">
+            <div className="flex items-center justify-between border-t border-gray-100 bg-gray-50/50 px-6 py-4 dark:border-zinc-800 dark:bg-zinc-800/50">
               <button
-                onClick={(e) => handleDelete(e, selectedNotification.id)}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors dark:text-red-400 dark:hover:bg-red-900/20"
+                onClick={e => handleDelete(e, selectedNotification.id)}
+                className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
               >
                 <Trash2 size={16} />
                 {t('notificationCenter.delete')}
               </button>
               <button
                 onClick={() => handleOpenEmail(selectedNotification)}
-                className="flex items-center gap-2 px-5 py-2 text-sm font-medium text-white bg-primary-500 hover:bg-primary-600 rounded-lg transition-colors"
+                className="bg-primary-500 hover:bg-primary-600 flex items-center gap-2 rounded-lg px-5 py-2 text-sm font-medium text-white transition-colors"
               >
                 <ExternalLink size={16} />
                 {t('notificationCenter.openInMail')}
@@ -350,36 +401,62 @@ const NotificationCenter = () => {
   // Modal rendered via portal
   const modal = isOpen
     ? createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-start justify-center pt-[10vh] px-4 pb-4" role="dialog" aria-modal="true">
+        <div
+          className="fixed inset-0 z-[9999] flex items-start justify-center px-4 pt-[10vh] pb-4"
+          role="dialog"
+          aria-modal="true"
+        >
           {/* Backdrop */}
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsOpen(false)} />
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => setIsOpen(false)}
+          />
 
           {/* Modal Panel */}
-          <div className="relative z-10 w-full max-w-xl bg-white rounded-xl shadow-2xl border border-gray-200/60 flex flex-col overflow-hidden dark:bg-zinc-900 dark:border-zinc-700/50" style={{ maxHeight: '80vh' }}>
-
+          <div
+            className="relative z-10 flex w-full max-w-xl flex-col overflow-hidden rounded-xl border border-gray-200/60 bg-white shadow-2xl dark:border-zinc-700/50 dark:bg-zinc-900"
+            style={{ maxHeight: '80vh' }}
+          >
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-zinc-800">
+            <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-zinc-800">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center shadow-sm">
+                <div className="from-primary-400 to-primary-600 flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br shadow-sm">
                   <Inbox size={16} className="text-white" />
                 </div>
                 <div>
-                  <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">{t('notificationCenter.title')}</h2>
+                  <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                    {t('notificationCenter.title')}
+                  </h2>
                   {totalUnreadCount > 0 && (
-                    <p className="text-xs text-gray-500 dark:text-zinc-400">{totalUnreadCount} {t('notificationCenter.newCount', { count: '' }).trim()}</p>
+                    <p className="text-xs text-gray-500 dark:text-zinc-400">
+                      {totalUnreadCount} {t('notificationCenter.newCount', { count: '' }).trim()}
+                    </p>
                   )}
                 </div>
               </div>
               <div className="flex items-center gap-0.5">
-                <button onClick={load} disabled={loading} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50 dark:hover:text-gray-300 dark:hover:bg-zinc-800" title={t('notificationCenter.refresh')}>
+                <button
+                  onClick={load}
+                  disabled={loading}
+                  className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 disabled:opacity-50 dark:hover:bg-zinc-800 dark:hover:text-gray-300"
+                  title={t('notificationCenter.refresh')}
+                >
                   <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
                 </button>
                 {totalUnreadCount > 0 && (
-                  <button onClick={handleMarkAllRead} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors dark:hover:text-gray-300 dark:hover:bg-zinc-800" title={t('notificationCenter.markAllRead')}>
+                  <button
+                    onClick={handleMarkAllRead}
+                    className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-zinc-800 dark:hover:text-gray-300"
+                    title={t('notificationCenter.markAllRead')}
+                  >
                     <CheckCheck size={16} />
                   </button>
                 )}
-                <button onClick={() => setIsOpen(false)} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors dark:hover:text-gray-300 dark:hover:bg-zinc-800" title={t('notificationCenter.close')}>
+                <button
+                  onClick={() => setIsOpen(false)}
+                  className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-zinc-800 dark:hover:text-gray-300"
+                  title={t('notificationCenter.close')}
+                >
                   <X size={16} />
                 </button>
               </div>
@@ -387,18 +464,30 @@ const NotificationCenter = () => {
 
             {/* Tabs */}
             {configs.length > 1 && (
-              <div className="flex items-center gap-1 px-3 py-2 overflow-x-auto border-b border-gray-100 dark:border-zinc-800/50 bg-gray-50/50 dark:bg-zinc-800/30">
-                <button onClick={() => setActiveTab('all')} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${activeTab === 'all' ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-gray-100' : 'text-gray-500 hover:text-gray-700 dark:text-zinc-400 dark:hover:text-zinc-200'}`}>
-                  {t('notificationCenter.all')} <span className="ml-0.5 opacity-60">{notifications.length}</span>
+              <div className="flex items-center gap-1 overflow-x-auto border-b border-gray-100 bg-gray-50/50 px-3 py-2 dark:border-zinc-800/50 dark:bg-zinc-800/30">
+                <button
+                  onClick={() => setActiveTab('all')}
+                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition-all ${activeTab === 'all' ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-gray-100' : 'text-gray-500 hover:text-gray-700 dark:text-zinc-400 dark:hover:text-zinc-200'}`}
+                >
+                  {t('notificationCenter.all')}{' '}
+                  <span className="ml-0.5 opacity-60">{notifications.length}</span>
                 </button>
-                <div className="w-px h-4 bg-gray-200 dark:bg-zinc-700 mx-1" />
+                <div className="mx-1 h-4 w-px bg-gray-200 dark:bg-zinc-700" />
                 {configs.map(config => {
                   const count = unreadCountByConfig[config.id] || 0
                   const isActive = activeTab === config.id
                   return (
-                    <button key={config.id} onClick={() => setActiveTab(config.id)} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${isActive ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-gray-100' : 'text-gray-500 hover:text-gray-700 dark:text-zinc-400 dark:hover:text-zinc-200'}`}>
+                    <button
+                      key={config.id}
+                      onClick={() => setActiveTab(config.id)}
+                      className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${isActive ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-gray-100' : 'text-gray-500 hover:text-gray-700 dark:text-zinc-400 dark:hover:text-zinc-200'}`}
+                    >
                       <span className="max-w-[100px] truncate">{config.email.split('@')[0]}</span>
-                      {count > 0 && <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-semibold flex items-center justify-center">{count}</span>}
+                      {count > 0 && (
+                        <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white">
+                          {count}
+                        </span>
+                      )}
                     </button>
                   )
                 })}
@@ -408,43 +497,66 @@ const NotificationCenter = () => {
             {/* Body */}
             <div className="flex-1 overflow-y-auto">
               {loading && notifications.length === 0 && (
-                <div className="flex items-center justify-center py-16"><RefreshCw size={20} className="animate-spin text-gray-400" /></div>
+                <div className="flex items-center justify-center py-16">
+                  <RefreshCw size={20} className="animate-spin text-gray-400" />
+                </div>
               )}
               {error && <div className="px-4 py-6 text-center text-sm text-red-500">{error}</div>}
               {!loading && !error && filteredNotifications.length === 0 && (
                 <div className="flex flex-col items-center py-12 text-center">
-                  <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-zinc-800 flex items-center justify-center mb-3">
+                  <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 dark:bg-zinc-800">
                     <Inbox size={24} className="text-gray-400 dark:text-zinc-500" />
                   </div>
-                  <p className="text-sm font-medium text-gray-600 dark:text-zinc-300">{activeTab === 'all' ? t('notificationCenter.empty.title') : t('notificationCenter.emptyForAccount.title')}</p>
-                  <p className="text-xs text-gray-400 dark:text-zinc-500 mt-1">{activeTab === 'all' ? t('notificationCenter.empty.hint') : t('notificationCenter.emptyForAccount.hint')}</p>
+                  <p className="text-sm font-medium text-gray-600 dark:text-zinc-300">
+                    {activeTab === 'all'
+                      ? t('notificationCenter.empty.title')
+                      : t('notificationCenter.emptyForAccount.title')}
+                  </p>
+                  <p className="mt-1 text-xs text-gray-400 dark:text-zinc-500">
+                    {activeTab === 'all'
+                      ? t('notificationCenter.empty.hint')
+                      : t('notificationCenter.emptyForAccount.hint')}
+                  </p>
                 </div>
               )}
 
               {/* Notification Cards */}
-              <div className="p-3 space-y-2">
+              <div className="space-y-2 p-3">
                 {filteredNotifications.map(notif => (
-                  <div key={notif.id} onClick={() => handleSelectNotification(notif)} className={`group relative p-4 rounded-xl cursor-pointer transition-all ${notif.is_read ? 'hover:bg-gray-50 dark:hover:bg-zinc-800/50' : 'bg-primary-50/50 hover:bg-primary-50 dark:bg-primary-950/20 dark:hover:bg-primary-950/30'}`}>
+                  <div
+                    key={notif.id}
+                    onClick={() => handleSelectNotification(notif)}
+                    className={`group relative cursor-pointer rounded-xl p-4 transition-all ${notif.is_read ? 'hover:bg-gray-50 dark:hover:bg-zinc-800/50' : 'bg-primary-50/50 hover:bg-primary-50 dark:bg-primary-950/20 dark:hover:bg-primary-950/30'}`}
+                  >
                     <div className="flex items-start gap-3">
                       {/* Unread indicator */}
-                      <div className={`mt-2 w-2.5 h-2.5 rounded-full flex-shrink-0 ${notif.is_read ? 'bg-transparent' : 'bg-primary-500'}`} />
+                      <div
+                        className={`mt-2 h-2.5 w-2.5 flex-shrink-0 rounded-full ${notif.is_read ? 'bg-transparent' : 'bg-primary-500'}`}
+                      />
 
-                      <div className="flex-1 min-w-0">
+                      <div className="min-w-0 flex-1">
                         {/* Header row */}
                         <div className="flex items-start justify-between gap-3">
-                          <p className={`text-sm leading-snug ${notif.is_read ? 'text-gray-700 dark:text-gray-300' : 'text-gray-900 dark:text-gray-100 font-medium'}`}>
+                          <p
+                            className={`text-sm leading-snug ${notif.is_read ? 'text-gray-700 dark:text-gray-300' : 'font-medium text-gray-900 dark:text-gray-100'}`}
+                          >
                             {notif.subject || t('notificationCenter.noSubject')}
                           </p>
-                          <span className="text-xs text-gray-400 dark:text-zinc-500 flex-shrink-0 mt-0.5">
+                          <span className="mt-0.5 flex-shrink-0 text-xs text-gray-400 dark:text-zinc-500">
                             {formatRelativeTime(notif.received_at || notif.created_at)}
                           </span>
                         </div>
 
                         {/* Sender */}
-                        <div className="flex items-center gap-2 mt-1.5">
-                          <p className="text-xs text-gray-500 dark:text-zinc-400 truncate">{notif.sender || t('notificationCenter.unknownSender')}</p>
+                        <div className="mt-1.5 flex items-center gap-2">
+                          <p className="truncate text-xs text-gray-500 dark:text-zinc-400">
+                            {notif.sender || t('notificationCenter.unknownSender')}
+                          </p>
                           {notif.config_id && configs.length > 1 && (
-                            <span className="text-[11px] px-2 py-0.5 rounded bg-gray-100 dark:bg-zinc-700 text-gray-500 dark:text-zinc-400 truncate max-w-[100px]" title={configEmailMap[notif.config_id]}>
+                            <span
+                              className="max-w-[100px] truncate rounded bg-gray-100 px-2 py-0.5 text-[11px] text-gray-500 dark:bg-zinc-700 dark:text-zinc-400"
+                              title={configEmailMap[notif.config_id]}
+                            >
                               {configEmailMap[notif.config_id]?.split('@')[0]}
                             </span>
                           )}
@@ -452,27 +564,42 @@ const NotificationCenter = () => {
 
                         {/* Summary preview */}
                         {notif.summary && (
-                          <p className="text-xs text-gray-500 dark:text-zinc-400 mt-2 line-clamp-2 leading-relaxed">{notif.summary}</p>
+                          <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-gray-500 dark:text-zinc-400">
+                            {notif.summary}
+                          </p>
                         )}
 
                         {/* Actions */}
-                        <div className="flex items-center gap-2 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <span className="text-xs text-primary-500 dark:text-primary-400 font-medium">
+                        <div className="mt-3 flex items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+                          <span className="text-primary-500 dark:text-primary-400 text-xs font-medium">
                             {t('notificationCenter.viewDetail') || 'View'}
                           </span>
                           <button
-                            onClick={e => { e.stopPropagation(); handleOpenEmail(notif); }}
-                            className="text-xs text-gray-400 hover:text-primary-500 dark:text-zinc-500 dark:hover:text-primary-400 flex items-center gap-1"
+                            onClick={e => {
+                              e.stopPropagation()
+                              handleOpenEmail(notif)
+                            }}
+                            className="hover:text-primary-500 dark:hover:text-primary-400 flex items-center gap-1 text-xs text-gray-400 dark:text-zinc-500"
                             title={t('notificationCenter.openInMail')}
                           >
                             <ExternalLink size={12} />
                           </button>
                           {!notif.is_read && (
-                            <button onClick={e => { e.stopPropagation(); handleMarkRead(notif.id); }} className="text-xs text-gray-400 hover:text-gray-600 dark:text-zinc-500 dark:hover:text-zinc-300 flex items-center gap-1">
+                            <button
+                              onClick={e => {
+                                e.stopPropagation()
+                                handleMarkRead(notif.id)
+                              }}
+                              className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 dark:text-zinc-500 dark:hover:text-zinc-300"
+                            >
                               <Check size={12} /> {t('notificationCenter.markAsRead')}
                             </button>
                           )}
-                          <button onClick={e => handleDelete(e, notif.id)} className="text-xs text-gray-400 hover:text-red-500 dark:text-zinc-500 dark:hover:text-red-400 ml-auto" title={t('notificationCenter.delete')}>
+                          <button
+                            onClick={e => handleDelete(e, notif.id)}
+                            className="ml-auto text-xs text-gray-400 hover:text-red-500 dark:text-zinc-500 dark:hover:text-red-400"
+                            title={t('notificationCenter.delete')}
+                          >
                             <Trash2 size={14} />
                           </button>
                         </div>
@@ -491,8 +618,14 @@ const NotificationCenter = () => {
   return (
     <>
       {/* Bell Button */}
-      <button id="notification-center-bell" onClick={() => setIsOpen(prev => !prev)} className="bg-user-bubble relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl text-gray-600 transition-all duration-300 hover:scale-105 hover:bg-gray-100 active:scale-95 dark:bg-zinc-800 dark:text-gray-300 dark:hover:bg-zinc-700" title={t('notificationCenter.title')}>
-        <Bell size={20} />
+      <button
+        id="notification-center-bell"
+        onClick={() => setIsOpen(prev => !prev)}
+        className="bg-user-bubble relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl text-gray-600 transition-all duration-300 hover:scale-105 hover:bg-gray-100 active:scale-95 dark:bg-zinc-800 dark:text-gray-300 dark:hover:bg-zinc-700"
+        title={t('notificationCenter.title')}
+      >
+        {/* <Bell size={20} /> */}
+        <Inbox size={20} />
         {totalUnreadCount > 0 && (
           <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
             {totalUnreadCount > 99 ? '99+' : totalUnreadCount}

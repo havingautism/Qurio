@@ -12,11 +12,13 @@ import re
 import time
 from collections.abc import AsyncGenerator
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
 from agno.agent import Agent, RunEvent
-from agno.run.agent import ToolCallCompletedEvent, ToolCallStartedEvent
+from agno.models.message import Message
+from agno.run.agent import RunOutput, ToolCallCompletedEvent, ToolCallStartedEvent
 from agno.utils.log import logger
 
 from ..models.stream_chat import (
@@ -170,6 +172,18 @@ def _is_reasoning_duplicate_of_content(reasoning: str, content: str) -> bool:
 def _is_stream_trace_enabled() -> bool:
     value = str(os.getenv("QURIO_STREAM_TRACE", "")).strip().lower()
     return value in {"1", "true", "yes", "on", "debug"}
+
+
+def _is_verbose_logs_enabled() -> bool:
+    value = str(os.getenv("QURIO_VERBOSE_LOGS", "0")).strip().lower()
+    return value in {"1", "true", "yes", "on", "debug"}
+
+
+def _log_verbose_info(message: str) -> None:
+    if _is_verbose_logs_enabled():
+        logger.info(message)
+    else:
+        logger.debug(message)
 
 
 def _preview(text: Any, limit: int = 140) -> str:
@@ -448,6 +462,207 @@ def _extract_reasoning_chunk(
     return ""
 
 
+def _is_raw_events_log_enabled() -> bool:
+    value = str(os.getenv("QURIO_RAW_EVENTS_LOG", "0")).strip().lower()
+    return value not in {"0", "false", "off", "no"}
+
+
+def _raw_events_log_path() -> Path:
+    configured = str(os.getenv("QURIO_RAW_EVENTS_LOG_PATH", "")).strip()
+    if configured:
+        return Path(configured)
+    logs_dir = Path(__file__).resolve().parents[2] / "logs"
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    date_tag = datetime.utcnow().strftime("%Y%m%d")
+    return logs_dir / f"agno_raw_events_{date_tag}.jsonl"
+
+
+def _append_raw_event_log(
+    *,
+    phase: str,
+    request: StreamChatRequest,
+    run_id: str | None,
+    run_event: Any,
+) -> None:
+    if not _is_raw_events_log_enabled():
+        return
+    try:
+        event_name = str(getattr(run_event, "event", "") or "")
+        content_chunk = _extract_text_chunk(run_event)
+        reasoning_chunk = _extract_reasoning_chunk(run_event)
+        payload = {
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "phase": phase,
+            "provider": request.provider,
+            "model": request.model,
+            "conversation_id": request.conversation_id,
+            "run_id": run_id or getattr(run_event, "run_id", None),
+            "event_name": event_name,
+            "raw_event_type": type(run_event).__name__,
+            "has_content": bool(str(content_chunk or "").strip()),
+            "has_reasoning_content": bool(str(reasoning_chunk or "").strip()),
+            "content_preview": _preview(content_chunk),
+            "reasoning_preview": _preview(reasoning_chunk),
+            "raw_event": repr(run_event),
+        }
+        log_path = _raw_events_log_path()
+        with log_path.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(payload, ensure_ascii=False) + "\n")
+    except Exception:
+        # Never break stream flow due to diagnostics logging failures.
+        return
+
+
+def _extract_completed_content_and_output(
+    run_event: Any,
+    streamed_content: str = "",
+) -> tuple[str, Any]:
+    """
+    Extract final assistant content/output from RunCompleted-style events.
+
+    Shared between normal stream_chat() and HITL continuation to keep behavior aligned.
+    """
+    agn_content = getattr(run_event, "content", None)
+    run_response = getattr(run_event, "run_response", None)
+    if not agn_content and run_response is not None:
+        agn_content = getattr(run_response, "content", None)
+
+    final_content = streamed_content or ""
+    output = None
+
+    # Structured output should override streamed text to preserve canonical payload.
+    if agn_content and hasattr(agn_content, "model_dump"):
+        output = agn_content
+        final_content = json.dumps(agn_content.model_dump(), ensure_ascii=False)
+    elif isinstance(agn_content, (dict, list)):
+        output = agn_content
+        final_content = json.dumps(agn_content, ensure_ascii=False)
+    elif isinstance(agn_content, str) and agn_content.strip() and not final_content:
+        final_content = agn_content
+
+    # Fallback for providers that only keep final assistant text in run_response.messages.
+    if not final_content and run_response is not None:
+        try:
+            rr_messages = getattr(run_response, "messages", None) or []
+            for rr_msg in reversed(rr_messages):
+                rr_role = getattr(rr_msg, "role", None)
+                rr_content = getattr(rr_msg, "content", None)
+                if rr_role != "assistant":
+                    continue
+                extracted = _extract_text_from_message_content(rr_content).strip()
+                if extracted:
+                    final_content = extracted
+                    break
+        except Exception:
+            pass
+
+    return final_content, output
+
+
+def _extract_text_from_message_content(content: Any) -> str:
+    """
+    Best-effort text extraction for provider-specific assistant message payloads.
+    """
+    if isinstance(content, str):
+        return content
+
+    if isinstance(content, list):
+        parts: list[str] = []
+        for item in content:
+            if isinstance(item, str):
+                parts.append(item)
+                continue
+            if isinstance(item, dict):
+                text_part = item.get("text")
+                if isinstance(text_part, str):
+                    parts.append(text_part)
+                    continue
+                content_part = item.get("content")
+                if isinstance(content_part, str):
+                    parts.append(content_part)
+                    continue
+                if isinstance(content_part, (list, dict)):
+                    nested = _extract_text_from_message_content(content_part)
+                    if nested:
+                        parts.append(nested)
+                parts_part = item.get("parts")
+                if isinstance(parts_part, (list, dict)):
+                    nested = _extract_text_from_message_content(parts_part)
+                    if nested:
+                        parts.append(nested)
+        return "".join(parts)
+
+    if isinstance(content, dict):
+        text_part = content.get("text")
+        if isinstance(text_part, str):
+            return text_part
+        content_part = content.get("content")
+        if isinstance(content_part, str):
+            return content_part
+        if isinstance(content_part, (list, dict)):
+            nested = _extract_text_from_message_content(content_part)
+            if nested:
+                return nested
+        parts_part = content.get("parts")
+        if isinstance(parts_part, (list, dict)):
+            nested = _extract_text_from_message_content(parts_part)
+            if nested:
+                return nested
+
+    return ""
+
+
+def _coerce_tool_result_payload(output: Any) -> Any:
+    """
+    Normalize tool output payload into JSON-friendly objects when possible.
+    """
+    normalized = output
+    if normalized and isinstance(normalized, str):
+        try:
+            normalized = json.loads(normalized)
+        except json.JSONDecodeError:
+            pass
+        if isinstance(normalized, str):
+            try:
+                parsed = ast.literal_eval(normalized)
+                if isinstance(parsed, dict):
+                    normalized = parsed
+            except (ValueError, SyntaxError):
+                pass
+    return normalized
+
+
+def _build_tool_result_event(
+    tool: Any,
+    duration_ms: int | None,
+    normalize_tool_output_fn: Any,
+) -> tuple[dict[str, Any], Any]:
+    """
+    Build frontend ToolResultEvent payload and return parsed tool output.
+    """
+    output = _coerce_tool_result_payload(normalize_tool_output_fn(getattr(tool, "result", None)))
+    event = ToolResultEvent(
+        id=getattr(tool, "tool_call_id", None),
+        name=getattr(tool, "tool_name", "") or "",
+        status="done" if not getattr(tool, "tool_call_error", None) else "error",
+        output=output,
+        durationMs=duration_ms,
+    ).model_dump()
+    return event, output
+
+
+def _build_tool_call_event(tool: Any, text_index: int, include_none: bool = False) -> dict[str, Any]:
+    payload = ToolCallEvent(
+        id=getattr(tool, "tool_call_id", None),
+        name=getattr(tool, "tool_name", "") or "",
+        arguments=json.dumps(getattr(tool, "tool_args", None) or {}),
+        text_index=text_index,
+    )
+    if include_none:
+        return payload.model_dump(by_alias=True, exclude_none=False)
+    return payload.model_dump(by_alias=True)
+
+
 def _normalize_interactive_form_fields(raw_fields: Any) -> list[dict[str, Any]]:
     """
     Normalize interactive_form fields to a strict list[dict].
@@ -481,11 +696,58 @@ def _normalize_interactive_form_fields(raw_fields: Any) -> list[dict[str, Any]]:
         return []
 
     normalized: list[dict[str, Any]] = []
-    for item in parsed:
-        if isinstance(item, dict):
-            normalized.append(item)
-        else:
+    used_names: set[str] = set()
+
+    def _slugify_name(value: Any, fallback_index: int) -> str:
+        base = re.sub(r"[^a-zA-Z0-9_]+", "_", str(value or "").strip().lower()).strip("_")
+        if not base:
+            base = f"field_{fallback_index}"
+        candidate = base
+        suffix = 2
+        while candidate in used_names:
+            candidate = f"{base}_{suffix}"
+            suffix += 1
+        used_names.add(candidate)
+        return candidate
+
+    def _normalize_field_type(value: Any) -> str:
+        candidate = str(value or "").strip().lower()
+        if candidate in {"text", "number", "select", "checkbox", "range"}:
+            return candidate
+        return "text"
+
+    for idx, item in enumerate(parsed, start=1):
+        if isinstance(item, str):
+            label = item.strip()
+            if not label:
+                continue
+            normalized.append(
+                {
+                    "name": _slugify_name(label, idx),
+                    "label": label,
+                    "type": "text",
+                    "required": False,
+                }
+            )
+            continue
+
+        if not isinstance(item, dict):
             logger.warning("interactive_form field item is not dict, skipped: %s", type(item).__name__)
+            continue
+
+        raw_name = item.get("name")
+        raw_label = item.get("label")
+        label = str(raw_label or raw_name or f"Field {idx}").strip() or f"Field {idx}"
+        field_name = _slugify_name(raw_name or label, idx)
+        field_type = _normalize_field_type(item.get("type"))
+
+        normalized_item = dict(item)
+        normalized_item["name"] = field_name
+        normalized_item["label"] = label
+        normalized_item["type"] = field_type
+        normalized_item["required"] = bool(item.get("required", False))
+        normalized.append(normalized_item)
+
     return normalized
 
 
@@ -498,6 +760,12 @@ def _extract_interactive_form_payload(req: Any, default_title: str) -> tuple[str
     title = str(tool_args.get("title") or default_title)
     fields = _normalize_interactive_form_fields(tool_args.get("fields", []))
     return form_id, title, fields
+
+
+def _is_interactive_form_requirement(req: Any) -> bool:
+    tool_exec = getattr(req, "tool_execution", None)
+    tool_name = getattr(tool_exec, "tool_name", None) if tool_exec else None
+    return tool_name == "interactive_form"
 
 class StreamChatService:
     """Stream chat service implemented using Agno Agent streaming events."""
@@ -519,7 +787,7 @@ class StreamChatService:
         # HITL: Check if this is a resumption request
         # ================================================================
         if request.run_id and request.field_values:
-            logger.info(f"Detected HITL resumption request (run_id: {request.run_id})")
+            _log_verbose_info(f"Detected HITL resumption request (run_id: {request.run_id})")
             async for event in self._continue_hitl_run(request):
                 yield event
             return
@@ -666,7 +934,7 @@ class StreamChatService:
             # Inject summary only when history exceeds turn window and request is not rebuild flow.
             should_inject_summary = bool(session_summary_text) and (user_turn_count > turn_limit) and (not should_rebuild_summary)
             if not should_inject_summary and session_summary_text:
-                logger.info(
+                _log_verbose_info(
                     "Skipping session summary injection (within turn window or single-turn rebuild context)."
                 )
                 session_summary_text = None
@@ -710,6 +978,12 @@ class StreamChatService:
             # Stream processing with HITL support
             # ================================================================
             async for run_event in stream:
+                _append_raw_event_log(
+                    phase="main",
+                    request=request,
+                    run_id=getattr(run_event, "run_id", None),
+                    run_event=run_event,
+                )
                 # ============================================================
                 # HITL: Check if agent paused for user input
                 # ============================================================
@@ -720,16 +994,7 @@ class StreamChatService:
                     requirements = getattr(run_event, 'active_requirements', None) or getattr(run_event, 'requirements', None)
 
                     if requirements:
-                        def _is_interactive_form(req: Any) -> bool:
-                            if getattr(req, 'needs_external_execution', False):
-                                tool_exec = getattr(req, 'tool_execution', None)
-                                tool_name = getattr(tool_exec, 'tool_name', None) if tool_exec else None
-                                return tool_name == "interactive_form"
-                            tool_exec = getattr(req, 'tool_execution', None)
-                            tool_name = getattr(tool_exec, 'tool_name', None) if tool_exec else None
-                            return tool_name == "interactive_form"
-
-                        form_requirements = [req for req in requirements if _is_interactive_form(req)]
+                        form_requirements = [req for req in requirements if _is_interactive_form_requirement(req)]
                         if not form_requirements:
                             logger.info("Agent paused without interactive_form; skipping HITL form handling")
                             yield DoneEvent(
@@ -741,6 +1006,26 @@ class StreamChatService:
 
                         # Save to Supabase
                         try:
+                            paused_tools = getattr(run_event, "tools", None) or []
+                            serialized_tools = [
+                                tool.to_dict() if hasattr(tool, "to_dict") else tool
+                                for tool in paused_tools
+                                if tool is not None
+                            ]
+                            serialized_requirements = [
+                                req.to_dict() if hasattr(req, "to_dict") else req
+                                for req in form_requirements
+                            ]
+                            paused_run_output = {
+                                "run_id": getattr(run_event, "run_id", None),
+                                "session_id": getattr(run_event, "session_id", None)
+                                or request.conversation_id,
+                                "user_id": request.user_id,
+                                "messages": messages or [],
+                                "tools": serialized_tools,
+                                "requirements": serialized_requirements,
+                                "status": "PAUSED",
+                            }
                             logger.info(
                                 f"[HITL] Saving pending run_id={run_event.run_id} "
                                 f"with database_provider={request.database_provider}"
@@ -753,6 +1038,7 @@ class StreamChatService:
                                 user_id=request.user_id,
                                 agent_model=request.model,
                                 messages=messages,
+                                run_output=paused_run_output,
                             )
                             if not saved:
                                 raise RuntimeError("Failed to persist HITL pending run")
@@ -806,7 +1092,7 @@ class StreamChatService:
                                 sources=list(sources_map.values()) or None,
                             ).model_dump()
 
-                            logger.info(f"HITL pause successful, waiting for user submission (run_id: {run_event.run_id})")
+                            _log_verbose_info(f"HITL pause successful, waiting for user submission (run_id: {run_event.run_id})")
                             return  # Exit stream, wait for user to submit form
 
                         except Exception as e:
@@ -987,12 +1273,11 @@ class StreamChatService:
                                     tool_call_id=tool.tool_call_id,
                                 )
                                 current_text_index = len(full_content)
-                                yield ToolCallEvent(
-                                    id=tool.tool_call_id,
-                                    name=tool.tool_name or "",
-                                    arguments=json.dumps(tool.tool_args or {}),
-                                    text_index=current_text_index,
-                                ).model_dump(by_alias=True, exclude_none=False)
+                                yield _build_tool_call_event(
+                                    tool,
+                                    current_text_index,
+                                    include_none=True,
+                                )
 
                         case RunEvent.tool_call_completed.value:
                             tool_event: ToolCallCompletedEvent = run_event  # type: ignore[assignment]
@@ -1007,52 +1292,25 @@ class StreamChatService:
                                 duration_ms = None
                                 if tool.tool_call_id and tool.tool_call_id in tool_start_times:
                                     duration_ms = int((time.time() - tool_start_times[tool.tool_call_id]) * 1000)
-                                output = self._normalize_tool_output(tool.result)
                                 trace_stream(
                                     "tool_call_completed",
                                     tool_name=tool.tool_name or "",
                                     tool_call_id=tool.tool_call_id,
                                     is_error=bool(tool.tool_call_error),
                                 )
-                                if output and isinstance(output, str):
-                                    # Try JSON format (double quotes)
-                                    try:
-                                        parsed = json.loads(output)
-                                        output = parsed
-                                    except json.JSONDecodeError:
-                                        pass
-                                    # Try Python repr format (single quotes)
-                                    if isinstance(output, str):
-                                        try:
-                                            parsed = ast.literal_eval(output)
-                                            if isinstance(parsed, dict):
-                                                output = parsed
-                                        except (ValueError, SyntaxError):
-                                            pass
-                                yield ToolResultEvent(
-                                    id=tool.tool_call_id,
-                                    name=tool.tool_name or "",
-                                    status="done" if not tool.tool_call_error else "error",
-                                    output=output,
-                                    durationMs=duration_ms,
-                                ).model_dump()
+                                tool_result_event, output = _build_tool_result_event(
+                                    tool,
+                                    duration_ms,
+                                    self._normalize_tool_output,
+                                )
+                                yield tool_result_event
                                 self._collect_search_sources(output, sources_map)
 
                         case RunEvent.run_completed.value:
-                            # For structured output, Agno provides the parsed model in event.content
-                            agn_content = getattr(run_event, "content", None)
-                            final_content = full_content
-
-                            # Preserve structured output whether it is a Pydantic model or plain dict/list.
-                            output = None
-                            if agn_content and hasattr(agn_content, "model_dump"):
-                                output = agn_content
-                                final_content = json.dumps(agn_content.model_dump())
-                            elif isinstance(agn_content, (dict, list)):
-                                output = agn_content
-                                final_content = json.dumps(agn_content, ensure_ascii=False)
-                            elif isinstance(agn_content, str) and agn_content.strip() and not final_content:
-                                final_content = agn_content
+                            final_content, output = _extract_completed_content_and_output(
+                                run_event,
+                                full_content,
+                            )
 
                             yield DoneEvent(
                                 content=final_content,
@@ -1082,7 +1340,7 @@ class StreamChatService:
                                         new_lines.append(last_user)
                                     new_lines.append({"role": "assistant", "content": final_content})
 
-                                logger.info(f"Triggering async summary update for {request.conversation_id} with {len(new_lines)} messages (rebuild: {should_rebuild_summary}, is_editing: {request.is_editing})")
+                                _log_verbose_info(f"Triggering async summary update for {request.conversation_id} with {len(new_lines)} messages (rebuild: {should_rebuild_summary}, is_editing: {request.is_editing})")
                                 asyncio.create_task(update_session_summary(
                                     conversation_id=request.conversation_id,
                                     old_summary=old_summary_json,
@@ -1155,7 +1413,7 @@ class StreamChatService:
             run_id = request.run_id
             field_values = request.field_values or {}
 
-            logger.info(
+            _log_verbose_info(
                 f"[HITL] Continuing run_id={run_id!r} "
                 f"with database_provider={request.database_provider} "
                 f"and field_values={list(field_values.keys())}"
@@ -1206,11 +1464,21 @@ class StreamChatService:
 
             requirements = None
             saved_messages = None
+            saved_run_output = None
             if isinstance(pending, dict):
                 requirements = pending.get("requirements")
                 saved_messages = pending.get("messages")
+                saved_run_output = pending.get("run_output")
             else:
                 requirements = pending
+
+            _log_verbose_info(
+                "[HITL] loaded pending payload: "
+                f"has_requirements={bool(requirements)}, "
+                f"messages_type={type(saved_messages).__name__ if saved_messages is not None else 'None'}, "
+                f"has_run_output={saved_run_output is not None}, "
+                f"run_output_type={type(saved_run_output).__name__ if saved_run_output is not None else 'None'}"
+            )
 
             if not requirements:
                 logger.error(
@@ -1222,7 +1490,7 @@ class StreamChatService:
 
             # Get agent (same provider as original request)
             agent = get_agent_for_provider(request)
-            logger.info(f"[HITL Continue] Agent instructions: {getattr(agent, 'instructions', None)}")
+            _log_verbose_info(f"[HITL Continue] Agent instructions: {getattr(agent, 'instructions', None)}")
 
             full_content = ""
             full_thought = ""
@@ -1238,6 +1506,11 @@ class StreamChatService:
             paused_again = False  # Flag to prevent cleanup when multi-form chaining occurs
             stream_had_error = False
             completed_content_fallback = ""
+            saw_terminal_completion = False
+            continuation_event_count = 0
+            last_event_name: str | None = None
+            last_event_type: str | None = None
+            last_event_run_id: str | None = None
 
             def trace_stream(stage: str, **kwargs: Any) -> None:
                 if not stream_trace:
@@ -1269,12 +1542,58 @@ class StreamChatService:
                     full_content += clean_text
                     yield TextEvent(content=clean_text).model_dump()
 
+            async def _iterate_run_stream(stream: Any):
+                """
+                Normalize both async and sync Agno run streams into an async iterator.
+                """
+                if hasattr(stream, "__aiter__"):
+                    async for item in stream:
+                        yield item
+                    return
+
+                iterator = iter(stream)
+                sentinel = object()
+                while True:
+                    item = await asyncio.to_thread(lambda: next(iterator, sentinel))
+                    if item is sentinel:
+                        break
+                    yield item
+
             async def _stream_events(stream):
                 nonlocal full_content, full_thought, sources_map, tool_start_times, paused_again, stream_had_error
                 nonlocal in_reasoning_phase, should_break_next_thought, reasoning_closed_for_current_cycle
                 nonlocal in_content_think_block, inline_tool_trace_depth, inline_protocol_tail
-                nonlocal completed_content_fallback
-                async for run_event in stream:
+                nonlocal completed_content_fallback, saw_terminal_completion
+                nonlocal continuation_event_count, last_event_name, last_event_type, last_event_run_id
+                async for run_event in _iterate_run_stream(stream):
+                    _append_raw_event_log(
+                        phase="hitl_continuation",
+                        request=request,
+                        run_id=run_id,
+                        run_event=run_event,
+                    )
+                    continuation_event_count += 1
+                    last_event_type = type(run_event).__name__
+                    last_event_name = str(getattr(run_event, "event", None) or last_event_type)
+                    raw_event_run_id = getattr(run_event, "run_id", None)
+                    last_event_run_id = str(raw_event_run_id) if raw_event_run_id else None
+
+                    # When yield_run_output=True, acontinue_run may yield the final RunOutput object.
+                    # Capture its canonical content as a robust fallback for providers that emit sparse events.
+                    if isinstance(run_event, RunOutput):
+                        saw_terminal_completion = True
+                        completed_content_fallback, _ = _extract_completed_content_and_output(
+                            run_event,
+                            completed_content_fallback or full_content,
+                        )
+                        text_from_output = _extract_text_from_message_content(
+                            getattr(run_event, "content", None)
+                        ).strip()
+                        if text_from_output:
+                            for e in process_text(text_from_output):
+                                yield e
+                        continue
+
                     # HITL Pause Check
                     if hasattr(run_event, 'is_paused') and run_event.is_paused:
                         logger.info(f"Agent paused again during continuation (multi-form chain, run_id: {run_id})")
@@ -1283,17 +1602,7 @@ class StreamChatService:
                         new_requirements = getattr(run_event, 'active_requirements', None) or getattr(run_event, 'requirements', None)
 
                         if new_requirements:
-                            # Filter for interactive_form requirements
-                            def _is_interactive_form(req: Any) -> bool:
-                                if getattr(req, 'needs_external_execution', False):
-                                    tool_exec = getattr(req, 'tool_execution', None)
-                                    tool_name = getattr(tool_exec, 'tool_name', None) if tool_exec else None
-                                    return tool_name == "interactive_form"
-                                tool_exec = getattr(req, 'tool_execution', None)
-                                tool_name = getattr(tool_exec, 'tool_name', None) if tool_exec else None
-                                return tool_name == "interactive_form"
-
-                            form_requirements = [req for req in new_requirements if _is_interactive_form(req)]
+                            form_requirements = [req for req in new_requirements if _is_interactive_form_requirement(req)]
 
                             if form_requirements:
                                 # Save new form requirements (overwrites previous in memory)
@@ -1305,6 +1614,25 @@ class StreamChatService:
                                     user_id=request.user_id,
                                     agent_model=request.model,
                                     messages=saved_messages,  # Reuse saved messages
+                                    run_output=(
+                                        {
+                                            "run_id": getattr(run_event, "run_id", None) or run_id,
+                                            "session_id": getattr(run_event, "session_id", None)
+                                            or request.conversation_id,
+                                            "user_id": request.user_id,
+                                            "messages": saved_messages or [],
+                                            "tools": [
+                                                tool.to_dict() if hasattr(tool, "to_dict") else tool
+                                                for tool in (getattr(run_event, "tools", None) or [])
+                                                if tool is not None
+                                            ],
+                                            "requirements": [
+                                                req.to_dict() if hasattr(req, "to_dict") else req
+                                                for req in form_requirements
+                                            ],
+                                            "status": "PAUSED",
+                                        }
+                                    ),
                                 )
                                 if not saved:
                                     raise RuntimeError("Failed to persist chained HITL pending run")
@@ -1502,12 +1830,7 @@ class StreamChatService:
                                         tool_call_id=tool.tool_call_id,
                                     )
                                     current_text_index = len(full_content)
-                                    yield ToolCallEvent(
-                                        id=tool.tool_call_id,
-                                        name=tool.tool_name or "",
-                                        arguments=json.dumps(tool.tool_args or {}),
-                                        text_index=current_text_index,
-                                    ).model_dump(by_alias=True)
+                                    yield _build_tool_call_event(tool, current_text_index)
 
                             case RunEvent.tool_call_completed.value:
                                 tool_event: ToolCallCompletedEvent = run_event  # type: ignore[assignment]
@@ -1522,50 +1845,26 @@ class StreamChatService:
                                     duration_ms = None
                                     if tool.tool_call_id and tool.tool_call_id in tool_start_times:
                                         duration_ms = int((time.time() - tool_start_times[tool.tool_call_id]) * 1000)
-                                    output = self._normalize_tool_output(tool.result)
                                     trace_stream(
                                         "tool_call_completed",
                                         tool_name=tool.tool_name or "",
                                         tool_call_id=tool.tool_call_id,
                                         is_error=bool(tool.tool_call_error),
                                     )
-                                    if output and isinstance(output, str):
-                                        try:
-                                            import ast
-                                            parsed = json.loads(output)
-                                            output = parsed
-                                        except json.JSONDecodeError:
-                                            pass
-                                        if isinstance(output, str):
-                                            try:
-                                                parsed = ast.literal_eval(output)
-                                                if isinstance(parsed, dict):
-                                                    output = parsed
-                                            except (ValueError, SyntaxError):
-                                                pass
-                                    yield ToolResultEvent(
-                                        id=tool.tool_call_id,
-                                        name=tool.tool_name or "",
-                                        status="done" if not tool.tool_call_error else "error",
-                                        output=output,
-                                        durationMs=duration_ms,
-                                    ).model_dump()
+                                    tool_result_event, output = _build_tool_result_event(
+                                        tool,
+                                        duration_ms,
+                                        self._normalize_tool_output,
+                                    )
+                                    yield tool_result_event
                                     self._collect_search_sources(output, sources_map)
 
                             case RunEvent.run_completed.value:
-                                # Capture final aggregated content as fallback for providers
-                                # that don't stream incremental text in continuation.
-                                agn_content = getattr(run_event, "content", None)
-                                if agn_content and hasattr(agn_content, "model_dump"):
-                                    completed_content_fallback = json.dumps(
-                                        agn_content.model_dump(), ensure_ascii=False
-                                    )
-                                elif isinstance(agn_content, (dict, list)):
-                                    completed_content_fallback = json.dumps(
-                                        agn_content, ensure_ascii=False
-                                    )
-                                elif isinstance(agn_content, str) and agn_content.strip():
-                                    completed_content_fallback = agn_content
+                                saw_terminal_completion = True
+                                completed_content_fallback, _ = _extract_completed_content_and_output(
+                                    run_event,
+                                    completed_content_fallback or full_content,
+                                )
 
                             case RunEvent.run_error.value:
                                 error_msg = _extract_best_error_message(run_event)
@@ -1631,6 +1930,34 @@ class StreamChatService:
                     })
                 return updated_messages
 
+            def _apply_field_values_to_requirements() -> list[Any]:
+                """
+                Resolve pending HITL requirements with the submitted form payload.
+
+                Prefer Agno-native requirement resolution so we can use acontinue_run().
+                """
+                resolved_requirements: list[Any] = []
+                serialized_values = json.dumps(field_values, ensure_ascii=False)
+
+                for req in requirements or []:
+                    try:
+                        if hasattr(req, "needs_external_execution") and req.needs_external_execution:
+                            req.set_external_execution_result(serialized_values)
+                            tool_exec = getattr(req, "tool_execution", None)
+                            if tool_exec is not None and getattr(tool_exec, "result", None) is None:
+                                tool_exec.result = serialized_values
+                        elif hasattr(req, "needs_user_input") and req.needs_user_input:
+                            req.provide_user_input(field_values)
+                        elif hasattr(req, "needs_confirmation") and req.needs_confirmation:
+                            req.confirm()
+                    except Exception as req_err:
+                        logger.warning(
+                            f"[HITL] Failed to resolve requirement {getattr(req, 'id', None)} for run_id={run_id}: {req_err}"
+                        )
+                    resolved_requirements.append(req)
+
+                return resolved_requirements
+
             def _build_continuation_agent_input(base_messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 messages = self._inject_local_time_context(list(base_messages), request, [])
                 system_messages = [m for m in messages if m.get("role") == "system"]
@@ -1667,28 +1994,151 @@ class StreamChatService:
 
                 return system_messages + recent_history
 
-            fallback_messages = _build_fallback_messages()
-            if not fallback_messages:
-                yield ErrorEvent(error="Form session cannot be resumed (missing state)").model_dump()
-                return
+            resolved_requirements = _apply_field_values_to_requirements()
+            stream = None
+            try:
+                restored_run_output = None
+                if isinstance(saved_run_output, dict):
+                    try:
+                        restored_run_output = RunOutput.from_dict(dict(saved_run_output))
+                        # Ensure external-execution tool results are concretely attached to
+                        # run_response.tools before acontinue_run() processes updates.
+                        if restored_run_output and isinstance(restored_run_output.tools, list):
+                            serialized_values = json.dumps(field_values, ensure_ascii=False)
+                            tool_result_by_id: dict[str, Any] = {}
+                            for req in resolved_requirements or []:
+                                tool_exec = getattr(req, "tool_execution", None)
+                                if not tool_exec:
+                                    continue
+                                tcid = getattr(tool_exec, "tool_call_id", None)
+                                if tcid:
+                                    tool_result_by_id[str(tcid)] = getattr(tool_exec, "result", None)
 
-            agent_input = _build_continuation_agent_input(fallback_messages)
-            logger.info(
-                f"Running HITL continuation with rebuilt messages (run_id: {run_id}, session_id: {request.conversation_id})"
-            )
-            stream = agent.arun(
-                input=agent_input,
-                stream=True,
-                stream_events=True,
-                user_id=request.user_id,
-                session_id=request.conversation_id,
-                output_schema=request.output_schema,
-            )
+                            for tool in restored_run_output.tools:
+                                if getattr(tool, "result", None) is not None:
+                                    continue
+                                tcid = getattr(tool, "tool_call_id", None)
+                                if tcid and str(tcid) in tool_result_by_id:
+                                    tool.result = tool_result_by_id[str(tcid)]
+                                    continue
+                                if getattr(tool, "tool_name", None) == "interactive_form":
+                                    tool.result = serialized_values
+
+                        # OpenAI-compatible tool flow requires an assistant message
+                        # with matching tool_calls before any tool message can appear.
+                        if restored_run_output and isinstance(restored_run_output.tools, list):
+                            existing_messages = (
+                                list(restored_run_output.messages)
+                                if isinstance(restored_run_output.messages, list)
+                                else []
+                            )
+                            existing_tool_call_ids: set[str] = set()
+                            for msg in existing_messages:
+                                msg_tool_calls = getattr(msg, "tool_calls", None) or []
+                                for tc in msg_tool_calls:
+                                    if isinstance(tc, dict) and tc.get("id"):
+                                        existing_tool_call_ids.add(str(tc.get("id")))
+
+                            for tool in restored_run_output.tools:
+                                tool_call_id = getattr(tool, "tool_call_id", None)
+                                tool_name = getattr(tool, "tool_name", None) or "interactive_form"
+                                if not tool_call_id or str(tool_call_id) in existing_tool_call_ids:
+                                    continue
+                                tool_args = getattr(tool, "tool_args", None) or {}
+                                existing_messages.append(
+                                    Message(
+                                        role="assistant",
+                                        content="",
+                                        tool_calls=[
+                                            {
+                                                "id": str(tool_call_id),
+                                                "type": "function",
+                                                "function": {
+                                                    "name": str(tool_name),
+                                                    "arguments": json.dumps(tool_args, ensure_ascii=False),
+                                                },
+                                            }
+                                        ],
+                                    )
+                                )
+                                existing_tool_call_ids.add(str(tool_call_id))
+
+                            restored_run_output.messages = existing_messages
+                            if resolved_requirements:
+                                restored_run_output.requirements = resolved_requirements
+                    except Exception as restore_err:
+                        logger.warning(
+                            f"[HITL] Failed to restore RunOutput for run_id={run_id}, fallback to run_id path: {restore_err}"
+                        )
+                _log_verbose_info(
+                    f"[HITL] continuation restore mode: {'run_response' if restored_run_output is not None else 'run_id'} "
+                    f"(has_saved_run_output={isinstance(saved_run_output, dict)})"
+                )
+                _log_verbose_info(
+                    f"Running HITL continuation via continue_run (run_id: {run_id}, session_id: {request.conversation_id})"
+                )
+                if restored_run_output is not None:
+                    stream = agent.continue_run(
+                        run_response=restored_run_output,
+                        stream=True,
+                        stream_events=True,
+                        yield_run_output=True,
+                        user_id=request.user_id,
+                        session_id=request.conversation_id,
+                        output_schema=request.output_schema,
+                    )
+                else:
+                    stream = agent.continue_run(
+                        run_id=run_id,
+                        requirements=resolved_requirements,
+                        stream=True,
+                        stream_events=True,
+                        yield_run_output=True,
+                        user_id=request.user_id,
+                        session_id=request.conversation_id,
+                        output_schema=request.output_schema,
+                    )
+            except Exception as continue_err:
+                logger.warning(
+                    f"[HITL] continue_run failed for run_id={run_id}, fallback to rebuilt arun: {continue_err}"
+                )
+                fallback_messages = _build_fallback_messages()
+                if not fallback_messages:
+                    yield ErrorEvent(error="Form session cannot be resumed (missing state)").model_dump()
+                    return
+                agent_input = _build_continuation_agent_input(fallback_messages)
+                stream = agent.arun(
+                    input=agent_input,
+                    stream=True,
+                    stream_events=True,
+                    user_id=request.user_id,
+                    session_id=request.conversation_id,
+                    output_schema=request.output_schema,
+                )
+
             async for event in _stream_events(stream):
                 yield event
 
+            _log_verbose_info(
+                "[HITL] continuation stream summary: "
+                f"run_id={run_id}, "
+                f"events={continuation_event_count}, "
+                f"last_event={last_event_name}, "
+                f"last_event_type={last_event_type}, "
+                f"last_event_run_id={last_event_run_id}, "
+                f"saw_terminal_completion={saw_terminal_completion}, "
+                f"stream_had_error={stream_had_error}, "
+                f"paused_again={paused_again}"
+            )
+
             if stream_had_error:
                 logger.warning(f"HITL run {run_id} ended with stream error; skipping done/cleanup")
+                return
+            if not saw_terminal_completion:
+                logger.warning(
+                    f"HITL run {run_id} stream ended without terminal completion event; skipping done/cleanup"
+                )
+                yield ErrorEvent(error="HITL continuation ended before completion").model_dump()
                 return
 
             # Stream completed, send done event
@@ -1736,7 +2186,7 @@ class StreamChatService:
                 # Add the new assistant response (based on form data)
                 summary_messages.append({"role": "assistant", "content": full_content})
 
-                logger.info(f"Triggering async summary update for {request.conversation_id} (Resumed HITL flow, {len(summary_messages)} messages)")
+                _log_verbose_info(f"Triggering async summary update for {request.conversation_id} (Resumed HITL flow, {len(summary_messages)} messages)")
                 asyncio.create_task(update_session_summary(
                     conversation_id=request.conversation_id,
                     old_summary=old_summary_json,
@@ -1871,6 +2321,11 @@ class StreamChatService:
                 "CRITICAL: DO NOT list questions in text or markdown. YOU MUST USE the 'interactive_form' tool to "
                 "display fields.\n"
                 "Keep forms concise (3-6 fields).\n\n"
+                "[SIMPLIFIED PAYLOAD]\n"
+                "You may use a minimal payload to reduce tool-call size.\n"
+                "- 'id' and 'title' are optional.\n"
+                "- Each field may be minimal (e.g., {'name':'budget'}) or even a short string label.\n"
+                "- Backend will auto-fill missing label/type defaults.\n\n"
                 "[MANDATORY TEXT-FIRST RULE]\n"
                 "CRITICAL: You MUST output meaningful introductory text BEFORE calling 'interactive_form'.\n"
                 "- NEVER call 'interactive_form' as the very first thing in your response\n"

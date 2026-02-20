@@ -226,6 +226,7 @@ def _build_tools(request: Any) -> list[Any]:
     enabled_names = set(_collect_enabled_tool_names(request))
     if not enabled_names and not request.user_tools:
         return []
+    serpapi_api_key = getattr(request, "serpapi_api_key", None)
 
     local_tool_names = {tool["name"] for tool in LOCAL_TOOLS}
     include_local = sorted([name for name in enabled_names if name in local_tool_names])
@@ -255,7 +256,7 @@ def _build_tools(request: Any) -> list[Any]:
         serpapi_video_tools = {"search_youtube"}
 
         default_tools = default_image_tools | default_video_tools
-        if request.serpapi_api_key:
+        if serpapi_api_key:
             default_tools = default_tools | serpapi_image_tools | serpapi_video_tools
 
         include_agno = sorted(list(set(include_agno) | default_tools))
@@ -284,6 +285,7 @@ def _build_tools(request: Any) -> list[Any]:
 def _build_agno_toolkits(request: Any, include_agno: list[str]) -> list[Any]:
     toolkits: list[Any] = []
     include_set = set(include_agno)
+    serpapi_api_key = getattr(request, "serpapi_api_key", None)
 
     tavily_tools = {"web_search_using_tavily", "web_search_with_tavily", "extract_url_content"}
     if include_set.intersection(tavily_tools):
@@ -364,10 +366,10 @@ def _build_agno_toolkits(request: Any, include_agno: list[str]) -> list[Any]:
         }
         serpapi_include = sorted([name for name in include_set if name in serpapi_tools])
         # Only add SerpApi tools if API key is available
-        if serpapi_include and request.serpapi_api_key:
+        if serpapi_include and serpapi_api_key:
             toolkits.append(
                 SerpApiImageTools(
-                    api_key=request.serpapi_api_key, include_tools=serpapi_include
+                    api_key=serpapi_api_key, include_tools=serpapi_include
                 )
             )
 
@@ -381,7 +383,7 @@ def _build_agno_toolkits(request: Any, include_agno: list[str]) -> list[Any]:
             toolkits.append(DuckDuckGoVideoTools(include_tools=["duckduckgo_video_search"]))
 
         # YouTube Search via SerpApi - only add if API key is configured
-        if "search_youtube" in include_set and request.serpapi_api_key:
+        if "search_youtube" in include_set and serpapi_api_key:
             try:
                 from agno.tools.serpapi import SerpApiTools as AgnoSerpApiTools
             except Exception:
@@ -389,7 +391,7 @@ def _build_agno_toolkits(request: Any, include_agno: list[str]) -> list[Any]:
             if AgnoSerpApiTools:
                 toolkits.append(
                     AgnoSerpApiTools(
-                        api_key=request.serpapi_api_key,
+                        api_key=serpapi_api_key,
                         enable_search_google=False,
                         enable_search_youtube=True,
                     )

@@ -23,6 +23,8 @@ except Exception:  # pragma: no cover - backward compatibility only
 
 from .academic_domains import ACADEMIC_DOMAINS
 
+FIXED_SEARCH_MAX_RESULTS = 5
+
 
 def _tool_timeout_seconds(default: float = 20.0) -> float:
     raw = os.getenv("QURIO_TOOL_TIMEOUT_SECONDS", str(default))
@@ -71,21 +73,27 @@ def _create_ddgs_client() -> Any:
     description=(
         "Display an interactive form to collect structured user input. "
         "This tool will pause execution and wait for user to submit the form. "
-        "CRITICAL: Every field object in the 'fields' array MUST be fully populated with 'name', 'label', and 'type'. "
-        "Do NOT return empty objects."
+        "Use concise payloads: fields can be minimal and backend will fill defaults. "
+        "At minimum provide a field name (or a short field label string)."
     )
 )
-def interactive_form(id: str, title: str, fields: list[dict[str, Any]]) -> str:
+def interactive_form(
+    fields: list[dict[str, Any]] | list[str],
+    id: str | None = None,
+    title: str | None = None,
+    description: str | None = None,
+) -> str:
     """
     Display an interactive form to collect user input.
     
     Args:
-        id: Unique identifier for the form
-        title: Form title displayed to the user
+        id: Optional identifier for the form
+        title: Optional form title displayed to the user
+        description: Optional form description
         fields: List of form fields, each containing:
-            - name (str): Field identifier (required)
-            - label (str): Display label for the field (required)
-            - type (str): Field type - text, number, select, checkbox, range (required)
+            - name (str): Field identifier (preferred)
+            - label (str): Display label (optional)
+            - type (str): text, number, select, checkbox, range (optional)
             - required (bool): Whether field is required (optional)
             - placeholder (str): Placeholder text (optional)
             - options (list[str]): Options for select fields (optional)
@@ -105,21 +113,20 @@ class DuckDuckGoImageTools(Toolkit):
         )
 
     @tool
-    def duckduckgo_image_search(self, query: str, max_results: int = 5) -> str:
+    def duckduckgo_image_search(self, query: str) -> str:
         """
         Search for images using DuckDuckGo. Returns a list of image results with titles and URLs.
 
         Args:
             query (str): The search query.
-            max_results (int): The maximum number of results to return (default 5).
-
         Returns:
             str: JSON string containing the image results.
         """
+        limit = FIXED_SEARCH_MAX_RESULTS
         try:
             def _search():
                 with _create_ddgs_client() as ddgs:
-                    results = ddgs.images(query, max_results=max_results)
+                    results = ddgs.images(query, max_results=limit)
                     return [
                         {
                             "title": r.get("title"),
@@ -151,21 +158,20 @@ class DuckDuckGoVideoTools(Toolkit):
         )
 
     @tool
-    def duckduckgo_video_search(self, query: str, max_results: int = 5) -> str:
+    def duckduckgo_video_search(self, query: str) -> str:
         """
         Search for videos using DuckDuckGo. Returns a list of video results with titles, URLs, and thumbnails.
 
         Args:
             query (str): The search query.
-            max_results (int): The maximum number of results to return (default 5).
-
         Returns:
             str: JSON string containing the video results with title, url, thumbnail, source, duration.
         """
+        limit = FIXED_SEARCH_MAX_RESULTS
         try:
             def _search():
                 with _create_ddgs_client() as ddgs:
-                    results = ddgs.videos(query, max_results=max_results)
+                    results = ddgs.videos(query, max_results=limit)
                     return [
                         {
                             "title": r.get("title"),
@@ -201,9 +207,9 @@ class DuckDuckGoWebSearchTools(Toolkit):
         )
 
     @tool
-    def web_search(self, query: str, max_results: int = 5) -> str:
+    def web_search(self, query: str) -> str:
         q = str(query or "").strip()
-        limit = max(1, min(int(max_results or 5), 20))
+        limit = FIXED_SEARCH_MAX_RESULTS
         if not q:
             return json.dumps({"query": q, "results": [], "error": "Missing query"}, ensure_ascii=False)
         try:
@@ -233,9 +239,9 @@ class DuckDuckGoWebSearchTools(Toolkit):
             return json.dumps({"query": q, "results": [], "error": str(exc)}, ensure_ascii=False)
 
     @tool
-    def search_news(self, query: str, max_results: int = 5) -> str:
+    def search_news(self, query: str) -> str:
         q = str(query or "").strip()
-        limit = max(1, min(int(max_results or 5), 20))
+        limit = FIXED_SEARCH_MAX_RESULTS
         if not q:
             return json.dumps({"query": q, "results": [], "error": "Missing query"}, ensure_ascii=False)
         try:
@@ -280,32 +286,29 @@ class SerpApiImageTools(Toolkit):
         )
 
     @tool
-    async def google_image_search(self, query: str, max_results: int = 5) -> str:
+    async def google_image_search(self, query: str) -> str:
         """
         Search for images on Google using SerpApi. Returns a list of image results with titles and URLs.
 
         Args:
             query (str): The search query.
-            max_results (int): The maximum number of results to return (default 5).
-
         Returns:
             str: JSON string containing the image results.
         """
-        return await self._serpapi_search(query, engine="google_images", max_results=max_results)
+        return await self._serpapi_search(query, engine="google_images")
 
     @tool
-    async def bing_image_search(self, query: str, max_results: int = 5) -> str:
+    async def bing_image_search(self, query: str) -> str:
         """
         Search for images on Bing using SerpApi.
 
         Args:
             query (str): The search query.
-            max_results (int): The maximum number of results to return.
         """
-        return await self._serpapi_search(query, engine="bing_images", max_results=max_results)
+        return await self._serpapi_search(query, engine="bing_images")
 
     @tool
-    async def serpapi_image_search(self, query: str, engine: str = "google_images", max_results: int = 5) -> str:
+    async def serpapi_image_search(self, query: str, engine: str = "google_images") -> str:
         """
         Search for images using various engines via SerpApi.
         Supported engines include: google_images, bing_images, yahoo_images.
@@ -313,17 +316,16 @@ class SerpApiImageTools(Toolkit):
         Args:
             query (str): The search query.
             engine (str): The search engine to use (default: google_images).
-            max_results (int): The maximum number of results to return (default 5).
-
         Returns:
             str: JSON string containing the image results.
         """
-        return await self._serpapi_search(query, engine=engine, max_results=max_results)
+        return await self._serpapi_search(query, engine=engine)
 
-    async def _serpapi_search(self, query: str, engine: str, max_results: int) -> str:
+    async def _serpapi_search(self, query: str, engine: str) -> str:
         """
         Internal helper for SerpApi search logic.
         """
+        limit = FIXED_SEARCH_MAX_RESULTS
         api_key = self._api_key or os.getenv("SERPAPI_API_KEY")
         if not api_key:
             return "Error: SerpApi API key not configured."
@@ -344,7 +346,7 @@ class SerpApiImageTools(Toolkit):
                 # Most SerpApi image engines use 'images_results'
                 results = data.get("images_results", [])
                 output = []
-                for r in results[:max_results]:
+                for r in results[:limit]:
                     # Harmonize different engine result structures if necessary
                     # For google_images, it's 'original' or 'thumbnail'
                     # For others, it's usually 'original' or 'thumbnail' as well
@@ -480,7 +482,8 @@ class QurioLocalTools(Toolkit):
             }
 
     @tool(name="Tavily_web_search", description="Search the web for current information using Tavily API.")
-    async def tavily_web_search(self, query: str, max_results: int = 5) -> dict[str, Any]:
+    async def tavily_web_search(self, query: str) -> dict[str, Any]:
+        limit = FIXED_SEARCH_MAX_RESULTS
         api_key = self._resolve_tavily_api_key()
         if not api_key:
             raise ValueError("Tavily API key not configured.")
@@ -489,7 +492,7 @@ class QurioLocalTools(Toolkit):
             "query": query,
             "search_depth": "basic",
             "include_answer": True,
-            "max_results": max_results,
+            "max_results": limit,
         }
         async with httpx.AsyncClient(timeout=30.0) as client:
             try:
@@ -520,7 +523,12 @@ class QurioLocalTools(Toolkit):
         name="Tavily_academic_search",
         description="Search academic sources using Tavily API with advanced depth.",
     )
-    async def tavily_academic_search(self, query: str, max_results: int = 5) -> dict[str, Any]:
+    async def tavily_academic_search(self, query: str, min_score: float = 0.9) -> dict[str, Any]:
+        limit = FIXED_SEARCH_MAX_RESULTS
+        try:
+            score_threshold = float(min_score)
+        except Exception:
+            score_threshold = 0.9
         api_key = self._resolve_tavily_api_key()
         if not api_key:
             raise ValueError("Tavily API key not configured.")
@@ -530,7 +538,7 @@ class QurioLocalTools(Toolkit):
             "search_depth": "advanced",
             "include_domains": ACADEMIC_DOMAINS,
             "include_answer": True,
-            "max_results": max_results,
+            "max_results": limit,
         }
         async with httpx.AsyncClient(timeout=30.0) as client:
             try:
@@ -556,8 +564,10 @@ class QurioLocalTools(Toolkit):
                     "score": item.get("score"),
                 }
                 for item in data.get("results", []) or []
+                if float(item.get("score") or 0.0) > score_threshold
             ],
             "query_type": "academic",
+            "min_score": score_threshold,
         }
 
     def _split_sentences(self, text: str) -> list[str]:

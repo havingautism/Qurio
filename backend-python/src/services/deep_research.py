@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import ast
 import json
+import os
 import uuid
 from collections.abc import AsyncGenerator
 from types import SimpleNamespace
@@ -31,6 +32,20 @@ from ..services.stream_chat import get_stream_chat_service
 from .agent_registry import build_agent
 from .llm_utils import safe_json_parse
 from .research_plan import generate_academic_research_plan, generate_research_plan
+
+TAVILY_KEY_REQUIRED_TOOLS = {
+    "Tavily_web_search",
+    "Tavily_academic_search",
+    "web_search_using_tavily",
+    "web_search_with_tavily",
+    "extract_url_content",
+}
+SERPAPI_KEY_REQUIRED_TOOLS = {
+    "search_youtube",
+    "google_image_search",
+    "bing_image_search",
+    "serpapi_image_search",
+}
 
 
 def parse_plan(plan_text: str | None) -> dict[str, Any]:
@@ -138,6 +153,7 @@ def _create_step_agent(
     frequency_penalty: float | None,
     presence_penalty: float | None,
     tavily_api_key: str | None,
+    serpapi_api_key: str | None,
     research_type: str,
 ) -> Agent:
     """
@@ -200,6 +216,7 @@ Assumptions:
         base_url=base_url,
         model=model,
         tavily_api_key=tavily_api_key,
+        serpapi_api_key=serpapi_api_key,
         temperature=temperature,
         top_p=top_p,
         top_k=top_k,
@@ -235,6 +252,7 @@ def build_research_workflow(
     frequency_penalty: float | None,
     presence_penalty: float | None,
     tavily_api_key: str | None,
+    serpapi_api_key: str | None,
     research_type: str,
     sequential_research: bool = False,
     concurrency_limit: int | None = None,
@@ -272,6 +290,7 @@ def build_research_workflow(
                 frequency_penalty=frequency_penalty,
                 presence_penalty=presence_penalty,
                 tavily_api_key=tavily_api_key,
+                serpapi_api_key=serpapi_api_key,
                 research_type=research_type,
             )
             action = step_data.get("action") or f"Research Step {step_number}"
@@ -319,6 +338,7 @@ def build_research_workflow(
                 frequency_penalty=frequency_penalty,
                 presence_penalty=presence_penalty,
                 tavily_api_key=tavily_api_key,
+                serpapi_api_key=serpapi_api_key,
                 research_type=research_type,
             )
 
@@ -782,8 +802,20 @@ async def stream_deep_research(params: dict[str, Any]) -> AsyncGenerator[dict[st
     research_type = params.get("researchType") or params.get("research_type") or "general"
     search_provider = params.get("search_provider") or params.get("searchProvider")
     tavily_api_key = params.get("tavily_api_key") or params.get("tavilyApiKey")
+    serpapi_api_key = params.get("serpapi_api_key") or params.get("serpapiApiKey")
     sequential_research = params.get("sequentialResearch") or params.get("sequential_research") or False
     concurrency_limit = params.get("concurrencyLimit") or params.get("concurrency_limit")
+
+    has_tavily_api_key = bool(
+        str(tavily_api_key or "").strip()
+        or os.getenv("TAVILY_API_KEY")
+        or os.getenv("PUBLIC_TAVILY_API_KEY")
+    )
+    has_serpapi_api_key = bool(
+        str(serpapi_api_key or "").strip()
+        or os.getenv("SERPAPI_API_KEY")
+        or os.getenv("PUBLIC_SERPAPI_API_KEY")
+    )
 
     service = get_stream_chat_service()
 
@@ -800,10 +832,11 @@ async def stream_deep_research(params: dict[str, Any]) -> AsyncGenerator[dict[st
         # - Arxiv (preprints and papers)
         # - Wikipedia (encyclopedic knowledge)
         search_tool_ids = [
-            "Tavily_academic_search",
             "search_arxiv_and_return_articles",
             "search_wikipedia",
         ]
+        if has_tavily_api_key:
+            search_tool_ids.insert(0, "Tavily_academic_search")
     else:
         # For general deep research, provide ALL search tools
         # - web_search: DuckDuckGo/Google/Bing/Brave/Yandex/Yahoo
@@ -815,13 +848,28 @@ async def stream_deep_research(params: dict[str, Any]) -> AsyncGenerator[dict[st
         search_tool_ids = [
             "web_search",
             "search_news",
-            "Tavily_web_search",
-            "Tavily_academic_search",
             "search_arxiv_and_return_articles",
             "search_wikipedia",
         ]
-    
+        if has_tavily_api_key:
+            search_tool_ids.extend(["Tavily_web_search", "Tavily_academic_search"])
+
     combined_tool_ids = list({*tool_ids, *search_tool_ids})
+    filtered_tool_ids = [
+        tool_id
+        for tool_id in combined_tool_ids
+        if (
+            (tool_id not in TAVILY_KEY_REQUIRED_TOOLS or has_tavily_api_key)
+            and (tool_id not in SERPAPI_KEY_REQUIRED_TOOLS or has_serpapi_api_key)
+        )
+    ]
+    removed_tool_ids = sorted(set(combined_tool_ids) - set(filtered_tool_ids))
+    if removed_tool_ids:
+        logger.info(
+            "Deep research disabled tools due to missing API keys: %s",
+            ", ".join(removed_tool_ids),
+        )
+    combined_tool_ids = filtered_tool_ids
 
 
 
@@ -863,6 +911,7 @@ async def stream_deep_research(params: dict[str, Any]) -> AsyncGenerator[dict[st
         frequency_penalty=frequency_penalty,
         presence_penalty=presence_penalty,
         tavily_api_key=tavily_api_key,
+        serpapi_api_key=serpapi_api_key,
         research_type=research_type,
         sequential_research=sequential_research,
         concurrency_limit=concurrency_limit,
@@ -970,4 +1019,3 @@ async def stream_deep_research(params: dict[str, Any]) -> AsyncGenerator[dict[st
         "content": report_content,  # Use report_content instead of full_content
         "sources": list(sources_map.values()) or None,
     }
-

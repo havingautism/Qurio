@@ -900,7 +900,9 @@ async def generate_related_questions(
         {
             "role": "user",
             "content": (
-                "Based on our conversation, suggest 3 short, relevant follow-up questions I might ask. "
+                "Based on our conversation, suggest 3 short, relevant follow-up questions I (the user) might ask you next. "
+                "The questions MUST be from the user's perspective (e.g., 'How does X work?', 'Tell me more about Y'). "
+                "Do NOT generate questions from the assistant's perspective (e.g., 'Do you want to know about...?'). "
                 "Return the result as JSON with a 'questions' key containing the array of strings."
             ),
         },

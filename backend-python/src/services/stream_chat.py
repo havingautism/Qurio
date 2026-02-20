@@ -2313,6 +2313,25 @@ class StreamChatService:
         updated = list(messages)
         system_index = next((i for i, m in enumerate(updated) if m.get("role") == "system"), -1)
 
+        no_tool_narration_guidance = (
+            "\n\n[FINAL ANSWER WRITING CONTRACT]\n"
+            "You may use tools, but NEVER narrate tool usage in the final answer body.\n"
+            "Forbidden in final answer:\n"
+            "- \"I will use/call/search/check ...\"\n"
+            "- \"Let me search/check first ...\"\n"
+            "- \"According to tool output/tool results ...\"\n"
+            "- Mentioning tool names or execution actions.\n"
+            "Required style in final answer:\n"
+            "- Write result-first prose only (facts, conclusions, steps, recommendations).\n"
+            "- Use neutral evidence phrasing like \"Based on available information/data ...\".\n"
+            "- Keep process/tool traces in tool/thinking channels, not in final answer text.\n"
+            "Exception:\n"
+            "- If user input is required, you may ask for information and show an interactive form, "
+            "but still do not mention tool names."
+        )
+        updated = self._append_system_message(updated, no_tool_narration_guidance, system_index)
+        system_index = next((i for i, m in enumerate(updated) if m.get("role") == "system"), -1)
+
         if "interactive_form" in enabled_tools:
             form_guidance = (
                 "\n[TOOL USE GUIDANCE]\n"

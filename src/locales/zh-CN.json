@@ -1061,6 +1061,9 @@
   },
   "messageBubble": {
     "workflow": "工作流",
+    "completedAnswer": "完成回答，用时 {{duration}} 秒",
+    "organizedSources": "整理参考来源",
+    "finalAnswerStep": "生成最终回答",
     "expertPlan": "专家计划",
     "workflowToolCalling": "{{tool}} 调用中",
     "deepThinking": "已深度思考",

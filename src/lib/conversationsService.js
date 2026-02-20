@@ -120,7 +120,10 @@ export const listConversations = async (options = {}) => {
     .order(sortBy, { ascending })
 
   if (!expertIdsError && Array.isArray(expertIds) && expertIds.length > 0) {
-    query = query.not('id', 'in', `(${expertIds.join(',')})`)
+    const normalizedExpertIds = expertIds.map(_sanitizeInFilterValue).filter(Boolean)
+    if (normalizedExpertIds.length > 0) {
+      query = query.or(`id.is.null,id.not.in.(${normalizedExpertIds.join(',')})`)
+    }
   }
 
   // Handle Search
@@ -241,13 +244,15 @@ export const listBookmarkedConversations = async (options = {}) => {
     .limit(limit)
 
   if (!expertIdsError && Array.isArray(expertIds) && expertIds.length > 0) {
-    query = query.not('id', 'in', `(${expertIds.join(',')})`)
+    const normalizedExpertIds = expertIds.map(_sanitizeInFilterValue).filter(Boolean)
+    if (normalizedExpertIds.length > 0) {
+      query = query.or(`id.is.null,id.not.in.(${normalizedExpertIds.join(',')})`)
+    }
   }
 
   if (Array.isArray(excludeSpaceIds) && excludeSpaceIds.length > 0) {
     const normalized = excludeSpaceIds.map(String).filter(Boolean)
     if (normalized.length > 0) {
-      const filter = `(${normalized.map(id => `"${id}"`).join(',')})`
       query = query.or(`space_id.is.null,space_id.not.in.(${normalized.join(',')})`)
     }
   }

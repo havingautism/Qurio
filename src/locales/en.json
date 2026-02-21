@@ -1107,6 +1107,11 @@
     "edit": "Edit",
     "copy": "Copy",
     "regenerate": "Regenerate",
+    "webSearch": "Web Search",
+    "searchFound": "Found {{count}} results",
+    "statusSearching": "Searching...",
+    "statusCallingTools": "Calling tools...",
+    "statusThinking": "Thinking...",
 
     "analyzing": "Analyzing",
     "workingThroughIt": "Working through it",

@@ -1099,6 +1099,11 @@
     "edit": "编辑",
     "copy": "复制",
     "regenerate": "重新生成",
+    "webSearch": "网络搜索",
+    "searchFound": "找到 {{count}} 条结果",
+    "statusSearching": "正在搜索...",
+    "statusCallingTools": "正在调用工具...",
+    "statusThinking": "正在思考分析...",
 
     "analyzing": "分析中",
     "workingThroughIt": "正在推理",

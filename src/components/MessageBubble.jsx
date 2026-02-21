@@ -2203,6 +2203,9 @@ const MessageBubble = ({
       if (!targetStep._toolKeys.has(key)) {
         targetStep._toolKeys.add(key)
         targetStep.items.push(tool)
+        if (typeof tool.durationMs === 'number') {
+          targetStep.durationMs = (targetStep.durationMs || 0) + tool.durationMs
+        }
         const query = parseToolQuery(tool)
         if (query && !targetStep._querySet.has(query)) {
           targetStep._querySet.add(query)
@@ -2260,6 +2263,7 @@ const MessageBubble = ({
               items: [],
               queries: [],
               sources: [],
+              durationMs: 0,
               _toolKeys: new Set(),
               _querySet: new Set(),
             }
@@ -3126,9 +3130,11 @@ const MessageBubble = ({
               {isStreaming
                 ? (() => {
                     const lastStep = processSteps[processSteps.length - 1]
-                    if (lastStep?.kind === 'search') return '正在搜索...'
-                    if (lastStep?.kind === 'tools') return '正在调用工具...'
-                    return '正在思考分析...'
+                    if (lastStep?.kind === 'search')
+                      return t('messageBubble.statusSearching', '正在搜索...')
+                    if (lastStep?.kind === 'tools')
+                      return t('messageBubble.statusCallingTools', '正在调用工具...')
+                    return t('messageBubble.statusThinking', '正在思考分析...')
                   })()
                 : t('messageBubble.completedAnswer', { duration: processDurationSec })}
             </span>
@@ -3225,8 +3231,28 @@ const MessageBubble = ({
                         <Search size={16} />
                       </div>
 
-                      <div className="mb-2 text-lg font-semibold text-gray-700 dark:text-gray-200">
-                        {t('messageBubble.webSearch', '正在搜索')}
+                      <div className="mb-2 flex items-center justify-between text-lg font-semibold text-gray-700 dark:text-gray-200">
+                        <div className="flex items-center gap-2">
+                          {(() => {
+                            const isActive = isStreaming && idx === processSteps.length - 1
+                            if (isActive) return t('messageBubble.statusSearching', '正在搜索...')
+                            const count = step.sources?.length || 0
+                            return t('messageBubble.searchFound', { count })
+                          })()}
+                        </div>
+                        {(() => {
+                          const isActive = isStreaming && idx === processSteps.length - 1
+                          if (!isActive && typeof step.durationMs === 'number') {
+                            return (
+                              <span className="shrink-0 text-xs font-normal text-gray-500 dark:text-gray-400">
+                                {t('messageBubble.toolDuration', {
+                                  duration: (step.durationMs / 1000).toFixed(1),
+                                })}
+                              </span>
+                            )
+                          }
+                          return null
+                        })()}
                       </div>
 
                       <div className="text-base leading-relaxed text-gray-600 dark:text-gray-300">

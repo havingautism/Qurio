@@ -233,9 +233,9 @@ function App() {
       const settings = loadSettings()
       const fontSizeMap = {
         small: '14px',
-        medium: '16px',
-        large: '18px',
-        'extra-large': '20px',
+        medium: '15px',
+        large: '17px',
+        'extra-large': '19px',
       }
       if (settings.fontSize && fontSizeMap[settings.fontSize]) {
         document.documentElement.style.setProperty(
@@ -867,9 +867,33 @@ function App() {
 
     // Listen for conversation changes
     const handleConversationsChanged = () => loadConversations()
+    const handleConversationPatched = event => {
+      const patch = event?.detail || {}
+      const id = patch?.id ? String(patch.id) : ''
+      if (!id) return
+      const { id: _, ...rest } = patch
+      const hasPatchFields = Object.keys(rest).length > 0
+      if (!hasPatchFields) return
+      setConversations(prev => {
+        const nowIso = new Date().toISOString()
+        let found = false
+        const next = (prev || []).map(conv => {
+          if (String(conv?.id) !== id) return conv
+          found = true
+          return {
+            ...conv,
+            ...rest,
+            updated_at: rest.updated_at || nowIso,
+          }
+        })
+        return found ? next : prev
+      })
+    }
     window.addEventListener('conversations-changed', handleConversationsChanged)
+    window.addEventListener('conversation-patched', handleConversationPatched)
     return () => {
       window.removeEventListener('conversations-changed', handleConversationsChanged)
+      window.removeEventListener('conversation-patched', handleConversationPatched)
     }
   }, [])
 

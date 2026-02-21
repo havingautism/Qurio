@@ -3301,7 +3301,7 @@ const MessageBubble = ({
                               {renderToolQueryPreview(item, 'truncate opacity-80')}
                             </div>
                             {typeof item.durationMs === 'number' && (
-                              <span className="shrink-0 text-xs text-gray-500 dark:text-gray-400">
+                              <span className="shrink-0 text-xs! text-gray-500 dark:text-gray-400">
                                 {t('messageBubble.toolDuration', {
                                   duration: (item.durationMs / 1000).toFixed(2),
                                 })}

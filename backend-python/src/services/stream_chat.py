@@ -2314,20 +2314,12 @@ class StreamChatService:
         system_index = next((i for i, m in enumerate(updated) if m.get("role") == "system"), -1)
 
         no_tool_narration_guidance = (
-            "\n\n[FINAL ANSWER WRITING CONTRACT]\n"
-            "You may use tools, but NEVER narrate tool usage in the final answer body.\n"
-            "Forbidden in final answer:\n"
-            "- \"I will use/call/search/check ...\"\n"
-            "- \"Let me search/check first ...\"\n"
-            "- \"According to tool output/tool results ...\"\n"
-            "- Mentioning tool names or execution actions.\n"
-            "Required style in final answer:\n"
-            "- Write result-first prose only (facts, conclusions, steps, recommendations).\n"
-            "- Use neutral evidence phrasing like \"Based on available information/data ...\".\n"
-            "- Keep process/tool traces in tool/thinking channels, not in final answer text.\n"
-            "Exception:\n"
-            "- If user input is required, you may ask for information and show an interactive form, "
-            "but still do not mention tool names."
+            "\n\n[OUTPUT DIRECTIVES]\n"
+            "1. The main text (Answer) must ONLY contain the final helpful content and necessary explanations for the user.\n"
+            "2. NEVER describe in the main text that you are going to, are currently, or have already called any tools, searched, browsed, retrieved memory, or queried databases. These are internal traces (Trace).\n"
+            "3. If you need to cite sources, just say 'According to available data / Based on public information / According to the returned data'. Never mention tool names or the calling process.\n"
+            "4. If the information is insufficient, directly state the gap and ask questions in the main text. NEVER say 'Let me check' or 'I will search again'.\n"
+            "5. If a form is needed, transition naturally to it without mentioning the tool name."
         )
         updated = self._append_system_message(updated, no_tool_narration_guidance, system_index)
         system_index = next((i for i, m in enumerate(updated) if m.get("role") == "system"), -1)

@@ -10,6 +10,7 @@ import {
   RotateCcw,
   ChevronDown,
   ChevronRight,
+  ChevronUp,
   Link,
   Copy,
   Pencil,
@@ -45,6 +46,7 @@ import { TOOL_TRANSLATION_KEYS, TOOL_ICONS } from '../lib/toolConstants'
 import { splitTextWithUrls } from '../lib/urlHighlight'
 import { normalizeExpertBrokenTokenLines } from '../lib/chat/expertTextUtils'
 import DesktopSourcesSection from './DesktopSourcesSection'
+import DesktopSourcesSheet from './DesktopSourcesSheet'
 import DotLoader from './DotLoader'
 import EmojiDisplay from './EmojiDisplay'
 import InteractiveForm from './InteractiveForm'
@@ -277,6 +279,66 @@ const ToolEnter = ({ children, className }) => {
  * MessageBubble component that directly accesses messages from chatStore via index
  * Reduces props drilling and improves component independence
  */
+
+const SearchSourcesList = React.memo(({ sources }) => {
+  const { t } = useTranslation()
+  const [isExpanded, setIsExpanded] = useState(false)
+
+  if (!sources || sources.length === 0) return null
+
+  // Decide threshold, e.g., 6 items
+  const THRESHOLD = 6
+  const hasMore = sources.length > THRESHOLD
+  const displaySources = isExpanded ? sources : sources.slice(0, THRESHOLD)
+
+  return (
+    <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+      {displaySources.map((src, sIdx) => {
+        const url = src?.url || src?.uri || src?.link || src?.href || ''
+        let hostname = t('sources.source')
+        try {
+          hostname = new URL(url).hostname.replace(/^www\./, '')
+        } catch (e) {}
+        return (
+          <a
+            key={`src-${sIdx}`}
+            href={url || '#'}
+            target={url ? '_blank' : undefined}
+            rel={url ? 'noopener noreferrer' : undefined}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-gray-100/80 px-2.5 py-1.5 transition-colors hover:bg-gray-200 dark:bg-zinc-800 dark:hover:bg-zinc-700"
+          >
+            <img
+              src={src.icon || `https://www.google.com/s2/favicons?domain=${hostname}&sz=128`}
+              alt=""
+              className="h-3.5 w-3.5 rounded-full bg-white object-cover"
+            />
+            <span className="max-w-[140px] truncate text-[12px] font-medium text-gray-600 dark:text-gray-300">
+              {src.media || src.title || hostname}
+            </span>
+          </a>
+        )
+      })}
+      {hasMore && (
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="inline-flex cursor-pointer items-center gap-0.5 rounded-lg bg-transparent px-2.5 py-1.5 text-[12px] text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-zinc-800 dark:hover:text-gray-300"
+        >
+          {isExpanded ? (
+            <>
+              {t('common.collapse', { defaultValue: '收起' })}
+              <ChevronUp size={14} className="ml-0.5" />
+            </>
+          ) : (
+            <>
+              {t('common.expand', { defaultValue: '展开' })}
+              <ChevronDown size={14} className="ml-0.5" />
+            </>
+          )}
+        </button>
+      )}
+    </div>
+  )
+})
 
 const MessageBubble = ({
   messageIndex,
@@ -2117,8 +2179,6 @@ const MessageBubble = ({
       if (tool?.id) toolById.set(String(tool.id), tool)
     }
     const steps = []
-    let searchStepIndex = -1
-
     const parseToolQuery = tool => {
       if (!tool) return ''
       const args = tool.arguments
@@ -2191,17 +2251,21 @@ const MessageBubble = ({
 
         const isSearchTool = SEARCH_STEP_TOOLS.has(String(tool.name))
         if (isSearchTool) {
-          if (searchStepIndex === -1) {
-            steps.push({
+          const lastStep = steps[steps.length - 1]
+          if (lastStep?.kind === 'search') {
+            addToolToStep(lastStep, tool)
+          } else {
+            const newSearchStep = {
               kind: 'search',
               items: [],
               queries: [],
+              sources: [],
               _toolKeys: new Set(),
               _querySet: new Set(),
-            })
-            searchStepIndex = steps.length - 1
+            }
+            steps.push(newSearchStep)
+            addToolToStep(newSearchStep, tool)
           }
-          addToolToStep(steps[searchStepIndex], tool)
           continue
         }
 
@@ -2222,10 +2286,87 @@ const MessageBubble = ({
       }
     }
 
-    if (searchStepIndex !== -1) {
-      const sources = Array.isArray(mergedMessage.sources) ? mergedMessage.sources : []
-      steps[searchStepIndex].sources = sources
-    }
+    const _allSourcesList = Array.isArray(mergedMessage.sources) ? [...mergedMessage.sources] : []
+    const unallocatedSources = new Set(_allSourcesList)
+
+    steps.forEach(step => {
+      if (step.kind === 'search') {
+        const matchedSources = []
+        // Process each tool execution to extract sources directly if possible
+        step.items.forEach(t => {
+          if (!t.output) return
+          let parsed = null
+          if (typeof t.output === 'string') {
+            try {
+              parsed = JSON.parse(t.output)
+            } catch (e) {
+              const match = t.output.match(/\{[\s\S]*\}|\[[\s\S]*\]/)
+              if (match) {
+                try {
+                  parsed = JSON.parse(match[0])
+                } catch (err) {}
+              }
+            }
+          } else if (typeof t.output === 'object') {
+            parsed = t.output
+          }
+
+          if (parsed) {
+            const results =
+              parsed.results || parsed.data || parsed.items || (Array.isArray(parsed) ? parsed : [])
+            if (Array.isArray(results)) {
+              results.forEach(result => {
+                const url = result?.url || result?.link || result?.href
+                if (url) {
+                  matchedSources.push({
+                    url,
+                    title: result.title || url,
+                    snippet: result.snippet || result.description || '',
+                    media: result.media || '',
+                    icon: result.icon || '',
+                  })
+                }
+              })
+            }
+          }
+        })
+
+        // Fallback: if we couldn't parse directly from output, match by text containment
+        if (matchedSources.length === 0) {
+          const stepOutputs = step.items
+            .map(t => {
+              let text = String(t.output || '')
+              if (typeof t.output === 'object') {
+                try {
+                  text = JSON.stringify(t.output)
+                } catch (e) {}
+              }
+              return text
+            })
+            .join('\n')
+
+          for (const src of unallocatedSources) {
+            if (
+              (src.url && stepOutputs.includes(src.url)) ||
+              (src.title && stepOutputs.includes(src.title)) ||
+              (src.id && stepOutputs.includes(`"${src.id}"`))
+            ) {
+              matchedSources.push(src)
+              unallocatedSources.delete(src)
+            }
+          }
+        }
+
+        // Deduplicate matched sources by URL
+        const seenUrls = new Set()
+        step.sources = matchedSources.filter(src => {
+          if (!src.url) return false
+          if (seenUrls.has(src.url)) return false
+          seenUrls.add(src.url)
+          return true
+        })
+      }
+    })
 
     return steps.map(step => {
       const nextStep = { ...step }
@@ -2982,7 +3123,14 @@ const MessageBubble = ({
         >
           <div className="flex items-center gap-2.5">
             <span className="text-sm font-semibold tracking-tight">
-              {t('messageBubble.completedAnswer', { duration: processDurationSec })}
+              {isStreaming
+                ? (() => {
+                    const lastStep = processSteps[processSteps.length - 1]
+                    if (lastStep?.kind === 'search') return '正在搜索...'
+                    if (lastStep?.kind === 'tools') return '正在调用工具...'
+                    return '正在思考分析...'
+                  })()
+                : t('messageBubble.completedAnswer', { duration: processDurationSec })}
             </span>
             {isWorkflowExpanded ? (
               <ChevronDown size={16} className="opacity-60" />
@@ -3034,89 +3182,127 @@ const MessageBubble = ({
             style={{ scrollbarGutter: 'stable' }}
           >
             <div className="relative pl-7">
-              {workflowSearchStep && (
-                <div className="relative mb-5">
-                  {(workflowThoughtStep?.content ||
-                    workflowToolItems.length > 0 ||
-                    shouldShowWorkflowFinalAnswer) && (
-                    <span className="pointer-events-none absolute top-6 -left-5 bottom-[-16px] border-l border-dashed border-gray-300/90 dark:border-zinc-700/90" />
-                  )}
-                  <div className="absolute top-0.75 -left-7 flex h-4 w-4 items-center justify-center text-gray-500 dark:text-gray-400">
-                    <Link size={16} />
-                  </div>
-                  <div className="mb-2 text-base font-semibold text-gray-700 dark:text-gray-200">
-                    {t('messageBubble.organizedSources')}
-                  </div>
-                  {Array.isArray(workflowSearchStep.queries) &&
-                    workflowSearchStep.queries.length > 0 && (
-                      <div className="mb-2 flex flex-wrap gap-1.5">
-                        {workflowSearchStep.queries.map(query => (
-                          <span
-                            key={`query-${query}`}
-                            className="inline-flex items-center rounded-full border border-gray-200/80 bg-white px-2 py-0.75 text-[10px]! text-gray-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-gray-300"
-                          >
-                            <Search size={11} className="mr-1 opacity-70" />
-                            {query}
-                          </span>
-                        ))}
+              {processSteps.map((step, idx) => {
+                const isNotLast =
+                  idx < processSteps.length - 1 ||
+                  allSources.length > 0 ||
+                  shouldShowWorkflowFinalAnswer
+
+                if (step.kind === 'thought') {
+                  if (!step.content) return null
+                  return (
+                    <div key={`thought-${idx}`} className="relative mb-5">
+                      {isNotLast && (
+                        <span className="pointer-events-none absolute top-6 bottom-[-16px] -left-5 border-l border-dashed border-gray-300/90 dark:border-zinc-700/90" />
+                      )}
+                      <div className="absolute top-0.75 -left-7 flex h-4 w-4 items-center justify-center text-gray-400 dark:text-gray-500">
+                        <BrainCircuit size={16} />
                       </div>
-                    )}
-                  {allSources.length > 0 && <DesktopSourcesSection sources={allSources} isOpen />}
-                </div>
-              )}
-              {workflowThoughtStep?.content && (
-                <div className="relative mb-5">
-                  {(workflowToolItems.length > 0 || shouldShowWorkflowFinalAnswer) && (
-                    <span className="pointer-events-none absolute top-6 -left-5 bottom-[-16px] border-l border-dashed border-gray-300/90 dark:border-zinc-700/90" />
-                  )}
-                  <div className="absolute top-0.75 -left-7 flex h-4 w-4 items-center justify-center text-gray-500 dark:text-gray-400">
-                    <BrainCircuit size={16} />
-                  </div>
-                  <div className="mb-2 text-lg font-semibold text-gray-700 dark:text-gray-200">
-                    {t('messageBubble.deepThinking')}
-                  </div>
-                  <div className="text-base leading-relaxed text-gray-600 dark:text-gray-300">
-                    <Streamdown
-                      mermaid={mermaidOptions}
-                      remarkPlugins={[remarkGfm]}
-                      components={markdownComponents}
-                    >
-                      {formatThoughtContentForDisplay(workflowThoughtStep.content)}
-                    </Streamdown>
-                  </div>
-                </div>
-              )}
-              {workflowToolItems.length > 0 && (
-                <div className="relative mb-4">
-                  {shouldShowWorkflowFinalAnswer && (
-                    <span className="pointer-events-none absolute top-6 -left-5 bottom-[-12px] border-l border-dashed border-gray-300/90 dark:border-zinc-700/90" />
-                  )}
-                  <div className="absolute top-0.75 -left-7 flex h-4 w-4 items-center justify-center text-gray-500 dark:text-gray-400">
-                    <Wrench size={16} />
-                  </div>
-                  <div className="mb-2 text-lg font-semibold text-gray-700 dark:text-gray-200">
-                    {t('messageBubble.toolCalls')}
-                  </div>
-                  <div className="space-y-1.5">
-                    {workflowToolItems.map(item => (
-                      <div
-                        key={item.id || `${item.name}-${item.arguments}`}
-                        className="flex items-center gap-2 text-base text-gray-600 dark:text-gray-300"
-                      >
-                        <span className="font-medium">{getToolDisplayName(item)}</span>
-                        <div className="min-w-0 flex-1">
-                          {renderToolQueryPreview(item, 'truncate opacity-80')}
+                      <div className="text-base leading-relaxed text-gray-600 dark:text-gray-300">
+                        <Streamdown
+                          mermaid={mermaidOptions}
+                          remarkPlugins={[remarkGfm]}
+                          components={markdownComponents}
+                        >
+                          {formatThoughtContentForDisplay(step.content)}
+                        </Streamdown>
+                      </div>
+                    </div>
+                  )
+                }
+
+                if (step.kind === 'search') {
+                  const hasQueries = step.queries && step.queries.length > 0
+                  if (!hasQueries) return null
+
+                  return (
+                    <div key={`search-${idx}`} className="relative mb-5">
+                      {isNotLast && (
+                        <span className="pointer-events-none absolute top-6 bottom-[-16px] -left-5 border-l border-dashed border-gray-300/90 dark:border-zinc-700/90" />
+                      )}
+
+                      <div className="absolute top-0.75 -left-7 flex h-4 w-4 items-center justify-center text-gray-400 dark:text-gray-500">
+                        <Search size={16} />
+                      </div>
+
+                      <div className="mb-2 text-lg font-semibold text-gray-700 dark:text-gray-200">
+                        {t('messageBubble.webSearch', '正在搜索')}
+                      </div>
+
+                      <div className="text-base leading-relaxed text-gray-600 dark:text-gray-300">
+                        {/* Search Queries row */}
+                        <div className="mb-2 flex flex-wrap gap-1.5">
+                          {step.queries.map(query => (
+                            <span
+                              key={`query-${query}`}
+                              className="inline-flex items-center rounded-lg border border-gray-200/80 bg-white px-2.5 py-1 text-[13px] text-gray-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-gray-300"
+                            >
+                              <Search size={12} className="mr-1.5 opacity-70" />
+                              {query}
+                            </span>
+                          ))}
                         </div>
-                        {typeof item.durationMs === 'number' && (
-                          <span className="shrink-0 text-xs text-gray-500 dark:text-gray-400">
-                            {t('messageBubble.toolDuration', {
-                              duration: (item.durationMs / 1000).toFixed(2),
-                            })}
-                          </span>
+
+                        {/* Sources row */}
+                        {step.sources && step.sources.length > 0 && (
+                          <div className="mb-2">
+                            <SearchSourcesList sources={step.sources} />
+                          </div>
                         )}
                       </div>
-                    ))}
+                    </div>
+                  )
+                }
+
+                if (step.kind === 'tools') {
+                  if (!step.items || step.items.length === 0) return null
+                  return (
+                    <div key={`tools-${idx}`} className="relative mb-5">
+                      {isNotLast && (
+                        <span className="pointer-events-none absolute top-6 bottom-[-16px] -left-5 border-l border-dashed border-gray-300/90 dark:border-zinc-700/90" />
+                      )}
+                      <div className="absolute top-0.75 -left-7 flex h-4 w-4 items-center justify-center text-gray-400 dark:text-gray-500">
+                        <Wrench size={16} />
+                      </div>
+                      <div className="space-y-1.5">
+                        {step.items.map(item => (
+                          <div
+                            key={item.id || `${item.name}-${item.arguments}`}
+                            className="flex items-center gap-2 text-base text-gray-600 dark:text-gray-300"
+                          >
+                            <span className="font-medium">{getToolDisplayName(item)}</span>
+                            <div className="min-w-0 flex-1">
+                              {renderToolQueryPreview(item, 'truncate opacity-80')}
+                            </div>
+                            {typeof item.durationMs === 'number' && (
+                              <span className="shrink-0 text-xs text-gray-500 dark:text-gray-400">
+                                {t('messageBubble.toolDuration', {
+                                  duration: (item.durationMs / 1000).toFixed(2),
+                                })}
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                }
+
+                return null
+              })}
+
+              {allSources.length > 0 && (
+                <div className="relative mb-5 pt-2">
+                  {shouldShowWorkflowFinalAnswer && (
+                    <span className="pointer-events-none absolute top-6 bottom-[-16px] -left-5 border-l border-dashed border-gray-300/90 dark:border-zinc-700/90" />
+                  )}
+                  <div className="absolute top-2.5 -left-7 flex h-4 w-4 items-center justify-center text-gray-400 dark:text-gray-500">
+                    <Link size={16} />
                   </div>
+                  <div className="mb-3 text-base font-semibold text-gray-700 dark:text-gray-200">
+                    {t('messageBubble.organizedSources', '整理参考资料')}
+                  </div>
+                  <DesktopSourcesSection sources={allSources} isOpen />
                 </div>
               )}
               {shouldShowWorkflowFinalAnswer && (
@@ -3824,9 +4010,14 @@ const MessageBubble = ({
         />
       )}
 
-      {/* Desktop Sources Section (Collapsible) */}
+      {/* Desktop Sources Drawer */}
       {!isMobile && mergedMessage.sources && mergedMessage.sources.length > 0 && (
-        <DesktopSourcesSection sources={mergedMessage.sources} isOpen={isSourcesOpen} />
+        <DesktopSourcesSheet
+          isOpen={isSourcesOpen}
+          onClose={() => setIsSourcesOpen(false)}
+          sources={mergedMessage.sources}
+          title={t('sources.citationSources', '参考资料')}
+        />
       )}
 
       {/* Mobile Sources Drawer */}

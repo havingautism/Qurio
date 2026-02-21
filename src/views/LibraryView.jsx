@@ -21,6 +21,7 @@ import EmojiDisplay from '../components/EmojiDisplay'
 import FancyLoader from '../components/FancyLoader'
 import { useToast } from '../contexts/ToastContext'
 import {
+  conversationEventHasScope,
   listConversations,
   notifyConversationsChanged,
   toggleFavorite,
@@ -102,7 +103,10 @@ const LibraryView = () => {
 
     fetchConversations()
 
-    const handleConversationsChanged = () => fetchConversations()
+    const handleConversationsChanged = event => {
+      if (!conversationEventHasScope(event, 'library')) return
+      fetchConversations()
+    }
     window.addEventListener('conversations-changed', handleConversationsChanged)
     return () => window.removeEventListener('conversations-changed', handleConversationsChanged)
   }, [currentPage, sortOption, activeSearchQuery, deepResearchSpaceIds])
@@ -211,7 +215,7 @@ const LibraryView = () => {
     } else {
       toast.success(newStatus ? t('views.addBookmark') : t('views.removeBookmark'))
       // Refresh data
-      notifyConversationsChanged()
+      notifyConversationsChanged({ scopes: ['library', 'bookmarks'] })
     }
     setExpandedActionId(null)
   }
@@ -231,7 +235,7 @@ const LibraryView = () => {
         if (success) {
           toast.success(t('views.libraryView.conversationDeleted'))
           // Refresh data
-          notifyConversationsChanged()
+          notifyConversationsChanged({ scopes: ['library', 'bookmarks'] })
         } else {
           console.error('Failed to delete conversation:', error)
           toast.error(t('views.libraryView.failedToDelete'))

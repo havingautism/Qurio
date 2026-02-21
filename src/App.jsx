@@ -12,7 +12,11 @@ import DatabaseSetupModal from './components/DatabaseSetupModal'
 import { ToastProvider } from './contexts/ToastContext'
 import KnowledgeBaseModal from './components/KnowledgeBaseModal'
 import { createAgent, deleteAgent, listAgents, updateAgent } from './lib/agentsService'
-import { isExpertConversation, listConversations } from './lib/conversationsService'
+import {
+  conversationEventHasScope,
+  isExpertConversation,
+  listConversations,
+} from './lib/conversationsService'
 import {
   DEEP_RESEARCH_AGENT_DESCRIPTION,
   DEEP_RESEARCH_AGENT_NAME,
@@ -866,7 +870,10 @@ function App() {
     loadConversations()
 
     // Listen for conversation changes
-    const handleConversationsChanged = () => loadConversations()
+    const handleConversationsChanged = event => {
+      if (!conversationEventHasScope(event, 'library')) return
+      loadConversations()
+    }
     const handleConversationPatched = event => {
       const patch = event?.detail || {}
       const id = patch?.id ? String(patch.id) : ''

@@ -23,6 +23,7 @@ import FancyLoader from '../components/FancyLoader'
 import { useToast } from '../contexts/ToastContext'
 import {
   addConversationEvent,
+  conversationEventHasScope,
   createConversation,
   listExpertConversations,
   notifyConversationsChanged,
@@ -103,7 +104,10 @@ const ExpertView = () => {
     }
 
     fetchConversations()
-    const handleConversationsChanged = () => fetchConversations()
+    const handleConversationsChanged = event => {
+      if (!conversationEventHasScope(event, 'expert')) return
+      fetchConversations()
+    }
     window.addEventListener('conversations-changed', handleConversationsChanged)
     return () => window.removeEventListener('conversations-changed', handleConversationsChanged)
   }, [currentPage, sortOption, activeSearchQuery, toast, t])
@@ -160,7 +164,7 @@ const ExpertView = () => {
       toast.error(t('errors.generic'))
     } else {
       toast.success(newStatus ? t('views.addBookmark') : t('views.removeBookmark'))
-      notifyConversationsChanged()
+      notifyConversationsChanged({ scopes: ['expert', 'bookmarks'] })
     }
     setExpandedActionId(null)
   }
@@ -177,7 +181,7 @@ const ExpertView = () => {
         const { success, error } = await deleteConversation(conversation.id)
         if (success) {
           toast.success(t('views.expertView.conversationDeleted'))
-          notifyConversationsChanged()
+          notifyConversationsChanged({ scopes: ['expert', 'bookmarks'] })
         } else {
           console.error('Failed to delete conversation:', error)
           toast.error(t('views.expertView.failedToDelete'))
@@ -234,6 +238,7 @@ const ExpertView = () => {
         question: question.trim(),
         space_id: space.id,
       })
+      notifyConversationsChanged({ scopes: ['expert'] })
       navigate({
         to: '/expert/$conversationId',
         params: { conversationId: conversation.id },

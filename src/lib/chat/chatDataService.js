@@ -39,7 +39,9 @@ export const ensureConversationExists = async (
     // Update store with new conversation ID
     set({ conversationId: data.id })
     // Notify other components that conversations list changed
-    notifyConversationsChanged()
+    notifyConversationsChanged({
+      scopes: toggles?.deepResearch ? ['deepResearch'] : ['library'],
+    })
     if (toggles?.deepResearch) {
       addConversationEvent(data.id, 'deep_research', { enabled: true }).catch(err =>
         console.error('Failed to record deep research event:', err),

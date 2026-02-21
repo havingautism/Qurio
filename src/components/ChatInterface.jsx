@@ -9,7 +9,7 @@ import clsx from 'clsx'
 import ArrowDown from 'lucide-react/dist/esm/icons/arrow-down'
 import { useAppContext } from '../App'
 import { useToast } from '../contexts/ToastContext'
-import { notifyConversationsChanged, updateConversation } from '../lib/conversationsService'
+import { notifyConversationPatched, updateConversation } from '../lib/conversationsService'
 import {
   listConversationDocumentIds,
   listSpaceDocuments,
@@ -2090,11 +2090,16 @@ const ChatInterface = ({
       setConversationTitleEmojis(Array.isArray(titleResult?.emojis) ? titleResult.emojis : [])
       const convId = conversationId || activeConversation?.id
       if (convId) {
+        const titleEmojis = Array.isArray(titleResult?.emojis) ? titleResult.emojis : []
         await updateConversation(convId, {
           title: newTitle,
-          title_emojis: Array.isArray(titleResult?.emojis) ? titleResult.emojis : [],
+          title_emojis: titleEmojis,
         })
-        notifyConversationsChanged()
+        notifyConversationPatched({
+          id: convId,
+          title: newTitle,
+          title_emojis: titleEmojis,
+        })
       }
     } catch (err) {
       console.error('Failed to regenerate title:', err)
@@ -2284,7 +2289,18 @@ const ChatInterface = ({
                   updateConversation(targetConversationId, {
                     last_agent_id: agent?.id || null,
                     agent_selection_mode: 'manual',
-                  }).catch(err => console.error('Failed to update agent selection mode:', err))
+                  })
+                    .then(({ data, error }) => {
+                      if (error) throw error
+                      notifyConversationPatched(
+                        data || {
+                          id: targetConversationId,
+                          last_agent_id: agent?.id || null,
+                          agent_selection_mode: 'manual',
+                        },
+                      )
+                    })
+                    .catch(err => console.error('Failed to update agent selection mode:', err))
                 }
               }}
               onAgentAutoModeToggle={() => {
@@ -2302,7 +2318,18 @@ const ChatInterface = ({
                   updateConversation(targetConversationId, {
                     last_agent_id: null,
                     agent_selection_mode: 'auto',
-                  }).catch(err => console.error('Failed to update agent selection mode:', err))
+                  })
+                    .then(({ data, error }) => {
+                      if (error) throw error
+                      notifyConversationPatched(
+                        data || {
+                          id: targetConversationId,
+                          last_agent_id: null,
+                          agent_selection_mode: 'auto',
+                        },
+                      )
+                    })
+                    .catch(err => console.error('Failed to update agent selection mode:', err))
                 }
               }}
               isAgentSelectorOpen={isAgentSelectorOpen}

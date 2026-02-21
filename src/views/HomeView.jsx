@@ -42,8 +42,11 @@ import {
   TAVILY_TOOL_IDS,
 } from '../lib/searchTools'
 import useChatStore from '../lib/chatStore'
-import { createConversation } from '../lib/conversationsService'
-import { addConversationEvent } from '../lib/conversationsService'
+import {
+  addConversationEvent,
+  createConversation,
+  notifyConversationsChanged,
+} from '../lib/conversationsService'
 import { providerSupportsSearch, resolveThinkingToggleRule } from '../lib/providers'
 import { loadSettings } from '../lib/settings'
 import { getSpaceDisplayLabel } from '../lib/spaceDisplay'
@@ -697,6 +700,7 @@ const HomeView = () => {
         console.error('Failed to create conversation:', error)
         return
       }
+      notifyConversationsChanged({ scopes: ['library'] })
       if (_homeSelectedDocumentIds.length > 0) {
         const { success: documentsPersisted, error: documentError } =
           await setConversationDocuments(conversation.id, _homeSelectedDocumentIds)
@@ -771,6 +775,7 @@ const HomeView = () => {
         question: question.trim(),
         space_id: space.id,
       })
+      notifyConversationsChanged({ scopes: ['expert'] })
 
       navigate({
         to: '/expert/$conversationId',

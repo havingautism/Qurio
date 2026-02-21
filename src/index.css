@@ -121,7 +121,7 @@
 /* CSS variables for sidebar width */
 :root {
   --sidebar-width: 0px;
-  --message-font-size: 16px;
+  --message-font-size: 15px;
 }
 
 /* ============================================

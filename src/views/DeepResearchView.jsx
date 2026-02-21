@@ -21,6 +21,7 @@ import EmojiDisplay from '../components/EmojiDisplay'
 import FancyLoader from '../components/FancyLoader'
 import { useToast } from '../contexts/ToastContext'
 import {
+  conversationEventHasScope,
   listConversationsBySpace,
   notifyConversationsChanged,
   toggleFavorite,
@@ -99,7 +100,10 @@ const DeepResearchView = () => {
 
     fetchConversations()
 
-    const handleConversationsChanged = () => fetchConversations()
+    const handleConversationsChanged = event => {
+      if (!conversationEventHasScope(event, 'deepResearch')) return
+      fetchConversations()
+    }
     window.addEventListener('conversations-changed', handleConversationsChanged)
     return () => window.removeEventListener('conversations-changed', handleConversationsChanged)
   }, [currentPage, sortOption, activeSearchQuery, deepResearchSpaceId])
@@ -156,7 +160,7 @@ const DeepResearchView = () => {
       toast.error(t('errors.generic'))
     } else {
       toast.success(newStatus ? t('views.addBookmark') : t('views.removeBookmark'))
-      notifyConversationsChanged()
+      notifyConversationsChanged({ scopes: ['deepResearch', 'bookmarks'] })
     }
     setExpandedActionId(null)
   }
@@ -174,7 +178,7 @@ const DeepResearchView = () => {
 
         if (success) {
           toast.success(t('views.deepResearchView.conversationDeleted'))
-          notifyConversationsChanged()
+          notifyConversationsChanged({ scopes: ['deepResearch', 'bookmarks'] })
         } else {
           console.error('Failed to delete conversation:', error)
           toast.error(t('views.deepResearchView.failedToDelete'))

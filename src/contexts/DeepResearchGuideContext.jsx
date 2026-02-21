@@ -7,7 +7,11 @@ import { useNavigate } from '@tanstack/react-router'
 import useScrollLock from '../hooks/useScrollLock'
 import { Drawer, DrawerContent } from '@/components/ui/drawer'
 import useIsMobile from '../hooks/useIsMobile'
-import { addConversationEvent, createConversation } from '../lib/conversationsService'
+import {
+  addConversationEvent,
+  createConversation,
+  notifyConversationsChanged,
+} from '../lib/conversationsService'
 
 const DeepResearchGuideContext = createContext(null)
 
@@ -119,6 +123,7 @@ export const DeepResearchGuideProvider = ({
       addConversationEvent(conversation.id, 'deep_research', { enabled: true }).catch(err =>
         console.error('Failed to record deep research event:', err),
       )
+      notifyConversationsChanged({ scopes: ['deepResearch'] })
 
       const chatState = {
         initialMessage: buildDeepResearchPrompt(),

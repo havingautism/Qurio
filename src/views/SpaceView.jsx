@@ -223,7 +223,7 @@ const SpaceView = () => {
             toastSuccess(t('views.spaceView.conversationDeleted'))
             setCurrentPage(1)
             // Notify Sidebar to refresh its conversation list
-            notifyConversationsChanged()
+            notifyConversationsChanged({ scopes: ['library', 'bookmarks'] })
           } else {
             console.error('Failed to delete conversation:', error)
             toastError(t('views.spaceView.failedToDelete'))
@@ -245,7 +245,7 @@ const SpaceView = () => {
       } else {
         toastSuccess(newStatus ? t('views.addBookmark') : t('views.removeBookmark'))
         // Notify Sidebar to refresh its conversation list
-        notifyConversationsChanged()
+        notifyConversationsChanged({ scopes: ['library', 'bookmarks'] })
       }
     },
     [toastSuccess, toastError, t],

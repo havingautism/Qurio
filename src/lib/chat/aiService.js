@@ -3,7 +3,7 @@ import { getUserTools } from '../userToolsService'
 import {
   addMessage,
   updateConversation,
-  notifyConversationsChanged,
+  notifyConversationPatched,
   updateMessageById,
 } from '../conversationsService'
 import {
@@ -842,6 +842,11 @@ export const callAIAPI = async (
     const selectedDatabaseProvider =
       settings.databaseProviderId || settings.databaseProvider || 'supabase'
 
+    const modelThinkingParam = thinkingActive
+      ? provider.getThinking(thinkingActive, modelConfig.model)
+      : undefined
+    const modelThinkingModeParam = thinkingActive ? resolvedThinkingMode : undefined
+
     const params = {
       ...credentials,
       model: modelConfig.model,
@@ -906,10 +911,10 @@ export const callAIAPI = async (
         toggles.deepResearch ? false : settings.enableLongTermMemory,
       ),
       toolIds: resolvedToolIds,
-      thinkingMode: resolvedThinkingMode,
+      thinkingMode: modelThinkingModeParam,
       enableLongTermMemory: toggles.deepResearch ? false : Boolean(settings.enableLongTermMemory),
       databaseProvider: selectedDatabaseProvider,
-      thinking: provider.getThinking(thinkingActive, modelConfig.model),
+      thinking: modelThinkingParam,
       signal: controller.signal,
       onChunk: chunk => {
         if (typeof chunk === 'object' && chunk !== null) {
@@ -1945,8 +1950,17 @@ export const finalizeMessage = async (
           last_agent_id: safeAgent?.id || undefined,
           agent_selection_mode: isAgentAutoMode ? 'auto' : 'manual',
         }
-        await updateConversation(currentStore.conversationId, updatePayload)
-        notifyConversationsChanged()
+        const { data: updatedConversation, error: updateError } = await updateConversation(
+          currentStore.conversationId,
+          updatePayload,
+        )
+        if (updateError) throw updateError
+        notifyConversationPatched(
+          updatedConversation || {
+            id: currentStore.conversationId,
+            ...updatePayload,
+          },
+        )
         window.dispatchEvent(
           new CustomEvent('conversation-space-updated', {
             detail: {
@@ -1959,9 +1973,20 @@ export const finalizeMessage = async (
           callbacks.onSpaceResolved(resolvedSpace)
         }
       } else if (safeAgent?.id) {
-        await updateConversation(currentStore.conversationId, {
+        const agentPatch = {
           last_agent_id: safeAgent.id,
-        })
+        }
+        const { data: updatedConversation, error: updateError } = await updateConversation(
+          currentStore.conversationId,
+          agentPatch,
+        )
+        if (updateError) throw updateError
+        notifyConversationPatched(
+          updatedConversation || {
+            id: currentStore.conversationId,
+            ...agentPatch,
+          },
+        )
       }
     } catch (error) {
       console.error('Failed to update conversation:', error)

@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import {
   addMessage,
-  notifyConversationsChanged,
+  notifyConversationPatched,
   updateConversation,
   updateMessageById,
 } from './conversationsService'
@@ -1165,11 +1165,18 @@ const useChatStore = create((set, get) => ({
           const emojis = Array.isArray(titleResult?.emojis) ? titleResult.emojis : []
           set({ conversationTitle: title, conversationTitleEmojis: emojis })
           try {
-            await updateConversation(convId, {
+            const { data: updatedConversation, error: updateError } = await updateConversation(convId, {
               title,
               title_emojis: emojis,
             })
-            notifyConversationsChanged()
+            if (updateError) throw updateError
+            notifyConversationPatched(
+              updatedConversation || {
+                id: convId,
+                title,
+                title_emojis: emojis,
+              },
+            )
           } catch (error) {
             console.error('Async title update failed:', error)
           }
@@ -2320,13 +2327,22 @@ const useChatStore = create((set, get) => ({
 
           if (convId) {
             try {
-              await updateConversation(convId, {
+              const { data: updatedConversation, error: updateError } = await updateConversation(convId, {
                 space_id: resolvedSpaceInfo?.selectedSpace?.id || null,
                 api_provider: resolvedAgent?.provider || fallbackAgent?.provider || '',
                 last_agent_id: resolvedAgent?.id || null,
                 agent_selection_mode: isAgentAutoMode ? 'auto' : 'manual',
               })
-              notifyConversationsChanged()
+              if (updateError) throw updateError
+              notifyConversationPatched(
+                updatedConversation || {
+                  id: convId,
+                  space_id: resolvedSpaceInfo?.selectedSpace?.id || null,
+                  api_provider: resolvedAgent?.provider || fallbackAgent?.provider || '',
+                  last_agent_id: resolvedAgent?.id || null,
+                  agent_selection_mode: isAgentAutoMode ? 'auto' : 'manual',
+                },
+              )
             } catch (error) {
               console.error('Failed to update conversation after expert mode:', error)
             }

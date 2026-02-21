@@ -63,6 +63,7 @@ const BookmarksView = () => {
       limit: 10,
       dependencies: [sortOption],
       rootMargin: '100px',
+      eventScope: 'bookmarks',
     },
   )
 
@@ -104,7 +105,9 @@ const BookmarksView = () => {
     } else {
       toast.success(newStatus ? t('views.addBookmark') : t('views.removeBookmark'))
       // Refresh data
-      notifyConversationsChanged()
+      notifyConversationsChanged({
+        scopes: ['bookmarks', 'library', 'deepResearch', 'expert'],
+      })
     }
     setExpandedActionId(null)
   }
@@ -124,7 +127,9 @@ const BookmarksView = () => {
         if (success) {
           toast.success(t('views.libraryView.conversationDeleted'))
           // Refresh data
-          notifyConversationsChanged()
+          notifyConversationsChanged({
+            scopes: ['bookmarks', 'library', 'deepResearch', 'expert'],
+          })
         } else {
           console.error('Failed to delete conversation:', error)
           toast.error(t('views.libraryView.failedToDelete'))

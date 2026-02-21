@@ -153,7 +153,7 @@ const useSpaceManagement = ({
         })
           .then(() => {
             // Trigger event to refresh sidebar
-            notifyConversationsChanged()
+            notifyConversationsChanged({ scopes: ['library'] })
             window.dispatchEvent(
               new CustomEvent('conversation-space-updated', {
                 detail: {
@@ -190,7 +190,7 @@ const useSpaceManagement = ({
       })
         .then(() => {
           // Trigger event to refresh sidebar
-          notifyConversationsChanged()
+          notifyConversationsChanged({ scopes: ['library'] })
           window.dispatchEvent(
             new CustomEvent('conversation-space-updated', {
               detail: {

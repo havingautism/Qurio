@@ -1025,6 +1025,14 @@
     "experimental": "实验性",
     "concurrentExecutionDesc": "同时执行所有研究步骤以提升速度，但可能影响步骤间的逻辑连贯性"
   },
+  "thinkingMode": {
+    "smartLabel": "智能思考",
+    "smartDescription": "根据问题复杂度自动选择深度思考或快速回答",
+    "deepLabel": "深度思考",
+    "deepDescription": "启用推理思考，适合复杂问题",
+    "fastLabel": "快速回答",
+    "fastDescription": "跳过推理思考，优先返回速度"
+  },
   "chat": {
     "thinking": "思考中",
     "deepResearchPlanning": "深入研究：规划",

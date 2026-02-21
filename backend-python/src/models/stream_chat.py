@@ -76,6 +76,10 @@ class StreamChatRequest(BaseModel):
 
     # Thinking mode - supports boolean (enabled/disabled) or dict (specific config)
     thinking: dict[str, Any] | bool | None = None
+    thinking_mode: Literal["smart", "deep", "fast"] | None = Field(
+        default=None,
+        alias="thinkingMode",
+    )
 
     # Generation parameters
     temperature: float | None = None

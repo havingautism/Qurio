@@ -39,6 +39,7 @@ import {
   persistSearchBackendPreference,
   persistSearchEnabledPreference,
   persistSearchToolsPreference,
+  persistThinkingModePreference,
   persistThinkingPreference,
 } from '../lib/togglePreferences'
 import { listToolsViaBackend } from '../lib/backendClient'
@@ -96,10 +97,25 @@ const buildEmbeddingModelKey = ({ model }) => {
 const getInitialThinkingPreference = () => {
   if (typeof window === 'undefined') return false
   try {
-    const { thinkingEnabled } = loadTogglePreferences()
+    const { thinkingEnabled, thinkingMode } = loadTogglePreferences()
+    if (thinkingMode === 'deep') return true
+    if (thinkingMode === 'fast') return false
     return Boolean(thinkingEnabled)
   } catch {
     return false
+  }
+}
+
+const getInitialThinkingModePreference = () => {
+  if (typeof window === 'undefined') return 'smart'
+  try {
+    const { thinkingMode, thinkingEnabled } = loadTogglePreferences()
+    if (thinkingMode === 'smart' || thinkingMode === 'deep' || thinkingMode === 'fast') {
+      return thinkingMode
+    }
+    return thinkingEnabled ? 'deep' : 'fast'
+  } catch {
+    return 'smart'
   }
 }
 
@@ -245,6 +261,7 @@ const ChatInterface = ({
   // New state for toggles and attachments
   const [isSearchActive, setIsSearchActive] = useState(false)
   const [isThinkingActive, setIsThinkingActive] = useState(getInitialThinkingPreference)
+  const [thinkingMode, setThinkingMode] = useState(getInitialThinkingModePreference)
   const [isExpertMode, setIsExpertMode] = useState(false)
   const previousExpertModeRef = useRef(false)
   const [searchBackend, setSearchBackend] = useState(null)
@@ -745,6 +762,7 @@ const ChatInterface = ({
     const wasExpertMode = previousExpertModeRef.current
     if (!wasExpertMode && isExpertMode && !isThinkingLocked) {
       setIsThinkingActive(true)
+      setThinkingMode('deep')
     }
     previousExpertModeRef.current = isExpertMode
   }, [isExpertMode, isThinkingLocked])
@@ -761,7 +779,13 @@ const ChatInterface = ({
   useEffect(() => {
     if (!isThinkingLocked) return
     setIsThinkingActive(thinkingRule.isThinkingActive)
+    setThinkingMode(thinkingRule.isThinkingActive ? 'deep' : 'fast')
   }, [isThinkingLocked, thinkingRule.isThinkingActive])
+
+  useEffect(() => {
+    if (isThinkingLocked) return
+    setIsThinkingActive(thinkingMode === 'deep')
+  }, [thinkingMode, isThinkingLocked])
 
   useEffect(() => {
     togglePrefsHydratedRef.current = false
@@ -774,12 +798,19 @@ const ChatInterface = ({
       const {
         searchEnabled: storedSearchEnabled,
         thinkingEnabled: storedThinkingEnabled,
+        thinkingMode: storedThinkingMode,
         searchBackend: storedSearchBackend,
         searchTools: parsedSearchTools,
       } = loadTogglePreferences()
 
-      if (!isThinkingLocked && typeof storedThinkingEnabled === 'boolean') {
-        setIsThinkingActive(storedThinkingEnabled)
+      if (!isThinkingLocked) {
+        if (storedThinkingMode === 'smart' || storedThinkingMode === 'deep' || storedThinkingMode === 'fast') {
+          setThinkingMode(storedThinkingMode)
+          setIsThinkingActive(storedThinkingMode === 'deep')
+        } else if (typeof storedThinkingEnabled === 'boolean') {
+          setIsThinkingActive(storedThinkingEnabled)
+          setThinkingMode(storedThinkingEnabled ? 'deep' : 'fast')
+        }
       }
 
       const hasStoredSearchSelection = Boolean(storedSearchBackend) || parsedSearchTools.length > 0
@@ -810,6 +841,12 @@ const ChatInterface = ({
     if (isThinkingLocked) return
     persistThinkingPreference(isThinkingActive)
   }, [isThinkingActive, isThinkingLocked])
+
+  useEffect(() => {
+    if (!togglePrefsHydratedRef.current) return
+    if (isThinkingLocked) return
+    persistThinkingModePreference(thinkingMode)
+  }, [thinkingMode, isThinkingLocked])
 
   useEffect(() => {
     if (!togglePrefsHydratedRef.current) return
@@ -920,7 +957,16 @@ const ChatInterface = ({
         const initialAcademic = initialTools.filter(id => academicIds.has(String(id)))
         setSelectedSearchTools(initialAcademic.map(id => String(id)))
       }
-      if (initialToggles.thinking) setIsThinkingActive(true)
+      if (initialToggles.thinkingMode) {
+        const mode = String(initialToggles.thinkingMode)
+        if (mode === 'smart' || mode === 'deep' || mode === 'fast') {
+          setThinkingMode(mode)
+          setIsThinkingActive(mode === 'deep')
+        }
+      } else if (initialToggles.thinking) {
+        setIsThinkingActive(true)
+        setThinkingMode('deep')
+      }
       if (initialToggles.expertMode) setIsExpertMode(true)
 
       // CRITICAL: Sync conversationId to store IMMEDIATELY before sending
@@ -1513,7 +1559,16 @@ const ChatInterface = ({
       const textToSend = msgOverride !== null ? msgOverride : ''
       const attToSend = attOverride !== null ? attOverride : []
       const searchActive = togglesOverride ? togglesOverride.search : isSearchActive
-      const thinkingActive = togglesOverride ? togglesOverride.thinking : isThinkingActive
+      const thinkingModeValue = (() => {
+        const raw = togglesOverride?.thinkingMode ?? thinkingMode
+        return raw === 'smart' || raw === 'deep' || raw === 'fast' ? raw : 'smart'
+      })()
+      const thinkingActive =
+        thinkingModeValue === 'deep'
+          ? true
+          : thinkingModeValue === 'fast'
+            ? false
+            : false
       const relatedActive = togglesOverride ? togglesOverride.related : isRelatedEnabled
       const expertModeActive = togglesOverride ? togglesOverride.expertMode : isExpertMode
       const searchTool = togglesOverride ? togglesOverride.searchTool : resolvedSearchToolIds
@@ -1600,6 +1655,7 @@ const ChatInterface = ({
             searchTool,
             searchBackend: searchBackendValue || null,
             thinking: thinkingActive,
+            thinkingMode: thinkingModeValue,
             expertMode: expertModeActive,
             related: relatedActive,
           },
@@ -1651,7 +1707,7 @@ const ChatInterface = ({
     },
     [
       isSearchActive,
-      isThinkingActive,
+      thinkingMode,
       isRelatedEnabled,
       isExpertMode,
       isLoading,
@@ -1706,7 +1762,8 @@ const ChatInterface = ({
             search: isSearchActive,
             searchTool: resolvedSearchToolIds,
             searchBackend,
-            thinking: isThinkingActive,
+            thinking: thinkingMode === 'deep',
+            thinkingMode,
             expertMode: isExpertMode,
             related: isRelatedEnabled,
           },
@@ -1723,7 +1780,7 @@ const ChatInterface = ({
       isSearchActive,
       resolvedSearchToolIds,
       searchBackend,
-      isThinkingActive,
+      thinkingMode,
       isExpertMode,
       isRelatedEnabled,
       submitInteractiveForm,
@@ -1820,7 +1877,8 @@ const ChatInterface = ({
           search: isSearchActive,
           searchTool: resolvedSearchToolIds,
           searchBackend,
-          thinking: isThinkingActive,
+          thinking: thinkingMode === 'deep',
+          thinkingMode,
           related: isRelatedEnabled,
         },
         { editingInfoOverride },
@@ -1837,7 +1895,7 @@ const ChatInterface = ({
       isSearchActive,
       resolvedSearchToolIds,
       searchBackend,
-      isThinkingActive,
+      thinkingMode,
       isRelatedEnabled,
     ],
   )
@@ -1879,7 +1937,8 @@ const ChatInterface = ({
           search: isSearchActive,
           searchTool: resolvedSearchToolIds,
           searchBackend,
-          thinking: isThinkingActive,
+          thinking: thinkingMode === 'deep',
+          thinkingMode,
           related: isRelatedEnabled,
         },
         { editingInfoOverride },
@@ -1895,7 +1954,7 @@ const ChatInterface = ({
       isSearchActive,
       resolvedSearchToolIds,
       searchBackend,
-      isThinkingActive,
+      thinkingMode,
       isRelatedEnabled,
     ],
   )
@@ -2236,7 +2295,7 @@ const ChatInterface = ({
               onStop={stopGeneration}
               apiProvider={effectiveProvider}
               isSearchActive={isSearchActive}
-              isThinkingActive={isThinkingActive}
+              thinkingMode={thinkingMode}
               isThinkingLocked={isThinkingLocked}
               agents={selectableAgents}
               agentsLoading={isAgentsLoading}
@@ -2295,7 +2354,7 @@ const ChatInterface = ({
               onSearchBackendChange={handleSelectSearchBackend}
               onSearchClear={handleClearSearchSelection}
               onSearchMenuClose={handleSearchMenuClose}
-              onToggleThinking={() => setIsThinkingActive(prev => !prev)}
+              onThinkingModeChange={setThinkingMode}
               isExpertMode={isExpertMode}
               onToggleExpertMode={() => setIsExpertMode(prev => !prev)}
               quotedText={quotedText}

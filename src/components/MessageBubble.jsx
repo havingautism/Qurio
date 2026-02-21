@@ -312,7 +312,7 @@ const SearchSourcesList = React.memo(({ sources }) => {
               alt=""
               className="h-3.5 w-3.5 rounded-full bg-white object-cover"
             />
-            <span className="max-w-[140px] truncate text-[12px] font-medium text-gray-600 dark:text-gray-300">
+            <span className="max-w-[140px] truncate text-[12px]! font-medium text-gray-600 dark:text-gray-300">
               {src.media || src.title || hostname}
             </span>
           </a>
@@ -3244,7 +3244,7 @@ const MessageBubble = ({
                           const isActive = isStreaming && idx === processSteps.length - 1
                           if (!isActive && typeof step.durationMs === 'number') {
                             return (
-                              <span className="shrink-0 text-xs font-normal text-gray-500 dark:text-gray-400">
+                              <span className="shrink-0 text-xs! font-normal text-gray-500 dark:text-gray-400">
                                 {t('messageBubble.toolDuration', {
                                   duration: (step.durationMs / 1000).toFixed(1),
                                 })}
@@ -3261,7 +3261,7 @@ const MessageBubble = ({
                           {step.queries.map(query => (
                             <span
                               key={`query-${query}`}
-                              className="inline-flex items-center rounded-lg border border-gray-200/80 bg-white px-2.5 py-1 text-[13px] text-gray-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-gray-300"
+                              className="inline-flex items-center rounded-lg border border-gray-200/80 bg-white px-2.5 py-1 text-[11px]! text-gray-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-gray-300"
                             >
                               <Search size={12} className="mr-1.5 opacity-70" />
                               {query}

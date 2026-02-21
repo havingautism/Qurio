@@ -136,7 +136,7 @@ const MessageActionBar = ({
           )}
         </div>
       )}
-      {message.sources && message.sources.length > 0 && (
+      {/* {message.sources && message.sources.length > 0 && (
         <button
           onClick={() => {
             if (isMobile) {
@@ -167,7 +167,7 @@ const MessageActionBar = ({
             {message.sources.length}
           </span>
         </button>
-      )}
+      )} */}
       {documentSources && documentSources.length > 0 && (
         <button
           type="button"

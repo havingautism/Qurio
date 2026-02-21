@@ -290,6 +290,73 @@ export const generateDeepResearchPlan = async (
   }
 }
 
+const normalizeThinkingMode = (mode, fallbackThinking = null) => {
+  if (mode === 'smart' || mode === 'deep' || mode === 'fast') return mode
+  if (typeof fallbackThinking === 'boolean') return fallbackThinking ? 'deep' : 'fast'
+  return 'smart'
+}
+
+const safeParseJsonObject = value => {
+  if (typeof value !== 'string') return null
+  const text = value.trim()
+  if (!text) return null
+  try {
+    const parsed = JSON.parse(text)
+    return parsed && typeof parsed === 'object' ? parsed : null
+  } catch {}
+  const fenced = text.match(/```json\s*([\s\S]*?)```/i)
+  if (fenced?.[1]) {
+    try {
+      const parsed = JSON.parse(fenced[1].trim())
+      return parsed && typeof parsed === 'object' ? parsed : null
+    } catch {}
+  }
+  const objectMatch = text.match(/\{[\s\S]*\}/)
+  if (objectMatch?.[0]) {
+    try {
+      const parsed = JSON.parse(objectMatch[0])
+      return parsed && typeof parsed === 'object' ? parsed : null
+    } catch {}
+  }
+  return null
+}
+
+const runLiteThinkingPlanner = async ({ question, selectedAgent, settings, agents }) => {
+  const fallbackAgent = agents?.find(agent => agent.isDefault)
+  const liteConfig = getModelConfigForAgent(selectedAgent, settings, 'lite', fallbackAgent)
+  const liteProvider = getProvider(liteConfig.provider)
+  if (!liteProvider?.generateResearchPlan || !liteConfig.model) return null
+
+  const liteCreds = liteProvider.getCredentials(settings)
+  if (!liteCreds?.apiKey) return null
+
+  const prompt = [
+    'You are a thinking-mode router for a chat assistant.',
+    'Return STRICT JSON only.',
+    'Schema: {"thinking_mode":"deep|fast"}',
+    'Rules:',
+    '- Choose "deep" only if multi-step reasoning is required; otherwise "fast".',
+    '- Do not include any keys other than thinking_mode.',
+    `User question:\n${String(question || '').trim()}`,
+  ].join('\n')
+
+  try {
+    const raw = await liteProvider.generateResearchPlan(
+      prompt,
+      liteCreds.apiKey,
+      liteCreds.baseUrl,
+      liteConfig.model,
+      'general',
+    )
+    const parsed = safeParseJsonObject(raw)
+    if (!parsed) return null
+    return normalizeThinkingMode(parsed.thinking_mode, false)
+  } catch (error) {
+    console.warn('[callAIAPI] lite thinking planner failed:', error)
+    return null
+  }
+}
+
 /**
  * Main AI API call function that handles streaming and tool calls
  */
@@ -585,9 +652,24 @@ export const callAIAPI = async (
     const provider = getProvider(modelConfig.provider)
     const credentials = provider.getCredentials(settings)
     const thinkingRule = resolveThinkingToggleRule(modelConfig.provider, modelConfig.model)
+    const requestedThinkingMode = normalizeThinkingMode(toggles?.thinkingMode, toggles?.thinking)
+    const liteThinkingMode =
+      requestedThinkingMode === 'smart'
+        ? await runLiteThinkingPlanner({
+            question: firstUserText || '',
+            selectedAgent,
+            settings,
+            agents,
+          })
+        : null
+    const resolvedThinkingMode =
+      requestedThinkingMode === 'smart'
+        ? normalizeThinkingMode(liteThinkingMode, false)
+        : requestedThinkingMode
     const thinkingActive =
-      !!(toggles?.thinking || toggles?.deepResearch) ||
-      (thinkingRule.isLocked && thinkingRule.isThinkingActive)
+      thinkingRule.isLocked
+        ? thinkingRule.isThinkingActive
+        : !!toggles?.deepResearch || resolvedThinkingMode === 'deep'
     let planContent = ''
 
     const updateResearchPlan = content => {
@@ -824,6 +906,7 @@ export const callAIAPI = async (
         toggles.deepResearch ? false : settings.enableLongTermMemory,
       ),
       toolIds: resolvedToolIds,
+      thinkingMode: resolvedThinkingMode,
       enableLongTermMemory: toggles.deepResearch ? false : Boolean(settings.enableLongTermMemory),
       databaseProvider: selectedDatabaseProvider,
       thinking: provider.getThinking(thinkingActive, modelConfig.model),

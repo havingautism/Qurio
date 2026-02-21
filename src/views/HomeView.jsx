@@ -16,7 +16,9 @@ import Image from 'lucide-react/dist/esm/icons/image'
 import LayoutGrid from 'lucide-react/dist/esm/icons/layout-grid'
 import Menu from 'lucide-react/dist/esm/icons/menu'
 import Paperclip from 'lucide-react/dist/esm/icons/paperclip'
+import Sparkles from 'lucide-react/dist/esm/icons/sparkles'
 import X from 'lucide-react/dist/esm/icons/x'
+import Zap from 'lucide-react/dist/esm/icons/zap'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Drawer, DrawerContent } from '@/components/ui/drawer'
 import { useTranslation } from 'react-i18next'
@@ -56,6 +58,7 @@ import {
   persistSearchBackendPreference,
   persistSearchEnabledPreference,
   persistSearchToolsPreference,
+  persistThinkingModePreference,
   persistThinkingPreference,
 } from '../lib/togglePreferences'
 import ColorBendsBackground from '../components/ui/ColorBendsBackground'
@@ -156,6 +159,7 @@ const HomeView = () => {
       return {
         searchEnabled: null,
         thinkingEnabled: null,
+        thinkingMode: null,
         searchBackend: null,
         searchTools: [],
       }
@@ -188,9 +192,13 @@ const HomeView = () => {
     return Array.isArray(prefs.searchTools) ? prefs.searchTools : []
   })
   const [isHomeSearchMenuOpen, setIsHomeSearchMenuOpen] = useState(false)
-  const [isHomeThinkingActive, setIsHomeThinkingActive] = useState(() => {
+  const [isHomeThinkingMenuOpen, setIsHomeThinkingMenuOpen] = useState(false)
+  const [homeThinkingMode, setHomeThinkingMode] = useState(() => {
     const prefs = getInitialTogglePreferences()
-    return Boolean(prefs.thinkingEnabled)
+    if (prefs.thinkingMode === 'smart' || prefs.thinkingMode === 'deep' || prefs.thinkingMode === 'fast') {
+      return prefs.thinkingMode
+    }
+    return prefs.thinkingEnabled ? 'deep' : 'fast'
   })
   const [isExpertGuideOpen, setIsExpertGuideOpen] = useState(false)
   const [isCreatingExpertConversation, setIsCreatingExpertConversation] = useState(false)
@@ -210,6 +218,7 @@ const HomeView = () => {
   const [isHomeUploadMenuOpen, setIsHomeUploadMenuOpen] = useState(false)
   const homeUploadMenuRef = useRef(null)
   const homeSearchMenuRef = useRef(null)
+  const homeThinkingMenuRef = useRef(null)
   const [homeSpaceDocuments, setHomeSpaceDocuments] = useState([])
   const [homeDocumentsLoading, setHomeDocumentsLoading] = useState(false)
   const [_homeSelectedDocumentIds, setHomeSelectedDocumentIds] = useState([])
@@ -218,7 +227,10 @@ const HomeView = () => {
   const homeInputHighlightRef = useRef(null)
 
   useScrollLock(
-    (isHomeSpaceSelectorOpen && isHomeMobile) || isDeepResearchGuideOpen || isExpertGuideOpen,
+    (isHomeSpaceSelectorOpen && isHomeMobile) ||
+      (isHomeThinkingMenuOpen && isHomeMobile) ||
+      isDeepResearchGuideOpen ||
+      isExpertGuideOpen,
   )
 
   // Reset conversation state when entering Home/New Chat view
@@ -303,8 +315,9 @@ const HomeView = () => {
   }, [homeSearchBackend, homeSearchTools])
 
   useEffect(() => {
-    persistThinkingPreference(isHomeThinkingActive)
-  }, [isHomeThinkingActive])
+    persistThinkingPreference(homeThinkingMode === 'deep')
+    persistThinkingModePreference(homeThinkingMode)
+  }, [homeThinkingMode])
 
   useEffect(() => {
     persistSearchEnabledPreference(isHomeSearchActive)
@@ -465,6 +478,17 @@ const HomeView = () => {
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [isHomeSearchMenuOpen, isHomeMobile])
+
+  useEffect(() => {
+    if (!isHomeThinkingMenuOpen || isHomeMobile) return
+    const handleClickOutside = event => {
+      if (homeThinkingMenuRef.current && !homeThinkingMenuRef.current.contains(event.target)) {
+        setIsHomeThinkingMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [isHomeThinkingMenuOpen, isHomeMobile])
 
   const handleSelectHomeSearchTool = toolId => {
     if (!toolId) {
@@ -652,7 +676,8 @@ const HomeView = () => {
 
   const handleStartChat = async () => {
     if (!homeInput.trim() && homeAttachments.length === 0) return
-    const resolvedThinkingActive = isHomeThinkingActive
+    const resolvedThinkingMode = homeThinkingMode
+    const resolvedThinkingActive = resolvedThinkingMode === 'deep'
     const resolvedSpace = homeSelectedSpace
     const resolvedAgent = selectedHomeAgent
 
@@ -692,6 +717,7 @@ const HomeView = () => {
           searchTool: isHomeSearchActive ? Array.from(resolvedSearchTools) : [],
           searchBackend: homeSearchBackend || null,
           thinking: resolvedThinkingActive,
+          thinkingMode: resolvedThinkingMode,
           deepResearch: false,
           expertMode: false,
           related: Boolean(settings.enableRelatedQuestions),
@@ -865,8 +891,35 @@ const HomeView = () => {
   }, [activeTheme, isDarkMode])
   useEffect(() => {
     if (!isHomeThinkingLocked) return
-    setIsHomeThinkingActive(homeThinkingRule.isThinkingActive)
+    setHomeThinkingMode(homeThinkingRule.isThinkingActive ? 'deep' : 'fast')
   }, [isHomeThinkingLocked, homeThinkingRule.isThinkingActive])
+
+  const homeThinkingOptions = useMemo(
+    () => [
+      {
+        id: 'smart',
+        label: t('thinkingMode.smartLabel'),
+        description: t('thinkingMode.smartDescription'),
+        icon: Sparkles,
+      },
+      {
+        id: 'deep',
+        label: t('thinkingMode.deepLabel'),
+        description: t('thinkingMode.deepDescription'),
+        icon: Brain,
+      },
+      {
+        id: 'fast',
+        label: t('thinkingMode.fastLabel'),
+        description: t('thinkingMode.fastDescription'),
+        icon: Zap,
+      },
+    ],
+    [t],
+  )
+
+  const selectedHomeThinkingOption =
+    homeThinkingOptions.find(option => option.id === homeThinkingMode) || homeThinkingOptions[0]
 
   const homeSpaceButtonContent = useMemo(() => {
     const autoLabelWithSparkle = `${t('homeView.auto')} ✨`
@@ -1241,23 +1294,139 @@ const HomeView = () => {
                       <div className="space-y-2">{homeUploadMenuContent}</div>
                     </MobileDrawer>
                   </div>
-                  <button
-                    disabled={isHomeThinkingLocked}
-                    onClick={() =>
-                      setIsHomeThinkingActive(prev => {
-                        const next = !prev
-                        return next
-                      })
-                    }
-                    className={`flex items-center gap-2 rounded-lg p-2 text-xs font-medium transition-colors ${
-                      isHomeThinkingActive
-                        ? 'text-primary-500 bg-gray-100 dark:bg-zinc-800'
-                        : 'text-gray-500 dark:text-gray-400'
-                    } ${isHomeThinkingLocked ? 'cursor-not-allowed opacity-60' : 'hover:bg-gray-100 dark:hover:bg-zinc-800'}`}
-                  >
-                    <Brain size={18} />
-                    <span className="hidden md:inline">{t('homeView.think')}</span>
-                  </button>
+                  <div className="relative" ref={homeThinkingMenuRef}>
+                    <button
+                      disabled={isHomeThinkingLocked}
+                      onClick={() => {
+                        if (isHomeThinkingLocked) return
+                        setIsHomeThinkingMenuOpen(prev => !prev)
+                      }}
+                      className={`flex items-center gap-2 rounded-lg p-2 text-xs font-medium transition-colors ${
+                        homeThinkingMode !== 'fast'
+                          ? 'text-primary-500 bg-gray-100 dark:bg-zinc-800'
+                          : 'text-gray-500 dark:text-gray-400'
+                      } ${isHomeThinkingLocked ? 'cursor-not-allowed opacity-60' : 'hover:bg-gray-100 dark:hover:bg-zinc-800'}`}
+                    >
+                      <Brain size={18} />
+                      <span className="hidden md:inline">{selectedHomeThinkingOption?.label}</span>
+                      <ChevronDown
+                        size={14}
+                        className={clsx(
+                          'transition-transform',
+                          isHomeThinkingMenuOpen && 'rotate-180',
+                        )}
+                      />
+                    </button>
+                    {isHomeThinkingMenuOpen && !isHomeMobile && (
+                      <div className="absolute top-full left-0 z-50 mt-2 w-72 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl dark:border-zinc-700 dark:bg-[#202222]">
+                        <div className="space-y-1 p-2">
+                          {homeThinkingOptions.map(option => {
+                            const isActive = option.id === homeThinkingMode
+                            const OptionIcon = option.icon || Brain
+                            return (
+                              <button
+                                key={option.id}
+                                type="button"
+                                onClick={() => {
+                                  setHomeThinkingMode(option.id)
+                                  setIsHomeThinkingMenuOpen(false)
+                                }}
+                                className={clsx(
+                                  'flex w-full items-start justify-between rounded-lg px-3 py-2.5 text-left text-sm transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800',
+                                  isActive
+                                    ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
+                                    : 'text-gray-700 dark:text-gray-200',
+                                )}
+                              >
+                                <span className="flex items-start gap-2.5">
+                                  <span
+                                    className={clsx(
+                                      'mt-0.5 rounded-md p-1',
+                                      isActive
+                                        ? 'bg-primary-100 text-primary-600 dark:bg-primary-900/40 dark:text-primary-400'
+                                        : 'bg-gray-100 text-gray-500 dark:bg-zinc-800 dark:text-gray-400',
+                                    )}
+                                  >
+                                    <OptionIcon size={14} />
+                                  </span>
+                                  <span className="flex flex-col">
+                                    <span className="font-medium">{option.label}</span>
+                                    <span className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                                      {option.description}
+                                    </span>
+                                  </span>
+                                </span>
+                                {isActive && <Check size={14} className="mt-0.5 text-primary-500" />}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+                    <Drawer
+                      open={isHomeThinkingMenuOpen && isHomeMobile}
+                      onOpenChange={setIsHomeThinkingMenuOpen}
+                    >
+                      <DrawerContent className="max-h-[55vh] rounded-t-3xl border-t border-gray-200 bg-white dark:border-zinc-800 dark:bg-[#1E1E1E]">
+                        <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-zinc-800/50">
+                          <h3 className="text-base leading-none font-bold text-gray-900 dark:text-gray-100">
+                            {t('homeView.think')}
+                          </h3>
+                          <button
+                            onClick={() => setIsHomeThinkingMenuOpen(false)}
+                            className="-mr-2 rounded-full p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-zinc-800 dark:hover:text-gray-200"
+                          >
+                            <X size={20} />
+                          </button>
+                        </div>
+                        <div className="min-h-0 overflow-y-auto p-3">
+                          <div className="space-y-1.5">
+                            {homeThinkingOptions.map(option => {
+                              const isActive = option.id === homeThinkingMode
+                              const OptionIcon = option.icon || Brain
+                              return (
+                                <button
+                                  key={option.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setHomeThinkingMode(option.id)
+                                    setIsHomeThinkingMenuOpen(false)
+                                  }}
+                                  className={clsx(
+                                    'flex w-full items-start justify-between rounded-lg px-4 py-3 text-left text-sm transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800',
+                                    isActive
+                                      ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
+                                      : 'text-gray-700 dark:text-gray-200',
+                                  )}
+                                >
+                                  <span className="flex items-start gap-2.5">
+                                    <span
+                                      className={clsx(
+                                        'mt-0.5 rounded-md p-1',
+                                        isActive
+                                          ? 'bg-primary-100 text-primary-600 dark:bg-primary-900/40 dark:text-primary-400'
+                                          : 'bg-gray-100 text-gray-500 dark:bg-zinc-800 dark:text-gray-400',
+                                      )}
+                                    >
+                                      <OptionIcon size={14} />
+                                    </span>
+                                    <span className="flex flex-col">
+                                      <span className="font-medium">{option.label}</span>
+                                      <span className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                                        {option.description}
+                                      </span>
+                                    </span>
+                                  </span>
+                                  {isActive && <Check size={14} className="text-primary-500" />}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+                        <div className="h-4 shrink-0" />
+                      </DrawerContent>
+                    </Drawer>
+                  </div>
                   <div className="relative" ref={homeSearchMenuRef}>
                     <button
                       disabled={
@@ -1287,6 +1456,10 @@ const HomeView = () => {
                         <Globe size={18} />
                       )}
                       <span className="hidden md:inline">{t('homeView.search')}</span>
+                      <ChevronDown
+                        size={14}
+                        className={clsx('transition-transform', isHomeSearchMenuOpen && 'rotate-180')}
+                      />
                     </button>
                     {isHomeSearchMenuOpen && !isHomeMobile && (
                       <div className="absolute top-full left-0 z-50 mt-2 w-56 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl dark:border-zinc-700 dark:bg-[#202222]">
@@ -1517,7 +1690,13 @@ const HomeView = () => {
                           </>
                         )}
                       </div>
-                      <ChevronDown size={14} />
+                      <ChevronDown
+                        size={14}
+                        className={clsx(
+                          'transition-transform',
+                          isHomeSpaceSelectorOpen && 'rotate-180',
+                        )}
+                      />
                     </button>
                     {!isHomeMobile && isHomeSpaceSelectorOpen && (
                       <div className="absolute top-full left-0 z-50 mt-2 w-60 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl dark:border-zinc-700 dark:bg-[#202222]">

@@ -1,4 +1,5 @@
 export const THINKING_TOGGLE_STORAGE_KEY = 'qurio:toggle:thinking'
+export const THINKING_MODE_STORAGE_KEY = 'qurio:toggle:thinkingMode'
 export const SEARCH_TOGGLE_STORAGE_KEY = 'qurio:toggle:search'
 export const SEARCH_BACKEND_STORAGE_KEY = 'qurio:toggle:searchBackend'
 export const SEARCH_TOOLS_STORAGE_KEY = 'qurio:toggle:searchTools'
@@ -12,6 +13,11 @@ export const parseStoredBoolean = value => {
 export const loadTogglePreferences = () => {
   const searchEnabled = parseStoredBoolean(localStorage.getItem(SEARCH_TOGGLE_STORAGE_KEY))
   const thinkingEnabled = parseStoredBoolean(localStorage.getItem(THINKING_TOGGLE_STORAGE_KEY))
+  const thinkingModeRaw = (localStorage.getItem(THINKING_MODE_STORAGE_KEY) || '').trim()
+  const thinkingMode =
+    thinkingModeRaw === 'smart' || thinkingModeRaw === 'deep' || thinkingModeRaw === 'fast'
+      ? thinkingModeRaw
+      : null
   const searchBackend = localStorage.getItem(SEARCH_BACKEND_STORAGE_KEY)
 
   // Academic search selections should NOT be persisted.
@@ -23,6 +29,7 @@ export const loadTogglePreferences = () => {
   return {
     searchEnabled,
     thinkingEnabled,
+    thinkingMode,
     searchBackend,
     searchTools: [],
   }
@@ -30,6 +37,15 @@ export const loadTogglePreferences = () => {
 
 export const persistThinkingPreference = enabled => {
   localStorage.setItem(THINKING_TOGGLE_STORAGE_KEY, String(Boolean(enabled)))
+}
+
+export const persistThinkingModePreference = mode => {
+  const normalized = String(mode || '').trim()
+  if (normalized === 'smart' || normalized === 'deep' || normalized === 'fast') {
+    localStorage.setItem(THINKING_MODE_STORAGE_KEY, normalized)
+  } else {
+    localStorage.removeItem(THINKING_MODE_STORAGE_KEY)
+  }
 }
 
 export const persistSearchEnabledPreference = enabled => {

@@ -688,8 +688,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
               setLiteModelProvider(data.liteModelProvider || '')
             if (data.defaultModelSource) setDefaultModelSource(data.defaultModelSource || 'list')
             if (data.liteModelSource) setLiteModelSource(data.liteModelSource || 'list')
-            if (data.defaultModelSource === 'custom')
-              setDefaultCustomModel(data.defaultModel || '')
+            if (data.defaultModelSource === 'custom') setDefaultCustomModel(data.defaultModel || '')
             if (data.liteModelSource === 'custom') setLiteCustomModel(data.liteModel || '')
             if (data.enableLongTermMemory !== undefined) {
               setEnableLongTermMemory(String(data.enableLongTermMemory) === 'true')
@@ -1393,7 +1392,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       }
       setLiteTestAction({
         status: 'success',
-        message: `${t('agents.model.testConnectivityOk')} 闁?${t('agents.model.testStructuredOk')}`,
+        message: `${t('agents.model.testConnectivityOk')} ${t('agents.model.testStructuredOk')}`,
       })
     } catch (err) {
       setLiteTestAction({
@@ -1925,7 +1924,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
         supabaseKey,
         // UI
         themeColor,
-        messageFontSize: fontSize,
+        fontSize,
         interfaceLanguage,
         followInterfaceLanguage,
         // Advanced

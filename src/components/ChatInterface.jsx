@@ -44,6 +44,7 @@ import {
 } from '../lib/togglePreferences'
 import { listToolsViaBackend } from '../lib/backendClient'
 import { getLanguageInstruction, applyLanguageInstructionToText } from '../lib/chat/prompts'
+import { getModelConfigForConversation } from '../lib/chat/modelConfig'
 
 const DOCUMENT_CONTEXT_MAX_TOTAL = 12000
 const DOCUMENT_CONTEXT_MAX_PER_DOC = 4000
@@ -678,44 +679,9 @@ const ChatInterface = ({
 
   // Helper to get model config for agent or fallback to global default agent
   const getModelConfig = React.useCallback(
-    (task = 'streamChatCompletion') => {
-      const resolveFromAgent = agent => {
-        if (!agent) return null
-        const defaultModel = agent.defaultModel
-        const liteModel = agent.liteModel ?? ''
-        const defaultModelProvider = agent.defaultModelProvider || ''
-        const liteModelProvider = agent.liteModelProvider || ''
-        const hasDefault = typeof defaultModel === 'string' && defaultModel.trim() !== ''
-        const hasLite = typeof liteModel === 'string' && liteModel.trim() !== ''
-        if (!hasDefault && !hasLite) return null
-
-        const isLiteTask =
-          task === 'generateTitle' ||
-          task === 'generateTitleAndSpace' ||
-          task === 'generateRelatedQuestions' ||
-          task === 'generateResearchPlan'
-
-        const model = isLiteTask ? liteModel || defaultModel : defaultModel || liteModel
-        const provider = isLiteTask
-          ? liteModelProvider || defaultModelProvider || agent.provider
-          : defaultModelProvider || liteModelProvider || agent.provider
-
-        if (!model || !provider) return null
-        return { provider, model }
-      }
-
-      const primaryConfig = resolveFromAgent(effectiveAgent)
-      if (primaryConfig) return primaryConfig
-
-      const fallbackConfig = resolveFromAgent(defaultAgent)
-      if (fallbackConfig) return fallbackConfig
-
-      return {
-        provider: fallbackProvider,
-        model: '',
-      }
-    },
-    [defaultAgent, effectiveAgent, fallbackProvider],
+    (task = 'streamChatCompletion') =>
+      getModelConfigForConversation(effectiveAgent, defaultAgent, settings, task),
+    [defaultAgent, effectiveAgent, settings],
   )
 
   const handleToggleDocument = useCallback(

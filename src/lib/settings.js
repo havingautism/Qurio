@@ -357,7 +357,7 @@ export const loadSettings = (overrides = {}) => {
           ? overrides.followInterfaceLanguage
           : false,
     llmAnswerLanguage: localLlmAnswerLanguage || overrides.llmAnswerLanguage || 'English',
-    fontSize: localFontSize || overrides.fontSize || 'medium',
+    fontSize: localFontSize || overrides.fontSize || overrides.messageFontSize || 'medium',
     enableLongTermMemory: resolvedLongTermMemoryPreference,
     memoryRecallLimit: resolvedMemoryRecallLimit,
     embeddingProvider: localEmbeddingProvider || overrides.embeddingProvider || '',

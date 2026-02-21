@@ -1,5 +1,27 @@
 import { getProvider } from '../providers'
 
+const isLiteTask = task =>
+  task === 'generateTitle' ||
+  task === 'generateTitleAndSpace' ||
+  task === 'generateRelatedQuestions' ||
+  task === 'generateResearchPlan' ||
+  task === 'generateDocumentQuery' ||
+  task === 'generateMemoryQuery' ||
+  task === 'sessionContentSummary' ||
+  task === 'lite'
+
+const getGlobalModelConfig = (settings, task, fallbackAgent) => {
+  const liteTask = isLiteTask(task)
+  const model = liteTask ? settings?.liteModel || settings?.defaultModel : settings?.defaultModel
+  const provider = liteTask
+    ? settings?.liteModelProvider || settings?.defaultModelProvider || settings?.apiProvider
+    : settings?.defaultModelProvider || settings?.apiProvider
+  return {
+    provider: provider || fallbackAgent?.provider || '',
+    model: model || '',
+  }
+}
+
 /**
  * Gets model configuration for a given agent
  * Falls back to system default agent, then global settings if needed
@@ -34,18 +56,9 @@ export const getModelConfigForAgent = (
 
     if (!hasDefault && !hasLite) return null
 
-    const isLiteTask =
-      task === 'generateTitle' ||
-      task === 'generateTitleAndSpace' ||
-      task === 'generateRelatedQuestions' ||
-      task === 'generateResearchPlan' ||
-      task === 'generateDocumentQuery' ||
-      task === 'generateMemoryQuery' ||
-      task === 'sessionContentSummary' ||
-      task === 'lite'
-
-    const model = isLiteTask ? liteModel || defaultModel : defaultModel || liteModel
-    const provider = isLiteTask
+    const liteTask = isLiteTask(task)
+    const model = liteTask ? liteModel || defaultModel : defaultModel || liteModel
+    const provider = liteTask
       ? liteModelProvider || defaultModelProvider || candidate.provider
       : defaultModelProvider || liteModelProvider || candidate.provider
 
@@ -59,36 +72,34 @@ export const getModelConfigForAgent = (
   const fallback = resolveFromAgent(fallbackAgent)
   if (fallback) return fallback
 
-  // Global settings fallback
-  const isLiteTask =
-    task === 'generateTitle' ||
-    task === 'generateTitleAndSpace' ||
-    task === 'generateRelatedQuestions' ||
-    task === 'generateResearchPlan' ||
-    task === 'generateDocumentQuery' ||
-    task === 'generateMemoryQuery' ||
-    task === 'sessionContentSummary' ||
-    task === 'lite'
+  return getGlobalModelConfig(settings, task, fallbackAgent)
+}
 
-  const globalModel = isLiteTask
-    ? settings?.liteModel || settings?.defaultModel
-    : settings?.defaultModel
+/**
+ * Gets model configuration for conversation-scoped actions.
+ * If selected agent explicitly enables global model settings,
+ * force global model config and do not fall back to default agent's private models.
+ */
+export const getModelConfigForConversation = (
+  selectedAgent,
+  fallbackAgent,
+  settings,
+  task = 'streamChatCompletion',
+) => {
+  const selectedUseGlobalRaw =
+    selectedAgent?.use_global_model_settings ?? selectedAgent?.useGlobalModelSettings
+  const selectedUseGlobal =
+    selectedAgent != null
+      ? selectedUseGlobalRaw === undefined
+        ? true
+        : Boolean(selectedUseGlobalRaw)
+      : false
 
-  const globalProvider = isLiteTask
-    ? settings?.liteModelProvider || settings?.defaultModelProvider || settings?.apiProvider
-    : settings?.defaultModelProvider || settings?.apiProvider
-
-  if (globalModel) {
-    return {
-      provider: globalProvider || fallbackAgent?.provider || '',
-      model: globalModel,
-    }
+  if (selectedAgent && selectedUseGlobal) {
+    return getGlobalModelConfig(settings, task, fallbackAgent)
   }
 
-  return {
-    provider: fallbackAgent?.provider || '',
-    model: '',
-  }
+  return getModelConfigForAgent(selectedAgent, settings, task, fallbackAgent)
 }
 
 export const resolveProviderConfigWithCredentials = (agent, settings, task, fallbackAgent) => {

@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+﻿import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { useShallow } from 'zustand/react/shallow'
@@ -2483,9 +2483,6 @@ const MessageBubble = ({
       )
       if (regularTools.length === 0) return null
 
-      const searchCount = regularTools.filter(t => SEARCH_STEP_TOOLS.has(String(t.name))).length
-      const totalCount = regularTools.length
-
       // Extract unique localized tool names
       const uniqueToolNames = Array.from(
         new Set(
@@ -2502,7 +2499,7 @@ const MessageBubble = ({
 
       const label = t('messageBubble.usedSpecificTools', {
         tools: joinedNames,
-        defaultValue: `Used ${joinedNames}`
+        defaultValue: `Used ${joinedNames}`,
       })
 
       return (
@@ -2622,7 +2619,7 @@ const MessageBubble = ({
 
     if (part.type === 'tools') {
       if (isDeepResearch) return null
-      
+
       return renderToolItems(part.items, part.key || idx)
     }
 

@@ -281,6 +281,7 @@ export const generateResearchPlanViaBackend = async (
  * @param {string} params.model - Optional model name
  * @param {object} params.responseFormat - Optional response format
  * @param {object} params.thinking - Optional thinking config
+ * @param {string} params.thinkingMode - Optional thinking mode
  * @param {number} params.temperature - Optional temperature
  * @param {number} params.top_k - Optional top_k
  * @param {number} params.top_p - Optional top_p
@@ -704,6 +705,7 @@ export const streamChatViaBackend = async params => {
     toolChoice,
     responseFormat,
     thinking,
+    thinkingMode,
     temperature,
     top_k,
     top_p,
@@ -766,6 +768,7 @@ export const streamChatViaBackend = async params => {
           toolChoice,
           responseFormat,
           thinking,
+          thinkingMode,
           temperature,
           top_k,
           top_p,

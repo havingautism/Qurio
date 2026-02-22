@@ -71,6 +71,8 @@
     "arxivReadInfo": "根据论文 ID 下载并读取 arXiv 论文。",
     "wikipediaSearch": "维基百科搜索",
     "wikipediaSearchInfo": "搜索维基百科并返回摘要。",
+    "yfinanceTools": "Yahoo Finance 工具包",
+    "yfinanceToolsInfo": "启用 Yahoo Finance 工具，支持股价、公司概况、基本面、新闻和历史数据。",
     "stockPrice": "股价",
     "stockPriceInfo": "从 Yahoo Finance 获取当前股价。",
     "companyInfo": "公司信息",
@@ -1023,6 +1025,14 @@
     "experimental": "实验性",
     "concurrentExecutionDesc": "同时执行所有研究步骤以提升速度，但可能影响步骤间的逻辑连贯性"
   },
+  "thinkingMode": {
+    "smartLabel": "智能思考",
+    "smartDescription": "根据问题复杂度自动选择深度思考或快速回答",
+    "deepLabel": "深度思考",
+    "deepDescription": "启用推理思考，适合复杂问题",
+    "fastLabel": "快速回答",
+    "fastDescription": "跳过推理思考，优先返回速度"
+  },
   "chat": {
     "thinking": "思考中",
     "deepResearchPlanning": "深入研究：规划",
@@ -1059,6 +1069,10 @@
   },
   "messageBubble": {
     "workflow": "工作流",
+    "usedSpecificTools": "已调用 {{tools}}",
+    "completedAnswer": "完成回答，用时 {{duration}} 秒",
+    "organizedSources": "整理参考来源",
+    "finalAnswerStep": "生成最终回答",
     "expertPlan": "专家计划",
     "workflowToolCalling": "{{tool}} 调用中",
     "deepThinking": "已深度思考",
@@ -1094,6 +1108,11 @@
     "edit": "编辑",
     "copy": "复制",
     "regenerate": "重新生成",
+    "webSearch": "网络搜索",
+    "searchFound": "找到 {{count}} 条结果",
+    "statusSearching": "正在搜索...",
+    "statusCallingTools": "正在调用工具...",
+    "statusThinking": "正在思考分析...",
 
     "analyzing": "分析中",
     "workingThroughIt": "正在推理",

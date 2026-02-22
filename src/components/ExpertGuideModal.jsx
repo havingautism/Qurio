@@ -34,7 +34,7 @@ const ExpertGuideModal = ({ isOpen, onClose, spaces = [], onStart, loading = fal
   }
 
   const content = (
-    <div className={clsx('flex flex-col', isMobile ? 'h-full' : '')}>
+    <div className={clsx('flex min-h-0 flex-col', isMobile ? 'h-full' : '')}>
       <div className={clsx('flex items-start justify-between', isMobile ? 'mb-4' : 'mb-4')}>
         <div className="flex items-center gap-2">
           {!isMobile && (
@@ -57,7 +57,7 @@ const ExpertGuideModal = ({ isOpen, onClose, spaces = [], onStart, loading = fal
         </button>
       </div>
 
-      <div className={clsx('space-y-6', isMobile ? 'flex-1 overflow-y-auto' : '')}>
+      <div className={clsx('space-y-6', isMobile ? 'min-h-0 flex-1 overflow-y-auto pb-2' : '')}>
         <div>
           <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
             {t('homeView.expertQuestionTitle')}
@@ -81,7 +81,7 @@ const ExpertGuideModal = ({ isOpen, onClose, spaces = [], onStart, loading = fal
           <div
             className={clsx(
               'grid grid-cols-1 gap-3 sm:grid-cols-2',
-              isMobile ? 'max-h-[42vh] overflow-y-auto p-1' : 'max-h-[320px] overflow-y-auto p-1',
+              isMobile ? 'overflow-y-auto p-1' : 'max-h-[320px] overflow-y-auto p-1',
             )}
           >
             {availableSpaces.length === 0 && (
@@ -131,7 +131,9 @@ const ExpertGuideModal = ({ isOpen, onClose, spaces = [], onStart, loading = fal
       <div
         className={clsx(
           'mt-5 flex gap-2',
-          isMobile ? 'border-t border-gray-100 pt-4 dark:border-zinc-800/50' : 'justify-end',
+          isMobile
+            ? 'shrink-0 border-t border-gray-100 bg-white/95 pt-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.25rem)] backdrop-blur dark:border-zinc-800/50 dark:bg-[#1E1E1E]/95'
+            : 'justify-end',
         )}
       >
         {!isMobile && (
@@ -168,11 +170,8 @@ const ExpertGuideModal = ({ isOpen, onClose, spaces = [], onStart, loading = fal
   if (isMobile) {
     return (
       <Drawer open={isOpen} onOpenChange={open => !open && onClose()}>
-        <DrawerContent className="max-h-[85vh] rounded-t-3xl border-t border-gray-200 bg-white dark:border-zinc-800 dark:bg-[#1E1E1E]">
-          <div className="flex h-full flex-col px-4 pt-4 pb-5">
-            {content}
-            <div className="h-6 shrink-0" />
-          </div>
+        <DrawerContent className="h-[92dvh] max-h-[92dvh] overflow-hidden rounded-t-3xl border-t border-gray-200 bg-white dark:border-zinc-800 dark:bg-[#1E1E1E]">
+          <div className="flex h-full min-h-0 flex-col px-4 pt-4 pb-3">{content}</div>
         </DrawerContent>
       </Drawer>
     )

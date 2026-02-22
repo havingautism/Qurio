@@ -63,6 +63,7 @@ const BookmarksView = () => {
       limit: 10,
       dependencies: [sortOption],
       rootMargin: '100px',
+      eventScope: 'bookmarks',
     },
   )
 
@@ -104,7 +105,9 @@ const BookmarksView = () => {
     } else {
       toast.success(newStatus ? t('views.addBookmark') : t('views.removeBookmark'))
       // Refresh data
-      notifyConversationsChanged()
+      notifyConversationsChanged({
+        scopes: ['bookmarks', 'library', 'deepResearch', 'expert'],
+      })
     }
     setExpandedActionId(null)
   }
@@ -124,7 +127,9 @@ const BookmarksView = () => {
         if (success) {
           toast.success(t('views.libraryView.conversationDeleted'))
           // Refresh data
-          notifyConversationsChanged()
+          notifyConversationsChanged({
+            scopes: ['bookmarks', 'library', 'deepResearch', 'expert'],
+          })
         } else {
           console.error('Failed to delete conversation:', error)
           toast.error(t('views.libraryView.failedToDelete'))
@@ -141,17 +146,17 @@ const BookmarksView = () => {
         isSidebarPinned ? 'ml-0 sm:ml-72' : 'ml-0 sm:ml-16',
       )}
     >
-      <div className="mx-auto w-full max-w-5xl px-3 py-5 sm:px-6 sm:py-8">
+      <div className="mx-auto w-full max-w-5xl px-3 py-3.5 sm:px-6 sm:py-8">
         {/* Header */}
-        <div className="mb-8 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="mb-5 flex items-center justify-between sm:mb-8">
+          <div className="flex items-center gap-2.5 sm:gap-3">
             <Bookmark size={32} className="text-primary-500 fill-current" />
-            <h1 className="text-3xl font-medium">{t('views.bookmarksView.title')}</h1>
+            <h1 className="text-2xl font-medium sm:text-3xl">{t('views.bookmarksView.title')}</h1>
           </div>
         </div>
 
         {/* Search and Filters */}
-        <div className="mb-8 space-y-4">
+        <div className="mb-5 space-y-3 sm:mb-8 sm:space-y-4">
           {/* Search Bar */}
           <div className="relative">
             <Search className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400" size={20} />
@@ -160,17 +165,17 @@ const BookmarksView = () => {
               placeholder={t('views.bookmarksView.searchPlaceholder')}
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full rounded-xl border border-transparent bg-gray-100 py-3 pr-4 pl-10 placeholder-gray-500 transition-all outline-none focus:border-gray-300 dark:bg-zinc-900 dark:focus:border-zinc-700"
+              className="w-full rounded-xl border border-transparent bg-gray-100 py-2.5 pr-4 pl-10 text-sm placeholder-gray-500 transition-all outline-none sm:py-3 dark:bg-zinc-900 dark:focus:border-zinc-700 focus:border-gray-300"
             />
           </div>
 
           {/* Filter Row */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <button className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium transition-colors hover:bg-gray-200 dark:bg-zinc-800 dark:hover:bg-zinc-700">
+              <button className="rounded-lg bg-gray-100 px-2.5 py-1.5 text-[11px] font-medium transition-colors hover:bg-gray-200 sm:px-3 sm:text-xs dark:bg-zinc-800 dark:hover:bg-zinc-700">
                 Select
               </button>
-              <button className="flex items-center gap-1 rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium transition-colors hover:bg-gray-200 dark:bg-zinc-800 dark:hover:bg-zinc-700">
+              <button className="flex items-center gap-1 rounded-lg bg-gray-100 px-2.5 py-1.5 text-[11px] font-medium transition-colors hover:bg-gray-200 sm:px-3 sm:text-xs dark:bg-zinc-800 dark:hover:bg-zinc-700">
                 <span>Type</span>
                 <ChevronDown size={12} />
               </button>
@@ -178,7 +183,7 @@ const BookmarksView = () => {
             <div className="relative">
               <button
                 onClick={() => setIsSortOpen(!isSortOpen)}
-                className="flex items-center gap-1 rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium transition-colors hover:bg-gray-200 dark:bg-zinc-800 dark:hover:bg-zinc-700"
+                className="flex items-center gap-1 rounded-lg bg-gray-100 px-2.5 py-1.5 text-[11px] font-medium transition-colors hover:bg-gray-200 sm:px-3 sm:text-xs dark:bg-zinc-800 dark:hover:bg-zinc-700"
               >
                 <span>
                   {t('views.sort')}: {sortOptions.find(o => o.key === sortOption.key)?.label}
@@ -222,7 +227,7 @@ const BookmarksView = () => {
         </div>
 
         {/* Thread List */}
-        <div className="relative space-y-4">
+        <div className="relative space-y-2.5 sm:space-y-4">
           {loading ? (
             <div className="bg-background/40 absolute inset-0 flex items-center justify-center rounded-2xl backdrop-blur-md">
               <FancyLoader />
@@ -242,7 +247,7 @@ const BookmarksView = () => {
                 <div
                   key={conv.id}
                   data-conversation-id={conv.id}
-                  className="group hover:bg-primary-500/10 dark:hover:bg-primary-500/20 hover:border-primary-500/30 dark:hover:border-primary-500/40 relative cursor-pointer rounded-xl border-b border-gray-100 py-3 transition-colors last:border-0 hover:border sm:p-4 dark:border-zinc-800/50"
+                  className="group hover:bg-primary-500/10 dark:hover:bg-primary-500/20 hover:border-primary-500/30 dark:hover:border-primary-500/40 relative cursor-pointer rounded-xl border-b border-gray-100 p-1.5 transition-colors last:border-0 hover:border sm:p-4 dark:border-zinc-800/50"
                   onClick={() =>
                     navigate({
                       to: isDeepResearchConversation
@@ -252,27 +257,35 @@ const BookmarksView = () => {
                     })
                   }
                 >
-                  <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start justify-between gap-2.5 sm:gap-4">
                     {space?.emoji && (
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-gray-100 dark:bg-zinc-800">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-100 sm:h-12 sm:w-12 dark:bg-zinc-800">
                         <EmojiDisplay emoji={space.emoji} size="2rem" />
                       </div>
                     )}
                     <div className="min-w-0 flex-1">
                       {/* Title */}
-                      <h3 className="mb-1 truncate text-lg font-medium text-gray-900 dark:text-gray-100">
+                      <h3 className="mb-0.5 truncate text-base font-medium text-gray-900 sm:mb-1 sm:text-lg dark:text-gray-100">
                         {conv.title || t('views.untitledThread')}
                       </h3>
 
                       {/* Metadata */}
-                      <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
-                        <div className="flex items-center gap-1.5">
+                      <div className="flex min-w-0 items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                        <div className="flex shrink-0 items-center gap-1.5">
                           <Clock size={14} />
-                          <span>{formatDate(conv.updated_at || conv.created_at)}</span>
+                          <span className="whitespace-nowrap">
+                            {formatDate(conv.updated_at || conv.created_at)}
+                          </span>
                         </div>
                         {space && (
-                          <div className="flex items-center gap-1.5">
-                            <span>{space.label}</span>
+                          <div
+                            className="flex min-w-0 items-center gap-1"
+                            title={space.label || ''}
+                          >
+                            {space?.emoji && <EmojiDisplay emoji={space.emoji} size="0.95rem" />}
+                            <span className="truncate max-w-[8.5rem] sm:max-w-[12rem]">
+                              {space.label}
+                            </span>
                           </div>
                         )}
                       </div>
@@ -286,10 +299,10 @@ const BookmarksView = () => {
                           setExpandedActionId(prev => (prev === conv.id ? null : conv.id))
                         }}
                         className={clsx(
-                          'rounded-full p-2 text-gray-400 transition-all hover:bg-black/5 hover:text-gray-600 dark:hover:bg-white/10 dark:hover:text-gray-200',
+                          'rounded-full p-1.5 text-gray-400 transition-all hover:bg-black/5 hover:text-gray-600 sm:p-2 dark:hover:bg-white/10 dark:hover:text-gray-200',
                           'opacity-100',
                           'md:opacity-0 md:group-hover:opacity-100',
-                          'flex min-h-[44px] min-w-[44px] items-center justify-center',
+                          'flex min-h-[40px] min-w-[40px] items-center justify-center sm:min-h-[44px] sm:min-w-[44px]',
                         )}
                       >
                         <ChevronDown
@@ -306,14 +319,14 @@ const BookmarksView = () => {
 
                   {/* Collapsible Actions Section */}
                   {expandedActionId === conv.id && (
-                    <div className="animate-in fade-in slide-in-from-top-1 mt-3 flex flex-wrap gap-2 px-1">
+                    <div className="animate-in fade-in slide-in-from-top-1 mt-1.5 flex flex-wrap gap-1.5 px-0.5 sm:mt-3 sm:gap-2 sm:px-1">
                       <button
                         onClick={e => {
                           e.stopPropagation()
                           handleToggleFavorite(conv)
                         }}
                         className={clsx(
-                          'flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors',
+                          'flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition-colors sm:gap-2 sm:px-3 sm:text-xs',
                           conv.is_favorited
                             ? 'border-yellow-200 bg-yellow-50 text-yellow-600 dark:border-yellow-800/30 dark:bg-yellow-900/20 dark:text-yellow-400'
                             : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-gray-400 dark:hover:bg-zinc-800',
@@ -329,7 +342,7 @@ const BookmarksView = () => {
                           e.stopPropagation()
                           handleDeleteConversation(conv)
                         }}
-                        className="flex items-center gap-2 rounded-lg border border-red-100 bg-white px-3 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 dark:border-red-900/30 dark:bg-zinc-900 dark:text-red-400 dark:hover:bg-red-900/20"
+                        className="flex items-center gap-1.5 rounded-lg border border-red-100 bg-white px-2.5 py-1.5 text-[11px] font-medium text-red-600 transition-colors hover:bg-red-50 sm:gap-2 sm:px-3 sm:text-xs dark:border-red-900/30 dark:bg-zinc-900 dark:text-red-400 dark:hover:bg-red-900/20"
                       >
                         <Trash2 size={13} />
                         <span>{t('views.deleteConversation')}</span>

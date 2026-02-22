@@ -10,7 +10,7 @@ import clsx from 'clsx'
 import ArrowDown from 'lucide-react/dist/esm/icons/arrow-down'
 import Square from 'lucide-react/dist/esm/icons/square'
 import { useAppContext } from '../App'
-import { notifyConversationsChanged, updateConversation } from '../lib/conversationsService'
+import { notifyConversationPatched, updateConversation } from '../lib/conversationsService'
 import { getProvider, providerSupportsSearch, resolveThinkingToggleRule } from '../lib/providers'
 import QuestionTimelineController from './QuestionTimelineController'
 import ResearchTimelineController from './ResearchTimelineController'
@@ -31,6 +31,7 @@ import {
 } from '../lib/togglePreferences'
 import ChatHeader from './chat/ChatHeader'
 import { getLanguageInstruction, applyLanguageInstructionToText } from '../lib/chat/prompts'
+import { getModelConfigForConversation } from '../lib/chat/modelConfig'
 
 const getInitialThinkingPreference = () => {
   if (typeof window === 'undefined') return false
@@ -450,44 +451,9 @@ const DeepResearchChatInterface = ({
 
   // Helper to get model config for agent or fallback to global default agent
   const getModelConfig = React.useCallback(
-    (task = 'streamChatCompletion') => {
-      const resolveFromAgent = agent => {
-        if (!agent) return null
-        const defaultModel = agent.defaultModel
-        const liteModel = agent.liteModel ?? ''
-        const defaultModelProvider = agent.defaultModelProvider || ''
-        const liteModelProvider = agent.liteModelProvider || ''
-        const hasDefault = typeof defaultModel === 'string' && defaultModel.trim() !== ''
-        const hasLite = typeof liteModel === 'string' && liteModel.trim() !== ''
-        if (!hasDefault && !hasLite) return null
-
-        const isLiteTask =
-          task === 'generateTitle' ||
-          task === 'generateTitleAndSpace' ||
-          task === 'generateRelatedQuestions' ||
-          task === 'generateResearchPlan'
-
-        const model = isLiteTask ? liteModel || defaultModel : defaultModel || liteModel
-        const provider = isLiteTask
-          ? liteModelProvider || defaultModelProvider || agent.provider
-          : defaultModelProvider || liteModelProvider || agent.provider
-
-        if (!model || !provider) return null
-        return { provider, model }
-      }
-
-      const primaryConfig = resolveFromAgent(effectiveAgent)
-      if (primaryConfig) return primaryConfig
-
-      const fallbackConfig = resolveFromAgent(defaultAgent)
-      if (fallbackConfig) return fallbackConfig
-
-      return {
-        provider: fallbackProvider,
-        model: '',
-      }
-    },
-    [defaultAgent, effectiveAgent, fallbackProvider],
+    (task = 'streamChatCompletion') =>
+      getModelConfigForConversation(effectiveAgent, defaultAgent, settings, task),
+    [defaultAgent, effectiveAgent, settings],
   )
 
   const activeModelConfig = getModelConfig('streamChatCompletion')
@@ -1668,11 +1634,16 @@ const DeepResearchChatInterface = ({
       setConversationTitleEmojis(Array.isArray(titleResult?.emojis) ? titleResult.emojis : [])
       const convId = conversationId || activeConversation?.id
       if (convId) {
+        const titleEmojis = Array.isArray(titleResult?.emojis) ? titleResult.emojis : []
         await updateConversation(convId, {
           title: newTitle,
-          title_emojis: Array.isArray(titleResult?.emojis) ? titleResult.emojis : [],
+          title_emojis: titleEmojis,
         })
-        notifyConversationsChanged()
+        notifyConversationPatched({
+          id: convId,
+          title: newTitle,
+          title_emojis: titleEmojis,
+        })
       }
     } catch (err) {
       console.error('Failed to regenerate title:', err)

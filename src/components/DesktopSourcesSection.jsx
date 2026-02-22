@@ -39,16 +39,16 @@ const DesktopSourcesSection = ({ sources = [], isOpen }) => {
                 href={url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group flex items-start gap-2.5 rounded-xl border border-gray-200 bg-gray-50 p-2.5 transition-colors hover:bg-gray-100 dark:border-zinc-700/50 dark:bg-zinc-800/50 dark:hover:bg-zinc-800"
+                className="group/source flex min-h-[86px] items-stretch gap-2.5 rounded-xl border border-gray-200 bg-gray-50 p-2.5 transition-colors hover:bg-gray-100 dark:border-zinc-700/50 dark:bg-zinc-800/50 dark:hover:bg-zinc-800"
               >
-                <div className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border border-gray-200 bg-white text-[9px] font-medium text-gray-500 shadow-sm dark:border-zinc-600 dark:bg-zinc-700 dark:text-gray-400">
+                <div className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border border-gray-200 bg-white text-[9px]! font-medium text-gray-500 shadow-sm dark:border-zinc-600 dark:bg-zinc-700 dark:text-gray-400">
                   {absoluteIndex + 1}
                 </div>
-                <div className="min-w-0 flex-1">
-                  <div className="group-hover:text-primary-600 dark:group-hover:text-primary-400 mb-0.5 line-clamp-2 text-xs leading-snug font-semibold text-gray-800 transition-colors dark:text-gray-200">
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <div className="group-hover/source:text-primary-600 dark:group-hover/source:text-primary-400 line-clamp-4 text-[12px]! leading-tight font-semibold text-gray-800 transition-colors dark:text-gray-200">
                     {source.title || url}
                   </div>
-                  <div className="flex items-center gap-1.5">
+                  <div className="mt-auto flex items-center gap-1.5 pt-1.5">
                     {(source.icon || url) && (
                       <img
                         src={
@@ -56,10 +56,10 @@ const DesktopSourcesSection = ({ sources = [], isOpen }) => {
                           `https://www.google.com/s2/favicons?domain=${getHostname(url)}&sz=128`
                         }
                         alt=""
-                        className="h-3 w-3 rounded-full opacity-60 transition-all group-hover:opacity-100"
+                        className="h-3 w-3 rounded-full border border-white/80 bg-white object-cover dark:border-zinc-800"
                       />
                     )}
-                    <div className="truncate text-[10px] text-gray-400 dark:text-gray-500">
+                    <div className="truncate text-[12px]! text-gray-400 dark:text-gray-500">
                       {source.media || getHostname(url)}
                     </div>
                   </div>
@@ -70,7 +70,7 @@ const DesktopSourcesSection = ({ sources = [], isOpen }) => {
         </div>
 
         {totalPages > 1 && (
-          <div className="mt-4 flex items-center justify-center gap-4 py-2">
+          <div className="mt-2 flex items-center justify-center gap-4 py-1">
             <button
               onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
               disabled={currentPage === 1}

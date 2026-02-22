@@ -71,6 +71,8 @@
     "arxivReadInfo": "Download and read arXiv papers by id list.",
     "wikipediaSearch": "Wikipedia Search",
     "wikipediaSearchInfo": "Search Wikipedia and return a summary.",
+    "yfinanceTools": "Yahoo Finance Toolkit",
+    "yfinanceToolsInfo": "Enable Yahoo Finance tools for stock price, company profile, fundamentals, news, and historical data.",
     "stockPrice": "Stock Price",
     "stockPriceInfo": "Get the current stock price from Yahoo Finance.",
     "companyInfo": "Company Info",
@@ -1032,6 +1034,14 @@
     "experimental": "Experimental",
     "concurrentExecutionDesc": "Run all steps simultaneously for faster execution, but may affect logical coherence."
   },
+  "thinkingMode": {
+    "smartLabel": "Smart Thinking",
+    "smartDescription": "Automatically choose deep thinking or fast answer based on complexity",
+    "deepLabel": "Deep Thinking",
+    "deepDescription": "Enable reasoning for complex questions",
+    "fastLabel": "Fast Answer",
+    "fastDescription": "Skip reasoning and respond quickly"
+  },
   "chat": {
     "thinking": "Thinking",
     "deepResearchPlanning": "Planning research",
@@ -1067,6 +1077,10 @@
   },
   "messageBubble": {
     "workflow": "Workflow",
+    "usedSpecificTools": "Used {{tools}}",
+    "completedAnswer": "Completed answer, took {{duration}}s",
+    "organizedSources": "Organized Sources",
+    "finalAnswerStep": "Generate final answer",
     "expertPlan": "Expert Plan",
     "workflowToolCalling": "{{tool}} calling",
     "deepThinking": "Thinking Content",
@@ -1102,6 +1116,11 @@
     "edit": "Edit",
     "copy": "Copy",
     "regenerate": "Regenerate",
+    "webSearch": "Web Search",
+    "searchFound": "Found {{count}} results",
+    "statusSearching": "Searching...",
+    "statusCallingTools": "Calling tools...",
+    "statusThinking": "Thinking...",
 
     "analyzing": "Analyzing",
     "workingThroughIt": "Working through it",

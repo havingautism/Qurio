@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import ast
 import concurrent.futures
+import inspect
 import json
 import operator
 import os
@@ -39,12 +40,20 @@ def _tool_timeout_seconds(default: float = 20.0) -> float:
 
 def _run_blocking_with_timeout(fn: Any, timeout_sec: float | None = None) -> Any:
     timeout = timeout_sec if timeout_sec and timeout_sec > 0 else _tool_timeout_seconds()
-    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-        future = executor.submit(fn)
-        try:
-            return future.result(timeout=timeout)
-        except concurrent.futures.TimeoutError as exc:
-            raise TimeoutError(f"Tool execution timed out after {timeout:.1f}s") from exc
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    future = executor.submit(fn)
+    try:
+        return future.result(timeout=timeout)
+    except concurrent.futures.TimeoutError as exc:
+        future.cancel()
+        # IMPORTANT: do not wait for the worker thread to finish, otherwise the timeout
+        # handler itself can block and make the UI appear "stuck".
+        executor.shutdown(wait=False, cancel_futures=True)
+        raise TimeoutError(f"Tool execution timed out after {timeout:.1f}s") from exc
+    finally:
+        # If the future already completed (success/error), normal shutdown is safe.
+        if future.done():
+          executor.shutdown(wait=True, cancel_futures=False)
 
 
 def _create_ddgs_client() -> Any:
@@ -59,12 +68,38 @@ def _create_ddgs_client() -> Any:
     """
     timeout_sec = 12
     try:
-        return DDGS(timeout=timeout_sec, impersonate="random")
+        sig = inspect.signature(DDGS)
+        supports_timeout = "timeout" in sig.parameters
+        supports_impersonate = "impersonate" in sig.parameters
+    except Exception:
+        supports_timeout = True
+        supports_impersonate = True
+
+    kwargs: dict[str, Any] = {}
+    if supports_timeout:
+        kwargs["timeout"] = timeout_sec
+
+    # Prefer a stable supported preset over ddgs/primp defaults that may log
+    # warnings like "chrome_100 does not exist". If unsupported, fallback cleanly.
+    impersonate_candidates = ["random", "chrome", "chrome_120", "chrome_124", None]
+    if supports_impersonate:
+        for preset in impersonate_candidates:
+            try:
+                if preset is None:
+                    return DDGS(**kwargs)
+                return DDGS(**kwargs, impersonate=preset)
+            except TypeError:
+                # Signature mismatch in older packages; continue fallback chain.
+                continue
+            except Exception as exc:
+                if "Impersonate" in str(exc):
+                    continue
+                raise
+
+    try:
+        return DDGS(**kwargs)
     except TypeError:
-        try:
-            return DDGS(timeout=timeout_sec)
-        except TypeError:
-            return DDGS()
+        return DDGS()
 
 
 @tool(

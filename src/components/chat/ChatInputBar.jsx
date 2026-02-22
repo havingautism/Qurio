@@ -103,8 +103,9 @@ const CapsuleSettingsMenu = React.memo(
     selectedAgent,
     spacePrimaryAgentId,
     isThinkingLocked,
-    isThinkingActive,
-    onToggleThinking,
+    thinkingMode = 'smart',
+    thinkingModeOptions = [],
+    onThinkingModeChange,
     isSearchActive,
     onToggleSearch,
     searchBackend,
@@ -120,6 +121,9 @@ const CapsuleSettingsMenu = React.memo(
     searchMenuRef,
     isDisabled = false,
   }) => {
+    const [isThinkingMenuOpen, setIsThinkingMenuOpen] = useState(false)
+    const selectedThinkingOption =
+      (thinkingModeOptions || []).find(item => item.id === thinkingMode) || thinkingModeOptions[0]
     const selectedSearchBackendOption = React.useMemo(
       () => (searchBackendOptions || []).find(item => item.id === searchBackend) || null,
       [searchBackend, searchBackendOptions],
@@ -211,7 +215,7 @@ const CapsuleSettingsMenu = React.memo(
           </div>
         </div>
 
-        <div className="h-px bg-gray-100 dark:bg-zinc-700/50" />
+        <div className="h-px bg-gray-200 dark:bg-zinc-800" />
 
         {/* Capabilities */}
         <div>
@@ -221,30 +225,61 @@ const CapsuleSettingsMenu = React.memo(
           <div className="space-y-0.5">
             <button
               disabled={isDisabled || isThinkingLocked}
-              onClick={onToggleThinking}
+              onClick={() => {
+                if (isThinkingLocked) return
+                setIsThinkingMenuOpen(prev => !prev)
+              }}
               className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm transition-colors hover:bg-gray-100 dark:hover:bg-zinc-700/50"
             >
               <div className="flex items-center gap-2.5 text-gray-700 dark:text-gray-200">
                 <Brain
                   size={16}
-                  className={isThinkingActive ? 'text-primary-500' : 'text-gray-400'}
+                  className={thinkingMode !== 'fast' ? 'text-primary-500' : 'text-gray-400'}
                 />
-                <span>{t('homeView.think')}</span>
+                <span>{selectedThinkingOption?.label || t('homeView.think')}</span>
               </div>
-              <div
+              <ChevronDown
+                size={14}
                 className={clsx(
-                  'relative h-4 w-8 rounded-full transition-colors',
-                  isThinkingActive ? 'bg-primary-500' : 'bg-gray-200 dark:bg-zinc-600',
+                  'text-gray-400 transition-transform',
+                  isThinkingMenuOpen && 'rotate-180',
                 )}
-              >
-                <div
-                  className={clsx(
-                    'absolute top-0.5 h-3 w-3 rounded-full bg-white shadow-sm transition-all',
-                    isThinkingActive ? 'left-4.5' : 'left-0.5',
-                  )}
-                />
-              </div>
+              />
             </button>
+            {isThinkingMenuOpen && (
+              <div className="mt-1 space-y-1 rounded-xl bg-gray-50/80 p-1.5 dark:bg-zinc-900/50">
+                {thinkingModeOptions.map(option => {
+                  const isActive = thinkingMode === option.id
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      disabled={isDisabled}
+                      onClick={() => {
+                        onThinkingModeChange?.(option.id)
+                        setIsThinkingMenuOpen(false)
+                      }}
+                      className={clsx(
+                        'flex w-full items-start justify-between rounded-lg px-3 py-2 text-left transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800',
+                        isActive
+                          ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
+                          : 'text-gray-700 dark:text-gray-200',
+                      )}
+                    >
+                      <span className="flex flex-col">
+                        <span className="text-sm font-medium">{option.label}</span>
+                        {option.description && (
+                          <span className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                            {option.description}
+                          </span>
+                        )}
+                      </span>
+                      {isActive && <Check size={14} className="text-primary-500 mt-0.5 shrink-0" />}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
             <div className="relative">
               <button
                 disabled={isDisabled || !isSearchSupported}
@@ -272,7 +307,7 @@ const CapsuleSettingsMenu = React.memo(
                 <div
                   ref={searchMenuRef}
                   id="capsule-search-options"
-                  className="no-scrollbar mt-2 max-h-[350px] space-y-3 overflow-y-auto scroll-smooth"
+                  className="mt-1 space-y-1 rounded-xl bg-gray-50/80 p-1.5 dark:bg-zinc-900/50"
                 >
                   <div className="space-y-3">
                     <div className="px-4 py-1 text-[10px] tracking-wide text-gray-500 uppercase dark:text-zinc-400">
@@ -308,7 +343,7 @@ const CapsuleSettingsMenu = React.memo(
                       })}
                     </div>
                   </div>
-                  <div className="h-px bg-gray-200 dark:bg-zinc-700/70" />
+                  <div className="h-px bg-gray-200 dark:bg-zinc-800" />
                   <div className="space-y-3">
                     <div className="px-4 py-1 text-[10px] tracking-wide text-gray-500 uppercase dark:text-zinc-400">
                       {t('tools.academicSearch')}
@@ -343,7 +378,7 @@ const CapsuleSettingsMenu = React.memo(
                       })}
                     </div>
                   </div>
-                  <div className="h-px bg-gray-200 dark:bg-zinc-700/70" />
+                  <div className="h-px bg-gray-200 dark:bg-zinc-800" />
                   <button
                     type="button"
                     disabled={isDisabled}
@@ -372,8 +407,9 @@ CapsuleSettingsMenu.displayName = 'CapsuleSettingsMenu'
  * @param {boolean} props.isConversationLocked - Whether conversation is unfinished and input/options should be locked
  * @param {string} props.apiProvider - The API provider name
  * @param {boolean} props.isSearchActive - Whether search is enabled
- * @param {boolean} props.isThinkingActive - Whether thinking mode is enabled
  * @param {boolean} props.isThinkingLocked - Whether thinking mode is locked (cannot be toggled)
+ * @param {string} props.thinkingMode - Thinking mode: smart/deep/fast
+ * @param {Function} props.onThinkingModeChange - Callback to change thinking mode
  * @param {Array} props.agents - List of available agents
  * @param {boolean} props.agentsLoading - Whether agents are currently loading
  * @param {string} props.agentsLoadingLabel - Full label with animated dots to show while agents are loading
@@ -395,7 +431,6 @@ CapsuleSettingsMenu.displayName = 'CapsuleSettingsMenu'
  * @param {Function} props.onSearchBackendChange - Called when a web search backend is chosen
  * @param {Function} props.onSearchClear - Called to clear search selections and close the menu
  * @param {Function} props.onSearchMenuClose - Called to close the search picker
- * @param {Function} props.onToggleThinking - Callback to toggle thinking mode
  * @param {boolean} props.isExpertMode - Whether expert mode is enabled
  * @param {Function} props.onToggleExpertMode - Callback to toggle expert mode
  * @param {string|null} props.quotedText - Currently quoted text (or null)
@@ -415,8 +450,9 @@ const ChatInputBar = React.memo(
     isConversationLocked = false,
     apiProvider,
     isSearchActive,
-    isThinkingActive,
     isThinkingLocked,
+    thinkingMode = 'smart',
+    onThinkingModeChange,
     agents,
     agentsLoading,
     agentsLoadingLabel,
@@ -438,7 +474,6 @@ const ChatInputBar = React.memo(
     onSearchBackendChange,
     onSearchClear,
     onSearchMenuClose,
-    onToggleThinking,
     isExpertMode = false,
     onToggleExpertMode,
     quotedText,
@@ -471,6 +506,8 @@ const ChatInputBar = React.memo(
     const capsuleMenuRef = useRef(null)
     const [isDocumentMenuOpen, setIsDocumentMenuOpen] = useState(false)
     const documentMenuRef = useRef(null)
+    const [isThinkingMenuOpen, setIsThinkingMenuOpen] = useState(false)
+    const thinkingMenuRef = useRef(null)
     const [isMultiline, setIsMultiline] = useState(false)
     const highlightRef = useRef(null)
     const searchMenuRef = useRef(null)
@@ -480,6 +517,28 @@ const ChatInputBar = React.memo(
       () => (searchBackendOptions || []).find(item => item.id === searchBackend) || null,
       [searchBackend, searchBackendOptions],
     )
+    const thinkingModeOptions = useMemo(
+      () => [
+        {
+          id: 'smart',
+          label: t('thinkingMode.smartLabel'),
+          description: t('thinkingMode.smartDescription'),
+        },
+        {
+          id: 'deep',
+          label: t('thinkingMode.deepLabel'),
+          description: t('thinkingMode.deepDescription'),
+        },
+        {
+          id: 'fast',
+          label: t('thinkingMode.fastLabel'),
+          description: t('thinkingMode.fastDescription'),
+        },
+      ],
+      [t],
+    )
+    const selectedThinkingOption =
+      thinkingModeOptions.find(item => item.id === thinkingMode) || thinkingModeOptions[0]
     const resolvedSearchLabel = useMemo(() => {
       if (!isSearchActive) return t('homeView.search')
       const academicCount = selectedSearchTools?.length || 0
@@ -587,10 +646,22 @@ const ChatInputBar = React.memo(
     }, [isSearchMenuOpen, onSearchMenuClose])
 
     useEffect(() => {
+      if (!isThinkingMenuOpen || isMobile) return
+      const handleClickOutside = event => {
+        if (thinkingMenuRef.current && !thinkingMenuRef.current.contains(event.target)) {
+          setIsThinkingMenuOpen(false)
+        }
+      }
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }, [isThinkingMenuOpen, isMobile])
+
+    useEffect(() => {
       if (!isInteractionLocked) return
       setIsUploadMenuOpen(false)
       setIsCapsuleMenuOpen(false)
       setIsDocumentMenuOpen(false)
+      setIsThinkingMenuOpen(false)
       onSearchMenuClose?.()
     }, [isInteractionLocked, onSearchMenuClose])
 
@@ -732,8 +803,9 @@ const ChatInputBar = React.memo(
           selectedAgent={selectedAgent}
           spacePrimaryAgentId={spacePrimaryAgentId}
           isThinkingLocked={isThinkingLocked}
-          isThinkingActive={isThinkingActive}
-          onToggleThinking={onToggleThinking}
+          thinkingMode={thinkingMode}
+          thinkingModeOptions={thinkingModeOptions}
+          onThinkingModeChange={onThinkingModeChange}
           isSearchActive={isSearchActive}
           onToggleSearch={onToggleSearch}
           searchBackend={searchBackend}
@@ -758,8 +830,9 @@ const ChatInputBar = React.memo(
         selectedAgent,
         spacePrimaryAgentId,
         isThinkingLocked,
-        isThinkingActive,
-        onToggleThinking,
+        thinkingMode,
+        thinkingModeOptions,
+        onThinkingModeChange,
         isSearchActive,
         onToggleSearch,
         searchBackend,
@@ -1001,7 +1074,7 @@ const ChatInputBar = React.memo(
                     disabled={isInteractionLocked}
                     className={clsx(
                       'rounded-full p-1.5 transition-colors sm:p-2',
-                      isThinkingActive || isSearchActive || isCapsuleMenuOpen
+                      thinkingMode !== 'fast' || isSearchActive || isCapsuleMenuOpen
                         ? 'text-primary-600 bg-primary-50 dark:bg-primary-900/20'
                         : 'text-gray-500 hover:bg-gray-200 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-zinc-800 dark:hover:text-gray-100',
                     )}
@@ -1093,7 +1166,10 @@ const ChatInputBar = React.memo(
               >
                 <button
                   onClick={isLoading ? onStop : handleSend}
-                  disabled={isConversationLocked || (!isLoading && !inputValue.trim() && attachments.length === 0)}
+                  disabled={
+                    isConversationLocked ||
+                    (!isLoading && !inputValue.trim() && attachments.length === 0)
+                  }
                   className={clsx(
                     'flex items-center justify-center rounded-full p-1.5 shadow-sm transition-all duration-300 sm:p-2',
                     isLoading
@@ -1278,24 +1354,109 @@ const ChatInputBar = React.memo(
                   </div>
                 )}
               </div>
-              <button
-                disabled={isInteractionLocked || isThinkingLocked}
-                onClick={onToggleThinking}
-                className={clsx(
-                  'flex items-center gap-2 rounded-xl p-2.5 text-sm font-medium transition-all duration-200',
-                  isThinkingActive
-                    ? 'text-primary-500 bg-primary-50 dark:bg-primary-900/20'
-                    : 'text-gray-500 dark:text-gray-400',
-                  isThinkingLocked && 'cursor-not-allowed opacity-60',
-                  !isThinkingLocked && 'hover:bg-gray-100 dark:hover:bg-zinc-700',
+              <div className="relative" ref={thinkingMenuRef}>
+                <button
+                  disabled={isInteractionLocked || isThinkingLocked}
+                  onClick={() => {
+                    if (isThinkingLocked) return
+                    setIsThinkingMenuOpen(prev => !prev)
+                  }}
+                  className={clsx(
+                    'flex items-center gap-2 rounded-xl p-2.5 text-sm font-medium transition-all duration-200',
+                    thinkingMode !== 'fast'
+                      ? 'text-primary-500 bg-primary-50 dark:bg-primary-900/20'
+                      : 'text-gray-500 dark:text-gray-400',
+                    isThinkingLocked && 'cursor-not-allowed opacity-60',
+                    !isThinkingLocked && 'hover:bg-gray-100 dark:hover:bg-zinc-700',
+                  )}
+                >
+                  <Brain size={18} strokeWidth={2} />
+                  <span className="hidden md:inline">{selectedThinkingOption?.label}</span>
+                  <ChevronDown size={14} />
+                </button>
+                {isThinkingMenuOpen && !isMobile && (
+                  <div className="absolute bottom-full left-0 z-30 mb-2 w-72 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-zinc-700 dark:bg-zinc-900">
+                    <div className="space-y-1 p-2">
+                      {thinkingModeOptions.map(option => {
+                        const isActive = thinkingMode === option.id
+                        return (
+                          <button
+                            key={option.id}
+                            type="button"
+                            disabled={isInteractionLocked}
+                            onClick={() => {
+                              onThinkingModeChange?.(option.id)
+                              setIsThinkingMenuOpen(false)
+                            }}
+                            className={clsx(
+                              'flex w-full items-start justify-between rounded-xl px-3 py-2.5 text-left text-sm transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800',
+                              isActive
+                                ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
+                                : 'text-gray-700 dark:text-gray-200',
+                            )}
+                          >
+                            <span className="flex flex-col">
+                              <span className="font-medium">{option.label}</span>
+                              <span className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                                {option.description}
+                              </span>
+                            </span>
+                            {isActive && (
+                              <Check size={14} className="text-primary-500 mt-0.5 shrink-0" />
+                            )}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
                 )}
-              >
-                <Brain size={18} strokeWidth={2} />
-                <span className="hidden md:inline">{t('homeView.think')}</span>
-              </button>
+                {isMobile && (
+                  <MobileDrawer
+                    isOpen={isThinkingMenuOpen}
+                    onClose={() => setIsThinkingMenuOpen(false)}
+                    title={t('homeView.think')}
+                    icon={Brain}
+                  >
+                    <div className="space-y-1.5">
+                      {thinkingModeOptions.map(option => {
+                        const isActive = thinkingMode === option.id
+                        return (
+                          <button
+                            key={option.id}
+                            type="button"
+                            disabled={isInteractionLocked}
+                            onClick={() => {
+                              onThinkingModeChange?.(option.id)
+                              setIsThinkingMenuOpen(false)
+                            }}
+                            className={clsx(
+                              'flex w-full items-start justify-between rounded-xl px-3 py-3 text-left transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800',
+                              isActive
+                                ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
+                                : 'text-gray-700 dark:text-gray-200',
+                            )}
+                          >
+                            <span className="flex flex-col">
+                              <span className="text-sm font-medium">{option.label}</span>
+                              <span className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                                {option.description}
+                              </span>
+                            </span>
+                            {isActive && (
+                              <Check size={14} className="text-primary-500 mt-0.5 shrink-0" />
+                            )}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </MobileDrawer>
+                )}
+              </div>
               <div className="relative">
                 <button
-                  disabled={isInteractionLocked || !apiProvider || !providerSupportsSearch(apiProvider)}
+                  disabled={
+                    isInteractionLocked || !apiProvider || !providerSupportsSearch(apiProvider)
+                  }
                   onClick={onToggleSearch}
                   className={clsx(
                     'flex items-center gap-2 rounded-xl p-2.5 text-sm font-medium transition-all duration-200 hover:bg-gray-100 dark:hover:bg-zinc-700',
@@ -1318,6 +1479,10 @@ const ChatInputBar = React.memo(
                   <span className="hidden md:inline-flex md:items-center">
                     {resolvedSearchLabel}
                   </span>
+                  <ChevronDown
+                    size={14}
+                    className={clsx('transition-transform', isSearchMenuOpen && 'rotate-180')}
+                  />
                 </button>
                 {isSearchMenuOpen && (
                   <div
@@ -1366,7 +1531,7 @@ const ChatInputBar = React.memo(
                           })}
                         </div>
                       </div>
-                      <div className="h-px bg-gray-200 dark:bg-zinc-700/70" />
+                      <div className="h-px bg-gray-200 dark:bg-zinc-800" />
                       <div className="space-y-3">
                         <div className="px-2 py-1 text-[10px] tracking-wide text-gray-500 uppercase dark:text-zinc-400">
                           {t('tools.academicSearch')}
@@ -1405,7 +1570,7 @@ const ChatInputBar = React.memo(
                           })}
                         </div>
                       </div>
-                      <div className="h-px bg-gray-200 dark:bg-zinc-700/70" />
+                      <div className="h-px bg-gray-200 dark:bg-zinc-800" />
                       <button
                         type="button"
                         disabled={isInteractionLocked}
@@ -1525,7 +1690,10 @@ const ChatInputBar = React.memo(
             <div className="flex gap-2">
               <button
                 onClick={isLoading ? onStop : handleSend}
-                disabled={isConversationLocked || (!isLoading && !inputValue.trim() && attachments.length === 0)}
+                disabled={
+                  isConversationLocked ||
+                  (!isLoading && !inputValue.trim() && attachments.length === 0)
+                }
                 className={clsx(
                   'flex items-center justify-center rounded-xl p-2.5 shadow-sm transition-all duration-300',
                   isLoading

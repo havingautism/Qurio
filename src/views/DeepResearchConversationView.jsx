@@ -69,21 +69,24 @@ const DeepResearchConversationView = () => {
   }, [conversationId])
 
   useEffect(() => {
-    const handleConversationChanged = async () => {
-      if (!conversationId) return
-      try {
-        const { data } = await getConversation(conversationId)
-        if (data) {
-          setConversation(data)
+    const handleConversationPatched = event => {
+      const patch = event?.detail || {}
+      const patchedId = patch?.id ? String(patch.id) : ''
+      if (!conversationId || patchedId !== String(conversationId)) return
+
+      setConversation(prev => {
+        const base = prev && typeof prev === 'object' ? prev : { id: conversationId }
+        const next = { ...base, ...patch }
+        if (patch.title_emojis !== undefined) {
+          next.title_emojis = patch.title_emojis
         }
-      } catch (error) {
-        console.error('Failed to refetch conversation:', error)
-      }
+        return next
+      })
     }
 
-    window.addEventListener('conversations-changed', handleConversationChanged)
+    window.addEventListener('conversation-patched', handleConversationPatched)
     return () => {
-      window.removeEventListener('conversations-changed', handleConversationChanged)
+      window.removeEventListener('conversation-patched', handleConversationPatched)
     }
   }, [conversationId])
 

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { conversationEventHasScope } from '../lib/conversationsService'
 
 /**
  * Custom hook for infinite scroll with cursor-based pagination
@@ -10,11 +11,18 @@ import { useState, useEffect, useRef, useCallback } from 'react'
  * @param {Array} options.dependencies - Dependencies that trigger data refresh (default: [])
  * @param {boolean} options.enabled - Whether to enable fetching (default: true)
  * @param {number} options.rootMargin - Intersection observer root margin in px (default: 100)
+ * @param {string|string[]} options.eventScope - Scope filter for conversations-changed events
  *
  * @returns {Object} - { data, loading, loadingMore, hasMore, loadMoreRef, refresh, error }
  */
 export function useInfiniteScroll(fetchFunction, options = {}) {
-  const { limit = 10, dependencies = [], enabled = true, rootMargin = '100px' } = options
+  const {
+    limit = 10,
+    dependencies = [],
+    enabled = true,
+    rootMargin = '100px',
+    eventScope = null,
+  } = options
 
   const [data, setData] = useState([])
   const [cursor, setCursor] = useState(null)
@@ -79,7 +87,8 @@ export function useInfiniteScroll(fetchFunction, options = {}) {
 
   // Listen for conversation changes (e.g., favorite/delete)
   useEffect(() => {
-    const handleConversationsChanged = () => {
+    const handleConversationsChanged = event => {
+      if (!conversationEventHasScope(event, eventScope)) return
       refresh()
     }
 
@@ -87,7 +96,7 @@ export function useInfiniteScroll(fetchFunction, options = {}) {
     return () => {
       window.removeEventListener('conversations-changed', handleConversationsChanged)
     }
-  }, [refresh])
+  }, [refresh, eventScope])
 
   // Setup Intersection Observer for infinite scroll
   useEffect(() => {

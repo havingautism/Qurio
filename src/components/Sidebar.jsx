@@ -26,6 +26,7 @@ import { useToast } from '../contexts/ToastContext'
 import useScrollLock from '../hooks/useScrollLock'
 import { getAgentDisplayDescription, getAgentDisplayName } from '../lib/agentDisplay'
 import {
+  conversationEventHasScope,
   listBookmarkedConversations,
   listConversations,
   listConversationsBySpace,
@@ -96,6 +97,7 @@ const Sidebar = ({
   const [bookmarkHasMore, setBookmarkHasMore] = useState(true)
   const [isBookmarksLoading, setIsBookmarksLoading] = useState(false)
   const [bookmarksLoadingMore, setBookmarksLoadingMore] = useState(false)
+  const [bookmarksDirty, setBookmarksDirty] = useState(false)
   const [expandedActionId, setExpandedActionId] = useState(null)
 
   // Deep Research conversations
@@ -104,6 +106,7 @@ const Sidebar = ({
   const [deepResearchHasMore, setDeepResearchHasMore] = useState(true)
   const [isDeepResearchLoading, setIsDeepResearchLoading] = useState(false)
   const [deepResearchLoadingMore, setDeepResearchLoadingMore] = useState(false)
+  const [deepResearchDirty, setDeepResearchDirty] = useState(false)
 
   // Expert conversations
   const [expertConversations, setExpertConversations] = useState([])
@@ -111,6 +114,7 @@ const Sidebar = ({
   const [expertHasMore, setExpertHasMore] = useState(true)
   const [isExpertLoading, setIsExpertLoading] = useState(false)
   const [expertLoadingMore, setExpertLoadingMore] = useState(false)
+  const [expertDirty, setExpertDirty] = useState(false)
 
   // Spaces interaction state
   const [expandedSpaces, setExpandedSpaces] = useState(new Set())
@@ -441,18 +445,120 @@ const Sidebar = ({
   }, [appConversations, deepResearchSpaceIds])
 
   useEffect(() => {
-    fetchBookmarkedConversations(true)
-    fetchDeepResearchConversations(true)
-    fetchExpertConversations(true)
-
-    const handleConversationsChanged = () => {
-      fetchBookmarkedConversations(true)
-      fetchDeepResearchConversations(true)
-      fetchExpertConversations(true)
+    const patchConversationList = (items, patch) => {
+      if (!Array.isArray(items) || items.length === 0) return items
+      const id = patch?.id ? String(patch.id) : ''
+      if (!id) return items
+      let touched = false
+      const next = items.map(item => {
+        if (String(item?.id) !== id) return item
+        touched = true
+        const merged = { ...item, ...patch }
+        if (patch.updated_at === undefined) {
+          merged.updated_at = new Date().toISOString()
+        }
+        return merged
+      })
+      return touched ? next : items
     }
+
+    const handleConversationsChanged = event => {
+      const shouldRefreshBookmarks = conversationEventHasScope(event, 'bookmarks')
+      const shouldRefreshDeepResearch = conversationEventHasScope(event, 'deepResearch')
+      const shouldRefreshExpert = conversationEventHasScope(event, 'expert')
+
+      if (shouldRefreshBookmarks && activeTab === 'bookmarks') {
+        fetchBookmarkedConversations(true)
+      } else if (shouldRefreshBookmarks) {
+        setBookmarksDirty(true)
+      }
+      if (shouldRefreshDeepResearch && activeTab === 'deepResearch') {
+        fetchDeepResearchConversations(true)
+      } else if (shouldRefreshDeepResearch) {
+        setDeepResearchDirty(true)
+      }
+      if (shouldRefreshExpert && activeTab === 'expert') {
+        fetchExpertConversations(true)
+      } else if (shouldRefreshExpert) {
+        setExpertDirty(true)
+      }
+    }
+    const handleConversationPatched = event => {
+      const patch = event?.detail || {}
+      const id = patch?.id ? String(patch.id) : ''
+      if (!id) return
+
+      setBookmarkedConversations(prev => patchConversationList(prev, patch))
+      setDeepResearchConversations(prev => patchConversationList(prev, patch))
+      setExpertConversations(prev => patchConversationList(prev, patch))
+      setSpaceConversations(prev => {
+        const entries = Object.entries(prev || {})
+        if (entries.length === 0) return prev
+        let changed = false
+        const next = {}
+        entries.forEach(([spaceId, value]) => {
+          const items = Array.isArray(value?.items) ? value.items : []
+          const patchedItems = patchConversationList(items, patch)
+          if (patchedItems !== items) changed = true
+          next[spaceId] = patchedItems === items ? value : { ...value, items: patchedItems }
+        })
+        return changed ? next : prev
+      })
+    }
+
     window.addEventListener('conversations-changed', handleConversationsChanged)
-    return () => window.removeEventListener('conversations-changed', handleConversationsChanged)
-  }, [deepResearchSpaceId])
+    window.addEventListener('conversation-patched', handleConversationPatched)
+    return () => {
+      window.removeEventListener('conversations-changed', handleConversationsChanged)
+      window.removeEventListener('conversation-patched', handleConversationPatched)
+    }
+  }, [activeTab, deepResearchSpaceId])
+
+  const sidebarLoadTab = isMobile ? activeTab : displayTab
+
+  useEffect(() => {
+    if (sidebarLoadTab === 'bookmarks') {
+      if (
+        bookmarksDirty ||
+        (!isBookmarksLoading && !bookmarksLoadingMore && bookmarkedConversations.length === 0)
+      ) {
+        fetchBookmarkedConversations(true).finally(() => setBookmarksDirty(false))
+      }
+    }
+    if (sidebarLoadTab === 'deepResearch') {
+      if (
+        deepResearchDirty ||
+        (!isDeepResearchLoading &&
+          !deepResearchLoadingMore &&
+          deepResearchConversations.length === 0)
+      ) {
+        fetchDeepResearchConversations(true).finally(() => setDeepResearchDirty(false))
+      }
+    }
+    if (sidebarLoadTab === 'expert') {
+      if (
+        expertDirty ||
+        (!isExpertLoading && !expertLoadingMore && expertConversations.length === 0)
+      ) {
+        fetchExpertConversations(true).finally(() => setExpertDirty(false))
+      }
+    }
+  }, [
+    sidebarLoadTab,
+    bookmarksDirty,
+    deepResearchDirty,
+    expertDirty,
+    deepResearchSpaceId,
+    bookmarkedConversations.length,
+    deepResearchConversations.length,
+    expertConversations.length,
+    isBookmarksLoading,
+    bookmarksLoadingMore,
+    isDeepResearchLoading,
+    deepResearchLoadingMore,
+    isExpertLoading,
+    expertLoadingMore,
+  ])
 
   // Close dropdown when sidebar collapses (mouse leaves)
   useEffect(() => {
@@ -545,15 +651,16 @@ const Sidebar = ({
 
         if (success) {
           closeActions()
-          notifyConversationsChanged()
-          if (activeTab === 'deepResearch' && deepResearchSpaceId) {
-            fetchDeepResearchConversations(true)
-          }
-          if (activeTab === 'expert') {
-            fetchExpertConversations(true)
-          }
-          if (activeTab === 'bookmarks' || conversation.is_favorited) {
-            fetchBookmarkedConversations(true)
+          if (activeTab === 'deepResearch') {
+            notifyConversationsChanged({ scopes: ['deepResearch', 'bookmarks'] })
+          } else if (activeTab === 'expert') {
+            notifyConversationsChanged({ scopes: ['expert', 'bookmarks'] })
+          } else if (activeTab === 'bookmarks') {
+            notifyConversationsChanged({
+              scopes: ['bookmarks', 'library', 'deepResearch', 'expert'],
+            })
+          } else {
+            notifyConversationsChanged({ scopes: ['library', 'bookmarks'] })
           }
 
           // Only navigate home if we deleted the currently active conversation
@@ -615,7 +722,17 @@ const Sidebar = ({
       }
     } else {
       toast.success(newStatus ? t('sidebar.addedToBookmarks') : t('sidebar.removedFromBookmarks'))
-      notifyConversationsChanged()
+      if (activeTab === 'deepResearch') {
+        notifyConversationsChanged({ scopes: ['deepResearch', 'bookmarks'] })
+      } else if (activeTab === 'expert') {
+        notifyConversationsChanged({ scopes: ['expert', 'bookmarks'] })
+      } else if (activeTab === 'bookmarks') {
+        notifyConversationsChanged({
+          scopes: ['bookmarks', 'library', 'deepResearch', 'expert'],
+        })
+      } else {
+        notifyConversationsChanged({ scopes: ['library', 'bookmarks'] })
+      }
     }
   }
 
@@ -956,7 +1073,7 @@ const Sidebar = ({
               displayTab === 'bookmarks' ||
               displayTab === 'expert' ||
               displayTab === 'deepResearch') && (
-              <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain px-2">
+              <div className="no-scrollbar flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-2">
                 {!isConversationsLoading &&
                   displayTab === 'library' &&
                   conversations.length === 0 && (

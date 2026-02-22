@@ -2,10 +2,13 @@ import { getSupabaseClient } from './supabase'
 
 const table = 'conversations'
 const CACHE_TTL_MS = 1500
+const EXPERT_IDS_CACHE_TTL_MS = 30000
 const listCache = new Map()
 const inFlight = new Map()
+let expertIdsCache = null
+let expertIdsInFlight = null
 let conversationsChangedTimer = null
-const EXPERT_IDS_CACHE_KEY = '__expert_conversation_ids__'
+let pendingConversationsChangedDetail = null
 
 const getCacheKey = (prefix, params) => {
   try {
@@ -34,13 +37,20 @@ const invalidateConversationCaches = () => {
   inFlight.clear()
 }
 
+const invalidateExpertConversationIdsCache = () => {
+  expertIdsCache = null
+}
+
 const _sanitizeInFilterValue = value => String(value || '').replace(/[,()]/g, '').trim()
 
 const listExpertConversationIds = async supabase => {
-  const cacheKey = getCacheKey(EXPERT_IDS_CACHE_KEY, {})
-  const cached = getCached(cacheKey)
-  if (cached) return cached
-  if (inFlight.has(cacheKey)) return inFlight.get(cacheKey)
+  if (
+    expertIdsCache &&
+    Date.now() - Number(expertIdsCache.ts || 0) <= EXPERT_IDS_CACHE_TTL_MS
+  ) {
+    return expertIdsCache.value
+  }
+  if (expertIdsInFlight) return expertIdsInFlight
 
   const request = (async () => {
     const { data, error } = await supabase
@@ -58,25 +68,96 @@ const listExpertConversationIds = async supabase => {
       ),
     )
     const result = { data: ids, error: null }
-    setCached(cacheKey, result)
+    expertIdsCache = { ts: Date.now(), value: result }
     return result
   })()
 
-  inFlight.set(cacheKey, request)
+  expertIdsInFlight = request
   try {
     return await request
   } finally {
-    inFlight.delete(cacheKey)
+    expertIdsInFlight = null
   }
 }
 
-export const notifyConversationsChanged = (delayMs = 150) => {
+const normalizeScopes = value => {
+  const raw = Array.isArray(value) ? value : value ? [value] : []
+  return Array.from(
+    new Set(
+      raw
+        .map(item => String(item || '').trim())
+        .filter(Boolean),
+    ),
+  )
+}
+
+const mergeConversationChangedDetail = (base, next) => {
+  const left = base && typeof base === 'object' ? base : {}
+  const right = next && typeof next === 'object' ? next : {}
+  const merged = { ...left, ...right }
+  const scopes = normalizeScopes([...(left.scopes || []), ...(right.scopes || [])])
+  if (scopes.length > 0) {
+    merged.scopes = scopes
+  } else {
+    delete merged.scopes
+  }
+  return merged
+}
+
+export const conversationEventHasScope = (event, expectedScope) => {
+  if (!expectedScope) return true
+  const scopes = normalizeScopes(event?.detail?.scopes)
+  if (scopes.length === 0) return true
+  const expected = normalizeScopes(expectedScope)
+  return expected.some(scope => scopes.includes(scope) || scopes.includes('all'))
+}
+
+export const notifyConversationsChanged = (optionsOrDelay = 150) => {
   if (typeof window === 'undefined') return
+  let delayMs = 150
+  let detail = {}
+
+  if (typeof optionsOrDelay === 'number') {
+    delayMs = optionsOrDelay
+  } else if (optionsOrDelay && typeof optionsOrDelay === 'object') {
+    if (typeof optionsOrDelay.delayMs === 'number') {
+      delayMs = optionsOrDelay.delayMs
+    }
+    detail = { ...optionsOrDelay }
+    delete detail.delayMs
+    const scopes = normalizeScopes(detail.scopes)
+    if (scopes.length > 0) {
+      detail.scopes = scopes
+    } else {
+      delete detail.scopes
+    }
+  }
+
+  pendingConversationsChangedDetail = mergeConversationChangedDetail(
+    pendingConversationsChangedDetail,
+    detail,
+  )
   if (conversationsChangedTimer) return
+
   conversationsChangedTimer = window.setTimeout(() => {
+    const payload = pendingConversationsChangedDetail || {}
+    pendingConversationsChangedDetail = null
     conversationsChangedTimer = null
-    window.dispatchEvent(new Event('conversations-changed'))
+    window.dispatchEvent(
+      new CustomEvent('conversations-changed', {
+        detail: payload,
+      }),
+    )
   }, delayMs)
+}
+
+export const notifyConversationPatched = patch => {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(
+    new CustomEvent('conversation-patched', {
+      detail: patch || {},
+    }),
+  )
 }
 
 export const listConversations = async (options = {}) => {
@@ -588,6 +669,9 @@ export const addConversationEvent = async (conversationId, eventType, payload = 
     ])
     .select()
     .single()
+  if (!error && eventType === 'expert_mode_start') {
+    invalidateExpertConversationIdsCache()
+  }
   return { data, error }
 }
 

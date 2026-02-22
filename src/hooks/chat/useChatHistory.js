@@ -33,6 +33,21 @@ const extractResearchPlan = message => {
   }
 }
 
+const extractFinalAnswerDurationMs = message => {
+  const thinkingRaw = message?.thinking_process
+  if (typeof thinkingRaw !== 'string' || !thinkingRaw.trim()) return null
+  try {
+    const parsed = JSON.parse(thinkingRaw)
+    if (!parsed || typeof parsed !== 'object') return null
+    const value = parsed.finalAnswerDurationMs
+    if (!Number.isFinite(value)) return null
+    const num = Number(value)
+    return num >= 0 ? num : null
+  } catch {
+    return null
+  }
+}
+
 const extractExpertState = message => {
   const thinkingRaw = message?.thinking_process
   if (typeof thinkingRaw !== 'string' || !thinkingRaw.trim()) {
@@ -133,6 +148,7 @@ const mapMessageFromApi = (m, effectiveDefaultModel, activeConversation) => {
   const documentSources = asArrayField(m.document_sources)
   const cleanedContent = typeof m.content === 'string' ? m.content : ''
   const researchPlan = extractResearchPlan(m)
+  const finalAnswerDurationMs = extractFinalAnswerDurationMs(m)
   const expertState = extractExpertState(m)
 
   const restoreHitlMetaFromToolHistory = toolHistory => {
@@ -213,6 +229,7 @@ const mapMessageFromApi = (m, effectiveDefaultModel, activeConversation) => {
     agentIsDefault: m.agent_is_default ?? false,
     documentSources,
     thinkingEnabled: m.is_thinking_enabled ?? m.generated_with_thinking ?? undefined,
+    finalAnswerDurationMs,
   }
 }
 

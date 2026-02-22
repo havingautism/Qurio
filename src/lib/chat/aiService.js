@@ -3,7 +3,7 @@ import { getUserTools } from '../userToolsService'
 import {
   addMessage,
   updateConversation,
-  notifyConversationsChanged,
+  notifyConversationPatched,
   updateMessageById,
 } from '../conversationsService'
 import {
@@ -290,6 +290,73 @@ export const generateDeepResearchPlan = async (
   }
 }
 
+const normalizeThinkingMode = (mode, fallbackThinking = null) => {
+  if (mode === 'smart' || mode === 'deep' || mode === 'fast') return mode
+  if (typeof fallbackThinking === 'boolean') return fallbackThinking ? 'deep' : 'fast'
+  return 'smart'
+}
+
+const safeParseJsonObject = value => {
+  if (typeof value !== 'string') return null
+  const text = value.trim()
+  if (!text) return null
+  try {
+    const parsed = JSON.parse(text)
+    return parsed && typeof parsed === 'object' ? parsed : null
+  } catch {}
+  const fenced = text.match(/```json\s*([\s\S]*?)```/i)
+  if (fenced?.[1]) {
+    try {
+      const parsed = JSON.parse(fenced[1].trim())
+      return parsed && typeof parsed === 'object' ? parsed : null
+    } catch {}
+  }
+  const objectMatch = text.match(/\{[\s\S]*\}/)
+  if (objectMatch?.[0]) {
+    try {
+      const parsed = JSON.parse(objectMatch[0])
+      return parsed && typeof parsed === 'object' ? parsed : null
+    } catch {}
+  }
+  return null
+}
+
+const runLiteThinkingPlanner = async ({ question, selectedAgent, settings, agents }) => {
+  const fallbackAgent = agents?.find(agent => agent.isDefault)
+  const liteConfig = getModelConfigForAgent(selectedAgent, settings, 'lite', fallbackAgent)
+  const liteProvider = getProvider(liteConfig.provider)
+  if (!liteProvider?.generateResearchPlan || !liteConfig.model) return null
+
+  const liteCreds = liteProvider.getCredentials(settings)
+  if (!liteCreds?.apiKey) return null
+
+  const prompt = [
+    'You are a thinking-mode router for a chat assistant.',
+    'Return STRICT JSON only.',
+    'Schema: {"thinking_mode":"deep|fast"}',
+    'Rules:',
+    '- Choose "deep" only if multi-step reasoning is required; otherwise "fast".',
+    '- Do not include any keys other than thinking_mode.',
+    `User question:\n${String(question || '').trim()}`,
+  ].join('\n')
+
+  try {
+    const raw = await liteProvider.generateResearchPlan(
+      prompt,
+      liteCreds.apiKey,
+      liteCreds.baseUrl,
+      liteConfig.model,
+      'general',
+    )
+    const parsed = safeParseJsonObject(raw)
+    if (!parsed) return null
+    return normalizeThinkingMode(parsed.thinking_mode, false)
+  } catch (error) {
+    console.warn('[callAIAPI] lite thinking planner failed:', error)
+    return null
+  }
+}
+
 /**
  * Main AI API call function that handles streaming and tool calls
  */
@@ -331,6 +398,7 @@ export const callAIAPI = async (
   let rafId = null
   let streamTextIndexOffset = 0
   let maxObservedEventTextIndex = 0
+  let finalAnswerStartedAtMs = null
   const toolStartedAtById = new Map()
   const toolStartedAtQueuesByName = new Map()
 
@@ -585,9 +653,24 @@ export const callAIAPI = async (
     const provider = getProvider(modelConfig.provider)
     const credentials = provider.getCredentials(settings)
     const thinkingRule = resolveThinkingToggleRule(modelConfig.provider, modelConfig.model)
+    const requestedThinkingMode = normalizeThinkingMode(toggles?.thinkingMode, toggles?.thinking)
+    const liteThinkingMode =
+      requestedThinkingMode === 'smart'
+        ? await runLiteThinkingPlanner({
+            question: firstUserText || '',
+            selectedAgent,
+            settings,
+            agents,
+          })
+        : null
+    const resolvedThinkingMode =
+      requestedThinkingMode === 'smart'
+        ? normalizeThinkingMode(liteThinkingMode, false)
+        : requestedThinkingMode
     const thinkingActive =
-      !!(toggles?.thinking || toggles?.deepResearch) ||
-      (thinkingRule.isLocked && thinkingRule.isThinkingActive)
+      thinkingRule.isLocked
+        ? thinkingRule.isThinkingActive
+        : !!toggles?.deepResearch || resolvedThinkingMode === 'deep'
     let planContent = ''
 
     const updateResearchPlan = content => {
@@ -760,6 +843,11 @@ export const callAIAPI = async (
     const selectedDatabaseProvider =
       settings.databaseProviderId || settings.databaseProvider || 'supabase'
 
+    const modelThinkingParam = thinkingActive
+      ? provider.getThinking(thinkingActive, modelConfig.model)
+      : undefined
+    const modelThinkingModeParam = thinkingActive ? resolvedThinkingMode : undefined
+
     const params = {
       ...credentials,
       model: modelConfig.model,
@@ -824,9 +912,10 @@ export const callAIAPI = async (
         toggles.deepResearch ? false : settings.enableLongTermMemory,
       ),
       toolIds: resolvedToolIds,
+      thinkingMode: modelThinkingModeParam,
       enableLongTermMemory: toggles.deepResearch ? false : Boolean(settings.enableLongTermMemory),
       databaseProvider: selectedDatabaseProvider,
-      thinking: provider.getThinking(thinkingActive, modelConfig.model),
+      thinking: modelThinkingParam,
       signal: controller.signal,
       onChunk: chunk => {
         if (typeof chunk === 'object' && chunk !== null) {
@@ -1155,6 +1244,9 @@ export const callAIAPI = async (
           } else if (chunk.type === 'text') {
             const cleanText = sanitizeInternalToolTraceChunk(String(chunk.content || ''))
             if (cleanText) {
+              if (!Number.isFinite(finalAnswerStartedAtMs) && cleanText.trim()) {
+                finalAnswerStartedAtMs = Date.now()
+              }
               pendingText += cleanText
             }
             hasNonThoughtEvent = true
@@ -1164,6 +1256,9 @@ export const callAIAPI = async (
         } else {
           const cleanChunkText = sanitizeInternalToolTraceChunk(String(chunk || ''))
           if (cleanChunkText) {
+            if (!Number.isFinite(finalAnswerStartedAtMs) && cleanChunkText.trim()) {
+              finalAnswerStartedAtMs = Date.now()
+            }
             pendingText += cleanChunkText
           }
           hasNonThoughtEvent = true
@@ -1181,8 +1276,11 @@ export const callAIAPI = async (
         set({ isLoading: false })
         const currentStore = get()
         const finalThought = hitlRunId ? streamedThought : (result.thought ?? streamedThought)
+        const finalAnswerDurationMs = Number.isFinite(finalAnswerStartedAtMs)
+          ? Math.max(0, Date.now() - Number(finalAnswerStartedAtMs))
+          : null
         await finalizeMessage(
-          { ...result, thought: finalThought },
+          { ...result, thought: finalThought, finalAnswerDurationMs },
           currentStore,
           settings,
           callbacks,
@@ -1696,12 +1794,23 @@ export const finalizeMessage = async (
       const derived = deriveThoughtHistoryFromStreamBlocks(latestAi?.streamBlocks)
       return derived.length > 0 ? derived : null
     })()
+    const finalAnswerDurationMsForPersistence = (() => {
+      const direct = result?.finalAnswerDurationMs
+      if (Number.isFinite(direct) && Number(direct) >= 0) return Number(direct)
+      if (Number.isFinite(latestAi?.finalAnswerDurationMs) && Number(latestAi.finalAnswerDurationMs) >= 0) {
+        return Number(latestAi.finalAnswerDurationMs)
+      }
+      return null
+    })()
     const thoughtForPersistence = (() => {
       const payload = {}
       if (planForPersistence) payload.plan = planForPersistence
       if (baseThought) payload.thought = baseThought
       if (thoughtHistoryForPersistence && thoughtHistoryForPersistence.length > 0) {
         payload.thoughtHistory = thoughtHistoryForPersistence
+      }
+      if (Number.isFinite(finalAnswerDurationMsForPersistence)) {
+        payload.finalAnswerDurationMs = Number(finalAnswerDurationMsForPersistence)
       }
       const result = Object.keys(payload).length > 0 ? JSON.stringify(payload) : baseThought
       return result
@@ -1739,6 +1848,9 @@ export const finalizeMessage = async (
           ...updated[i],
           streamBlocks: streamBlocksForRuntime,
           streamSchemaVersion: 1,
+          ...(Number.isFinite(finalAnswerDurationMsForPersistence) && {
+            finalAnswerDurationMs: Number(finalAnswerDurationMsForPersistence),
+          }),
         }
         break
       }
@@ -1862,8 +1974,17 @@ export const finalizeMessage = async (
           last_agent_id: safeAgent?.id || undefined,
           agent_selection_mode: isAgentAutoMode ? 'auto' : 'manual',
         }
-        await updateConversation(currentStore.conversationId, updatePayload)
-        notifyConversationsChanged()
+        const { data: updatedConversation, error: updateError } = await updateConversation(
+          currentStore.conversationId,
+          updatePayload,
+        )
+        if (updateError) throw updateError
+        notifyConversationPatched(
+          updatedConversation || {
+            id: currentStore.conversationId,
+            ...updatePayload,
+          },
+        )
         window.dispatchEvent(
           new CustomEvent('conversation-space-updated', {
             detail: {
@@ -1876,9 +1997,20 @@ export const finalizeMessage = async (
           callbacks.onSpaceResolved(resolvedSpace)
         }
       } else if (safeAgent?.id) {
-        await updateConversation(currentStore.conversationId, {
+        const agentPatch = {
           last_agent_id: safeAgent.id,
-        })
+        }
+        const { data: updatedConversation, error: updateError } = await updateConversation(
+          currentStore.conversationId,
+          agentPatch,
+        )
+        if (updateError) throw updateError
+        notifyConversationPatched(
+          updatedConversation || {
+            id: currentStore.conversationId,
+            ...agentPatch,
+          },
+        )
       }
     } catch (error) {
       console.error('Failed to update conversation:', error)

@@ -29,7 +29,7 @@ const RelatedQuestions = ({ t, questions, isLoading, onRelatedClick }) => {
               onClick={() => onRelatedClick && onRelatedClick(question)}
               className="bg-user-bubble border-primary-100/50 hover:bg-user-bubble group flex cursor-pointer items-center justify-between rounded-2xl border border-1 px-3 py-2 transition-colors sm:hover:scale-102 dark:border-zinc-800/80 dark:bg-zinc-800/50 dark:hover:bg-zinc-800/50"
             >
-              <span className="text-sm font-medium text-gray-700 md:text-balance dark:text-gray-300">
+              <span className="text-[13px] font-medium text-gray-700 md:text-balance dark:text-gray-300">
                 {question}
               </span>
               <div className="text-primary-500 dark:text-primary-500 ml-2 opacity-100 sm:ml-0 sm:opacity-0 sm:group-hover:opacity-100">

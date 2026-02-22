@@ -10,6 +10,8 @@ import {
   RotateCcw,
   ChevronDown,
   ChevronRight,
+  ChevronUp,
+  Link,
   Copy,
   Pencil,
   Quote,
@@ -44,6 +46,7 @@ import { TOOL_TRANSLATION_KEYS, TOOL_ICONS } from '../lib/toolConstants'
 import { splitTextWithUrls } from '../lib/urlHighlight'
 import { normalizeExpertBrokenTokenLines } from '../lib/chat/expertTextUtils'
 import DesktopSourcesSection from './DesktopSourcesSection'
+import DesktopSourcesSheet from './DesktopSourcesSheet'
 import DotLoader from './DotLoader'
 import EmojiDisplay from './EmojiDisplay'
 import InteractiveForm from './InteractiveForm'
@@ -276,6 +279,66 @@ const ToolEnter = ({ children, className }) => {
  * MessageBubble component that directly accesses messages from chatStore via index
  * Reduces props drilling and improves component independence
  */
+
+const SearchSourcesList = React.memo(({ sources }) => {
+  const { t } = useTranslation()
+  const [isExpanded, setIsExpanded] = useState(false)
+
+  if (!sources || sources.length === 0) return null
+
+  // Decide threshold, e.g., 6 items
+  const THRESHOLD = 6
+  const hasMore = sources.length > THRESHOLD
+  const displaySources = isExpanded ? sources : sources.slice(0, THRESHOLD)
+
+  return (
+    <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+      {displaySources.map((src, sIdx) => {
+        const url = src?.url || src?.uri || src?.link || src?.href || ''
+        let hostname = t('sources.source')
+        try {
+          hostname = new URL(url).hostname.replace(/^www\./, '')
+        } catch (e) {}
+        return (
+          <a
+            key={`src-${sIdx}`}
+            href={url || '#'}
+            target={url ? '_blank' : undefined}
+            rel={url ? 'noopener noreferrer' : undefined}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-gray-100/80 px-2.5 py-1.5 transition-colors hover:bg-gray-200 dark:bg-zinc-800 dark:hover:bg-zinc-700"
+          >
+            <img
+              src={src.icon || `https://www.google.com/s2/favicons?domain=${hostname}&sz=128`}
+              alt=""
+              className="h-3.5 w-3.5 rounded-full bg-white object-cover"
+            />
+            <span className="max-w-[140px] truncate text-[12px]! font-medium text-gray-600 dark:text-gray-300">
+              {src.media || src.title || hostname}
+            </span>
+          </a>
+        )
+      })}
+      {hasMore && (
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="inline-flex cursor-pointer items-center gap-0.5 rounded-lg bg-transparent px-2.5 py-1.5 text-[12px] text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-zinc-800 dark:hover:text-gray-300"
+        >
+          {isExpanded ? (
+            <>
+              {t('common.collapse', { defaultValue: '收起' })}
+              <ChevronUp size={14} className="ml-0.5" />
+            </>
+          ) : (
+            <>
+              {t('common.expand', { defaultValue: '展开' })}
+              <ChevronDown size={14} className="ml-0.5" />
+            </>
+          )}
+        </button>
+      )}
+    </div>
+  )
+})
 
 const MessageBubble = ({
   messageIndex,
@@ -515,6 +578,13 @@ const MessageBubble = ({
         .filter(Boolean)
         .join('\n\n'),
     [formatThoughtContentForDisplay, normalizedStreamBlocks],
+  )
+  const hasStartedAnswerTextStream = useMemo(
+    () =>
+      normalizedStreamBlocks.some(
+        block => block.type === 'text' && typeof block.content === 'string' && block.content.trim(),
+      ),
+    [normalizedStreamBlocks],
   )
 
   const resolvedSearchBackends = useMemo(() => {
@@ -1659,6 +1729,58 @@ const MessageBubble = ({
   )
 
   const isStreaming = isStreamingMessage
+  const persistedFinalAnswerDurationMs = Number.isFinite(mergedMessage?.finalAnswerDurationMs)
+    ? Number(mergedMessage.finalAnswerDurationMs)
+    : null
+  const wallClockStartRef = useRef(null)
+  const [wallClockElapsedSec, setWallClockElapsedSec] = useState(0)
+  const [wallClockFinalSec, setWallClockFinalSec] = useState(null)
+  const searchLiveStartRef = useRef(null)
+  const [searchLiveElapsedSec, setSearchLiveElapsedSec] = useState(0)
+
+  useEffect(() => {
+    wallClockStartRef.current = null
+    searchLiveStartRef.current = null
+    setWallClockElapsedSec(0)
+    setWallClockFinalSec(null)
+    setSearchLiveElapsedSec(0)
+  }, [mergedMessage?.id, mergedMessage?.localId, messageIndex])
+
+  useEffect(() => {
+    const hasAnswerOutputSignal =
+      hasStartedAnswerTextStream ||
+      (isExpertMessage
+        ? typeof mainContent === 'string' && mainContent.trim().length > 0
+        : typeof message?.content === 'string' && message.content.trim().length > 0)
+
+    if (isStreaming && hasAnswerOutputSignal) {
+      if (!Number.isFinite(wallClockStartRef.current)) {
+        // Start total timer when the default model actually begins emitting answer text.
+        wallClockStartRef.current = Date.now()
+      }
+
+      const tick = () => {
+        const startMs = Number.isFinite(wallClockStartRef.current)
+          ? wallClockStartRef.current
+          : Date.now()
+        const elapsed = Math.max(0, Math.round((Date.now() - startMs) / 1000))
+        setWallClockElapsedSec(elapsed)
+      }
+
+      tick()
+      const timer = window.setInterval(tick, 500)
+      return () => window.clearInterval(timer)
+    }
+
+    if (Number.isFinite(wallClockStartRef.current)) {
+      const elapsed = Math.max(0, Math.round((Date.now() - wallClockStartRef.current) / 1000))
+      setWallClockElapsedSec(elapsed)
+      setWallClockFinalSec(prev => (typeof prev === 'number' ? prev : elapsed))
+    }
+
+    return undefined
+  }, [isStreaming, hasStartedAnswerTextStream, isExpertMessage, mainContent, message?.content])
+
   const hasMainText = (() => {
     if (isExpertMessage) {
       return typeof mainContent === 'string' && mainContent.trim().length > 0
@@ -2062,30 +2184,54 @@ const MessageBubble = ({
     [interleavedContent],
   )
   const contentPartsOutsideWorkflow = useMemo(() => {
-    const rawParts = interleavedContent.flatMap((part, idx) => {
+    const rawParts = []
+
+    for (let i = 0; i < interleavedContent.length; i++) {
+      const part = interleavedContent[i]
+
       if (part.type === 'text') {
-        return [{ type: 'text', key: `text-${idx}`, content: part.content }]
+        rawParts.push({ type: 'text', key: `text-${i}`, content: part.content })
+        continue
       }
-      if (part.type !== 'tools' || !Array.isArray(part.items)) return []
-      const formItems = part.items.filter(item => item?.name === 'interactive_form')
-      const regularTools = part.items.filter(item => item?.name !== 'interactive_form')
-      const nextParts = []
-      if (regularTools.length > 0) {
-        nextParts.push({
-          type: 'tools',
-          key: part.key || `tools-${idx}`,
-          items: regularTools,
-        })
+
+      if (part.type === 'tools' && Array.isArray(part.items)) {
+        const formItems = part.items.filter(item => item?.name === 'interactive_form')
+        const regularTools = part.items.filter(
+          item => item?.name !== 'interactive_form' && item?.name !== 'form_submission_status',
+        )
+
+        if (regularTools.length > 0) {
+          let prevToolPart = null
+          for (let j = rawParts.length - 1; j >= 0; j--) {
+            const rp = rawParts[j]
+            // Skip over empty/whitespace text blocks when looking for a tool block to merge into
+            if (rp.type === 'text' && (!rp.content || !rp.content.trim())) continue
+            if (rp.type === 'tools') prevToolPart = rp
+            break
+          }
+
+          if (prevToolPart) {
+            // Merge into previous tools block
+            prevToolPart.items = [...prevToolPart.items, ...regularTools]
+          } else {
+            // Create new tools block
+            rawParts.push({
+              type: 'tools',
+              key: part.key || `tools-${i}`,
+              items: [...regularTools],
+            })
+          }
+        }
+
+        if (formItems.length > 0) {
+          rawParts.push({
+            type: 'interactive_form',
+            key: `${part.key || `interactive-form-${i}`}-form`,
+            items: formItems,
+          })
+        }
       }
-      if (formItems.length > 0) {
-        nextParts.push({
-          type: 'interactive_form',
-          key: `${part.key || `interactive-form-${idx}`}-form`,
-          items: formItems,
-        })
-      }
-      return nextParts
-    })
+    }
 
     // Some streaming paths (e.g. expert synthetic message) can produce many tiny
     // adjacent text segments; merge them before rendering to avoid per-chunk line breaks.
@@ -2102,7 +2248,234 @@ const MessageBubble = ({
     }
     return merged
   }, [compactStreamingTextBlocks, interleavedContent, isExpertMessage])
-  const hasWorkflow = !isDeepResearch && workflowThoughtParts.length > 0
+  const SEARCH_STEP_TOOLS = useMemo(
+    () =>
+      new Set([
+        'Tavily_web_search',
+        'Tavily_academic_search',
+        'web_search_using_tavily',
+        'web_search_with_tavily',
+        'extract_url_content',
+        'web_search',
+        'search_news',
+        'search_arxiv_and_return_articles',
+        'search_wikipedia',
+      ]),
+    [],
+  )
+  const processSteps = useMemo(() => {
+    if (isDeepResearch) return []
+    const toolById = new Map()
+    for (const tool of toolCallHistory) {
+      if (tool?.id) toolById.set(String(tool.id), tool)
+    }
+    const steps = []
+    const parseToolQuery = tool => {
+      if (!tool) return ''
+      const args = tool.arguments
+      if (args && typeof args === 'object' && typeof args.query === 'string') return args.query
+      if (typeof args === 'string') {
+        try {
+          const parsed = JSON.parse(args)
+          if (parsed && typeof parsed === 'object' && typeof parsed.query === 'string') {
+            return parsed.query
+          }
+        } catch {
+          return ''
+        }
+      }
+      return ''
+    }
+
+    const addToolToStep = (targetStep, tool) => {
+      const key = tool?.id
+        ? String(tool.id)
+        : `${tool?.name || 'tool'}:${String(tool?.arguments || '')}:${String(tool?.output || '')}`
+      if (!targetStep._toolKeys.has(key)) {
+        targetStep._toolKeys.add(key)
+        targetStep.items.push(tool)
+        if (typeof tool.durationMs === 'number') {
+          targetStep.durationMs = (targetStep.durationMs || 0) + tool.durationMs
+        }
+        const query = parseToolQuery(tool)
+        if (query && !targetStep._querySet.has(query)) {
+          targetStep._querySet.add(query)
+          targetStep.queries.push(query)
+        }
+      }
+    }
+
+    for (const block of normalizedStreamBlocks) {
+      if ((block.type === 'reasoning' || block.type === 'thought') && block.content) {
+        const lastStep = steps[steps.length - 1]
+        if (lastStep?.kind === 'thought') {
+          lastStep.content = `${lastStep.content || ''}${block.content || ''}`
+          const prevDuration = Number.isFinite(lastStep.durationMs)
+            ? Number(lastStep.durationMs)
+            : 0
+          const nextDuration = Number.isFinite(block.durationMs) ? Number(block.durationMs) : 0
+          lastStep.durationMs = prevDuration + nextDuration
+        } else {
+          steps.push({
+            kind: 'thought',
+            content: block.content,
+            durationMs: Number.isFinite(block.durationMs) ? Number(block.durationMs) : 0,
+          })
+        }
+        continue
+      }
+
+      if (block.type === 'tool_call' || block.type === 'tool_result' || block.type === 'tool') {
+        const fallbackTool = {
+          id: block.toolCallId || null,
+          name: block.name || 'tool',
+          status: block.status || 'done',
+          arguments: block.arguments ?? null,
+          output: block.output ?? null,
+          durationMs: Number.isFinite(block.durationMs) ? Number(block.durationMs) : null,
+        }
+        const tool = (block.toolCallId && toolById.get(String(block.toolCallId))) || fallbackTool
+        if (
+          !tool?.name ||
+          tool.name === 'interactive_form' ||
+          tool.name === 'form_submission_status'
+        ) {
+          continue
+        }
+
+        const isSearchTool = SEARCH_STEP_TOOLS.has(String(tool.name))
+        if (isSearchTool) {
+          const lastStep = steps[steps.length - 1]
+          if (lastStep?.kind === 'search') {
+            addToolToStep(lastStep, tool)
+          } else {
+            const newSearchStep = {
+              kind: 'search',
+              items: [],
+              queries: [],
+              sources: [],
+              durationMs: 0,
+              _toolKeys: new Set(),
+              _querySet: new Set(),
+            }
+            steps.push(newSearchStep)
+            addToolToStep(newSearchStep, tool)
+          }
+          continue
+        }
+
+        const lastStep = steps[steps.length - 1]
+        if (lastStep?.kind === 'tools') {
+          if (!lastStep._toolKeys.has(String(tool.id || `${tool.name}:${lastStep.items.length}`))) {
+            lastStep._toolKeys.add(String(tool.id || `${tool.name}:${lastStep.items.length}`))
+            lastStep.items.push(tool)
+          }
+        } else {
+          steps.push({
+            kind: 'tools',
+            items: [tool],
+            _toolKeys: new Set([String(tool.id || `${tool.name}:0`)]),
+          })
+        }
+        continue
+      }
+    }
+
+    const _allSourcesList = Array.isArray(mergedMessage.sources) ? [...mergedMessage.sources] : []
+    const unallocatedSources = new Set(_allSourcesList)
+
+    steps.forEach(step => {
+      if (step.kind === 'search') {
+        const matchedSources = []
+        // Process each tool execution to extract sources directly if possible
+        step.items.forEach(t => {
+          if (!t.output) return
+          let parsed = null
+          if (typeof t.output === 'string') {
+            try {
+              parsed = JSON.parse(t.output)
+            } catch (e) {
+              const match = t.output.match(/\{[\s\S]*\}|\[[\s\S]*\]/)
+              if (match) {
+                try {
+                  parsed = JSON.parse(match[0])
+                } catch (err) {}
+              }
+            }
+          } else if (typeof t.output === 'object') {
+            parsed = t.output
+          }
+
+          if (parsed) {
+            const results =
+              parsed.results || parsed.data || parsed.items || (Array.isArray(parsed) ? parsed : [])
+            if (Array.isArray(results)) {
+              results.forEach(result => {
+                const url = result?.url || result?.link || result?.href
+                if (url) {
+                  matchedSources.push({
+                    url,
+                    title: result.title || url,
+                    snippet: result.snippet || result.description || '',
+                    media: result.media || '',
+                    icon: result.icon || '',
+                  })
+                }
+              })
+            }
+          }
+        })
+
+        // Fallback: if we couldn't parse directly from output, match by text containment
+        if (matchedSources.length === 0) {
+          const stepOutputs = step.items
+            .map(t => {
+              let text = String(t.output || '')
+              if (typeof t.output === 'object') {
+                try {
+                  text = JSON.stringify(t.output)
+                } catch (e) {}
+              }
+              return text
+            })
+            .join('\n')
+
+          for (const src of unallocatedSources) {
+            if (
+              (src.url && stepOutputs.includes(src.url)) ||
+              (src.title && stepOutputs.includes(src.title)) ||
+              (src.id && stepOutputs.includes(`"${src.id}"`))
+            ) {
+              matchedSources.push(src)
+              unallocatedSources.delete(src)
+            }
+          }
+        }
+
+        // Deduplicate matched sources by URL
+        const seenUrls = new Set()
+        step.sources = matchedSources.filter(src => {
+          if (!src.url) return false
+          if (seenUrls.has(src.url)) return false
+          seenUrls.add(src.url)
+          return true
+        })
+      }
+    })
+
+    return steps.map(step => {
+      const nextStep = { ...step }
+      delete nextStep._toolKeys
+      delete nextStep._querySet
+      return nextStep
+    })
+  }, [
+    SEARCH_STEP_TOOLS,
+    isDeepResearch,
+    mergedMessage.sources,
+    normalizedStreamBlocks,
+    toolCallHistory,
+  ])
   const hasFormSubmissionStatus = useMemo(
     () => toolCallHistory.some(item => item?.name === 'form_submission_status'),
     [toolCallHistory],
@@ -2114,149 +2487,41 @@ const MessageBubble = ({
       )
       if (regularTools.length === 0) return null
 
+      // Extract unique localized tool names
+      const uniqueToolNames = Array.from(
+        new Set(
+          regularTools.map(t =>
+            typeof getToolDisplayName === 'function' ? getToolDisplayName(t) : t.name,
+          ),
+        ),
+      )
+
+      // Join the tool names based on the current locale's comma rule (fallback to '、' for CJK, ', ' otherwise)
+      const isChinese = i18n.language && i18n.language.startsWith('zh')
+      const separator = isChinese ? '、' : ', '
+      const joinedNames = uniqueToolNames.join(separator)
+
+      const label = t('messageBubble.usedSpecificTools', {
+        tools: joinedNames,
+        defaultValue: `Used ${joinedNames}`,
+      })
+
       return (
-        <div key={`tools-container-${idx}`} className="relative z-30 flex flex-col gap-4">
-          <div className="mb-4">
-            {regularTools.map(item => {
-              const iconName = TOOL_ICONS[item.name]
-              const IconComponent = iconName
-                ? {
-                    Search,
-                    GraduationCap,
-                    Calculator,
-                    Clock,
-                    FileText,
-                    ScanText,
-                    Wrench,
-                    FormInput,
-                    Globe,
-                    Brain,
-                    BrainCircuit,
-                    ImageIcon,
-                  }[iconName]
-                : null
-              return (
-                <ToolEnter key={item.id || `${item.name}-${item.arguments}`}>
-                  <div className="border-primary-200/35 dark:border-primary-700/20 rounded-lg border bg-white/65 px-2.5 py-2 dark:bg-zinc-800/40">
-                    <div className="flex w-full items-center gap-1 text-xs text-gray-500 sm:gap-2 dark:text-gray-400">
-                      <span className="flex shrink-0 cursor-default items-center gap-1.5 font-medium whitespace-nowrap text-gray-600 dark:text-gray-300">
-                        {item.status === 'error' ? (
-                          <AlertTriangle size={14} className="text-red-500 dark:text-red-400" />
-                        ) : (
-                          IconComponent && (
-                            <IconComponent size={14} className="text-gray-500 dark:text-gray-400" />
-                          )
-                        )}
-                        {item.status === 'error'
-                          ? t('messageBubble.toolCallError')
-                          : getToolDisplayName(item)}
-                      </span>
-                      <div className="flex min-w-0 flex-1 items-center gap-1 sm:gap-2">
-                        {renderToolQueryPreview(item)}
-                      </div>
-                      {typeof item.durationMs === 'number' && (
-                        <span className="shrink-0 text-[11px]! whitespace-nowrap text-gray-500 dark:text-gray-400">
-                          {t('messageBubble.toolDuration', {
-                            duration: (item.durationMs / 1000).toFixed(2),
-                          })}
-                        </span>
-                      )}
-                      <span
-                        className={clsx(
-                          'ml-auto flex min-w-[24px] shrink-0 items-center justify-center rounded-full px-2 py-1 text-[11px]',
-                          item.status === 'error'
-                            ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
-                            : item.status === 'done'
-                              ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
-                              : 'bg-gray-200/70 text-gray-600 dark:bg-zinc-700/70 dark:text-gray-400',
-                        )}
-                      >
-                        {item.status === 'error' ? (
-                          <X className="h-4 w-4" />
-                        ) : item.status === 'done' ? (
-                          <Check className="h-4 w-4" />
-                        ) : (
-                          <DotLoader />
-                        )}
-                      </span>
-                      {developerMode && (
-                        <button
-                          type="button"
-                          onClick={() => setActiveToolDetail(item)}
-                          className="text-primary-600 dark:text-primary-300 shrink-0 text-[10px] whitespace-nowrap hover:underline"
-                        >
-                          {t('messageBubble.toolDetails')}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </ToolEnter>
-              )
-            })}
+        <div key={`tools-inline-capsule-${idx}`} className="mb-4 flex items-center">
+          <div
+            className="border-primary-200/35 dark:border-primary-700/20 inline-flex cursor-default items-center gap-2 rounded-lg border bg-white/65 px-2.5 py-2 text-xs text-gray-500 shadow-[0_1px_2px_rgba(0,0,0,0.02)] transition-colors hover:bg-white/80 dark:bg-zinc-800/40 dark:text-gray-400 dark:hover:bg-zinc-800/60"
+            title={regularTools
+              .map(t => (typeof getToolDisplayName === 'function' ? getToolDisplayName(t) : t.name))
+              .join(', ')}
+          >
+            <Wrench size={14} className="opacity-70" />
+            <span className="font-medium text-gray-600 dark:text-gray-300">{label}</span>
           </div>
         </div>
       )
     },
-    [developerMode, getToolDisplayName, renderToolQueryPreview, t],
+    [t, getToolDisplayName, SEARCH_STEP_TOOLS],
   )
-  const toZhRound = useCallback(num => {
-    const digits = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九']
-    const n = Number(num)
-    if (!Number.isFinite(n) || n <= 0) return String(num)
-    if (n < 10) return digits[n]
-    if (n === 10) return '十'
-    if (n < 20) return `十${digits[n % 10]}`
-    if (n < 100) {
-      const tens = Math.floor(n / 10)
-      const ones = n % 10
-      return ones === 0 ? `${digits[tens]}十` : `${digits[tens]}十${digits[ones]}`
-    }
-    return String(n)
-  }, [])
-  const formatRoundLabel = useCallback(
-    round => {
-      const locale = String(i18n.resolvedLanguage || i18n.language || '').toLowerCase()
-      if (locale.startsWith('zh')) return `第${toZhRound(round)}轮`
-      return `Round ${round}`
-    },
-    [i18n.language, i18n.resolvedLanguage, toZhRound],
-  )
-  const workflowThoughtCount = workflowThoughtParts.length
-  const renderedWorkflowContent = workflowThoughtParts.map((part, idx) => {
-    const thoughtRound = idx + 1
-    const isLast = idx === workflowThoughtParts.length - 1
-    const isThinking = isStreaming && isLast && !hasMainText
-    const hasMultipleRounds = workflowThoughtCount > 1
-
-    return (
-      <div key={part.key || `thought-inline-${idx}`} className="mb-3">
-        <div className="mb-1 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-          {hasMultipleRounds && (
-            <span className="font-medium text-gray-600 dark:text-gray-300">
-              {formatRoundLabel(thoughtRound)}
-            </span>
-          )}
-          {typeof part.durationMs === 'number' && part.durationMs >= 0 && (
-            <span className="text-[11px] text-gray-500 dark:text-gray-400">
-              {t('messageBubble.thinkingDuration', {
-                duration: (part.durationMs / 1000).toFixed(2),
-              })}
-            </span>
-          )}
-          {isThinking && <DotLoader />}
-        </div>
-        <div className="text-sm text-gray-500 dark:text-gray-400">
-          <Streamdown
-            mermaid={mermaidOptions}
-            remarkPlugins={[remarkGfm]}
-            components={markdownComponents}
-          >
-            {formatThoughtContentForDisplay(part.content)}
-          </Streamdown>
-        </div>
-      </div>
-    )
-  })
   const expertPlanBlock = useMemo(
     () => workflowTextParts.find(part => typeof part?.content === 'string' && part.content.trim()),
     [workflowTextParts],
@@ -2358,6 +2623,7 @@ const MessageBubble = ({
 
     if (part.type === 'tools') {
       if (isDeepResearch) return null
+
       return renderToolItems(part.items, part.key || idx)
     }
 
@@ -2373,22 +2639,6 @@ const MessageBubble = ({
 
     return null
   })
-
-  const workflowHeaderLabel = useMemo(() => {
-    if (!isStreaming || workflowThoughtParts.length === 0 || hasMainText) {
-      return t('messageBubble.deepThinking')
-    }
-    return t('messageBubble.thinking')
-  }, [hasMainText, isStreaming, t, workflowThoughtParts])
-  const workflowDurationMs = useMemo(
-    () =>
-      workflowThoughtParts.reduce(
-        (acc, part) =>
-          acc + (typeof part.durationMs === 'number' && part.durationMs > 0 ? part.durationMs : 0),
-        0,
-      ),
-    [workflowThoughtParts],
-  )
 
   const targetAgentId = message.agentId || message.agent_id
   const targetAgent = useMemo(() => {
@@ -2843,6 +3093,182 @@ const MessageBubble = ({
   const isRelatedLoading = !!mergedMessage.relatedLoading
   const shouldShowRelated = !isDeepResearch && (hasRelatedQuestions || isRelatedLoading)
   const workflowContainerRef = useRef(null)
+  const allSources = useMemo(
+    () => (Array.isArray(mergedMessage.sources) ? mergedMessage.sources : []),
+    [mergedMessage.sources],
+  )
+  const workflowProcessSteps = useMemo(() => {
+    const base = Array.isArray(processSteps) ? [...processSteps] : []
+    if (isDeepResearch) return base
+
+    const shouldShowAnswerStep = Boolean(
+      isStreaming || hasMainText || base.length > 0 || typeof wallClockFinalSec === 'number',
+    )
+    if (!shouldShowAnswerStep) return base
+
+    const answerDurationSec =
+      typeof wallClockFinalSec === 'number'
+        ? wallClockFinalSec
+        : typeof wallClockElapsedSec === 'number'
+          ? wallClockElapsedSec
+          : 0
+
+    base.push({
+      kind: 'final_answer',
+      status: isStreaming ? 'running' : 'done',
+      durationMs: answerDurationSec > 0 ? Math.max(0, Number(answerDurationSec) * 1000) : null,
+    })
+    return base
+  }, [
+    processSteps,
+    wallClockFinalSec,
+    isStreaming,
+    hasMainText,
+    wallClockElapsedSec,
+    isDeepResearch,
+  ])
+  const hasWorkflowFinalAnswerStep = useMemo(
+    () => workflowProcessSteps.some(step => step?.kind === 'final_answer'),
+    [workflowProcessSteps],
+  )
+  const finalAnswerWorkflowStep = useMemo(() => {
+    for (let i = workflowProcessSteps.length - 1; i >= 0; i -= 1) {
+      if (workflowProcessSteps[i]?.kind === 'final_answer') return workflowProcessSteps[i]
+    }
+    return null
+  }, [workflowProcessSteps])
+  const workflowSearchStep = useMemo(
+    () => workflowProcessSteps.find(step => step.kind === 'search') || null,
+    [workflowProcessSteps],
+  )
+  const workflowThoughtStep = useMemo(() => {
+    const thoughtParts = workflowProcessSteps.filter(step => step.kind === 'thought')
+    if (thoughtParts.length === 0) return null
+    return {
+      content: thoughtParts.map(step => String(step.content || '')).join(''),
+      durationMs: thoughtParts.reduce(
+        (sum, step) => sum + (typeof step.durationMs === 'number' ? step.durationMs : 0),
+        0,
+      ),
+    }
+  }, [workflowProcessSteps])
+  const workflowToolItems = useMemo(
+    () =>
+      workflowProcessSteps
+        .filter(step => step.kind === 'tools' && Array.isArray(step.items))
+        .flatMap(step => step.items || []),
+    [workflowProcessSteps],
+  )
+  const workflowSearchDurationMs = useMemo(
+    () =>
+      workflowProcessSteps
+        .filter(step => step.kind === 'search')
+        .reduce(
+          (sum, step) => sum + (typeof step.durationMs === 'number' ? step.durationMs : 0),
+          0,
+        ),
+    [workflowProcessSteps],
+  )
+  const processDurationMs = useMemo(() => {
+    const thoughtMs = workflowThoughtStep?.durationMs || 0
+    const searchMs = workflowSearchDurationMs || 0
+    const toolMs = workflowToolItems.reduce(
+      (sum, item) => sum + (typeof item.durationMs === 'number' ? item.durationMs : 0),
+      0,
+    )
+    return thoughtMs + searchMs + toolMs
+  }, [workflowThoughtStep?.durationMs, workflowSearchDurationMs, workflowToolItems])
+  const processDurationSec = Math.max(0, Math.round(processDurationMs / 1000))
+  const completedDurationSec = useMemo(() => {
+    if (
+      !isStreaming &&
+      Number.isFinite(persistedFinalAnswerDurationMs) &&
+      persistedFinalAnswerDurationMs > 0
+    ) {
+      return Math.round(persistedFinalAnswerDurationMs / 1000)
+    }
+    if (typeof wallClockFinalSec === 'number') return wallClockFinalSec
+    if (typeof wallClockElapsedSec === 'number' && wallClockElapsedSec > 0)
+      return wallClockElapsedSec
+    return processDurationSec
+  }, [
+    isStreaming,
+    persistedFinalAnswerDurationMs,
+    processDurationSec,
+    wallClockElapsedSec,
+    wallClockFinalSec,
+  ])
+  const finalAnswerDurationMsForDisplay = useMemo(() => {
+    if (Number.isFinite(persistedFinalAnswerDurationMs) && persistedFinalAnswerDurationMs > 0) {
+      return persistedFinalAnswerDurationMs
+    }
+    const directMs =
+      typeof finalAnswerWorkflowStep?.durationMs === 'number'
+        ? finalAnswerWorkflowStep.durationMs
+        : null
+    if (typeof directMs === 'number' && directMs > 0) return directMs
+    if (typeof completedDurationSec === 'number' && completedDurationSec > 0) {
+      return completedDurationSec * 1000
+    }
+    return null
+  }, [persistedFinalAnswerDurationMs, finalAnswerWorkflowStep?.durationMs, completedDurationSec])
+  const activeStreamingStepKind = useMemo(() => {
+    if (!isStreaming) return null
+
+    const lastStreamBlock = normalizedStreamBlocks[normalizedStreamBlocks.length - 1]
+    const lastStreamType = String(lastStreamBlock?.type || '')
+    if (lastStreamType === 'text' && hasStartedAnswerTextStream) {
+      return 'final_answer'
+    }
+
+    const lastProcessStep = processSteps[processSteps.length - 1]
+    if (lastProcessStep?.kind === 'search') return 'search'
+    if (lastProcessStep?.kind === 'tools') return 'tools'
+    if (lastProcessStep?.kind === 'thought') return 'thought'
+
+    if (hasStartedAnswerTextStream) return 'final_answer'
+    return null
+  }, [isStreaming, normalizedStreamBlocks, hasStartedAnswerTextStream, processSteps])
+  const isSearchStreamingActive = isStreaming && activeStreamingStepKind === 'search'
+  useEffect(() => {
+    if (isSearchStreamingActive) {
+      if (!Number.isFinite(searchLiveStartRef.current)) {
+        searchLiveStartRef.current = Date.now()
+      }
+
+      const tick = () => {
+        const startMs = Number.isFinite(searchLiveStartRef.current)
+          ? searchLiveStartRef.current
+          : Date.now()
+        const elapsed = Math.max(0, Math.round((Date.now() - startMs) / 1000))
+        setSearchLiveElapsedSec(elapsed)
+      }
+
+      tick()
+      const timer = window.setInterval(tick, 500)
+      return () => window.clearInterval(timer)
+    }
+
+    if (!isStreaming) {
+      searchLiveStartRef.current = null
+      setSearchLiveElapsedSec(0)
+    }
+
+    return undefined
+  }, [isSearchStreamingActive, isStreaming])
+  const shouldShowWorkflowFinalAnswer = hasMainText && !isStreaming
+  const headerSourceLogos = useMemo(() => {
+    const logos = []
+    for (const source of allSources) {
+      const url = source?.url || source?.uri || source?.link || source?.href || ''
+      const host = getHostname(url)
+      const icon =
+        source?.icon || (host ? `https://www.google.com/s2/favicons?domain=${host}&sz=64` : '')
+      if (icon) logos.push(icon)
+      if (logos.length >= 3) break
+    }
+    return logos
+  }, [allSources])
 
   // Auto-scroll effect for thinking process
   useEffect(() => {
@@ -2855,52 +3281,289 @@ const MessageBubble = ({
         }
       })
     }
-  }, [isStreaming, isWorkflowExpanded, renderedWorkflowContent, workflowDurationMs])
+  }, [isStreaming, isWorkflowExpanded, workflowProcessSteps, processDurationMs])
 
-  const workflowPanel = hasWorkflow ? (
-    <details
-      className={clsx('group', !isExpertMessage && 'mt-0 mb-4', isExpertMessage && 'mt-4 mb-4')}
-      open={isWorkflowExpanded}
-      onToggle={event => setIsWorkflowExpanded(event.currentTarget.open)}
-    >
-      <summary
-        className={clsx(
-          'flex cursor-pointer list-none items-center justify-between gap-3 py-1 text-gray-600 select-none hover:text-gray-800 dark:text-gray-300 dark:hover:text-gray-100',
-        )}
+  const workflowPanel =
+    workflowProcessSteps.length > 0 ? (
+      <details
+        className={clsx('group', !isExpertMessage && 'mt-0 mb-4', isExpertMessage && 'mt-4 mb-4')}
+        open={isWorkflowExpanded}
+        onToggle={event => setIsWorkflowExpanded(event.currentTarget.open)}
       >
-        <div className="flex items-center gap-2">
-          <BrainCircuit size={15} className="text-primary-500/80 dark:text-primary-300/75" />
-          <span className="text-sm font-medium tracking-tight">{workflowHeaderLabel}</span>
-          {workflowDurationMs > 0 && (
-            <span className="text-sm text-gray-500 dark:text-gray-400">
-              {t('messageBubble.thinkingDuration', {
-                duration: (workflowDurationMs / 1000).toFixed(0),
-              })}
-            </span>
+        <summary
+          className={clsx(
+            'flex cursor-pointer list-none items-center justify-between gap-3 py-1.5 text-gray-700 select-none hover:text-gray-900 dark:text-gray-200 dark:hover:text-white',
           )}
-          <span
-            className={clsx(
-              'rounded-full px-2 py-0.5 text-[11px] text-gray-600 dark:text-gray-300',
-              'bg-gray-100/80 dark:bg-zinc-800/80',
+        >
+          <div className="flex items-center gap-2.5">
+            <span className="flex items-center gap-2 text-sm font-semibold tracking-tight">
+              {isStreaming ? (
+                <>
+                  <span>
+                    {(() => {
+                      if (activeStreamingStepKind === 'final_answer')
+                        return t('messageBubble.statusGeneratingAnswer', '正在生成正文')
+                      if (activeStreamingStepKind === 'search')
+                        return t('messageBubble.statusSearching', '正在搜索')
+                      if (activeStreamingStepKind === 'tools')
+                        return t('messageBubble.statusCallingTools', '正在调用工具')
+                      return t('messageBubble.statusThinking', '正在思考分析')
+                    })()}
+                  </span>
+                  <DotLoader size="sm" />
+                </>
+              ) : (
+                t('messageBubble.completedAnswer', { duration: completedDurationSec })
+              )}
+            </span>
+            {isWorkflowExpanded ? (
+              <ChevronDown size={16} className="opacity-60" />
+            ) : (
+              <ChevronRight size={16} className="opacity-60" />
             )}
+          </div>
+          {allSources.length > 0 && (
+            <button
+              type="button"
+              onClick={event => {
+                event.preventDefault()
+                event.stopPropagation()
+                if (isMobile) {
+                  handleMobileSourceClick(allSources, t('sources.allSources'))
+                  return
+                }
+                setIsSourcesOpen(prev => !prev)
+              }}
+              className={clsx(
+                'inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold',
+                'border-gray-200/80 bg-gray-100/90 text-gray-700 hover:bg-gray-200 dark:border-zinc-700 dark:bg-zinc-800/80 dark:text-gray-200 dark:hover:bg-zinc-700/90',
+              )}
+            >
+              <span className="flex -space-x-2">
+                {headerSourceLogos.map((icon, idx) => (
+                  <img
+                    key={`header-source-${idx}`}
+                    src={icon}
+                    alt=""
+                    className="h-5 w-5 rounded-full border border-white/80 bg-white object-cover dark:border-zinc-800"
+                  />
+                ))}
+              </span>
+              <span className="text-xs!">
+                {t('sources.allSources')} {allSources.length}
+              </span>
+              {/* <ChevronRight size={14} className="opacity-60" /> */}
+            </button>
+          )}
+        </summary>
+        <div className="mt-3 rounded-2xl border border-gray-200/90 bg-gray-50/45 px-3 py-4 dark:border-zinc-700/70 dark:bg-zinc-900/35">
+          <div
+            ref={workflowContainerRef}
+            className={clsx(
+              'max-h-[350px] overflow-y-auto pr-3 sm:max-h-[420px] sm:pr-4',
+              'no-scrollbar',
+            )}
+            style={{ scrollbarGutter: 'stable' }}
           >
-            {workflowThoughtParts.length}
-          </span>
+            <div className="relative pl-7">
+              {workflowProcessSteps.map((step, idx) => {
+                const isNotLast =
+                  idx < workflowProcessSteps.length - 1 ||
+                  allSources.length > 0 ||
+                  shouldShowWorkflowFinalAnswer
+
+                if (step.kind === 'thought') {
+                  if (!step.content) return null
+                  return (
+                    <div key={`thought-${idx}`} className="relative mb-4">
+                      {isNotLast && (
+                        <span className="pointer-events-none absolute top-6 bottom-[-16px] -left-5 border-l border-dashed border-gray-300/90 dark:border-zinc-700/90" />
+                      )}
+                      <div className="absolute top-0.75 -left-7 flex h-4 w-4 items-center justify-center text-gray-400 dark:text-gray-500">
+                        <BrainCircuit size={16} />
+                      </div>
+                      <div className="text-base leading-relaxed text-gray-600 dark:text-gray-300">
+                        <Streamdown
+                          mermaid={mermaidOptions}
+                          remarkPlugins={[remarkGfm]}
+                          components={markdownComponents}
+                        >
+                          {formatThoughtContentForDisplay(step.content)}
+                        </Streamdown>
+                      </div>
+                    </div>
+                  )
+                }
+
+                if (step.kind === 'search') {
+                  const hasQueries = step.queries && step.queries.length > 0
+                  if (!hasQueries) return null
+                  const isActiveSearch =
+                    isStreaming &&
+                    (activeStreamingStepKind === 'search' ||
+                      step?.status === 'running' ||
+                      step.items?.some(
+                        item => item?.status === 'calling' || item?.status === 'running',
+                      ))
+                  const displaySearchDurationMs =
+                    isActiveSearch && searchLiveElapsedSec > 0
+                      ? searchLiveElapsedSec * 1000
+                      : typeof step.durationMs === 'number'
+                        ? step.durationMs
+                        : null
+
+                  return (
+                    <div key={`search-${idx}`} className="relative mb-4">
+                      {isNotLast && (
+                        <span className="pointer-events-none absolute top-6 bottom-[-16px] -left-5 border-l border-dashed border-gray-300/90 dark:border-zinc-700/90" />
+                      )}
+
+                      <div className="absolute top-0.75 -left-7 flex h-4 w-4 items-center justify-center text-gray-400 dark:text-gray-500">
+                        <Search size={16} />
+                      </div>
+
+                      <div className="mb-2 flex items-center justify-between text-lg font-semibold text-gray-700 dark:text-gray-200">
+                        <div className="flex items-center gap-2">
+                          {(() => {
+                            if (isActiveSearch) {
+                              return (
+                                <>
+                                  <span>{t('messageBubble.statusSearching', '正在搜索...')}</span>
+                                  <DotLoader size="sm" />
+                                </>
+                              )
+                            }
+                            const count = step.sources?.length || 0
+                            return t('messageBubble.searchFound', { count })
+                          })()}
+                        </div>
+                        {(() => {
+                          if (typeof displaySearchDurationMs === 'number') {
+                            return (
+                              <span className="shrink-0 text-xs! font-normal text-gray-500 dark:text-gray-400">
+                                {t('messageBubble.toolDuration', {
+                                  duration: (displaySearchDurationMs / 1000).toFixed(1),
+                                })}
+                              </span>
+                            )
+                          }
+                          return null
+                        })()}
+                      </div>
+
+                      <div className="text-base leading-relaxed text-gray-600 dark:text-gray-300">
+                        {/* Search Queries row */}
+                        <div className="mb-2 flex flex-wrap gap-1.5">
+                          {step.queries.map(query => (
+                            <span
+                              key={`query-${query}`}
+                              className="inline-flex items-center rounded-lg border border-gray-200/80 bg-white px-2.5 py-1 text-[11px]! text-gray-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-gray-300"
+                            >
+                              <Search size={12} className="mr-1.5 opacity-70" />
+                              {query}
+                            </span>
+                          ))}
+                        </div>
+
+                        {/* Sources row */}
+                        {step.sources && step.sources.length > 0 && (
+                          <div className="mb-2">
+                            <SearchSourcesList sources={step.sources} />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )
+                }
+
+                if (step.kind === 'tools') {
+                  if (!step.items || step.items.length === 0) return null
+                  return (
+                    <div key={`tools-${idx}`} className="relative mb-4">
+                      {isNotLast && (
+                        <span className="pointer-events-none absolute top-6 bottom-[-16px] -left-5 border-l border-dashed border-gray-300/90 dark:border-zinc-700/90" />
+                      )}
+                      <div className="absolute top-0.75 -left-7 flex h-4 w-4 items-center justify-center text-gray-400 dark:text-gray-500">
+                        <Wrench size={16} />
+                      </div>
+                      <div className="space-y-1.5">
+                        {step.items.map(item => (
+                          <div
+                            key={item.id || `${item.name}-${item.arguments}`}
+                            className="flex items-center gap-2 text-base text-gray-600 dark:text-gray-300"
+                          >
+                            <span className="font-medium">{getToolDisplayName(item)}</span>
+                            <div className="min-w-0 flex-1">
+                              {renderToolQueryPreview(item, 'truncate opacity-80')}
+                            </div>
+                            {typeof item.durationMs === 'number' && (
+                              <span className="shrink-0 text-xs! text-gray-500 dark:text-gray-400">
+                                {t('messageBubble.toolDuration', {
+                                  duration: (item.durationMs / 1000).toFixed(2),
+                                })}
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                }
+
+                if (step.kind === 'final_answer') return null
+
+                return null
+              })}
+
+              {allSources.length > 0 && (
+                <div className="relative mb-4 pt-2">
+                  {(shouldShowWorkflowFinalAnswer || hasWorkflowFinalAnswerStep) && (
+                    <span className="pointer-events-none absolute top-6 bottom-[-16px] -left-5 border-l border-dashed border-gray-300/90 dark:border-zinc-700/90" />
+                  )}
+                  <div className="absolute top-2.5 -left-7 flex h-4 w-4 items-center justify-center text-gray-400 dark:text-gray-500">
+                    <Link size={16} />
+                  </div>
+                  <div className="mb-3 text-base font-semibold text-gray-700 dark:text-gray-200">
+                    {t('messageBubble.organizedSources', '整理参考资料')}
+                  </div>
+                  <DesktopSourcesSection sources={allSources} isOpen />
+                </div>
+              )}
+              {hasWorkflowFinalAnswerStep && (
+                <div className="relative">
+                  <span className="absolute top-1.5 -left-6 h-2.5 w-2.5 rounded-full border border-gray-400/80 bg-gray-50 dark:border-zinc-500 dark:bg-zinc-900" />
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 text-base font-medium text-gray-600 dark:text-gray-300">
+                      <span>
+                        {isStreaming
+                          ? t('messageBubble.statusGeneratingAnswer', '正文生成中')
+                          : t('messageBubble.finalAnswerStep', '生成最终回答')}
+                      </span>
+                      {isStreaming && <DotLoader size="sm" />}
+                    </div>
+                    {typeof finalAnswerDurationMsForDisplay === 'number' && (
+                      <span className="shrink-0 text-xs! text-gray-500 dark:text-gray-400">
+                        {t('messageBubble.toolDuration', {
+                          duration: (finalAnswerDurationMsForDisplay / 1000).toFixed(1),
+                        })}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+              {shouldShowWorkflowFinalAnswer && !hasWorkflowFinalAnswerStep && (
+                <div className="relative">
+                  <span className="absolute top-1.5 -left-6 h-2.5 w-2.5 rounded-full border border-gray-400/80 bg-gray-50 dark:border-zinc-500 dark:bg-zinc-900" />
+                  <div className="text-base font-medium text-gray-600 dark:text-gray-300">
+                    {t('messageBubble.finalAnswerStep')}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
-        <ChevronDown size={15} className="opacity-60 transition-transform group-open:rotate-180" />
-      </summary>
-      <div
-        ref={workflowContainerRef}
-        className={clsx(
-          'mt-1 border-l border-gray-300/80 pr-2 pl-4 dark:border-zinc-700/80',
-          'max-h-[200px] overflow-y-auto sm:max-h-[400px]',
-          'always-visible-scrollbar',
-        )}
-      >
-        {renderedWorkflowContent}
-      </div>
-    </details>
-  ) : null
+      </details>
+    ) : null
   const expertPlanPanel =
     isExpertMessage && expertPlanBlock ? (
       <div className="mb-4">
@@ -3491,20 +4154,20 @@ const MessageBubble = ({
           {renderInitialSkeleton && (
             <div
               className={clsx(
-                'mt-3 inline-flex items-center gap-2 transition-opacity duration-300 ease-[cubic-bezier(0.2,0.6,0.2,1)]',
+                'mb-4 inline-flex items-center gap-2 transition-opacity duration-300 ease-[cubic-bezier(0.2,0.6,0.2,1)]',
                 showInitialSkeleton ? 'opacity-100' : 'opacity-0',
               )}
             >
-              {isDeepThinkingStreaming && (
+              {/* {isDeepThinkingStreaming && (
                 <span className="text-sm text-gray-500 dark:text-gray-400">
                   {t('messageBubble.deepThinkingStreaming')}
                 </span>
-              )}
+              )} */}
               <DotLoader />
             </div>
           )}
           {!isDeepResearch && isStreaming && hasMainText && (
-            <div className="mt-3 inline-flex items-center pl-1">
+            <div className="mb-4 inline-flex items-center pl-1">
               <DotLoader />
             </div>
           )}
@@ -3593,9 +4256,14 @@ const MessageBubble = ({
         />
       )}
 
-      {/* Desktop Sources Section (Collapsible) */}
+      {/* Desktop Sources Drawer */}
       {!isMobile && mergedMessage.sources && mergedMessage.sources.length > 0 && (
-        <DesktopSourcesSection sources={mergedMessage.sources} isOpen={isSourcesOpen} />
+        <DesktopSourcesSheet
+          isOpen={isSourcesOpen}
+          onClose={() => setIsSourcesOpen(false)}
+          sources={mergedMessage.sources}
+          title={t('sources.citationSources', '参考资料')}
+        />
       )}
 
       {/* Mobile Sources Drawer */}
@@ -4000,7 +4668,7 @@ const CitationChip = ({ indices, sources, isMobile, onMobileClick, label }) => {
                     <span className="line-clamp-1 block text-xs font-medium text-gray-800 dark:text-gray-200">
                       {source.title}
                     </span>
-                    <span className="block truncate text-[10px] text-gray-400 dark:text-gray-500">
+                    <span className="block truncate text-[10px]! text-gray-400 dark:text-gray-500">
                       <span className="inline-flex items-center gap-1.5">
                         {faviconUrl && (
                           <img src={faviconUrl} alt="" className="h-3 w-3 rounded-sm" />

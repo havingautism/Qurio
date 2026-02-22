@@ -1073,7 +1073,7 @@ const Sidebar = ({
               displayTab === 'bookmarks' ||
               displayTab === 'expert' ||
               displayTab === 'deepResearch') && (
-              <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain px-2">
+              <div className="no-scrollbar flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-2">
                 {!isConversationsLoading &&
                   displayTab === 'library' &&
                   conversations.length === 0 && (

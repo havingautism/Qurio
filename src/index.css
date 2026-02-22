@@ -899,7 +899,21 @@ h6 {
   border-radius: 3px;
 }
 
+/* Override global vertical auto-hide for explicitly always-visible areas */
+.always-visible-scrollbar:not(:hover):not(:focus-within)::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.always-visible-scrollbar:not(:hover):not(:focus-within)::-webkit-scrollbar-thumb {
+  background-color: #e5e5e5;
+}
+
 .dark .always-visible-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #3d3d3d;
+}
+
+.dark .always-visible-scrollbar:not(:hover):not(:focus-within)::-webkit-scrollbar-thumb {
   background-color: #3d3d3d;
 }
 
@@ -909,4 +923,17 @@ h6 {
 
 .dark .always-visible-scrollbar::-webkit-scrollbar-thumb:hover {
   background-color: #525252;
+}
+
+/* Modal content scrollbar: keep visible and avoid rounded-corner clipping on desktop */
+.modal-content-scrollbar {
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
+}
+
+@media (min-width: 768px) {
+  .modal-content-scrollbar {
+    margin-top: 6px;
+    margin-right: 8px;
+  }
 }

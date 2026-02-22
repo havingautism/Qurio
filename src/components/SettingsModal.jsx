@@ -2201,7 +2201,10 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
           </div> */}
 
           {/* Scrollable Content */}
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] sm:px-8 sm:py-8">
+          <div
+            className="no-scrollbar modal-content-scrollbar min-h-0 flex-1 overflow-y-auto px-4 py-4 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] sm:px-8 sm:py-8"
+            style={{ scrollbarGutter: 'stable' }}
+          >
             {activeTab === 'general' && (
               <div className="flex max-w-2xl flex-col gap-8">
                 {/* ... existing general settings ... */}

@@ -215,7 +215,7 @@ const CapsuleSettingsMenu = React.memo(
           </div>
         </div>
 
-        <div className="h-px bg-gray-100 dark:bg-zinc-700/50" />
+        <div className="h-px bg-gray-200 dark:bg-zinc-800" />
 
         {/* Capabilities */}
         <div>
@@ -274,7 +274,7 @@ const CapsuleSettingsMenu = React.memo(
                           </span>
                         )}
                       </span>
-                      {isActive && <Check size={14} className="mt-0.5 shrink-0 text-primary-500" />}
+                      {isActive && <Check size={14} className="text-primary-500 mt-0.5 shrink-0" />}
                     </button>
                   )
                 })}
@@ -307,7 +307,7 @@ const CapsuleSettingsMenu = React.memo(
                 <div
                   ref={searchMenuRef}
                   id="capsule-search-options"
-                  className="no-scrollbar mt-2 max-h-[350px] space-y-3 overflow-y-auto scroll-smooth"
+                  className="mt-1 space-y-1 rounded-xl bg-gray-50/80 p-1.5 dark:bg-zinc-900/50"
                 >
                   <div className="space-y-3">
                     <div className="px-4 py-1 text-[10px] tracking-wide text-gray-500 uppercase dark:text-zinc-400">
@@ -343,7 +343,7 @@ const CapsuleSettingsMenu = React.memo(
                       })}
                     </div>
                   </div>
-                  <div className="h-px bg-gray-200 dark:bg-zinc-700/70" />
+                  <div className="h-px bg-gray-200 dark:bg-zinc-800" />
                   <div className="space-y-3">
                     <div className="px-4 py-1 text-[10px] tracking-wide text-gray-500 uppercase dark:text-zinc-400">
                       {t('tools.academicSearch')}
@@ -378,7 +378,7 @@ const CapsuleSettingsMenu = React.memo(
                       })}
                     </div>
                   </div>
-                  <div className="h-px bg-gray-200 dark:bg-zinc-700/70" />
+                  <div className="h-px bg-gray-200 dark:bg-zinc-800" />
                   <button
                     type="button"
                     disabled={isDisabled}
@@ -524,8 +524,16 @@ const ChatInputBar = React.memo(
           label: t('thinkingMode.smartLabel'),
           description: t('thinkingMode.smartDescription'),
         },
-        { id: 'deep', label: t('thinkingMode.deepLabel'), description: t('thinkingMode.deepDescription') },
-        { id: 'fast', label: t('thinkingMode.fastLabel'), description: t('thinkingMode.fastDescription') },
+        {
+          id: 'deep',
+          label: t('thinkingMode.deepLabel'),
+          description: t('thinkingMode.deepDescription'),
+        },
+        {
+          id: 'fast',
+          label: t('thinkingMode.fastLabel'),
+          description: t('thinkingMode.fastDescription'),
+        },
       ],
       [t],
     )
@@ -1158,7 +1166,10 @@ const ChatInputBar = React.memo(
               >
                 <button
                   onClick={isLoading ? onStop : handleSend}
-                  disabled={isConversationLocked || (!isLoading && !inputValue.trim() && attachments.length === 0)}
+                  disabled={
+                    isConversationLocked ||
+                    (!isLoading && !inputValue.trim() && attachments.length === 0)
+                  }
                   className={clsx(
                     'flex items-center justify-center rounded-full p-1.5 shadow-sm transition-all duration-300 sm:p-2',
                     isLoading
@@ -1391,7 +1402,7 @@ const ChatInputBar = React.memo(
                               </span>
                             </span>
                             {isActive && (
-                              <Check size={14} className="mt-0.5 shrink-0 text-primary-500" />
+                              <Check size={14} className="text-primary-500 mt-0.5 shrink-0" />
                             )}
                           </button>
                         )
@@ -1432,7 +1443,7 @@ const ChatInputBar = React.memo(
                               </span>
                             </span>
                             {isActive && (
-                              <Check size={14} className="mt-0.5 shrink-0 text-primary-500" />
+                              <Check size={14} className="text-primary-500 mt-0.5 shrink-0" />
                             )}
                           </button>
                         )
@@ -1443,7 +1454,9 @@ const ChatInputBar = React.memo(
               </div>
               <div className="relative">
                 <button
-                  disabled={isInteractionLocked || !apiProvider || !providerSupportsSearch(apiProvider)}
+                  disabled={
+                    isInteractionLocked || !apiProvider || !providerSupportsSearch(apiProvider)
+                  }
                   onClick={onToggleSearch}
                   className={clsx(
                     'flex items-center gap-2 rounded-xl p-2.5 text-sm font-medium transition-all duration-200 hover:bg-gray-100 dark:hover:bg-zinc-700',
@@ -1518,7 +1531,7 @@ const ChatInputBar = React.memo(
                           })}
                         </div>
                       </div>
-                      <div className="h-px bg-gray-200 dark:bg-zinc-700/70" />
+                      <div className="h-px bg-gray-200 dark:bg-zinc-800" />
                       <div className="space-y-3">
                         <div className="px-2 py-1 text-[10px] tracking-wide text-gray-500 uppercase dark:text-zinc-400">
                           {t('tools.academicSearch')}
@@ -1557,7 +1570,7 @@ const ChatInputBar = React.memo(
                           })}
                         </div>
                       </div>
-                      <div className="h-px bg-gray-200 dark:bg-zinc-700/70" />
+                      <div className="h-px bg-gray-200 dark:bg-zinc-800" />
                       <button
                         type="button"
                         disabled={isInteractionLocked}
@@ -1677,7 +1690,10 @@ const ChatInputBar = React.memo(
             <div className="flex gap-2">
               <button
                 onClick={isLoading ? onStop : handleSend}
-                disabled={isConversationLocked || (!isLoading && !inputValue.trim() && attachments.length === 0)}
+                disabled={
+                  isConversationLocked ||
+                  (!isLoading && !inputValue.trim() && attachments.length === 0)
+                }
                 className={clsx(
                   'flex items-center justify-center rounded-xl p-2.5 shadow-sm transition-all duration-300',
                   isLoading

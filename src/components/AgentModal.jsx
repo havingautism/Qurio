@@ -345,7 +345,8 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
         credentials = {
           apiKey: keys.volcengine,
           baseUrl:
-            getPublicEnv('PUBLIC_VOLCENGINE_BASE_URL') || 'https://ark.cn-beijing.volces.com/api/v3',
+            getPublicEnv('PUBLIC_VOLCENGINE_BASE_URL') ||
+            'https://ark.cn-beijing.volces.com/api/v3',
         }
       else if (key === 'modelscope') credentials = { apiKey: keys.modelscope }
       else if (key === 'kimi') credentials = { apiKey: keys.kimi }
@@ -1372,7 +1373,10 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
           </div> */}
 
           {/* Scrollable Content */}
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] sm:px-8 sm:py-8">
+          <div
+            className="no-scrollbar modal-content-scrollbar min-h-0 flex-1 overflow-y-auto px-4 py-4 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] sm:px-8 sm:py-8"
+            style={{ scrollbarGutter: 'stable' }}
+          >
             {activeTab === 'general' && (
               <div className="flex h-full flex-col gap-6">
                 <div className="flex flex-col gap-2">
@@ -1779,10 +1783,14 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
             )}
             {activeTab === 'tools' && (
               <div className="space-y-4">
-                <div className="rounded-lg bg-gray-50 p-4 text-sm text-gray-600 dark:bg-zinc-900/60 dark:text-gray-300">
-                  <p className="font-medium">{t('agents.tools.title')}</p>
-                  <p className="opacity-90">{t('agents.tools.hint')}</p>
+                <div className="flex gap-3 rounded-lg bg-blue-50 p-4 text-sm text-blue-700 dark:bg-blue-900/10 dark:text-blue-300">
+                  <Info size={18} className="mt-0.5 shrink-0" />
+                  <div>
+                    <p className="font-medium">{t('agents.tools.title')}</p>
+                    <p className="opacity-90">{t('agents.tools.hint')}</p>
+                  </div>
                 </div>
+
                 {toolsLoading ? (
                   <div className="text-sm text-gray-500 dark:text-gray-400">
                     {t('agents.tools.loading')}

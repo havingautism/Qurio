@@ -198,7 +198,11 @@ const HomeView = () => {
   const [isHomeThinkingMenuOpen, setIsHomeThinkingMenuOpen] = useState(false)
   const [homeThinkingMode, setHomeThinkingMode] = useState(() => {
     const prefs = getInitialTogglePreferences()
-    if (prefs.thinkingMode === 'smart' || prefs.thinkingMode === 'deep' || prefs.thinkingMode === 'fast') {
+    if (
+      prefs.thinkingMode === 'smart' ||
+      prefs.thinkingMode === 'deep' ||
+      prefs.thinkingMode === 'fast'
+    ) {
       return prefs.thinkingMode
     }
     return prefs.thinkingEnabled ? 'deep' : 'fast'
@@ -1361,7 +1365,9 @@ const HomeView = () => {
                                     </span>
                                   </span>
                                 </span>
-                                {isActive && <Check size={14} className="mt-0.5 text-primary-500" />}
+                                {isActive && (
+                                  <Check size={14} className="text-primary-500 mt-0.5" />
+                                )}
                               </button>
                             )
                           })}
@@ -1463,7 +1469,10 @@ const HomeView = () => {
                       <span className="hidden md:inline">{t('homeView.search')}</span>
                       <ChevronDown
                         size={14}
-                        className={clsx('transition-transform', isHomeSearchMenuOpen && 'rotate-180')}
+                        className={clsx(
+                          'transition-transform',
+                          isHomeSearchMenuOpen && 'rotate-180',
+                        )}
                       />
                     </button>
                     {isHomeSearchMenuOpen && !isHomeMobile && (
@@ -1509,7 +1518,7 @@ const HomeView = () => {
                               })}
                             </div>
                           </div>
-                          <div className="h-px bg-gray-200 dark:bg-zinc-700/70" />
+                          <div className="h-px bg-gray-200 dark:bg-zinc-800" />
                           <div className="space-y-3">
                             <div className="px-2 py-1 text-[10px] tracking-wide text-gray-500 uppercase dark:text-zinc-400">
                               {t('tools.academicSearch')}
@@ -1548,7 +1557,7 @@ const HomeView = () => {
                               })}
                             </div>
                           </div>
-                          <div className="h-px bg-gray-200 dark:bg-zinc-700/70" />
+                          <div className="h-px bg-gray-200 dark:bg-zinc-800" />
                           <button
                             type="button"
                             onClick={handleClearHomeSearch}
@@ -1614,7 +1623,7 @@ const HomeView = () => {
                                 })}
                               </div>
                             </div>
-                            <div className="h-px bg-gray-200 dark:bg-zinc-700/70" />
+                            <div className="h-px bg-gray-200 dark:bg-zinc-800" />
                             <div className="space-y-3">
                               <div className="px-2 py-1 text-[10px] tracking-wide text-gray-500 uppercase dark:text-zinc-400">
                                 {t('tools.academicSearch')}
@@ -1653,7 +1662,7 @@ const HomeView = () => {
                                 })}
                               </div>
                             </div>
-                            <div className="h-px bg-gray-200 dark:bg-zinc-700/70" />
+                            <div className="h-px bg-gray-200 dark:bg-zinc-800" />
                             <button
                               type="button"
                               onClick={handleClearHomeSearch}

@@ -579,6 +579,13 @@ const MessageBubble = ({
         .join('\n\n'),
     [formatThoughtContentForDisplay, normalizedStreamBlocks],
   )
+  const hasStartedAnswerTextStream = useMemo(
+    () =>
+      normalizedStreamBlocks.some(
+        block => block.type === 'text' && typeof block.content === 'string' && block.content.trim(),
+      ),
+    [normalizedStreamBlocks],
+  )
 
   const resolvedSearchBackends = useMemo(() => {
     const explicitBackends = isExpertMessage
@@ -1722,6 +1729,54 @@ const MessageBubble = ({
   )
 
   const isStreaming = isStreamingMessage
+  const persistedFinalAnswerDurationMs = Number.isFinite(mergedMessage?.finalAnswerDurationMs)
+    ? Number(mergedMessage.finalAnswerDurationMs)
+    : null
+  const wallClockStartRef = useRef(null)
+  const [wallClockElapsedSec, setWallClockElapsedSec] = useState(0)
+  const [wallClockFinalSec, setWallClockFinalSec] = useState(null)
+
+  useEffect(() => {
+    wallClockStartRef.current = null
+    setWallClockElapsedSec(0)
+    setWallClockFinalSec(null)
+  }, [mergedMessage?.id, mergedMessage?.localId, messageIndex])
+
+  useEffect(() => {
+    const hasAnswerOutputSignal =
+      hasStartedAnswerTextStream ||
+      (isExpertMessage
+        ? typeof mainContent === 'string' && mainContent.trim().length > 0
+        : typeof message?.content === 'string' && message.content.trim().length > 0)
+
+    if (isStreaming && hasAnswerOutputSignal) {
+      if (!Number.isFinite(wallClockStartRef.current)) {
+        // Start total timer when the default model actually begins emitting answer text.
+        wallClockStartRef.current = Date.now()
+      }
+
+      const tick = () => {
+        const startMs = Number.isFinite(wallClockStartRef.current)
+          ? wallClockStartRef.current
+          : Date.now()
+        const elapsed = Math.max(0, Math.round((Date.now() - startMs) / 1000))
+        setWallClockElapsedSec(elapsed)
+      }
+
+      tick()
+      const timer = window.setInterval(tick, 500)
+      return () => window.clearInterval(timer)
+    }
+
+    if (Number.isFinite(wallClockStartRef.current)) {
+      const elapsed = Math.max(0, Math.round((Date.now() - wallClockStartRef.current) / 1000))
+      setWallClockElapsedSec(elapsed)
+      setWallClockFinalSec(prev => (typeof prev === 'number' ? prev : elapsed))
+    }
+
+    return undefined
+  }, [isStreaming, hasStartedAnswerTextStream, isExpertMessage, mainContent, message?.content])
+
   const hasMainText = (() => {
     if (isExpertMessage) {
       return typeof mainContent === 'string' && mainContent.trim().length > 0
@@ -3055,12 +3110,45 @@ const MessageBubble = ({
     () => (Array.isArray(mergedMessage.sources) ? mergedMessage.sources : []),
     [mergedMessage.sources],
   )
+  const workflowProcessSteps = useMemo(() => {
+    const base = Array.isArray(processSteps) ? [...processSteps] : []
+    if (isDeepResearch) return base
+
+    const shouldShowAnswerStep = Boolean(
+      isStreaming || hasMainText || base.length > 0 || typeof wallClockFinalSec === 'number',
+    )
+    if (!shouldShowAnswerStep) return base
+
+    const answerDurationSec =
+      typeof wallClockFinalSec === 'number'
+        ? wallClockFinalSec
+        : typeof wallClockElapsedSec === 'number'
+          ? wallClockElapsedSec
+          : 0
+
+    base.push({
+      kind: 'final_answer',
+      status: isStreaming ? 'running' : 'done',
+      durationMs: answerDurationSec > 0 ? Math.max(0, Number(answerDurationSec) * 1000) : null,
+    })
+    return base
+  }, [processSteps, wallClockFinalSec, isStreaming, hasMainText, wallClockElapsedSec, isDeepResearch])
+  const hasWorkflowFinalAnswerStep = useMemo(
+    () => workflowProcessSteps.some(step => step?.kind === 'final_answer'),
+    [workflowProcessSteps],
+  )
+  const finalAnswerWorkflowStep = useMemo(() => {
+    for (let i = workflowProcessSteps.length - 1; i >= 0; i -= 1) {
+      if (workflowProcessSteps[i]?.kind === 'final_answer') return workflowProcessSteps[i]
+    }
+    return null
+  }, [workflowProcessSteps])
   const workflowSearchStep = useMemo(
-    () => processSteps.find(step => step.kind === 'search') || null,
-    [processSteps],
+    () => workflowProcessSteps.find(step => step.kind === 'search') || null,
+    [workflowProcessSteps],
   )
   const workflowThoughtStep = useMemo(() => {
-    const thoughtParts = processSteps.filter(step => step.kind === 'thought')
+    const thoughtParts = workflowProcessSteps.filter(step => step.kind === 'thought')
     if (thoughtParts.length === 0) return null
     return {
       content: thoughtParts.map(step => String(step.content || '')).join(''),
@@ -3069,23 +3157,68 @@ const MessageBubble = ({
         0,
       ),
     }
-  }, [processSteps])
+  }, [workflowProcessSteps])
   const workflowToolItems = useMemo(
     () =>
-      processSteps
+      workflowProcessSteps
         .filter(step => step.kind === 'tools' && Array.isArray(step.items))
         .flatMap(step => step.items || []),
-    [processSteps],
+    [workflowProcessSteps],
+  )
+  const workflowSearchDurationMs = useMemo(
+    () =>
+      workflowProcessSteps
+        .filter(step => step.kind === 'search')
+        .reduce((sum, step) => sum + (typeof step.durationMs === 'number' ? step.durationMs : 0), 0),
+    [workflowProcessSteps],
   )
   const processDurationMs = useMemo(() => {
     const thoughtMs = workflowThoughtStep?.durationMs || 0
+    const searchMs = workflowSearchDurationMs || 0
     const toolMs = workflowToolItems.reduce(
       (sum, item) => sum + (typeof item.durationMs === 'number' ? item.durationMs : 0),
       0,
     )
-    return thoughtMs + toolMs
-  }, [workflowThoughtStep?.durationMs, workflowToolItems])
+    return thoughtMs + searchMs + toolMs
+  }, [workflowThoughtStep?.durationMs, workflowSearchDurationMs, workflowToolItems])
   const processDurationSec = Math.max(0, Math.round(processDurationMs / 1000))
+  const completedDurationSec = useMemo(() => {
+    if (!isStreaming && Number.isFinite(persistedFinalAnswerDurationMs) && persistedFinalAnswerDurationMs > 0) {
+      return Math.round(persistedFinalAnswerDurationMs / 1000)
+    }
+    if (typeof wallClockFinalSec === 'number') return wallClockFinalSec
+    if (typeof wallClockElapsedSec === 'number' && wallClockElapsedSec > 0) return wallClockElapsedSec
+    return processDurationSec
+  }, [isStreaming, persistedFinalAnswerDurationMs, processDurationSec, wallClockElapsedSec, wallClockFinalSec])
+  const finalAnswerDurationMsForDisplay = useMemo(() => {
+    if (Number.isFinite(persistedFinalAnswerDurationMs) && persistedFinalAnswerDurationMs > 0) {
+      return persistedFinalAnswerDurationMs
+    }
+    const directMs =
+      typeof finalAnswerWorkflowStep?.durationMs === 'number' ? finalAnswerWorkflowStep.durationMs : null
+    if (typeof directMs === 'number' && directMs > 0) return directMs
+    if (typeof completedDurationSec === 'number' && completedDurationSec > 0) {
+      return completedDurationSec * 1000
+    }
+    return null
+  }, [persistedFinalAnswerDurationMs, finalAnswerWorkflowStep?.durationMs, completedDurationSec])
+  const activeStreamingStepKind = useMemo(() => {
+    if (!isStreaming) return null
+
+    const lastStreamBlock = normalizedStreamBlocks[normalizedStreamBlocks.length - 1]
+    const lastStreamType = String(lastStreamBlock?.type || '')
+    if (lastStreamType === 'text' && hasStartedAnswerTextStream) {
+      return 'final_answer'
+    }
+
+    const lastProcessStep = processSteps[processSteps.length - 1]
+    if (lastProcessStep?.kind === 'search') return 'search'
+    if (lastProcessStep?.kind === 'tools') return 'tools'
+    if (lastProcessStep?.kind === 'thought') return 'thought'
+
+    if (hasStartedAnswerTextStream) return 'final_answer'
+    return null
+  }, [isStreaming, normalizedStreamBlocks, hasStartedAnswerTextStream, processSteps])
   const shouldShowWorkflowFinalAnswer = hasMainText && !isStreaming
   const headerSourceLogos = useMemo(() => {
     const logos = []
@@ -3111,10 +3244,10 @@ const MessageBubble = ({
         }
       })
     }
-  }, [isStreaming, isWorkflowExpanded, processSteps, processDurationMs])
+  }, [isStreaming, isWorkflowExpanded, workflowProcessSteps, processDurationMs])
 
   const workflowPanel =
-    processSteps.length > 0 ? (
+    workflowProcessSteps.length > 0 ? (
       <details
         className={clsx('group', !isExpertMessage && 'mt-0 mb-4', isExpertMessage && 'mt-4 mb-4')}
         open={isWorkflowExpanded}
@@ -3129,14 +3262,15 @@ const MessageBubble = ({
             <span className="text-sm font-semibold tracking-tight">
               {isStreaming
                 ? (() => {
-                    const lastStep = processSteps[processSteps.length - 1]
-                    if (lastStep?.kind === 'search')
+                    if (activeStreamingStepKind === 'final_answer')
+                      return t('messageBubble.statusGeneratingAnswer', '正在生成正文...')
+                    if (activeStreamingStepKind === 'search')
                       return t('messageBubble.statusSearching', '正在搜索...')
-                    if (lastStep?.kind === 'tools')
+                    if (activeStreamingStepKind === 'tools')
                       return t('messageBubble.statusCallingTools', '正在调用工具...')
                     return t('messageBubble.statusThinking', '正在思考分析...')
                   })()
-                : t('messageBubble.completedAnswer', { duration: processDurationSec })}
+                : t('messageBubble.completedAnswer', { duration: completedDurationSec })}
             </span>
             {isWorkflowExpanded ? (
               <ChevronDown size={16} className="opacity-60" />
@@ -3188,9 +3322,9 @@ const MessageBubble = ({
             style={{ scrollbarGutter: 'stable' }}
           >
             <div className="relative pl-7">
-              {processSteps.map((step, idx) => {
+              {workflowProcessSteps.map((step, idx) => {
                 const isNotLast =
-                  idx < processSteps.length - 1 ||
+                  idx < workflowProcessSteps.length - 1 ||
                   allSources.length > 0 ||
                   shouldShowWorkflowFinalAnswer
 
@@ -3234,14 +3368,14 @@ const MessageBubble = ({
                       <div className="mb-2 flex items-center justify-between text-lg font-semibold text-gray-700 dark:text-gray-200">
                         <div className="flex items-center gap-2">
                           {(() => {
-                            const isActive = isStreaming && idx === processSteps.length - 1
+                            const isActive = isStreaming && idx === workflowProcessSteps.length - 1
                             if (isActive) return t('messageBubble.statusSearching', '正在搜索...')
                             const count = step.sources?.length || 0
                             return t('messageBubble.searchFound', { count })
                           })()}
                         </div>
                         {(() => {
-                          const isActive = isStreaming && idx === processSteps.length - 1
+                          const isActive = isStreaming && idx === workflowProcessSteps.length - 1
                           if (!isActive && typeof step.durationMs === 'number') {
                             return (
                               <span className="shrink-0 text-xs! font-normal text-gray-500 dark:text-gray-400">
@@ -3314,12 +3448,14 @@ const MessageBubble = ({
                   )
                 }
 
+                if (step.kind === 'final_answer') return null
+
                 return null
               })}
 
               {allSources.length > 0 && (
                 <div className="relative mb-5 pt-2">
-                  {shouldShowWorkflowFinalAnswer && (
+                  {(shouldShowWorkflowFinalAnswer || hasWorkflowFinalAnswerStep) && (
                     <span className="pointer-events-none absolute top-6 bottom-[-16px] -left-5 border-l border-dashed border-gray-300/90 dark:border-zinc-700/90" />
                   )}
                   <div className="absolute top-2.5 -left-7 flex h-4 w-4 items-center justify-center text-gray-400 dark:text-gray-500">
@@ -3331,7 +3467,29 @@ const MessageBubble = ({
                   <DesktopSourcesSection sources={allSources} isOpen />
                 </div>
               )}
-              {shouldShowWorkflowFinalAnswer && (
+              {hasWorkflowFinalAnswerStep && (
+                <div className="relative pb-1">
+                  <span className="absolute top-1.5 -left-6 h-2.5 w-2.5 rounded-full border border-gray-400/80 bg-gray-50 dark:border-zinc-500 dark:bg-zinc-900" />
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 text-base font-medium text-gray-600 dark:text-gray-300">
+                      <span>
+                        {isStreaming
+                          ? t('messageBubble.statusGeneratingAnswer', '正文生成中')
+                          : t('messageBubble.finalAnswerStep', '生成最终回答')}
+                      </span>
+                      {isStreaming && <DotLoader size="sm" />}
+                    </div>
+                    {typeof finalAnswerDurationMsForDisplay === 'number' && (
+                      <span className="shrink-0 text-xs! text-gray-500 dark:text-gray-400">
+                        {t('messageBubble.toolDuration', {
+                          duration: (finalAnswerDurationMsForDisplay / 1000).toFixed(1),
+                        })}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+              {shouldShowWorkflowFinalAnswer && !hasWorkflowFinalAnswerStep && (
                 <div className="relative pb-1">
                   <span className="absolute top-1.5 -left-6 h-2.5 w-2.5 rounded-full border border-gray-400/80 bg-gray-50 dark:border-zinc-500 dark:bg-zinc-900" />
                   <div className="text-base font-medium text-gray-600 dark:text-gray-300">

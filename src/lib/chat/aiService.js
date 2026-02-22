@@ -398,6 +398,7 @@ export const callAIAPI = async (
   let rafId = null
   let streamTextIndexOffset = 0
   let maxObservedEventTextIndex = 0
+  let finalAnswerStartedAtMs = null
   const toolStartedAtById = new Map()
   const toolStartedAtQueuesByName = new Map()
 
@@ -1243,6 +1244,9 @@ export const callAIAPI = async (
           } else if (chunk.type === 'text') {
             const cleanText = sanitizeInternalToolTraceChunk(String(chunk.content || ''))
             if (cleanText) {
+              if (!Number.isFinite(finalAnswerStartedAtMs) && cleanText.trim()) {
+                finalAnswerStartedAtMs = Date.now()
+              }
               pendingText += cleanText
             }
             hasNonThoughtEvent = true
@@ -1252,6 +1256,9 @@ export const callAIAPI = async (
         } else {
           const cleanChunkText = sanitizeInternalToolTraceChunk(String(chunk || ''))
           if (cleanChunkText) {
+            if (!Number.isFinite(finalAnswerStartedAtMs) && cleanChunkText.trim()) {
+              finalAnswerStartedAtMs = Date.now()
+            }
             pendingText += cleanChunkText
           }
           hasNonThoughtEvent = true
@@ -1269,8 +1276,11 @@ export const callAIAPI = async (
         set({ isLoading: false })
         const currentStore = get()
         const finalThought = hitlRunId ? streamedThought : (result.thought ?? streamedThought)
+        const finalAnswerDurationMs = Number.isFinite(finalAnswerStartedAtMs)
+          ? Math.max(0, Date.now() - Number(finalAnswerStartedAtMs))
+          : null
         await finalizeMessage(
-          { ...result, thought: finalThought },
+          { ...result, thought: finalThought, finalAnswerDurationMs },
           currentStore,
           settings,
           callbacks,
@@ -1784,12 +1794,23 @@ export const finalizeMessage = async (
       const derived = deriveThoughtHistoryFromStreamBlocks(latestAi?.streamBlocks)
       return derived.length > 0 ? derived : null
     })()
+    const finalAnswerDurationMsForPersistence = (() => {
+      const direct = result?.finalAnswerDurationMs
+      if (Number.isFinite(direct) && Number(direct) >= 0) return Number(direct)
+      if (Number.isFinite(latestAi?.finalAnswerDurationMs) && Number(latestAi.finalAnswerDurationMs) >= 0) {
+        return Number(latestAi.finalAnswerDurationMs)
+      }
+      return null
+    })()
     const thoughtForPersistence = (() => {
       const payload = {}
       if (planForPersistence) payload.plan = planForPersistence
       if (baseThought) payload.thought = baseThought
       if (thoughtHistoryForPersistence && thoughtHistoryForPersistence.length > 0) {
         payload.thoughtHistory = thoughtHistoryForPersistence
+      }
+      if (Number.isFinite(finalAnswerDurationMsForPersistence)) {
+        payload.finalAnswerDurationMs = Number(finalAnswerDurationMsForPersistence)
       }
       const result = Object.keys(payload).length > 0 ? JSON.stringify(payload) : baseThought
       return result
@@ -1827,6 +1848,9 @@ export const finalizeMessage = async (
           ...updated[i],
           streamBlocks: streamBlocksForRuntime,
           streamSchemaVersion: 1,
+          ...(Number.isFinite(finalAnswerDurationMsForPersistence) && {
+            finalAnswerDurationMs: Number(finalAnswerDurationMsForPersistence),
+          }),
         }
         break
       }

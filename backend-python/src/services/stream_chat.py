@@ -2315,11 +2315,16 @@ class StreamChatService:
 
         no_tool_narration_guidance = (
             "\n\n[OUTPUT DIRECTIVES]\n"
-            "1. The main text (Answer) must ONLY contain the final helpful content and necessary explanations for the user.\n"
-            "2. NEVER describe in the main text that you are going to, are currently, or have already called any tools, searched, browsed, retrieved memory, or queried databases. These are internal traces (Trace).\n"
-            "3. If you need to cite sources, just say 'According to available data / Based on public information / According to the returned data'. Never mention tool names or the calling process.\n"
-            "4. If the information is insufficient, directly state the gap and ask questions in the main text. NEVER say 'Let me check' or 'I will search again'.\n"
-            "5. If a form is needed, transition naturally to it without mentioning the tool name."
+            "1. The main text (Answer) must contain ONLY the final helpful content and necessary explanations for the user.\n"
+            "2. In the main text, NEVER describe that you are going to, are currently, or have already called any tools, searched, browsed, retrieved memory, or queried databases. These are internal traces (Trace).\n"
+            "3. In the main text, do NOT refer to yourself performing actions (e.g., \"Let me check\", \"I will search\", \"I have retrieved\").\n"
+            "   Instead, directly present results as established information.\n"
+            "4. If citing sources, use neutral phrasing such as: \"According to available data\", \"Based on public information\", \"According to the returned data\".\n"
+            "   Never mention tool names or the calling process.\n"
+            "5. If information is insufficient, directly state the missing gap and ask clarifying questions.\n"
+            "   Do NOT say \"Let me check again\" or similar transitional action phrases.\n"
+            "6. Once you start presenting the final answer, do not switch back to planning, searching, or tool-calling language.\n"
+            "7. The final answer should begin naturally with the content itself, without meta commentary or transitional phrases.\n"
         )
         updated = self._append_system_message(updated, no_tool_narration_guidance, system_index)
         system_index = next((i for i, m in enumerate(updated) if m.get("role") == "system"), -1)

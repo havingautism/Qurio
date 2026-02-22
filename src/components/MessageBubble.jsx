@@ -3356,12 +3356,12 @@ const MessageBubble = ({
             </button>
           )}
         </summary>
-        <div className="mt-3 rounded-2xl border border-gray-200/90 bg-gray-50/45 px-4 py-4 dark:border-zinc-700/70 dark:bg-zinc-900/35">
+        <div className="mt-3 rounded-2xl border border-gray-200/90 bg-gray-50/45 px-3 py-4 dark:border-zinc-700/70 dark:bg-zinc-900/35">
           <div
             ref={workflowContainerRef}
             className={clsx(
-              'max-h-[420px] overflow-y-auto pr-3 sm:pr-4',
-              'always-visible-scrollbar',
+              'max-h-[350px] overflow-y-auto pr-3 sm:max-h-[420px] sm:pr-4',
+              'no-scrollbar',
             )}
             style={{ scrollbarGutter: 'stable' }}
           >
@@ -4154,7 +4154,7 @@ const MessageBubble = ({
           {renderInitialSkeleton && (
             <div
               className={clsx(
-                'mt-3 inline-flex items-center gap-2 transition-opacity duration-300 ease-[cubic-bezier(0.2,0.6,0.2,1)]',
+                'mb-4 inline-flex items-center gap-2 transition-opacity duration-300 ease-[cubic-bezier(0.2,0.6,0.2,1)]',
                 showInitialSkeleton ? 'opacity-100' : 'opacity-0',
               )}
             >
@@ -4167,7 +4167,7 @@ const MessageBubble = ({
             </div>
           )}
           {!isDeepResearch && isStreaming && hasMainText && (
-            <div className="mt-3 inline-flex items-center pl-1">
+            <div className="mb-4 inline-flex items-center pl-1">
               <DotLoader />
             </div>
           )}

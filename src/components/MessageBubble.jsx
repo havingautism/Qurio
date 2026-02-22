@@ -1735,11 +1735,15 @@ const MessageBubble = ({
   const wallClockStartRef = useRef(null)
   const [wallClockElapsedSec, setWallClockElapsedSec] = useState(0)
   const [wallClockFinalSec, setWallClockFinalSec] = useState(null)
+  const searchLiveStartRef = useRef(null)
+  const [searchLiveElapsedSec, setSearchLiveElapsedSec] = useState(0)
 
   useEffect(() => {
     wallClockStartRef.current = null
+    searchLiveStartRef.current = null
     setWallClockElapsedSec(0)
     setWallClockFinalSec(null)
+    setSearchLiveElapsedSec(0)
   }, [mergedMessage?.id, mergedMessage?.localId, messageIndex])
 
   useEffect(() => {
@@ -3225,6 +3229,33 @@ const MessageBubble = ({
     if (hasStartedAnswerTextStream) return 'final_answer'
     return null
   }, [isStreaming, normalizedStreamBlocks, hasStartedAnswerTextStream, processSteps])
+  const isSearchStreamingActive = isStreaming && activeStreamingStepKind === 'search'
+  useEffect(() => {
+    if (isSearchStreamingActive) {
+      if (!Number.isFinite(searchLiveStartRef.current)) {
+        searchLiveStartRef.current = Date.now()
+      }
+
+      const tick = () => {
+        const startMs = Number.isFinite(searchLiveStartRef.current)
+          ? searchLiveStartRef.current
+          : Date.now()
+        const elapsed = Math.max(0, Math.round((Date.now() - startMs) / 1000))
+        setSearchLiveElapsedSec(elapsed)
+      }
+
+      tick()
+      const timer = window.setInterval(tick, 500)
+      return () => window.clearInterval(timer)
+    }
+
+    if (!isStreaming) {
+      searchLiveStartRef.current = null
+      setSearchLiveElapsedSec(0)
+    }
+
+    return undefined
+  }, [isSearchStreamingActive, isStreaming])
   const shouldShowWorkflowFinalAnswer = hasMainText && !isStreaming
   const headerSourceLogos = useMemo(() => {
     const logos = []
@@ -3265,18 +3296,25 @@ const MessageBubble = ({
           )}
         >
           <div className="flex items-center gap-2.5">
-            <span className="text-sm font-semibold tracking-tight">
-              {isStreaming
-                ? (() => {
-                    if (activeStreamingStepKind === 'final_answer')
-                      return t('messageBubble.statusGeneratingAnswer', '正在生成正文...')
-                    if (activeStreamingStepKind === 'search')
-                      return t('messageBubble.statusSearching', '正在搜索...')
-                    if (activeStreamingStepKind === 'tools')
-                      return t('messageBubble.statusCallingTools', '正在调用工具...')
-                    return t('messageBubble.statusThinking', '正在思考分析...')
-                  })()
-                : t('messageBubble.completedAnswer', { duration: completedDurationSec })}
+            <span className="flex items-center gap-2 text-sm font-semibold tracking-tight">
+              {isStreaming ? (
+                <>
+                  <span>
+                    {(() => {
+                      if (activeStreamingStepKind === 'final_answer')
+                        return t('messageBubble.statusGeneratingAnswer', '正在生成正文')
+                      if (activeStreamingStepKind === 'search')
+                        return t('messageBubble.statusSearching', '正在搜索')
+                      if (activeStreamingStepKind === 'tools')
+                        return t('messageBubble.statusCallingTools', '正在调用工具')
+                      return t('messageBubble.statusThinking', '正在思考分析')
+                    })()}
+                  </span>
+                  <DotLoader size="sm" />
+                </>
+              ) : (
+                t('messageBubble.completedAnswer', { duration: completedDurationSec })
+              )}
             </span>
             {isWorkflowExpanded ? (
               <ChevronDown size={16} className="opacity-60" />
@@ -3337,7 +3375,7 @@ const MessageBubble = ({
                 if (step.kind === 'thought') {
                   if (!step.content) return null
                   return (
-                    <div key={`thought-${idx}`} className="relative mb-5">
+                    <div key={`thought-${idx}`} className="relative mb-4">
                       {isNotLast && (
                         <span className="pointer-events-none absolute top-6 bottom-[-16px] -left-5 border-l border-dashed border-gray-300/90 dark:border-zinc-700/90" />
                       )}
@@ -3360,9 +3398,22 @@ const MessageBubble = ({
                 if (step.kind === 'search') {
                   const hasQueries = step.queries && step.queries.length > 0
                   if (!hasQueries) return null
+                  const isActiveSearch =
+                    isStreaming &&
+                    (activeStreamingStepKind === 'search' ||
+                      step?.status === 'running' ||
+                      step.items?.some(
+                        item => item?.status === 'calling' || item?.status === 'running',
+                      ))
+                  const displaySearchDurationMs =
+                    isActiveSearch && searchLiveElapsedSec > 0
+                      ? searchLiveElapsedSec * 1000
+                      : typeof step.durationMs === 'number'
+                        ? step.durationMs
+                        : null
 
                   return (
-                    <div key={`search-${idx}`} className="relative mb-5">
+                    <div key={`search-${idx}`} className="relative mb-4">
                       {isNotLast && (
                         <span className="pointer-events-none absolute top-6 bottom-[-16px] -left-5 border-l border-dashed border-gray-300/90 dark:border-zinc-700/90" />
                       )}
@@ -3374,19 +3425,24 @@ const MessageBubble = ({
                       <div className="mb-2 flex items-center justify-between text-lg font-semibold text-gray-700 dark:text-gray-200">
                         <div className="flex items-center gap-2">
                           {(() => {
-                            const isActive = isStreaming && idx === workflowProcessSteps.length - 1
-                            if (isActive) return t('messageBubble.statusSearching', '正在搜索...')
+                            if (isActiveSearch) {
+                              return (
+                                <>
+                                  <span>{t('messageBubble.statusSearching', '正在搜索...')}</span>
+                                  <DotLoader size="sm" />
+                                </>
+                              )
+                            }
                             const count = step.sources?.length || 0
                             return t('messageBubble.searchFound', { count })
                           })()}
                         </div>
                         {(() => {
-                          const isActive = isStreaming && idx === workflowProcessSteps.length - 1
-                          if (!isActive && typeof step.durationMs === 'number') {
+                          if (typeof displaySearchDurationMs === 'number') {
                             return (
                               <span className="shrink-0 text-xs! font-normal text-gray-500 dark:text-gray-400">
                                 {t('messageBubble.toolDuration', {
-                                  duration: (step.durationMs / 1000).toFixed(1),
+                                  duration: (displaySearchDurationMs / 1000).toFixed(1),
                                 })}
                               </span>
                             )
@@ -3423,7 +3479,7 @@ const MessageBubble = ({
                 if (step.kind === 'tools') {
                   if (!step.items || step.items.length === 0) return null
                   return (
-                    <div key={`tools-${idx}`} className="relative mb-5">
+                    <div key={`tools-${idx}`} className="relative mb-4">
                       {isNotLast && (
                         <span className="pointer-events-none absolute top-6 bottom-[-16px] -left-5 border-l border-dashed border-gray-300/90 dark:border-zinc-700/90" />
                       )}
@@ -3460,7 +3516,7 @@ const MessageBubble = ({
               })}
 
               {allSources.length > 0 && (
-                <div className="relative mb-5 pt-2">
+                <div className="relative mb-4 pt-2">
                   {(shouldShowWorkflowFinalAnswer || hasWorkflowFinalAnswerStep) && (
                     <span className="pointer-events-none absolute top-6 bottom-[-16px] -left-5 border-l border-dashed border-gray-300/90 dark:border-zinc-700/90" />
                   )}
@@ -3474,7 +3530,7 @@ const MessageBubble = ({
                 </div>
               )}
               {hasWorkflowFinalAnswerStep && (
-                <div className="relative pb-1">
+                <div className="relative">
                   <span className="absolute top-1.5 -left-6 h-2.5 w-2.5 rounded-full border border-gray-400/80 bg-gray-50 dark:border-zinc-500 dark:bg-zinc-900" />
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2 text-base font-medium text-gray-600 dark:text-gray-300">
@@ -3496,7 +3552,7 @@ const MessageBubble = ({
                 </div>
               )}
               {shouldShowWorkflowFinalAnswer && !hasWorkflowFinalAnswerStep && (
-                <div className="relative pb-1">
+                <div className="relative">
                   <span className="absolute top-1.5 -left-6 h-2.5 w-2.5 rounded-full border border-gray-400/80 bg-gray-50 dark:border-zinc-500 dark:bg-zinc-900" />
                   <div className="text-base font-medium text-gray-600 dark:text-gray-300">
                     {t('messageBubble.finalAnswerStep')}
@@ -4102,11 +4158,11 @@ const MessageBubble = ({
                 showInitialSkeleton ? 'opacity-100' : 'opacity-0',
               )}
             >
-              {isDeepThinkingStreaming && (
+              {/* {isDeepThinkingStreaming && (
                 <span className="text-sm text-gray-500 dark:text-gray-400">
                   {t('messageBubble.deepThinkingStreaming')}
                 </span>
-              )}
+              )} */}
               <DotLoader />
             </div>
           )}

@@ -514,8 +514,10 @@ const Sidebar = ({
     }
   }, [activeTab, deepResearchSpaceId])
 
+  const sidebarLoadTab = isMobile ? activeTab : displayTab
+
   useEffect(() => {
-    if (activeTab === 'bookmarks') {
+    if (sidebarLoadTab === 'bookmarks') {
       if (
         bookmarksDirty ||
         (!isBookmarksLoading && !bookmarksLoadingMore && bookmarkedConversations.length === 0)
@@ -523,7 +525,7 @@ const Sidebar = ({
         fetchBookmarkedConversations(true).finally(() => setBookmarksDirty(false))
       }
     }
-    if (activeTab === 'deepResearch') {
+    if (sidebarLoadTab === 'deepResearch') {
       if (
         deepResearchDirty ||
         (!isDeepResearchLoading &&
@@ -533,7 +535,7 @@ const Sidebar = ({
         fetchDeepResearchConversations(true).finally(() => setDeepResearchDirty(false))
       }
     }
-    if (activeTab === 'expert') {
+    if (sidebarLoadTab === 'expert') {
       if (
         expertDirty ||
         (!isExpertLoading && !expertLoadingMore && expertConversations.length === 0)
@@ -542,7 +544,7 @@ const Sidebar = ({
       }
     }
   }, [
-    activeTab,
+    sidebarLoadTab,
     bookmarksDirty,
     deepResearchDirty,
     expertDirty,

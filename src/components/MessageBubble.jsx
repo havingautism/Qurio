@@ -2503,7 +2503,7 @@ const MessageBubble = ({
       })
 
       return (
-        <div key={`tools-inline-capsule-${idx}`} className="my-3 flex items-center">
+        <div key={`tools-inline-capsule-${idx}`} className="mb-4 flex items-center">
           <div
             className="border-primary-200/35 dark:border-primary-700/20 inline-flex cursor-default items-center gap-2 rounded-lg border bg-white/65 px-2.5 py-2 text-xs text-gray-500 shadow-[0_1px_2px_rgba(0,0,0,0.02)] transition-colors hover:bg-white/80 dark:bg-zinc-800/40 dark:text-gray-400 dark:hover:bg-zinc-800/60"
             title={regularTools

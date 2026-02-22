@@ -1069,6 +1069,7 @@
   },
   "messageBubble": {
     "workflow": "工作流",
+    "usedSpecificTools": "已调用 {{tools}}",
     "completedAnswer": "完成回答，用时 {{duration}} 秒",
     "organizedSources": "整理参考来源",
     "finalAnswerStep": "生成最终回答",

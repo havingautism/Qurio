@@ -1,4 +1,4 @@
-﻿import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { useShallow } from 'zustand/react/shallow'
@@ -2180,22 +2180,54 @@ const MessageBubble = ({
     [interleavedContent],
   )
   const contentPartsOutsideWorkflow = useMemo(() => {
-    const rawParts = interleavedContent.flatMap((part, idx) => {
+    const rawParts = []
+
+    for (let i = 0; i < interleavedContent.length; i++) {
+      const part = interleavedContent[i]
+
       if (part.type === 'text') {
-        return [{ type: 'text', key: `text-${idx}`, content: part.content }]
+        rawParts.push({ type: 'text', key: `text-${i}`, content: part.content })
+        continue
       }
-      if (part.type !== 'tools' || !Array.isArray(part.items)) return []
-      const formItems = part.items.filter(item => item?.name === 'interactive_form')
-      const nextParts = []
-      if (formItems.length > 0) {
-        nextParts.push({
-          type: 'interactive_form',
-          key: `${part.key || `interactive-form-${idx}`}-form`,
-          items: formItems,
-        })
+
+      if (part.type === 'tools' && Array.isArray(part.items)) {
+        const formItems = part.items.filter(item => item?.name === 'interactive_form')
+        const regularTools = part.items.filter(
+          item => item?.name !== 'interactive_form' && item?.name !== 'form_submission_status',
+        )
+
+        if (regularTools.length > 0) {
+          let prevToolPart = null
+          for (let j = rawParts.length - 1; j >= 0; j--) {
+            const rp = rawParts[j]
+            // Skip over empty/whitespace text blocks when looking for a tool block to merge into
+            if (rp.type === 'text' && (!rp.content || !rp.content.trim())) continue
+            if (rp.type === 'tools') prevToolPart = rp
+            break
+          }
+
+          if (prevToolPart) {
+            // Merge into previous tools block
+            prevToolPart.items = [...prevToolPart.items, ...regularTools]
+          } else {
+            // Create new tools block
+            rawParts.push({
+              type: 'tools',
+              key: part.key || `tools-${i}`,
+              items: [...regularTools],
+            })
+          }
+        }
+
+        if (formItems.length > 0) {
+          rawParts.push({
+            type: 'interactive_form',
+            key: `${part.key || `interactive-form-${i}`}-form`,
+            items: formItems,
+          })
+        }
       }
-      return nextParts
-    })
+    }
 
     // Some streaming paths (e.g. expert synthetic message) can produce many tiny
     // adjacent text segments; merge them before rendering to avoid per-chunk line breaks.
@@ -2451,90 +2483,43 @@ const MessageBubble = ({
       )
       if (regularTools.length === 0) return null
 
+      const searchCount = regularTools.filter(t => SEARCH_STEP_TOOLS.has(String(t.name))).length
+      const totalCount = regularTools.length
+
+      // Extract unique localized tool names
+      const uniqueToolNames = Array.from(
+        new Set(
+          regularTools.map(t =>
+            typeof getToolDisplayName === 'function' ? getToolDisplayName(t) : t.name,
+          ),
+        ),
+      )
+
+      // Join the tool names based on the current locale's comma rule (fallback to '、' for CJK, ', ' otherwise)
+      const isChinese = i18n.language && i18n.language.startsWith('zh')
+      const separator = isChinese ? '、' : ', '
+      const joinedNames = uniqueToolNames.join(separator)
+
+      const label = t('messageBubble.usedSpecificTools', {
+        tools: joinedNames,
+        defaultValue: `Used ${joinedNames}`
+      })
+
       return (
-        <div key={`tools-container-${idx}`} className="relative z-30 flex flex-col gap-4">
-          <div className="mb-4">
-            {regularTools.map(item => {
-              const iconName = TOOL_ICONS[item.name]
-              const IconComponent = iconName
-                ? {
-                    Search,
-                    GraduationCap,
-                    Calculator,
-                    Clock,
-                    FileText,
-                    ScanText,
-                    Wrench,
-                    FormInput,
-                    Globe,
-                    Brain,
-                    BrainCircuit,
-                    ImageIcon,
-                  }[iconName]
-                : null
-              return (
-                <ToolEnter key={item.id || `${item.name}-${item.arguments}`}>
-                  <div className="border-primary-200/35 dark:border-primary-700/20 rounded-lg border bg-white/65 px-2.5 py-2 dark:bg-zinc-800/40">
-                    <div className="flex w-full items-center gap-1 text-xs text-gray-500 sm:gap-2 dark:text-gray-400">
-                      <span className="flex shrink-0 cursor-default items-center gap-1.5 font-medium whitespace-nowrap text-gray-600 dark:text-gray-300">
-                        {item.status === 'error' ? (
-                          <AlertTriangle size={14} className="text-red-500 dark:text-red-400" />
-                        ) : (
-                          IconComponent && (
-                            <IconComponent size={14} className="text-gray-500 dark:text-gray-400" />
-                          )
-                        )}
-                        {item.status === 'error'
-                          ? t('messageBubble.toolCallError')
-                          : getToolDisplayName(item)}
-                      </span>
-                      <div className="flex min-w-0 flex-1 items-center gap-1 sm:gap-2">
-                        {renderToolQueryPreview(item)}
-                      </div>
-                      {typeof item.durationMs === 'number' && (
-                        <span className="shrink-0 text-[11px]! whitespace-nowrap text-gray-500 dark:text-gray-400">
-                          {t('messageBubble.toolDuration', {
-                            duration: (item.durationMs / 1000).toFixed(2),
-                          })}
-                        </span>
-                      )}
-                      <span
-                        className={clsx(
-                          'ml-auto flex min-w-[24px] shrink-0 items-center justify-center rounded-full px-2 py-1 text-[11px]',
-                          item.status === 'error'
-                            ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
-                            : item.status === 'done'
-                              ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
-                              : 'bg-gray-200/70 text-gray-600 dark:bg-zinc-700/70 dark:text-gray-400',
-                        )}
-                      >
-                        {item.status === 'error' ? (
-                          <X className="h-4 w-4" />
-                        ) : item.status === 'done' ? (
-                          <Check className="h-4 w-4" />
-                        ) : (
-                          <DotLoader />
-                        )}
-                      </span>
-                      {developerMode && (
-                        <button
-                          type="button"
-                          onClick={() => setActiveToolDetail(item)}
-                          className="text-primary-600 dark:text-primary-300 shrink-0 text-[10px] whitespace-nowrap hover:underline"
-                        >
-                          {t('messageBubble.toolDetails')}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </ToolEnter>
-              )
-            })}
+        <div key={`tools-inline-capsule-${idx}`} className="my-3 flex items-center">
+          <div
+            className="border-primary-200/35 dark:border-primary-700/20 inline-flex cursor-default items-center gap-2 rounded-lg border bg-white/65 px-2.5 py-2 text-xs text-gray-500 shadow-[0_1px_2px_rgba(0,0,0,0.02)] transition-colors hover:bg-white/80 dark:bg-zinc-800/40 dark:text-gray-400 dark:hover:bg-zinc-800/60"
+            title={regularTools
+              .map(t => (typeof getToolDisplayName === 'function' ? getToolDisplayName(t) : t.name))
+              .join(', ')}
+          >
+            <Wrench size={14} className="opacity-70" />
+            <span className="font-medium text-gray-600 dark:text-gray-300">{label}</span>
           </div>
         </div>
       )
     },
-    [developerMode, getToolDisplayName, renderToolQueryPreview, t],
+    [t, getToolDisplayName, SEARCH_STEP_TOOLS],
   )
   const expertPlanBlock = useMemo(
     () => workflowTextParts.find(part => typeof part?.content === 'string' && part.content.trim()),
@@ -2637,6 +2622,7 @@ const MessageBubble = ({
 
     if (part.type === 'tools') {
       if (isDeepResearch) return null
+      
       return renderToolItems(part.items, part.key || idx)
     }
 
@@ -3132,7 +3118,14 @@ const MessageBubble = ({
       durationMs: answerDurationSec > 0 ? Math.max(0, Number(answerDurationSec) * 1000) : null,
     })
     return base
-  }, [processSteps, wallClockFinalSec, isStreaming, hasMainText, wallClockElapsedSec, isDeepResearch])
+  }, [
+    processSteps,
+    wallClockFinalSec,
+    isStreaming,
+    hasMainText,
+    wallClockElapsedSec,
+    isDeepResearch,
+  ])
   const hasWorkflowFinalAnswerStep = useMemo(
     () => workflowProcessSteps.some(step => step?.kind === 'final_answer'),
     [workflowProcessSteps],
@@ -3169,7 +3162,10 @@ const MessageBubble = ({
     () =>
       workflowProcessSteps
         .filter(step => step.kind === 'search')
-        .reduce((sum, step) => sum + (typeof step.durationMs === 'number' ? step.durationMs : 0), 0),
+        .reduce(
+          (sum, step) => sum + (typeof step.durationMs === 'number' ? step.durationMs : 0),
+          0,
+        ),
     [workflowProcessSteps],
   )
   const processDurationMs = useMemo(() => {
@@ -3183,19 +3179,32 @@ const MessageBubble = ({
   }, [workflowThoughtStep?.durationMs, workflowSearchDurationMs, workflowToolItems])
   const processDurationSec = Math.max(0, Math.round(processDurationMs / 1000))
   const completedDurationSec = useMemo(() => {
-    if (!isStreaming && Number.isFinite(persistedFinalAnswerDurationMs) && persistedFinalAnswerDurationMs > 0) {
+    if (
+      !isStreaming &&
+      Number.isFinite(persistedFinalAnswerDurationMs) &&
+      persistedFinalAnswerDurationMs > 0
+    ) {
       return Math.round(persistedFinalAnswerDurationMs / 1000)
     }
     if (typeof wallClockFinalSec === 'number') return wallClockFinalSec
-    if (typeof wallClockElapsedSec === 'number' && wallClockElapsedSec > 0) return wallClockElapsedSec
+    if (typeof wallClockElapsedSec === 'number' && wallClockElapsedSec > 0)
+      return wallClockElapsedSec
     return processDurationSec
-  }, [isStreaming, persistedFinalAnswerDurationMs, processDurationSec, wallClockElapsedSec, wallClockFinalSec])
+  }, [
+    isStreaming,
+    persistedFinalAnswerDurationMs,
+    processDurationSec,
+    wallClockElapsedSec,
+    wallClockFinalSec,
+  ])
   const finalAnswerDurationMsForDisplay = useMemo(() => {
     if (Number.isFinite(persistedFinalAnswerDurationMs) && persistedFinalAnswerDurationMs > 0) {
       return persistedFinalAnswerDurationMs
     }
     const directMs =
-      typeof finalAnswerWorkflowStep?.durationMs === 'number' ? finalAnswerWorkflowStep.durationMs : null
+      typeof finalAnswerWorkflowStep?.durationMs === 'number'
+        ? finalAnswerWorkflowStep.durationMs
+        : null
     if (typeof directMs === 'number' && directMs > 0) return directMs
     if (typeof completedDurationSec === 'number' && completedDurationSec > 0) {
       return completedDurationSec * 1000

@@ -1077,6 +1077,7 @@
   },
   "messageBubble": {
     "workflow": "Workflow",
+    "usedSpecificTools": "Used {{tools}}",
     "completedAnswer": "Completed answer, took {{duration}}s",
     "organizedSources": "Organized Sources",
     "finalAnswerStep": "Generate final answer",

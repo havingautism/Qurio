@@ -193,7 +193,10 @@ export const DeepResearchGuideProvider = ({
   // Extract the main content of the guide
   const guideContent = (
     <div
-      className={clsx('flex flex-col', isMobile ? 'h-full' : 'max-h-[90vh] w-full sm:max-h-[85vh]')}
+      className={clsx(
+        'flex min-h-0 flex-col',
+        isMobile ? 'h-full' : 'max-h-[90vh] w-full sm:max-h-[85vh]',
+      )}
     >
       {!isMobile && (
         <div className="flex shrink-0 justify-center py-2 sm:hidden">
@@ -216,7 +219,7 @@ export const DeepResearchGuideProvider = ({
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-5 py-6">
+      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:py-6">
         <div className="mb-8 flex items-center gap-2">
           {[1, 2, 3].map(step => (
             <div key={step} className="flex flex-1 items-center gap-2">
@@ -494,12 +497,12 @@ export const DeepResearchGuideProvider = ({
         </div>
       </div>
 
-      <div className="shrink-0 border-t border-gray-100 bg-gray-50/50 px-5 py-6 dark:border-zinc-800/60 dark:bg-zinc-900/30">
+      <div className="shrink-0 border-t border-gray-100 bg-gray-50/95 px-5 py-4 pb-[calc(env(safe-area-inset-bottom,0px)+1rem)] backdrop-blur sm:bg-gray-50/50 sm:py-6 dark:border-zinc-800/60 dark:bg-zinc-900/95 sm:dark:bg-zinc-900/30">
         <div className="flex items-center justify-between gap-3">
           <button
             type="button"
             onClick={closeDeepResearchGuide}
-            className="px-5 py-2.5 text-sm font-bold text-gray-500 transition-colors hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            className="px-3 py-2 text-sm font-bold text-gray-500 transition-colors hover:text-gray-700 sm:px-5 sm:py-2.5 dark:text-gray-400 dark:hover:text-gray-200"
           >
             {t('common.cancel')}
           </button>
@@ -508,7 +511,7 @@ export const DeepResearchGuideProvider = ({
               <button
                 type="button"
                 onClick={() => setDeepResearchStep(step => Math.max(1, step - 1))}
-                className="rounded-xl border border-gray-200 px-5 py-2.5 text-sm font-bold text-gray-600 transition-all hover:bg-white dark:border-zinc-700 dark:text-gray-300 dark:hover:bg-zinc-800"
+                className="rounded-xl border border-gray-200 px-3.5 py-2 text-sm font-bold text-gray-600 transition-all hover:bg-white sm:px-5 sm:py-2.5 dark:border-zinc-700 dark:text-gray-300 dark:hover:bg-zinc-800"
               >
                 {t('homeView.deepResearchBack')}
               </button>
@@ -518,7 +521,7 @@ export const DeepResearchGuideProvider = ({
                 type="button"
                 disabled={!deepResearchQuestion.trim()}
                 onClick={() => setDeepResearchStep(step => Math.min(3, step + 1))}
-                className="bg-primary-500 hover:bg-primary-600 shadow-primary-500/20 rounded-xl px-6 py-2.5 text-sm font-bold text-white shadow-lg transition-all disabled:opacity-50 disabled:shadow-none"
+                className="bg-primary-500 hover:bg-primary-600 shadow-primary-500/20 rounded-xl px-4 py-2 text-sm font-bold text-white shadow-lg transition-all sm:px-6 sm:py-2.5 disabled:opacity-50 disabled:shadow-none"
               >
                 {t('homeView.deepResearchNext')}
               </button>
@@ -527,7 +530,7 @@ export const DeepResearchGuideProvider = ({
                 type="button"
                 disabled={!deepResearchQuestion.trim()}
                 onClick={handleStartDeepResearchGuide}
-                className="bg-primary-500 hover:bg-primary-600 shadow-primary-500/20 flex items-center gap-2 rounded-xl px-6 py-2.5 text-sm font-bold text-white shadow-lg transition-all disabled:opacity-50 disabled:shadow-none"
+                className="bg-primary-500 hover:bg-primary-600 shadow-primary-500/20 flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold text-white shadow-lg transition-all sm:px-6 sm:py-2.5 disabled:opacity-50 disabled:shadow-none"
               >
                 <Sparkles size={16} />
                 {t('homeView.deepResearchStart')}
@@ -560,7 +563,7 @@ export const DeepResearchGuideProvider = ({
       {isOpen &&
         (isMobile ? (
           <Drawer open={isOpen} onOpenChange={open => !open && closeDeepResearchGuide()}>
-            <DrawerContent className="max-h-[85vh] rounded-t-3xl border-t border-gray-200 bg-white dark:border-zinc-800 dark:bg-[#1E1E1E]">
+            <DrawerContent className="h-[92dvh] max-h-[92dvh] overflow-hidden rounded-t-3xl border-t border-gray-200 bg-white dark:border-zinc-800 dark:bg-[#1E1E1E]">
               {guideContent}
             </DrawerContent>
           </Drawer>

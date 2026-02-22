@@ -1016,49 +1016,61 @@ function App() {
                     !location.pathname.includes('/deepresearch/') &&
                     !location.pathname.includes('/expert/') &&
                     !location.pathname.includes('/new_chat') && (
-                      <div className="bg-background z-30 flex h-12 shrink-0 items-center justify-between border-b border-gray-200 px-4 md:hidden dark:border-zinc-800">
-                        <div className="flex items-center gap-3">
-                          <button
-                            onClick={() => setIsSidebarOpen(true)}
-                            className="-ml-2 rounded-lg p-2 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-zinc-800"
-                          >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              width="20"
-                              height="20"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
+                      <div className="relative z-30 h-20 shrink-0 md:hidden">
+                        <div
+                          aria-hidden="true"
+                          className="pointer-events-none absolute inset-x-0 top-0 h-21 bg-gradient-to-b from-white/68 via-white/28 to-transparent [mask-image:linear-gradient(to_bottom,black_58%,transparent)] opacity-100 backdrop-blur-xl dark:from-zinc-950/68 dark:via-zinc-950/28"
+                        />
+                        <div className="pointer-events-none absolute inset-0 flex items-start px-4 pt-4">
+                          <div className="pointer-events-auto flex w-full items-center justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                              <button
+                                onClick={() => setIsSidebarOpen(true)}
+                                aria-label="Open sidebar"
+                                className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-gray-200/50 bg-white/90 p-0 leading-none text-gray-600 shadow-sm backdrop-blur-xl transition-all hover:bg-white hover:shadow-md dark:border-zinc-800/50 dark:bg-zinc-900/90 dark:text-gray-300 dark:hover:bg-zinc-900"
+                              >
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  width="21"
+                                  height="21"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                >
+                                  <line x1="3" y1="12" x2="21" y2="12"></line>
+                                  <line x1="3" y1="6" x2="21" y2="6"></line>
+                                  <line x1="3" y1="18" x2="21" y2="18"></line>
+                                </svg>
+                              </button>
+                              <span className="text-base font-semibold tracking-tight text-gray-900 dark:text-white">
+                                Qurio
+                              </span>
+                            </div>
+                            <button
+                              onClick={() => handleNavigate('home')}
+                              aria-label="New chat"
+                              className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-gray-200/50 bg-white/90 p-0 leading-none text-gray-600 shadow-sm backdrop-blur-xl transition-all hover:bg-white hover:shadow-md dark:border-zinc-800/50 dark:bg-zinc-900/90 dark:text-gray-300 dark:hover:bg-zinc-900"
                             >
-                              <line x1="3" y1="12" x2="21" y2="12"></line>
-                              <line x1="3" y1="6" x2="21" y2="6"></line>
-                              <line x1="3" y1="18" x2="21" y2="18"></line>
-                            </svg>
-                          </button>
-                          <span className="font-semibold text-gray-900 dark:text-white">Qurio</span>
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="21"
+                                height="21"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <path d="M5 12h14"></path>
+                                <path d="M12 5v14"></path>
+                              </svg>
+                            </button>
+                          </div>
                         </div>
-                        <button
-                          onClick={() => handleNavigate('home')}
-                          className="-mr-2 rounded-lg p-2 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-zinc-800"
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="20"
-                            height="20"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <path d="M5 12h14"></path>
-                            <path d="M12 5v14"></path>
-                          </svg>
-                        </button>
                       </div>
                     )}
                   <div className="min-h-0 flex-1 overflow-hidden">

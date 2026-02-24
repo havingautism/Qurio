@@ -36,6 +36,8 @@ dependencies = [
     "google-auth-oauthlib>=1.2.4",
     "google-api-python-client>=2.190.0",
     "apscheduler>=3.11.2",
+    "x-reader",
+    "yt-dlp>=2024.0.0",
 ]
 
 
@@ -60,6 +62,9 @@ python_version = "3.11"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false
+
+[tool.uv.sources]
+x-reader = { git = "https://github.com/runesleo/x-reader.git" }
 
 [dependency-groups]
 dev = [

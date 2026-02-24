@@ -287,6 +287,7 @@ class SQLiteAdapter:
                 "CREATE TABLE IF NOT EXISTS scrapbook ("
                 "id TEXT PRIMARY KEY, "
                 "title TEXT NOT NULL DEFAULT '', "
+                "emoji TEXT, "
                 "summary TEXT NOT NULL DEFAULT '', "
                 "content TEXT NOT NULL DEFAULT '', "
                 "source_url TEXT, "
@@ -300,6 +301,10 @@ class SQLiteAdapter:
                 "CREATE INDEX IF NOT EXISTS idx_scrapbook_created_at "
                 "ON scrapbook(created_at DESC)"
             )
+            cursor.execute("PRAGMA table_info(scrapbook)")
+            scrapbook_columns = {str(row[1]) for row in cursor.fetchall()}
+            if "emoji" not in scrapbook_columns:
+                cursor.execute("ALTER TABLE scrapbook ADD COLUMN emoji TEXT")
             self._conn.commit()
 
     def _execute(self, sql: str, params: list[Any] | tuple[Any, ...] = ()) -> sqlite3.Cursor:

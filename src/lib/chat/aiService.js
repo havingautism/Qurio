@@ -1648,8 +1648,19 @@ export const finalizeMessage = async (
             credentials.baseUrl,
             titleModelConfig.model,
           )
+          const emojiResult =
+            typeof provider.generateEmoji === 'function'
+              ? await provider
+                  .generateEmoji(
+                    promptText,
+                    credentials.apiKey,
+                    credentials.baseUrl,
+                    titleModelConfig.model,
+                  )
+                  .catch(() => ({ emojis: [] }))
+              : { emojis: [] }
           resolvedTitle = titleResult?.title || 'New Conversation'
-          resolvedTitleEmojis = Array.isArray(titleResult?.emojis) ? titleResult.emojis : []
+          resolvedTitleEmojis = Array.isArray(emojiResult?.emojis) ? emojiResult.emojis : []
           set({ conversationTitle: resolvedTitle, conversationTitleEmojis: resolvedTitleEmojis })
         } else if (callbacks?.onTitleAndSpaceGenerated) {
           const {

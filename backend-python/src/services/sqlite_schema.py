@@ -181,6 +181,7 @@ SCHEMA_STATEMENTS: list[str] = [
     CREATE TABLE IF NOT EXISTS scrapbook (
       id TEXT PRIMARY KEY,
       title TEXT NOT NULL DEFAULT '',
+      emoji TEXT,
       summary TEXT NOT NULL DEFAULT '',
       content TEXT NOT NULL DEFAULT '',
       source_url TEXT,

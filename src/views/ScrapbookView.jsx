@@ -13,9 +13,11 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   BookOpen,
   ExternalLink,
+  Globe,
   Loader2,
   Plus,
   Search,
@@ -40,6 +42,7 @@ import { PROVIDER_KEYS, FALLBACK_MODEL_OPTIONS } from '../lib/modelConstants'
 import { getModelsForProvider } from '../lib/models_api'
 import { getPublicEnv } from '../lib/publicEnv'
 import { saveRemoteSettings } from '../lib/supabase'
+import { Streamdown } from 'streamdown'
 
 import ColorBendsBackground from '../components/ui/ColorBendsBackground'
 import { Button } from '@/components/ui/button'
@@ -116,6 +119,12 @@ const PLATFORM_COLORS = {
   rss: 'bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-400',
   manual: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
   unknown: 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500',
+}
+
+const stripGeneratedTitlePrefix = value => {
+  if (!value) return ''
+  const trimmed = String(value).trim()
+  return trimmed.replace(/^(?:title|标题)\s*[:：-]\s*/i, '').trim() || trimmed
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -652,10 +661,12 @@ const AddModal = ({ isOpen, onClose, onAdded }) => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const EntryCard = ({ entry, onDelete }) => {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { showConfirmation } = useAppContext()
   const [isDeleting, setIsDeleting] = useState(false)
   const tags = Array.isArray(entry.tags) ? entry.tags : []
+  const displayTitle = stripGeneratedTitlePrefix(entry.title) || '无标题'
   const platformColor = PLATFORM_COLORS[entry.platform] || PLATFORM_COLORS.unknown
   const dateStr = entry.created_at
     ? new Date(entry.created_at).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
@@ -711,15 +722,25 @@ const EntryCard = ({ entry, onDelete }) => {
       )}
 
       {/* Title */}
-      <h3 className="mb-1.5 line-clamp-2 text-sm leading-snug font-semibold text-[var(--color-text-primary)]">
-        {entry.title || '无标题'}
+      <h3 className="mb-2 line-clamp-2 text-[15px] leading-snug font-semibold tracking-tight text-[var(--color-text-primary)]">
+        {entry.emoji ? `${entry.emoji} ` : ''}
+        {displayTitle}
       </h3>
 
       {/* Summary */}
       {entry.summary && (
-        <p className="mb-3 line-clamp-3 flex-1 text-xs leading-relaxed text-[var(--color-text-secondary)]">
-          {entry.summary}
-        </p>
+        <div className="relative mb-3 flex-1 rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 dark:border-white/10 dark:bg-white/5">
+          {/* <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-medium tracking-[0.08em] text-[var(--color-text-tertiary)] uppercase">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--color-accent)]/80" />
+            {t('common.summary')}
+          </div> */}
+          <div className="pointer-events-none max-h-[4.6rem] overflow-hidden text-xs leading-relaxed text-[var(--color-text-secondary)]">
+            <div className="prose prose-sm dark:prose-invert max-w-none text-xs leading-relaxed text-[var(--color-text-secondary)] [&_blockquote]:my-1 [&_blockquote]:border-l-2 [&_blockquote]:pl-2 [&_h1]:my-1 [&_h1]:text-xs [&_h1]:font-medium [&_h2]:my-1 [&_h2]:text-xs [&_h2]:font-medium [&_h3]:my-1 [&_h3]:text-xs [&_h3]:font-medium [&_ol]:my-1 [&_ol]:pl-4 [&_p]:my-1 [&_pre]:hidden [&_strong]:font-medium [&_table]:hidden [&_ul]:my-1 [&_ul]:pl-4 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+              <Streamdown>{entry.summary}</Streamdown>
+            </div>
+          </div>
+          <div className="pointer-events-none absolute right-2 bottom-2 left-2 h-6 bg-gradient-to-t from-black/35 to-transparent dark:from-black/40" />
+        </div>
       )}
 
       {/* Footer */}
@@ -739,9 +760,11 @@ const EntryCard = ({ entry, onDelete }) => {
             target="_blank"
             rel="noopener noreferrer"
             onClick={e => e.stopPropagation()}
-            className="ml-auto text-[var(--color-text-tertiary)] hover:text-[var(--color-accent)]"
+            className="ml-auto inline-flex items-center gap-1.5 rounded-xl bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white shadow-md transition-all hover:-translate-y-0.5 hover:bg-zinc-800 hover:shadow-lg dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
           >
-            <ExternalLink size={13} />
+            <Globe size={13} />
+            <span>访问原文</span>
+            <ExternalLink size={12} className="opacity-70" />
           </a>
         )}
       </div>

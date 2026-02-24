@@ -19,7 +19,8 @@
     "files": "文件",
     "close": "关闭",
     "edit": "编辑",
-    "stop": "停止"
+    "stop": "停止",
+    "summary": "摘要"
   },
   "app": {
     "name": "Qurio",
@@ -238,6 +239,8 @@
     "addedToBookmarks": "已添加到收藏",
     "removedFromBookmarks": "已从收藏中移除",
     "untitled": "无标题",
+    "summary": "摘要",
+    "scrapbook": "随手记",
     "status": {
       "streaming": "正在传输",
       "complete": "已完成"

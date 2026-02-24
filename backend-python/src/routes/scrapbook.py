@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field
 from pydantic import BaseModel, Field
 
 from ..services.db_service import get_db_adapter
+from ..services.generation import generate_emoji
 from ..services.llm_utils import run_agent_completion, safe_json_parse
 from ..models.db import DbFilter, DbOrder, DbQueryRequest
 from ..models.stream_chat import StreamChatRequest
@@ -190,10 +191,34 @@ async def _ai_generate_title(
         if isinstance(parsed, dict):
             title = parsed.get("title")
 
-    return {
-        "title": str(title or "")[:120],
-        "summary": "",
-    }
+    return {"title": str(title or "")[:120]}
+
+
+async def _ai_generate_emoji(
+    *,
+    content: str,
+    url: str,
+    platform: str,
+    provider: str,
+    api_key: str,
+    base_url: str | None,
+    model: str | None,
+) -> str:
+    context = f"Platform: {platform}\nURL: {url}\n\n{content[:800]}".strip()
+    try:
+        result = await generate_emoji(
+            provider=provider,
+            first_message=context,
+            api_key=api_key,
+            base_url=base_url,
+            model=model,
+        )
+        emojis = result.get("emojis") or []
+        if isinstance(emojis, list) and emojis:
+            return str(emojis[0]).strip()
+    except Exception as exc:
+        logger.warning("[Scrapbook] Emoji generation failed: %s", exc)
+    return ""
 
 
 # ---------------------------------------------------------------------------
@@ -222,7 +247,17 @@ async def list_scrapbook(
         providerId=adapter.config.id,
         action="select",
         table="scrapbook",
-        columns=["id", "title", "summary", "source_url", "platform", "thumbnail", "tags", "created_at"],
+        columns=[
+            "id",
+            "title",
+            "emoji",
+            "summary",
+            "source_url",
+            "platform",
+            "thumbnail",
+            "tags",
+            "created_at",
+        ],
         filters=filters or None,
         order=[DbOrder(column="created_at", ascending=False)],
         limit=limit,
@@ -264,6 +299,7 @@ async def create_scrapbook_entry(request: Request) -> JSONResponse:
 
     source_url = (body.get("source_url") or "").strip()
     title = (body.get("title") or "").strip()
+    emoji = (body.get("emoji") or "").strip()
     summary = (body.get("summary") or "").strip()
     content = (body.get("content") or "").strip()
     platform = (body.get("platform") or "manual").strip()
@@ -313,6 +349,27 @@ async def create_scrapbook_entry(request: Request) -> JSONResponse:
     if not title:
         title = (content[:80] if content else source_url) or "Untitled"
 
+    if not emoji and source_url and api_key:
+        emoji = await _ai_generate_emoji(
+            content=title or content or source_url,
+            url=source_url,
+            platform=platform,
+            provider=provider,
+            api_key=api_key,
+            base_url=base_url,
+            model=model,
+        )
+    elif not emoji and api_key and (title or content):
+        emoji = await _ai_generate_emoji(
+            content=title or content,
+            url=source_url or "",
+            platform=platform,
+            provider=provider,
+            api_key=api_key,
+            base_url=base_url,
+            model=model,
+        )
+
     # ── Step 3: Persist to DB ─────────────────────────────────────────────────
     adapter = get_db_adapter(database_provider)
     if not adapter:
@@ -322,6 +379,7 @@ async def create_scrapbook_entry(request: Request) -> JSONResponse:
     entry: dict[str, Any] = {
         "id": str(uuid.uuid4()),
         "title": title,
+        "emoji": emoji or None,
         "summary": summary,
         "content": content,
         "source_url": source_url or None,

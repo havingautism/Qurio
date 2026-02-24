@@ -39,6 +39,9 @@ from ..routes import (
     db as db_route,
 )
 from ..routes import (
+    emoji as emoji_route,
+)
+from ..routes import (
     memory as memory_route,
 )
 from ..routes import (
@@ -104,6 +107,7 @@ def _build_base_app() -> FastAPI:
     app.include_router(stream_chat_route.router, prefix="/api")
     app.include_router(daily_tip_route.router, prefix="/api")
     app.include_router(title_route.router, prefix="/api")
+    app.include_router(emoji_route.router, prefix="/api")
     app.include_router(title_and_space.router, prefix="/api")
     app.include_router(title_space_agent.router, prefix="/api")
     app.include_router(space_agent.router, prefix="/api")

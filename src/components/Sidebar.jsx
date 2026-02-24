@@ -1098,6 +1098,11 @@ const Sidebar = ({
                       <div>{t('sidebar.noBookmarks')}</div>
                     </div>
                   )}
+                {displayTab === 'library' && isConversationsLoading && conversations.length === 0 && (
+                  <div className="flex justify-center py-2">
+                    <DotLoader />
+                  </div>
+                )}
 
                 {/* For library tab, use grouped conversations with limits */}
                 {displayTab === 'library' &&
@@ -1290,6 +1295,11 @@ const Sidebar = ({
 
                     {/* Deep Research List - Scrollable Area */}
                     <div className="no-scrollbar flex flex-1 flex-col gap-2 overflow-y-auto overscroll-contain px-2">
+                      {isDeepResearchLoading && deepResearchConversations.length === 0 && (
+                        <div className="flex justify-center py-2">
+                          <DotLoader />
+                        </div>
+                      )}
                       {!isDeepResearchLoading && deepResearchConversations.length === 0 && (
                         <div className="flex flex-col items-center gap-2 px-2 py-3 text-xs text-gray-500 dark:text-gray-400">
                           <Coffee size={24} className="text-black dark:text-white" />
@@ -1487,6 +1497,11 @@ const Sidebar = ({
                     </div>
 
                     <div className="no-scrollbar flex flex-1 flex-col gap-2 overflow-y-auto overscroll-contain px-2">
+                      {isExpertLoading && expertConversations.length === 0 && (
+                        <div className="flex justify-center py-2">
+                          <DotLoader />
+                        </div>
+                      )}
                       {!isExpertLoading && expertConversations.length === 0 && (
                         <div className="flex flex-col items-center gap-2 px-2 py-3 text-xs text-gray-500 dark:text-gray-400">
                           <Coffee size={24} className="text-black dark:text-white" />

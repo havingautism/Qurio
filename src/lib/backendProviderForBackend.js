@@ -6,6 +6,7 @@
 import {
   generateAgentForAutoViaBackend,
   generateDailyTipViaBackend,
+  generateEmojiViaBackend,
   generateRelatedQuestionsViaBackend,
   generateResearchPlanViaBackend,
   generateSpaceAndAgentViaBackend,
@@ -40,6 +41,21 @@ const generateTitle = async (provider, firstMessage, apiKey, baseUrl, model) => 
   )
   return {
     title: result?.title || 'New Conversation',
+  }
+}
+
+const generateEmoji = async (provider, firstMessage, apiKey, baseUrl, model) => {
+  const { userTimezone, userLocale } = getClientTimeContext()
+  const result = await generateEmojiViaBackend(
+    provider,
+    firstMessage,
+    apiKey,
+    baseUrl,
+    model,
+    userTimezone,
+    userLocale,
+  )
+  return {
     emojis: Array.isArray(result?.emojis) ? result.emojis : [],
   }
 }
@@ -219,6 +235,8 @@ export const createBackendProvider = provider => ({
   streamDeepResearch: params => streamDeepResearchViaBackend({ provider, ...params }),
   generateTitle: (firstMessage, apiKey, baseUrl, model) =>
     generateTitle(provider, firstMessage, apiKey, baseUrl, model),
+  generateEmoji: (firstMessage, apiKey, baseUrl, model) =>
+    generateEmoji(provider, firstMessage, apiKey, baseUrl, model),
   generateResearchPlan: (userMessage, apiKey, baseUrl, model, researchType) =>
     generateResearchPlan(provider, userMessage, apiKey, baseUrl, model, researchType),
   streamResearchPlan: (userMessage, apiKey, baseUrl, model, callbacks) =>

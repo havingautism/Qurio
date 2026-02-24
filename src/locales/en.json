@@ -19,6 +19,7 @@
     "deselectAll": "Deselect All",
     "files": "Files",
     "edit": "Edit",
+    "summary": "Summary",
     "stop": "Stop"
   },
   "app": {
@@ -255,6 +256,8 @@
     "addedToBookmarks": "Added to bookmarks",
     "removedFromBookmarks": "Removed from bookmarks",
     "untitled": "Untitled",
+    "summary": "Summary",
+    "scrapbook": "Scrapbook",
     "status": {
       "streaming": "Streaming",
       "complete": "Complete"

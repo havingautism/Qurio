@@ -200,6 +200,7 @@ const NotificationCenter = () => {
 
   // SSE: Listen for real-time notification updates
   useEffect(() => {
+    if (!isOpen) return undefined
     const sseUrl = buildUrl('/api/email/notifications/stream')
     const eventSource = new EventSource(sseUrl)
 
@@ -222,7 +223,7 @@ const NotificationCenter = () => {
     return () => {
       eventSource.close()
     }
-  }, [load])
+  }, [isOpen, load])
 
   // ESC key to close
   useEffect(() => {

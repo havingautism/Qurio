@@ -212,7 +212,7 @@ const ChatHeader = ({
             {/* Title - Floating Pill Style */}
             <div
               ref={titleBubbleRef}
-              className="group relative z-10 flex h-12 min-w-0 items-center gap-1 rounded-full border border-gray-200/50 bg-white/90 py-1.5 pr-2 pl-4 shadow-sm backdrop-blur-xl transition-all hover:scale-105 hover:bg-white hover:shadow-md active:scale-95 md:max-w-[400px] dark:border-zinc-800/50 dark:bg-zinc-900/90 dark:hover:bg-zinc-900"
+              className="group relative z-10 flex h-12 min-w-0 items-center gap-1 rounded-full border border-gray-200/50 bg-white/90 py-1.5 pr-2 pl-4 shadow-sm backdrop-blur-xl transition-[background-color,box-shadow,border-color] hover:bg-white hover:shadow-md md:max-w-[400px] dark:border-zinc-800/50 dark:bg-zinc-900/90 dark:hover:bg-zinc-900"
             >
               <h1 className="flex min-w-0 items-center gap-2 truncate font-medium text-gray-800 dark:text-gray-100">
                 {isTitleLoading || isMetaLoading ? (
@@ -222,6 +222,7 @@ const ChatHeader = ({
                 ) : (
                   <button
                     type="button"
+                    onMouseDown={event => event.stopPropagation()}
                     onClick={event => {
                       event.stopPropagation()
                       setIsTitleBubbleOpen(prev => !prev)
@@ -242,9 +243,11 @@ const ChatHeader = ({
                 )}
               </h1>
               <button
+                type="button"
+                onMouseDown={e => e.stopPropagation()}
                 onClick={onRegenerateTitle}
                 disabled={isRegeneratingTitle || messages.length === 0}
-                className="shrink-0 rounded-full p-1.5 text-gray-400 opacity-100 transition-all hover:scale-110 hover:bg-gray-100 hover:text-gray-600 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-500 dark:hover:bg-zinc-800 dark:hover:text-gray-300"
+                className="relative z-20 shrink-0 rounded-full p-1.5 text-gray-400 opacity-100 transition-colors hover:bg-gray-100 hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-500 dark:hover:bg-zinc-800 dark:hover:text-gray-300"
                 title={t('chatInterface.regenerateTitle')}
               >
                 <Sparkles size={14} />

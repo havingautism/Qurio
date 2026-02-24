@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS public.scrapbook (
 
   -- AI-generated or user-provided metadata
   title TEXT NOT NULL DEFAULT '',     -- short title (AI-generated or user-typed)
+  emoji TEXT,                         -- optional AI-generated emoji for quick visual scanning
   summary TEXT NOT NULL DEFAULT '',   -- 2-3 sentence summary (AI-generated or user-typed)
 
   -- Original content

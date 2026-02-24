@@ -1,4 +1,4 @@
-import { useLoaderData, useParams, useNavigate } from '@tanstack/react-router'
+﻿import { useLoaderData, useParams, useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useState, useRef } from 'react'
 import {
   ArrowLeft,
@@ -7,6 +7,7 @@ import {
   Globe,
   Loader2,
   RotateCcw,
+  Sparkles,
   Tag,
   Trash2,
 } from 'lucide-react'
@@ -20,7 +21,7 @@ import {
 } from '../lib/scrapbookService'
 import ColorBendsBackground from '../components/ui/ColorBendsBackground'
 import { Streamdown } from 'streamdown'
-import { streamChatViaBackend } from '../lib/backendClient'
+import { generateEmojiViaBackend, generateTitleViaBackend, streamChatViaBackend } from '../lib/backendClient'
 import { loadSettings } from '../lib/settings'
 
 const getBackendUrl = () => {
@@ -43,6 +44,12 @@ const PLATFORM_COLORS = {
   unknown: 'bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-800 dark:border-gray-700',
 }
 
+const stripGeneratedTitlePrefix = value => {
+  if (!value) return ''
+  const trimmed = String(value).trim()
+  return trimmed.replace(/^(?:title|标题)\s*[:：]\s*/i, '').trim() || trimmed
+}
+
 export default function ScrapbookDetailView() {
   const { isSidebarPinned, showConfirmation } = useAppContext()
   const { entryId } = useParams({ strict: false })
@@ -56,6 +63,7 @@ export default function ScrapbookDetailView() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [streamedSummary, setStreamedSummary] = useState('')
   const [generationError, setGenerationError] = useState(null)
+  const [isRegeneratingTitle, setIsRegeneratingTitle] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -71,6 +79,78 @@ export default function ScrapbookDetailView() {
     }
     load()
   }, [entryId])
+
+  const handleRegenerateTitle = async () => {
+    if (!entry || isRegeneratingTitle) return
+
+    const modelConfig = resolveScrapbookModelConfig()
+    if (!modelConfig.apiKey) return
+
+    const provider = modelConfig.provider || 'gemini'
+    const model = modelConfig.model || ''
+    const apiKey = modelConfig.apiKey || ''
+    const baseUrl = modelConfig.baseUrl || ''
+
+    const promptText = [
+      `Platform: ${entry.platform || 'unknown'}`,
+      entry.source_url ? `Source URL: ${entry.source_url}` : '',
+      '',
+      'Content excerpt:',
+      String(entry.content || entry.summary || entry.title || '').slice(0, 3000),
+    ]
+      .filter(Boolean)
+      .join('\n')
+
+    setIsRegeneratingTitle(true)
+    try {
+      let nextTitle = ''
+      let nextEmoji = typeof entry.emoji === 'string' ? entry.emoji : ''
+
+      const titlePromise = generateTitleViaBackend(
+        provider,
+        promptText,
+        apiKey,
+        baseUrl,
+        model,
+      ).then(result => {
+        const rawTitle = String(result?.title || '').trim()
+        if (!rawTitle) return result
+        nextTitle = rawTitle
+        setEntry(prev => (prev ? { ...prev, title: rawTitle } : prev))
+        return result
+      })
+
+      const emojiPromise = generateEmojiViaBackend(provider, promptText, apiKey, baseUrl, model)
+        .then(result => {
+          const emoji = Array.isArray(result?.emojis) ? String(result.emojis[0] || '').trim() : ''
+          if (!emoji) return result
+          nextEmoji = emoji
+          setEntry(prev => (prev ? { ...prev, emoji } : prev))
+          return result
+        })
+        .catch(err => {
+          console.error('[Scrapbook] Emoji regenerate failed:', err)
+          return { emojis: [] }
+        })
+
+      await Promise.allSettled([titlePromise, emojiPromise])
+
+      if (!nextTitle) return
+      try {
+        await fetch(`${getBackendUrl()}/api/scrapbook/${entry.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: nextTitle, emoji: nextEmoji || null }),
+        })
+      } catch (patchErr) {
+        console.error('[Scrapbook] Failed to persist regenerated title:', patchErr)
+      }
+    } catch (err) {
+      console.error('[Scrapbook] Title regenerate failed:', err)
+    } finally {
+      setIsRegeneratingTitle(false)
+    }
+  }
 
   const handleDelete = () => {
     showConfirmation({
@@ -126,7 +206,7 @@ export default function ScrapbookDetailView() {
       // 1. Resolve Provider models
       const modelConfig = resolveScrapbookModelConfig()
       if (!modelConfig.apiKey) {
-        setGenerationError('未配置 API Key，请先在 Scrapbook 设置中配置模型')
+        setGenerationError('未配置 API Key，请先在 Scrapbook 设置中配置模型。')
         setIsGenerating(false)
         return
       }
@@ -268,12 +348,12 @@ ${entry.content}`
           <ColorBendsBackground />
         </div>
         <div className="relative z-10 flex flex-col items-center gap-4 rounded-3xl border border-white/40 bg-white/40 p-8 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-black/40">
-          <p className="text-[var(--color-text-secondary)]">{error || '随手记不存在'}</p>
+          <p className="text-[var(--color-text-secondary)]">{error || '闅忔墜璁颁笉瀛樺湪'}</p>
           <button
             onClick={() => navigate({ to: '/scrapbook' })}
             className="rounded-xl border border-[var(--color-border)] bg-white/50 px-4 py-2 transition-all hover:bg-white/80 dark:bg-black/40 dark:hover:bg-black/60"
           >
-            返回列表
+            杩斿洖鍒楄〃
           </button>
         </div>
       </div>
@@ -281,6 +361,7 @@ ${entry.content}`
   }
 
   const tags = Array.isArray(entry.tags) ? entry.tags : []
+  const displayTitle = stripGeneratedTitlePrefix(entry.title) || '无标题'
   const platformColor = PLATFORM_COLORS[entry.platform] || PLATFORM_COLORS.unknown
   const dateStr = entry.created_at
     ? new Date(entry.created_at).toLocaleString('zh-CN', {
@@ -315,6 +396,19 @@ ${entry.content}`
           </button>
           <div className="flex items-center gap-2">
             <button
+              onClick={handleRegenerateTitle}
+              disabled={isRegeneratingTitle || !entry}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-white/50 px-3 py-1.5 text-sm font-medium text-[var(--color-text-primary)] shadow-sm transition-all hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-black/40 dark:hover:bg-black/60"
+              title="重新生成标题"
+            >
+              {isRegeneratingTitle ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Sparkles size={14} />
+              )}
+              <span className="hidden sm:inline">重新生成标题</span>
+            </button>
+            <button
               onClick={handleDelete}
               className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/50 text-red-500 shadow-sm transition-all hover:bg-red-50 hover:text-red-600 dark:bg-black/40 dark:hover:bg-red-900/30 dark:hover:text-red-400"
               title="删除"
@@ -325,23 +419,38 @@ ${entry.content}`
         </div>
 
         <div className="mx-auto w-full max-w-4xl px-6 pt-8 sm:px-10 sm:pt-12">
-          <div className="mb-6 flex flex-wrap items-center gap-3">
-            <span
-              className={clsx(
-                'rounded-full px-3 py-1 text-xs font-bold tracking-wide shadow-sm',
-                platformColor,
-              )}
-            >
-              {getPlatformLabel(entry.platform)}
-            </span>
-            <span className="flex items-center gap-1.5 text-sm font-medium text-[var(--color-text-tertiary)]">
-              <Calendar size={14} />
-              {dateStr}
-            </span>
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <span
+                className={clsx(
+                  'rounded-full px-3 py-1 text-xs font-bold tracking-wide shadow-sm',
+                  platformColor,
+                )}
+              >
+                {getPlatformLabel(entry.platform)}
+              </span>
+              <span className="flex items-center gap-1.5 text-sm font-medium text-[var(--color-text-tertiary)]">
+                <Calendar size={14} />
+                {dateStr}
+              </span>
+            </div>
+            {entry.source_url && (
+              <a
+                href={entry.source_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-xl bg-zinc-900 px-4 py-2 text-sm font-medium text-white shadow-md transition-all hover:-translate-y-0.5 hover:bg-zinc-800 hover:shadow-lg dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+              >
+                <Globe size={15} />
+                访问原文
+                <ExternalLink size={13} className="opacity-70" />
+              </a>
+            )}
           </div>
 
           <h1 className="mb-6 max-w-[100%] text-2xl leading-snug font-bold break-words text-[var(--color-text-primary)] sm:text-3xl">
-            {entry.title || '无标题'}
+            {entry.emoji ? `${entry.emoji} ` : ''}
+            {displayTitle}
           </h1>
 
           {entry.thumbnail && (
@@ -379,11 +488,11 @@ ${entry.content}`
                 <Streamdown>{streamedSummary}</Streamdown>
               ) : isGenerating ? (
                 <div className="flex items-center gap-2 text-[var(--color-text-tertiary)] italic">
-                  <span className="animate-pulse">正在深度分析原文并组织架构...</span>
+                  <span className="animate-pulse">正在深度分析原文并组织结构...</span>
                 </div>
               ) : (
                 <div className="text-sm text-[var(--color-text-tertiary)] italic">
-                  暂无智能总结，请点击右上角按钮生成。
+                  暂无智能总结，请点击上方按钮生成。
                 </div>
               )}
             </div>
@@ -407,9 +516,8 @@ ${entry.content}`
               </button>
             </div>
           )}
-
-          {(tags.length > 0 || entry.source_url) && (
-            <div className="mt-12 mb-12 flex flex-col gap-5 border-t border-black/5 pt-8 sm:flex-row sm:items-center sm:justify-between dark:border-white/10">
+          {tags.length > 0 && (
+            <div className="mt-12 mb-12 border-t border-black/5 pt-8 dark:border-white/10">
               <div className="flex flex-wrap items-center gap-2">
                 {tags.map(tag => (
                   <span
@@ -421,18 +529,6 @@ ${entry.content}`
                   </span>
                 ))}
               </div>
-              {entry.source_url && (
-                <a
-                  href={entry.source_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 self-start rounded-xl bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white shadow-md transition-all hover:-translate-y-0.5 hover:bg-zinc-800 hover:shadow-lg sm:self-auto dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
-                >
-                  <Globe size={16} />
-                  访问原文
-                  <ExternalLink size={14} className="opacity-70" />
-                </a>
-              )}
             </div>
           )}
         </div>

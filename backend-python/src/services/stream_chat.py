@@ -1580,18 +1580,24 @@ class StreamChatService:
 
                     # When yield_run_output=True, acontinue_run may yield the final RunOutput object.
                     # Capture its canonical content as a robust fallback for providers that emit sparse events.
+                    # IMPORTANT: Do NOT re-emit this content via process_text() if we already received
+                    # streaming chunks (run_content events). Doing so would cause the full answer to be
+                    # appended a second time, resulting in visible duplication in the UI.
+                    # Only use RunOutput.content as a fallback when the stream produced nothing.
                     if isinstance(run_event, RunOutput):
                         saw_terminal_completion = True
                         completed_content_fallback, _ = _extract_completed_content_and_output(
                             run_event,
                             completed_content_fallback or full_content,
                         )
-                        text_from_output = _extract_text_from_message_content(
-                            getattr(run_event, "content", None)
-                        ).strip()
-                        if text_from_output:
-                            for e in process_text(text_from_output):
-                                yield e
+                        # Only emit if no content was streamed yet (sparse-event provider fallback).
+                        if not full_content:
+                            text_from_output = _extract_text_from_message_content(
+                                getattr(run_event, "content", None)
+                            ).strip()
+                            if text_from_output:
+                                for e in process_text(text_from_output):
+                                    yield e
                         continue
 
                     # HITL Pause Check

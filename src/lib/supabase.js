@@ -143,7 +143,9 @@ class BackendQueryBuilder {
   // Compatibility with supabase-js: .not(column, operator, value)
   // Currently we support the variant used by the app: .not('id', 'in', '(a,b,c)')
   not(column, operator, value) {
-    const op = String(operator || '').trim().toLowerCase()
+    const op = String(operator || '')
+      .trim()
+      .toLowerCase()
     if (op === 'in') {
       let values = []
       if (Array.isArray(value)) {
@@ -616,6 +618,9 @@ export const saveRemoteSettings = async settings => {
     'defaultModelSource',
     'liteModelSource',
     'userSelfIntro',
+    'scrapbookProvider',
+    'scrapbookModel',
+    'scrapbookModelSource',
     // We do NOT sync Supabase credentials to the DB itself usually, but user might want to?
     // Syncing supabase credentials to the database that requires them to be accessed is paradoxical if you don't have them.
     // But syncing them allows other devices (once connected) to update them? No.

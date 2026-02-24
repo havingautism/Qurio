@@ -50,6 +50,9 @@ from ..routes import (
 from ..routes import (
     email as email_route,
 )
+from ..routes import (
+    scrapbook as scrapbook_route,
+)
 from .agent_registry import build_agent
 from .email_monitor import start_email_monitor, stop_email_monitor
 
@@ -112,6 +115,7 @@ def _build_base_app() -> FastAPI:
     app.include_router(mcp_tools.router, prefix="/api/mcp-tools")
     app.include_router(db_route.router, prefix="/api")
     app.include_router(email_route.router, prefix="/api")
+    app.include_router(scrapbook_route.router, prefix="/api")
     return app
 
 

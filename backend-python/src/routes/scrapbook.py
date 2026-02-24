@@ -1,0 +1,440 @@
+"""
+Scrapbook API routes.
+
+Endpoints:
+  GET  /scrapbook           — list entries (filter by platform, search by q)
+  POST /scrapbook           — create entry, optionally fetch URL + AI-generate title/summary
+  DELETE /scrapbook/{id}    — delete entry
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+import uuid
+from datetime import datetime
+from typing import Any
+
+from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field
+
+from ..services.db_service import get_db_adapter
+from ..services.llm_utils import run_agent_completion, safe_json_parse
+from ..models.db import DbFilter, DbOrder, DbQueryRequest
+from ..models.stream_chat import StreamChatRequest
+
+router = APIRouter(tags=["scrapbook"])
+logger = logging.getLogger(__name__)
+
+_UTC_FMT = "%Y-%m-%dT%H:%M:%SZ"
+
+
+def _utc_now() -> str:
+    return datetime.utcnow().strftime(_UTC_FMT)
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _detect_platform_from_url(url: str) -> str:
+    """Guess the platform from the URL pattern."""
+    url_lower = url.lower()
+    if 'youtube.com' in url_lower or 'youtu.be' in url_lower:
+        return 'youtube'
+    if 'bilibili.com' in url_lower or 'b23.tv' in url_lower:
+        return 'bilibili'
+    if 'xiaohongshu.com' in url_lower or 'xhslink.com' in url_lower or 'xhs.link' in url_lower:
+        return 'xhs'
+    if 'mp.weixin.qq.com' in url_lower or 'weixin.qq.com' in url_lower:
+        return 'wechat'
+    if 'twitter.com' in url_lower or 'x.com' in url_lower:
+        return 'twitter'
+    if 't.me' in url_lower or 'telegram.org' in url_lower:
+        return 'telegram'
+    return 'unknown'
+
+
+async def _fetch_url_content(url: str) -> dict[str, str]:
+    """
+    Fetch content from a URL using x-reader (UniversalReader).
+    Returns dict with: title, content, platform.
+    Falls back to empty strings on failures.
+    """
+    try:
+        from x_reader.reader import UniversalReader  # type: ignore[import]
+        reader = UniversalReader()
+        result = await asyncio.wait_for(reader.read(url), timeout=30.0)
+        if result and getattr(result, "content", None):
+            return {
+                "title": getattr(result, "title", None) or "",
+                "content": result.content or "",
+                "platform": str(getattr(result, "platform", "") or "unknown"),
+            }
+    except ImportError:
+        logger.warning("[Scrapbook] x-reader not installed")
+    except asyncio.TimeoutError:
+        logger.warning("[Scrapbook] x-reader timed out for %s", url)
+    except Exception as e:
+        logger.warning("[Scrapbook] x-reader failed for %s: %s", url, e)
+
+    # Fallback to Jina.ai
+    logger.info("[Scrapbook] Falling back to jina.ai for %s", url)
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.get(f"https://r.jina.ai/{url}")
+            if resp.status_code == 200:
+                content = resp.text
+                title = ""
+                # Try to extract title from Jina's header
+                lines = content.strip().split("\n")
+                for line in lines[:15]:
+                    if line.startswith("Title: "):
+                        title = line.replace("Title: ", "").strip()
+                        break
+                if not title and lines:
+                    for line in lines[:15]:
+                        if line.startswith("# "):
+                            title = line.replace("# ", "").strip()
+                            break
+                return {"title": title, "content": content, "platform": _detect_platform_from_url(url)}
+    except Exception as fallback_err:
+        logger.error("[Scrapbook] Jina.ai fallback failed: %s", fallback_err)
+
+    return {"title": "", "content": "", "platform": "unknown"}
+
+
+class TitleOnlyResponse(BaseModel):
+    """Response model for scrapbook title generation."""
+    title: str = Field(..., description="A short, concise secondary title extracted from the content, max 80 chars.")
+
+
+def _get_output_value(output_obj: Any, *keys: str) -> Any:
+    if not output_obj:
+        return None
+    if isinstance(output_obj, dict):
+        for key in keys:
+            if key in output_obj:
+                return output_obj.get(key)
+        return None
+    for key in keys:
+        if hasattr(output_obj, key):
+            return getattr(output_obj, key)
+    return None
+
+
+async def _ai_generate_title(
+    *,
+    content: str,
+    url: str,
+    platform: str,
+    provider: str,
+    api_key: str,
+    base_url: str | None,
+    model: str | None,
+) -> dict[str, str]:
+    """
+    Use the configured AI model to generate just a short title.
+    Returns dict with: title.
+    """
+    # Limit snippet to 800 chars for extreme speed since we only need a title
+    snippet = content[:800]
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "You are an expert content analyzer. Given a piece of web content (article, video transcript, etc), "
+                "extract a clear, concise title (max 80 chars).\n\n"
+                "## Output\n"
+                'Return JSON with the key "title".'
+            ),
+        },
+        {
+            "role": "user",
+            "content": (
+                f"Platform: {platform}\nURL: {url}\n\nContent:\n{snippet}"
+            ),
+        },
+    ]
+    response_format = {"type": "json_object"} if provider != "gemini" else None
+    request = StreamChatRequest(
+        provider=provider,
+        apiKey=api_key,
+        baseUrl=base_url,
+        model=model,
+        messages=messages,
+        tools=[],
+        toolIds=[],
+        userTools=[],
+        responseFormat=response_format,
+        output_schema=TitleOnlyResponse,
+        skipDefaultTools=True,
+        stream=True,
+    )
+    result = await run_agent_completion(request)
+
+    content_str = result.get("content", "").strip()
+    
+    # Try structured output first
+    output_obj = result.get("output")
+    title = None
+
+    if output_obj:
+        title = _get_output_value(output_obj, "title")
+
+    if not title:
+        parsed = safe_json_parse(content_str) or {}
+        if isinstance(parsed, dict):
+            title = parsed.get("title")
+
+    return {
+        "title": str(title or "")[:120],
+        "summary": "",
+    }
+
+
+# ---------------------------------------------------------------------------
+# GET /scrapbook
+# ---------------------------------------------------------------------------
+
+@router.get("/scrapbook")
+async def list_scrapbook(
+    platform: str | None = None,
+    q: str | None = None,
+    limit: int = 50,
+    database_provider: str | None = None,
+) -> JSONResponse:
+    """Return saved scrapbook entries, newest first."""
+    adapter = get_db_adapter(database_provider)
+    if not adapter:
+        raise HTTPException(status_code=503, detail="No database provider configured")
+
+    filters: list[DbFilter] = []
+    if platform and platform != "all":
+        filters.append(DbFilter(op="eq", column="platform", value=platform))
+    if q:
+        filters.append(DbFilter(op="ilike", column="title", value=q))
+
+    req = DbQueryRequest(
+        providerId=adapter.config.id,
+        action="select",
+        table="scrapbook",
+        columns=["id", "title", "summary", "source_url", "platform", "thumbnail", "tags", "created_at"],
+        filters=filters or None,
+        order=[DbOrder(column="created_at", ascending=False)],
+        limit=limit,
+    )
+    result = adapter.execute(req)
+    return JSONResponse(content={"items": result.data or [], "error": result.error})
+
+
+# ---------------------------------------------------------------------------
+# POST /scrapbook
+# ---------------------------------------------------------------------------
+
+@router.post("/scrapbook")
+async def create_scrapbook_entry(request: Request) -> JSONResponse:
+    """
+    Create a scrapbook entry.
+
+    When source_url is provided (and title/content are empty), the backend will:
+      1. Fetch the URL content using x-reader (auto-detects platform).
+      2. Call the configured AI model to generate title + summary.
+
+    Request body:
+        source_url      str | None  — URL to fetch
+        platform        str         — platform hint (overridden if x-reader detects one)
+        title           str         — user-provided title (skips AI if given)
+        summary         str         — user-provided summary (skips AI if given)
+        content         str         — user-provided content
+        thumbnail       str | None  — cover image URL
+        tags            list[str]
+        database_provider str | None
+
+        # AI model config (used when generating title/summary)
+        provider        str         — e.g. "gemini", "siliconflow"
+        api_key         str         — API key for the provider
+        base_url        str | None  — optional custom base URL
+        model           str | None  — model name
+    """
+    body: dict[str, Any] = await request.json()
+
+    source_url = (body.get("source_url") or "").strip()
+    title = (body.get("title") or "").strip()
+    summary = (body.get("summary") or "").strip()
+    content = (body.get("content") or "").strip()
+    platform = (body.get("platform") or "manual").strip()
+    thumbnail = body.get("thumbnail")
+    tags = body.get("tags") or []
+    database_provider = body.get("database_provider")
+
+    # AI model config
+    provider = (body.get("provider") or "gemini").strip()
+    api_key = (body.get("api_key") or body.get("apiKey") or "").strip()
+    base_url = body.get("base_url") or body.get("baseUrl")
+    model = body.get("model")
+
+    # ── Step 1: If URL given and no manual content, fetch via x-reader ──────
+    fetched_title = ""
+    if source_url and not content:
+        fetched = await _fetch_url_content(source_url)
+        content = fetched["content"]
+        fetched_title = fetched["title"]
+        # Override platform with x-reader's detected value (if meaningful)
+        if fetched["platform"] and fetched["platform"] not in ("", "unknown"):
+            platform = fetched["platform"]
+
+    if not source_url and not content and not title:
+        raise HTTPException(status_code=400, detail="Provide source_url, content, or title")
+
+    # ── Step 2: Use fetched title, fallback to fast AI only if totally missing ─────────────
+    if not title:
+        if fetched_title:
+            title = fetched_title
+        elif source_url and api_key:
+            try:
+                ai = await _ai_generate_title(
+                    content=content or source_url,
+                    url=source_url,
+                    platform=platform,
+                    provider=provider,
+                    api_key=api_key,
+                    base_url=base_url,
+                    model=model,
+                )
+                title = ai.get("title")
+            except Exception as exc:
+                logger.error("[Scrapbook] AI generation failed: %s", exc)
+
+    # Final fallback for title
+    if not title:
+        title = (content[:80] if content else source_url) or "Untitled"
+
+    # ── Step 3: Persist to DB ─────────────────────────────────────────────────
+    adapter = get_db_adapter(database_provider)
+    if not adapter:
+        raise HTTPException(status_code=503, detail="No database provider configured")
+
+    now = _utc_now()
+    entry: dict[str, Any] = {
+        "id": str(uuid.uuid4()),
+        "title": title,
+        "summary": summary,
+        "content": content,
+        "source_url": source_url or None,
+        "platform": platform,
+        "thumbnail": thumbnail,
+        "tags": tags,
+        "created_at": now,
+        "updated_at": now,
+    }
+
+    req = DbQueryRequest(
+        providerId=adapter.config.id,
+        action="insert",
+        table="scrapbook",
+        values=entry,
+        single=True,
+    )
+    result = adapter.execute(req)
+    if result.error:
+        logger.error("[Scrapbook] Insert failed: %s", result.error)
+        raise HTTPException(status_code=500, detail=result.error)
+
+    return JSONResponse(status_code=201, content={"item": result.data or entry})
+
+
+# ---------------------------------------------------------------------------
+# GET /scrapbook/{entry_id}
+# ---------------------------------------------------------------------------
+
+@router.get("/scrapbook/{entry_id}")
+async def get_scrapbook_entry(
+    entry_id: str,
+    database_provider: str | None = None,
+) -> JSONResponse:
+    """Get a scrapbook entry by id."""
+    adapter = get_db_adapter(database_provider)
+    if not adapter:
+        raise HTTPException(status_code=503, detail="No database provider configured")
+
+    req = DbQueryRequest(
+        providerId=adapter.config.id,
+        action="select",
+        table="scrapbook",
+        filters=[DbFilter(op="eq", column="id", value=entry_id)],
+        single=True,
+    )
+    result = adapter.execute(req)
+    if result.error:
+        raise HTTPException(status_code=500, detail=result.error)
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Entry not found")
+
+    return JSONResponse(content={"item": result.data})
+
+
+# ---------------------------------------------------------------------------
+# PATCH /scrapbook/{entry_id}
+# ---------------------------------------------------------------------------
+
+@router.patch("/scrapbook/{entry_id}")
+async def update_scrapbook_entry(
+    entry_id: str,
+    request: Request,
+) -> JSONResponse:
+    """Update a scrapbook entry (e.g. summary)."""
+    body: dict[str, Any] = await request.json()
+    database_provider = body.pop("database_provider", None)
+
+    adapter = get_db_adapter(database_provider)
+    if not adapter:
+        raise HTTPException(status_code=503, detail="No database provider configured")
+
+    if not body:
+        return JSONResponse(content={"item": {"id": entry_id}})
+
+    body["updated_at"] = _utc_now()
+
+    req = DbQueryRequest(
+        providerId=adapter.config.id,
+        action="update",
+        table="scrapbook",
+        payload=body,
+        filters=[DbFilter(op="eq", column="id", value=entry_id)],
+    )
+    result = adapter.execute(req)
+    if result.error:
+        raise HTTPException(status_code=500, detail=result.error)
+
+    return JSONResponse(content={"item": {"id": entry_id, **body}})
+
+
+# ---------------------------------------------------------------------------
+# DELETE /scrapbook/{entry_id}
+# ---------------------------------------------------------------------------
+
+@router.delete("/scrapbook/{entry_id}")
+async def delete_scrapbook_entry(
+    entry_id: str,
+    database_provider: str | None = None,
+) -> JSONResponse:
+    """Delete a scrapbook entry by id."""
+    adapter = get_db_adapter(database_provider)
+    if not adapter:
+        raise HTTPException(status_code=503, detail="No database provider configured")
+
+    req = DbQueryRequest(
+        providerId=adapter.config.id,
+        action="delete",
+        table="scrapbook",
+        filters=[DbFilter(op="eq", column="id", value=entry_id)],
+    )
+    result = adapter.execute(req)
+    if result.error:
+        raise HTTPException(status_code=500, detail=result.error)
+
+    return JSONResponse(content={"deleted": entry_id})

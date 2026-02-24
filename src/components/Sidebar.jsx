@@ -1,6 +1,7 @@
 import clsx from 'clsx'
 import {
   Blocks,
+  BookOpen,
   BrainCircuit,
   Bookmark,
   ChevronDown,
@@ -582,6 +583,7 @@ const Sidebar = ({
     { id: 'spaces', icon: LayoutGrid },
     { id: 'agents', icon: Smile },
     { id: 'bookmarks', icon: Bookmark },
+    { id: 'scrapbook', icon: BookOpen },
   ]
 
   const navItems = useMemo(
@@ -918,6 +920,11 @@ const Sidebar = ({
               <button
                 key={item.id}
                 onClick={() => {
+                  if (item.id === 'scrapbook') {
+                    // Scrapbook is a standalone page - always navigate directly
+                    onNavigate('scrapbook')
+                    return
+                  }
                   setActiveTab(item.id)
                   // On mobile (isOpen), only switch tab, don't navigate full page
                   if (!isOpen) {
@@ -930,7 +937,8 @@ const Sidebar = ({
                   }
                 }}
                 onMouseEnter={() => {
-                  if (!isMobile) setHoveredTab(item.id)
+                  // Scrapbook should not expand the sidebar panel on hover
+                  if (!isMobile && item.id !== 'scrapbook') setHoveredTab(item.id)
                 }}
                 className={clsx(
                   'group relative flex cursor-pointer flex-col items-center justify-center overflow-hidden rounded-xl px-0 py-2.5 transition-all duration-300',

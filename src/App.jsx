@@ -322,6 +322,9 @@ function App() {
         case 'bookmarks':
           navigate({ to: '/bookmarks' })
           break
+        case 'scrapbook':
+          navigate({ to: '/scrapbook' })
+          break
         case 'deepResearch':
           navigate({ to: '/deepresearch' })
           break

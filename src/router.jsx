@@ -14,6 +14,8 @@ const LibraryView = React.lazy(() => import('./views/LibraryView'))
 const DeepResearchView = React.lazy(() => import('./views/DeepResearchView'))
 const ExpertView = React.lazy(() => import('./views/ExpertView'))
 const BookmarksView = React.lazy(() => import('./views/BookmarksView'))
+const ScrapbookView = React.lazy(() => import('./views/ScrapbookView'))
+const ScrapbookDetailView = React.lazy(() => import('./views/ScrapbookDetailView'))
 const ShareImageView = React.lazy(() => import('./views/ShareImageView'))
 const DeepResearchConversationView = React.lazy(
   () => import('./views/DeepResearchConversationView'),
@@ -183,6 +185,26 @@ export const bookmarksRoute = createRoute({
   ),
 })
 
+export const scrapbookRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: 'scrapbook',
+  component: () => (
+    <SuspensePage>
+      <ScrapbookView />
+    </SuspensePage>
+  ),
+})
+
+export const scrapbookDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: 'scrapbook/$entryId',
+  component: () => (
+    <SuspensePage>
+      <ScrapbookDetailView />
+    </SuspensePage>
+  ),
+})
+
 export const shareImageRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: 'share',
@@ -206,6 +228,8 @@ export const routeTree = rootRoute.addChildren([
   deepResearchRoute,
   expertRoute,
   bookmarksRoute,
+  scrapbookRoute,
+  scrapbookDetailRoute,
   shareImageRoute,
 ])
 

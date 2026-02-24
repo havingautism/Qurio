@@ -44,6 +44,7 @@ APP_TABLES: list[str] = [
     "memory_domains",
     "user_tools",
     "pending_form_runs",
+    "scrapbook",
 ]
 
 

@@ -178,6 +178,24 @@ SCHEMA_STATEMENTS: list[str] = [
     );
     """,
     """
+    CREATE TABLE IF NOT EXISTS scrapbook (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL DEFAULT '',
+      summary TEXT NOT NULL DEFAULT '',
+      content TEXT NOT NULL DEFAULT '',
+      source_url TEXT,
+      platform TEXT NOT NULL DEFAULT 'manual',
+      thumbnail TEXT,
+      tags TEXT NOT NULL DEFAULT '[]',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_scrapbook_created_at
+      ON scrapbook(created_at DESC);
+    """,
+    """
     CREATE TABLE IF NOT EXISTS home_notes (
       id TEXT PRIMARY KEY,
       content TEXT NOT NULL DEFAULT '',

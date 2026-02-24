@@ -692,7 +692,7 @@ const EntryCard = ({ entry, onDelete }) => {
   return (
     <div
       onClick={() => navigate({ to: '/scrapbook/$entryId', params: { entryId: entry.id } })}
-      className="group relative flex cursor-pointer flex-col rounded-3xl border border-white/40 bg-white/40 p-5 shadow-sm backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:bg-white/60 hover:shadow-md dark:border-white/10 dark:bg-black/40 dark:hover:bg-black/50"
+      className="group relative flex cursor-pointer flex-col rounded-3xl border border-white/40 bg-white/40 px-5 py-3 shadow-sm backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:bg-white/60 hover:shadow-md dark:border-white/10 dark:bg-black/40 dark:hover:bg-black/50"
     >
       {/* Platform badge + date + delete in one row */}
       <div className="mb-2 flex items-center gap-2">
@@ -729,7 +729,7 @@ const EntryCard = ({ entry, onDelete }) => {
 
       {/* Summary */}
       {entry.summary && (
-        <div className="relative mb-3 flex-1 rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 dark:border-white/10 dark:bg-white/5">
+        <div className="relative mb-3 flex-1 rounded-xl border border-white/10 bg-gray-200/70 px-3 py-2.5 dark:border-white/10 dark:bg-white/5">
           {/* <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-medium tracking-[0.08em] text-[var(--color-text-tertiary)] uppercase">
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--color-accent)]/80" />
             {t('common.summary')}
@@ -739,7 +739,7 @@ const EntryCard = ({ entry, onDelete }) => {
               <Streamdown>{entry.summary}</Streamdown>
             </div>
           </div>
-          <div className="pointer-events-none absolute right-2 bottom-2 left-2 h-6 bg-gradient-to-t from-black/35 to-transparent dark:from-black/40" />
+          {/* <div className="pointer-events-none absolute right-2 bottom-2 left-2 h-6 bg-gradient-to-t from-black/35 to-transparent dark:from-black/40" /> */}
         </div>
       )}
 

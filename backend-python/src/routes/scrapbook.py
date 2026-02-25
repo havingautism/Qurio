@@ -326,49 +326,58 @@ async def create_scrapbook_entry(request: Request) -> JSONResponse:
     if not source_url and not content and not title:
         raise HTTPException(status_code=400, detail="Provide source_url, content, or title")
 
-    # ── Step 2: Use fetched title, fallback to fast AI only if totally missing ─────────────
+    # ── Step 2: Concurrently generate title + emoji via AI ──────────────────
+    # Skip AI title if we already have one (user-provided or fetched by x-reader).
     if not title:
-        if fetched_title:
-            title = fetched_title
-        elif source_url and api_key:
-            try:
-                ai = await _ai_generate_title(
-                    content=content or source_url,
-                    url=source_url,
-                    platform=platform,
-                    provider=provider,
-                    api_key=api_key,
-                    base_url=base_url,
-                    model=model,
-                )
-                title = ai.get("title")
-            except Exception as exc:
-                logger.error("[Scrapbook] AI generation failed: %s", exc)
+        title = fetched_title  # may still be empty — AI will fill it
+
+    needs_ai_title = not title and bool(api_key)
+    needs_ai_emoji = not emoji and bool(api_key)
+
+    if needs_ai_title or needs_ai_emoji:
+        context_for_ai = content or source_url  # _ai_* functions truncate internally
+
+        title_coro = (
+            _ai_generate_title(
+                content=context_for_ai,
+                url=source_url,
+                platform=platform,
+                provider=provider,
+                api_key=api_key,
+                base_url=base_url,
+                model=model,
+            )
+            if needs_ai_title
+            else asyncio.sleep(0)  # no-op placeholder
+        )
+        emoji_coro = (
+            _ai_generate_emoji(
+                content=title or context_for_ai or source_url,
+                url=source_url or "",
+                platform=platform,
+                provider=provider,
+                api_key=api_key,
+                base_url=base_url,
+                model=model,
+            )
+            if needs_ai_emoji
+            else asyncio.sleep(0)  # no-op placeholder
+        )
+
+        try:
+            title_result, emoji_result = await asyncio.gather(
+                title_coro, emoji_coro, return_exceptions=True
+            )
+            if needs_ai_title and isinstance(title_result, dict):
+                title = title_result.get("title") or title
+            if needs_ai_emoji and isinstance(emoji_result, str):
+                emoji = emoji_result.strip()
+        except Exception as exc:
+            logger.error("[Scrapbook] Concurrent AI generation failed: %s", exc)
 
     # Final fallback for title
     if not title:
         title = (content[:80] if content else source_url) or "Untitled"
-
-    if not emoji and source_url and api_key:
-        emoji = await _ai_generate_emoji(
-            content=title or content or source_url,
-            url=source_url,
-            platform=platform,
-            provider=provider,
-            api_key=api_key,
-            base_url=base_url,
-            model=model,
-        )
-    elif not emoji and api_key and (title or content):
-        emoji = await _ai_generate_emoji(
-            content=title or content,
-            url=source_url or "",
-            platform=platform,
-            provider=provider,
-            api_key=api_key,
-            base_url=base_url,
-            model=model,
-        )
 
     # ── Step 3: Persist to DB ─────────────────────────────────────────────────
     adapter = get_db_adapter(database_provider)

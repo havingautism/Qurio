@@ -1027,7 +1027,7 @@ export default function ScrapbookView() {
         {/* ── FAB ────────────────────────────────────────────────────────── */}
         <button
           onClick={() => setShowAddModal(true)}
-          className="absolute right-6 bottom-8 flex h-14 w-14 items-center justify-center rounded-[24px] bg-white text-gray-900 shadow-[0_8px_30px_rgba(0,0,0,0.12)] transition-all hover:scale-105 active:scale-95 dark:bg-zinc-800 dark:text-gray-100"
+          className="absolute right-6 bottom-8 z-150 flex h-14 w-14 items-center justify-center rounded-[24px] bg-white text-gray-900 shadow-lg backdrop-blur-lg transition-all hover:scale-105 active:scale-95 dark:bg-zinc-800 dark:text-gray-100"
         >
           {/* Plus icon inside a colorful gradient container or just styled colorful */}
           <div className="flex items-center gap-1.5 bg-gradient-to-r from-blue-500 via-purple-500 to-red-500 bg-clip-text text-transparent">

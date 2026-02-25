@@ -13,6 +13,7 @@ import {
   Search,
   Trash2,
   X,
+  Menu,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -39,7 +40,8 @@ const SORT_OPTION_KEYS = [
 
 const DeepResearchView = () => {
   const { t, i18n } = useTranslation()
-  const { spaces, deepResearchSpace, isSidebarPinned, showConfirmation } = useAppContext()
+  const { spaces, deepResearchSpace, isSidebarPinned, showConfirmation, toggleSidebar } =
+    useAppContext()
   const { openDeepResearchGuide } = useDeepResearchGuide()
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
@@ -228,15 +230,24 @@ const DeepResearchView = () => {
         {/* Header */}
         <div className="mb-5 flex items-center justify-between sm:mb-8">
           <div className="flex items-center gap-2.5 sm:gap-3">
+            <button
+              onClick={() => toggleSidebar()}
+              aria-label="Open sidebar"
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-gray-200/50 bg-white/90 p-0 leading-none text-gray-600 shadow-sm backdrop-blur-xl transition-all hover:bg-white hover:shadow-md md:hidden dark:border-zinc-800/50 dark:bg-zinc-900/90 dark:text-gray-300 dark:hover:bg-zinc-900"
+            >
+              <Menu size={20} strokeWidth={2} />
+            </button>
             <Microscope size={32} className="text-primary-500" />
-            <h1 className="text-2xl font-medium sm:text-3xl">{t('views.deepResearchView.title')}</h1>
+            <h1 className="text-2xl font-medium sm:text-3xl">
+              {t('views.deepResearchView.title')}
+            </h1>
           </div>
           <button
             onClick={openDeepResearchGuide}
             className="flex items-center gap-1.5 rounded-lg bg-gray-100 px-3 py-1.5 text-sm font-medium transition-colors hover:bg-gray-200 sm:gap-2 sm:px-4 sm:py-2 dark:bg-zinc-800 dark:hover:bg-zinc-700"
           >
             <Plus size={16} />
-            <span>{t('views.newResearch')}</span>
+            <span className="hidden sm:inline">{t('views.newResearch')}</span>
           </button>
         </div>
 
@@ -256,7 +267,7 @@ const DeepResearchView = () => {
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               onKeyDown={handleKeyDown}
-              className="w-full rounded-xl border border-transparent bg-gray-100 py-2.5 pr-20 pl-10 text-sm placeholder-gray-500 transition-all outline-none sm:py-3 dark:bg-zinc-900 dark:focus:border-zinc-700 focus:border-gray-300"
+              className="w-full rounded-xl border border-transparent bg-gray-100 py-2.5 pr-20 pl-10 text-sm placeholder-gray-500 transition-all outline-none focus:border-gray-300 sm:py-3 dark:bg-zinc-900 dark:focus:border-zinc-700"
             />
             {searchQuery && (
               <div className="absolute top-1/2 right-3 flex -translate-y-1/2 items-center gap-1">
@@ -397,7 +408,7 @@ const DeepResearchView = () => {
                             title={space.label || ''}
                           >
                             {space?.emoji && <EmojiDisplay emoji={space.emoji} size="0.95rem" />}
-                            <span className="truncate max-w-[8.5rem] sm:max-w-[12rem]">
+                            <span className="max-w-[8.5rem] truncate sm:max-w-[12rem]">
                               {space.label}
                             </span>
                           </div>

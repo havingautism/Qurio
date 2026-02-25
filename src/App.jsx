@@ -1014,10 +1014,15 @@ function App() {
                 <div
                   className={`relative ml-0 flex w-full flex-1 flex-col overflow-hidden transition-all duration-300`}
                 >
-                  {/* Mobile Header - Hide on Chat/Conversation routes as they have their own header */}
-                  {!location.pathname.includes('/conversation/') &&
-                    !location.pathname.includes('/deepresearch/') &&
-                    !location.pathname.includes('/expert/') &&
+                  {/* Mobile Header - Hide on Chat/Conversation/Scrapbook/Main Views as they have their own header */}
+                  {!location.pathname.includes('/conversation') &&
+                    !location.pathname.includes('/deepresearch') &&
+                    !location.pathname.includes('/expert') &&
+                    !location.pathname.includes('/scrapbook') &&
+                    !location.pathname.includes('/library') &&
+                    !location.pathname.includes('/agents') &&
+                    !location.pathname.includes('/spaces') &&
+                    !location.pathname.includes('/bookmarks') &&
                     !location.pathname.includes('/new_chat') && (
                       <div className="relative z-30 h-20 shrink-0 md:hidden">
                         <div

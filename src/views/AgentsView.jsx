@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { Plus, Smile, Sparkles } from 'lucide-react'
+import { Plus, Smile, Sparkles, Menu } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAppContext } from '../App'
 import EmojiDisplay from '../components/EmojiDisplay'
@@ -7,7 +7,8 @@ import { getAgentDisplayDescription, getAgentDisplayName } from '../lib/agentDis
 
 const AgentsView = () => {
   const { t } = useTranslation()
-  const { onCreateAgent, onEditAgent, isSidebarPinned, agents, agentsLoading } = useAppContext()
+  const { onCreateAgent, onEditAgent, isSidebarPinned, agents, agentsLoading, toggleSidebar } =
+    useAppContext()
 
   return (
     <div
@@ -19,8 +20,15 @@ const AgentsView = () => {
       <div className="mx-auto w-full max-w-5xl px-3 py-5 sm:px-6 sm:py-8">
         {/* Header */}
         <div className="mb-8 flex items-center gap-3">
+          <button
+            onClick={() => toggleSidebar()}
+            aria-label="Open sidebar"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-gray-200/50 bg-white/90 p-0 leading-none text-gray-600 shadow-sm backdrop-blur-xl transition-all hover:bg-white hover:shadow-md md:hidden dark:border-zinc-800/50 dark:bg-zinc-900/90 dark:text-gray-300 dark:hover:bg-zinc-900"
+          >
+            <Menu size={20} strokeWidth={2} />
+          </button>
           <Smile size={32} className="text-primary-500" />
-          <h1 className="text-3xl font-medium">{t('agentsView.title')}</h1>
+          <h1 className="text-2xl font-medium sm:text-3xl">{t('agentsView.title')}</h1>
         </div>
 
         {/* My Agents Section */}

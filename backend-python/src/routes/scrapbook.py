@@ -313,14 +313,21 @@ async def create_scrapbook_entry(request: Request) -> JSONResponse:
     base_url = body.get("base_url") or body.get("baseUrl")
     model = body.get("model")
 
-    # ── Step 1: If URL given and no manual content, fetch via x-reader ──────
+    # ── Step 1: Detect platform and fetch content via x-reader if needed ────
     fetched_title = ""
+    
+    # Try pattern matching on URL first if platform is manual or unknown
+    if source_url and platform in ("manual", "unknown", ""):
+        guessed_platform = _detect_platform_from_url(source_url)
+        if guessed_platform != "unknown":
+            platform = guessed_platform
+
     if source_url and not content:
         fetched = await _fetch_url_content(source_url)
         content = fetched["content"]
         fetched_title = fetched["title"]
-        # Override platform with x-reader's detected value (if meaningful)
-        if fetched["platform"] and fetched["platform"] not in ("", "unknown"):
+        # Override platform with x-reader's detected value only if we still don't have a good one
+        if fetched["platform"] and fetched["platform"] not in ("", "unknown") and platform in ("manual", "unknown", ""):
             platform = fetched["platform"]
 
     if not source_url and not content and not title:

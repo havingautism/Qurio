@@ -27,6 +27,7 @@ import {
   X,
   Video,
   Image as ImageIcon,
+  Menu,
 } from 'lucide-react'
 import clsx from 'clsx'
 import {
@@ -812,7 +813,7 @@ const EntryCard = ({ entry, onDelete }) => {
 
 export default function ScrapbookView() {
   const { t } = useTranslation()
-  const { isSidebarPinned } = useAppContext()
+  const { isSidebarPinned, toggleSidebar } = useAppContext()
   const [entries, setEntries] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [activePlatform, setActivePlatform] = useState('all')
@@ -867,19 +868,31 @@ export default function ScrapbookView() {
 
       <div className="relative z-10 flex h-full flex-col">
         {/* ── Header ─────────────────────────────────────────────────────── */}
-        <div className="flex-shrink-0 px-5 py-4 pb-2">
-          {/* Top Bar: Title + Actions */}
+        <div className="flex-shrink-0 px-4 pt-4 md:px-5 md:py-4">
+          {/* Top Bar: Menu/Title + Actions */}
           <div className="mb-4 flex items-center justify-between">
+            {/* Left Box: Menu Toggle & Title */}
             <div className="flex items-center gap-3">
+              <button
+                onClick={() => toggleSidebar()}
+                aria-label="Open sidebar"
+                className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-gray-200/50 bg-white/90 p-0 leading-none text-gray-600 shadow-sm backdrop-blur-xl transition-all hover:bg-white hover:shadow-md md:hidden dark:border-zinc-800/50 dark:bg-zinc-900/90 dark:text-gray-300 dark:hover:bg-zinc-900"
+              >
+                <Menu size={21} strokeWidth={2} />
+              </button>
+
+              {/* BookOpen icon visible on all screens */}
               <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-500 text-white shadow-sm shadow-blue-500/20">
                 <BookOpen size={16} className="flex-shrink-0" />
               </div>
+
               <h1 className="text-xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
-                {t('scrapbook.title', '小布记忆')}
+                {t('scrapbook.title', '随手记')}
               </h1>
             </div>
 
-            <div className="flex items-center gap-4 text-gray-700 dark:text-gray-300">
+            {/* Right Box: Search, Settings etc. */}
+            <div className="flex items-center gap-3">
               <button
                 // We'll reveal the search bar conditionally in a real app,
                 // but for now, we'll keep the design clean with just an icon
@@ -898,7 +911,7 @@ export default function ScrapbookView() {
                 <button
                   onClick={() => setShowModelConfig(true)}
                   title="AI 模型配置"
-                  className="hover:text-black dark:hover:text-white"
+                  className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all hover:bg-gray-200/50 hover:text-black md:h-8 md:w-8 md:rounded-lg dark:text-gray-300 dark:hover:bg-zinc-800 dark:hover:text-white"
                 >
                   <Settings2 size={20} strokeWidth={2.5} />
                 </button>
@@ -928,7 +941,7 @@ export default function ScrapbookView() {
           </div>
 
           {/* Platform filter pills (Scrollable array) */}
-          <div className="scrollbar-none -mx-5 flex snap-x snap-mandatory overflow-x-auto px-5 pb-2">
+          <div className="scrollbar-none -mx-4 flex snap-x snap-mandatory overflow-x-auto px-4 pb-2 md:-mx-5 md:px-5">
             <div className="flex gap-2">
               {ALL_PLATFORMS.map(p => {
                 const isActive = activePlatform === p

@@ -1,7 +1,6 @@
 import clsx from 'clsx'
 import {
   Blocks,
-  BookOpen,
   BrainCircuit,
   Bookmark,
   ChevronDown,
@@ -12,6 +11,7 @@ import {
   Library,
   Microscope,
   Moon,
+  PencilLine,
   Pin,
   Plus,
   Settings,
@@ -21,6 +21,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import React, { useEffect, useMemo, useState } from 'react'
+import { useLocation } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { useAppContext } from '../App'
 import { useToast } from '../contexts/ToastContext'
@@ -68,6 +69,7 @@ const Sidebar = ({
   onPinChange,
 }) => {
   const { openDeepResearchGuide } = useDeepResearchGuide()
+  const location = useLocation()
   const { t, i18n } = useTranslation()
   const isStandalone =
     typeof window !== 'undefined' &&
@@ -575,6 +577,44 @@ const Sidebar = ({
     }
   }, [activeTab])
 
+  // Keep icon-strip selected state in sync with the current route, including standalone pages like Scrapbook.
+  useEffect(() => {
+    const path = String(location?.pathname || '')
+    if (path.startsWith('/scrapbook')) {
+      setActiveTab(prev => (prev === 'scrapbook' ? prev : 'scrapbook'))
+      return
+    }
+    if (path.startsWith('/bookmarks')) {
+      setActiveTab(prev => (prev === 'bookmarks' ? prev : 'bookmarks'))
+      return
+    }
+    if (path.startsWith('/agents')) {
+      setActiveTab(prev => (prev === 'agents' ? prev : 'agents'))
+      return
+    }
+    if (path.startsWith('/spaces') || path.startsWith('/space/')) {
+      setActiveTab(prev => (prev === 'spaces' ? prev : 'spaces'))
+      return
+    }
+    if (path.startsWith('/deepresearch')) {
+      setActiveTab(prev => (prev === 'deepResearch' ? prev : 'deepResearch'))
+      return
+    }
+    if (path.startsWith('/expert')) {
+      setActiveTab(prev => (prev === 'expert' ? prev : 'expert'))
+      return
+    }
+    if (
+      path === '/' ||
+      path.startsWith('/new_chat') ||
+      path.startsWith('/library') ||
+      path.startsWith('/conversation/')
+      )
+    {
+      setActiveTab(prev => (prev === 'library' ? prev : 'library'))
+    }
+  }, [location.pathname])
+
   // Nav items - use constant keys for logic, translate labels for display
   const NAV_ITEM_KEYS = [
     { id: 'library', icon: Library },
@@ -583,7 +623,7 @@ const Sidebar = ({
     { id: 'spaces', icon: LayoutGrid },
     { id: 'agents', icon: Smile },
     { id: 'bookmarks', icon: Bookmark },
-    { id: 'scrapbook', icon: BookOpen },
+    { id: 'scrapbook', icon: PencilLine },
   ]
 
   const navItems = useMemo(
@@ -922,6 +962,7 @@ const Sidebar = ({
                 onClick={() => {
                   if (item.id === 'scrapbook') {
                     // Scrapbook is a standalone page - always navigate directly
+                    setActiveTab('scrapbook')
                     onNavigate('scrapbook')
                     return
                   }

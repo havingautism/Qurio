@@ -28,6 +28,7 @@ import {
   Video,
   Image as ImageIcon,
   Menu,
+  PencilLine,
 } from 'lucide-react'
 import clsx from 'clsx'
 import {
@@ -133,6 +134,18 @@ const stripGeneratedTitlePrefix = value => {
 // ─────────────────────────────────────────────────────────────────────────────
 // Model Config Panel (inside ScrapbookView header)
 // ─────────────────────────────────────────────────────────────────────────────
+
+const getCardSummarySnippet = (summary, maxLen = 170) => {
+  if (!summary) return ''
+  const normalized = String(summary)
+    .replace(/!\[[^\]]*\]\([^)]+\)/g, ' ')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/[`*_>#~-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!normalized) return ''
+  return normalized.length > maxLen ? `${normalized.slice(0, maxLen).trimEnd()}...` : normalized
+}
 
 const ModelConfigPanel = ({ isOpen, onClose }) => {
   const { t } = useTranslation()
@@ -711,8 +724,10 @@ const EntryCard = ({ entry, onDelete }) => {
   const navigate = useNavigate()
   const { showConfirmation } = useAppContext()
   const [isDeleting, setIsDeleting] = useState(false)
+  const [thumbnailLoadFailed, setThumbnailLoadFailed] = useState(false)
   const displayTitle = stripGeneratedTitlePrefix(entry.title) || t('scrapbook.detail.untitled')
   const actualThumbnail = getThumbnailUrl(entry)
+  const summarySnippet = getCardSummarySnippet(entry.summary)
 
   // Date format: "昨天 02:24" or "2026/2/23"
   const dateStr = entry.created_at
@@ -743,28 +758,30 @@ const EntryCard = ({ entry, onDelete }) => {
   return (
     <div
       onClick={() => navigate({ to: '/scrapbook/$entryId', params: { entryId: entry.id } })}
-      className="group relative flex cursor-pointer gap-4 rounded-3xl bg-white px-5 py-4 shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-all duration-300 hover:shadow-[0_4px_20px_rgba(0,0,0,0.08)] active:scale-[0.98] dark:bg-zinc-900/40"
+      className="group relative flex min-h-[156px] cursor-pointer gap-2 rounded-3xl bg-white px-5 py-4 shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-all duration-300 hover:shadow-[0_4px_20px_rgba(0,0,0,0.08)] active:scale-[0.98] sm:gap-4 dark:bg-zinc-900/40"
     >
       {/* Delete button (hover only on desktop, or long press on mobile - simplified to top right absolute for now) */}
       <button
         onClick={handleDelete}
         disabled={isDeleting}
-        className="absolute top-2 right-2 rounded-full bg-white/80 p-1.5 text-gray-400 opacity-0 shadow-sm backdrop-blur-md transition-all group-hover:opacity-100 hover:bg-red-50 hover:text-red-500 md:top-3 md:right-3 dark:bg-zinc-800/80 dark:hover:bg-red-900/30"
+        className="absolute top-2 right-2 z-30 rounded-full bg-white/85 p-1.5 text-gray-400 opacity-100 shadow-sm backdrop-blur-md transition-all hover:bg-red-50 hover:text-red-500 md:top-3 md:right-3 md:opacity-0 md:group-hover:opacity-100 dark:bg-zinc-800/85 dark:hover:bg-red-900/30"
       >
         {isDeleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
       </button>
 
       {/* Left Content */}
-      <div className="flex min-w-0 flex-1 flex-col py-1">
-        <h3 className="mb-2 line-clamp-2 text-base leading-snug font-bold tracking-tight text-gray-900 dark:text-gray-100">
-          {displayTitle}
+      <div className={clsx('flex min-w-0 flex-1 flex-col py-1', actualThumbnail && 'pr-2 sm:pr-8')}>
+        <h3 className="mb-2 min-h-[2.75rem] pr-1 text-base leading-snug font-bold tracking-tight text-gray-900 dark:text-gray-100">
+          <span className="flex items-start gap-1.5">
+            {entry.emoji && <span className="mt-[1px] shrink-0 leading-none">{entry.emoji}</span>}
+            <span className="line-clamp-2 min-w-0">{displayTitle}</span>
+          </span>
         </h3>
 
         {/* Summary Snippet - hidden if very long, keep to 2 lines max */}
-        {entry.summary && (
-          <p className="mb-3 line-clamp-2 text-[13px] leading-relaxed text-gray-500 dark:text-gray-400">
-            {/* Using simple string replace for demo, Streamdown might break inline flow */}
-            {entry.summary.replace(/[#*`_]/g, '').slice(0, 100)}...
+        {summarySnippet && (
+          <p className="mb-3 line-clamp-3 min-h-[3.75rem] text-[13px] leading-relaxed text-gray-500 dark:text-gray-400">
+            {summarySnippet}
           </p>
         )}
 
@@ -784,15 +801,22 @@ const EntryCard = ({ entry, onDelete }) => {
 
       {/* Right Thumbnail */}
       {actualThumbnail && (
-        <div className="relative shrink-0 overflow-hidden rounded-xl object-cover">
-          <img
-            src={actualThumbnail}
-            alt=""
-            className="h-28 w-[84px] object-cover"
-            onError={e => {
-              e.target.style.display = 'none'
-            }}
-          />
+        <div className="relative z-10 h-32 w-[92px] shrink-0 overflow-hidden rounded-xl bg-black/5 dark:bg-white/5">
+          {!thumbnailLoadFailed && (
+            <img
+              src={actualThumbnail}
+              alt=""
+              className="h-full w-full object-cover"
+              onError={() => {
+                setThumbnailLoadFailed(true)
+              }}
+            />
+          )}
+          {thumbnailLoadFailed && (
+            <div className="absolute inset-0 flex items-center justify-center text-gray-400 dark:text-gray-500">
+              <ImageIcon size={16} />
+            </div>
+          )}
           {/* Media type indicator bottom right corner */}
           <div className="absolute right-1.5 bottom-1.5 rounded-md bg-black/40 p-0.5 text-white backdrop-blur-md">
             {['youtube', 'bilibili'].includes(entry.platform) ? (
@@ -872,7 +896,7 @@ export default function ScrapbookView() {
           {/* Top Bar: Menu/Title + Actions */}
           <div className="mb-4 flex items-center justify-between">
             {/* Left Box: Menu Toggle & Title */}
-            <div className="flex items-center gap-3">
+            {/* <div className="flex items-center gap-3">
               <button
                 onClick={() => toggleSidebar()}
                 aria-label="Open sidebar"
@@ -881,16 +905,26 @@ export default function ScrapbookView() {
                 <Menu size={21} strokeWidth={2} />
               </button>
 
-              {/* BookOpen icon visible on all screens */}
+             
               <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-500 text-white shadow-sm shadow-blue-500/20">
-                <BookOpen size={16} className="flex-shrink-0" />
+                <PencilLine size={16} className="shrink-0" />
               </div>
 
               <h1 className="text-xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
                 {t('scrapbook.title', '随手记')}
               </h1>
+            </div> */}
+            <div className="flex items-center gap-2.5 sm:gap-3">
+              <button
+                onClick={() => toggleSidebar()}
+                aria-label="Open sidebar"
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-gray-200/50 bg-white/90 p-0 leading-none text-gray-600 shadow-sm backdrop-blur-xl transition-all hover:bg-white hover:shadow-md md:hidden dark:border-zinc-800/50 dark:bg-zinc-900/90 dark:text-gray-300 dark:hover:bg-zinc-900"
+              >
+                <Menu size={20} strokeWidth={2} />
+              </button>
+              <PencilLine size={32} className="text-primary-500" />
+              <h1 className="text-2xl font-medium sm:text-3xl">{t('scrapbook.title', '随手记')}</h1>
             </div>
-
             {/* Right Box: Search, Settings etc. */}
             <div className="flex items-center gap-3">
               <button
@@ -941,7 +975,7 @@ export default function ScrapbookView() {
           </div>
 
           {/* Platform filter pills (Scrollable array) */}
-          <div className="scrollbar-none -mx-4 flex snap-x snap-mandatory overflow-x-auto px-4 pb-2 md:-mx-5 md:px-5">
+          <div className="scrollbar-none flex snap-x snap-mandatory overflow-x-auto px-4 sm:px-4 md:-mx-5 md:px-5">
             <div className="flex gap-2">
               {ALL_PLATFORMS.map(p => {
                 const isActive = activePlatform === p

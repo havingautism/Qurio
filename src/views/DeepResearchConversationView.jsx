@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useAppContext } from '../App'
 import DeepResearchChatInterface from '../components/DeepResearchChatInterface'
+import ConversationLoadingOverlay from '../components/ConversationLoadingOverlay'
 import useChatStore from '../lib/chatStore'
 import { getConversation } from '../lib/conversationsService'
 import { deepResearchConversationRoute } from '../router'
@@ -131,23 +132,30 @@ const DeepResearchConversationView = () => {
   const initialToggles = initialChatState?.initialToggles || {}
   const researchType = initialChatState?.researchType || 'general' // Extract researchType
   const responseLanguage = initialChatState?.responseLanguage || null
+  const shouldShowLoadingOverlay =
+    !initialChatState && conversationId && (!conversation || conversation?._isPlaceholder)
 
   return (
-    <DeepResearchChatInterface
-      spaces={spaces}
-      activeConversation={conversation}
-      conversationId={conversationId}
-      isSidebarPinned={isSidebarPinned}
-      isSpaceSelectionLocked={true}
-      initialMessage={initialMessage}
-      initialAttachments={initialAttachments}
-      initialToggles={initialToggles}
-      initialSpaceSelection={initialSpaceSelection}
-      initialAgentSelection={initialAgentSelection}
-      initialIsAgentAutoMode={initialIsAgentAutoMode}
-      researchType={researchType} // Pass researchType to DeepResearchChatInterface
-      responseLanguage={responseLanguage}
-    />
+    <div className="relative flex h-full flex-1 flex-col overflow-hidden">
+      <DeepResearchChatInterface
+        spaces={spaces}
+        activeConversation={conversation}
+        conversationId={conversationId}
+        isSidebarPinned={isSidebarPinned}
+        isSpaceSelectionLocked={true}
+        initialMessage={initialMessage}
+        initialAttachments={initialAttachments}
+        initialToggles={initialToggles}
+        initialSpaceSelection={initialSpaceSelection}
+        initialAgentSelection={initialAgentSelection}
+        initialIsAgentAutoMode={initialIsAgentAutoMode}
+        researchType={researchType} // Pass researchType to DeepResearchChatInterface
+        responseLanguage={responseLanguage}
+      />
+      {shouldShowLoadingOverlay && (
+        <ConversationLoadingOverlay text="Loading research conversation..." />
+      )}
+    </div>
   )
 }
 

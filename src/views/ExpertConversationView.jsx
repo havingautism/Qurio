@@ -5,6 +5,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useAppContext } from '../App'
 import ChatInterface from '../components/ChatInterface'
 import ExpertMessageList from '../components/ExpertMessageList'
+import ConversationLoadingOverlay from '../components/ConversationLoadingOverlay'
 import useChatStore from '../lib/chatStore'
 import { getConversation } from '../lib/conversationsService'
 import { expertConversationRoute } from '../router'
@@ -175,24 +176,25 @@ const ExpertConversationView = () => {
     )
   }
 
-  if (shouldDelayRender) return null
-
   return (
-    <ChatInterface
-      spaces={spaces}
-      activeConversation={conversation}
-      conversationId={conversationId}
-      isSidebarPinned={isSidebarPinned}
-      isSpaceSelectionLocked={true}
-      initialMessage={initialMessage}
-      initialAttachments={initialAttachments}
-      initialDocumentIds={initialDocumentIds}
-      initialToggles={initialToggles}
-      initialSpaceSelection={initialSpaceSelection}
-      initialAgentSelection={initialAgentSelection}
-      initialIsAgentAutoMode={initialIsAgentAutoMode}
-      MessageListComponent={ExpertMessageList}
-    />
+    <div className="relative flex h-full flex-1 flex-col overflow-hidden">
+      <ChatInterface
+        spaces={spaces}
+        activeConversation={conversation}
+        conversationId={conversationId}
+        isSidebarPinned={isSidebarPinned}
+        isSpaceSelectionLocked={true}
+        initialMessage={initialMessage}
+        initialAttachments={initialAttachments}
+        initialDocumentIds={initialDocumentIds}
+        initialToggles={initialToggles}
+        initialSpaceSelection={initialSpaceSelection}
+        initialAgentSelection={initialAgentSelection}
+        initialIsAgentAutoMode={initialIsAgentAutoMode}
+        MessageListComponent={ExpertMessageList}
+      />
+      {shouldDelayRender && <ConversationLoadingOverlay text="Loading expert conversation..." />}
+    </div>
   )
 }
 

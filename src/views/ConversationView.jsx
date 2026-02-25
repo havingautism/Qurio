@@ -7,6 +7,7 @@ import { useAppContext } from '../App'
 import ChatInterface from '../components/ChatInterface'
 import DeepResearchChatInterface from '../components/DeepResearchChatInterface'
 import ScrapbookContextBanner from '../components/ScrapbookContextBanner'
+import ConversationLoadingOverlay from '../components/ConversationLoadingOverlay'
 import { useShallow } from 'zustand/react/shallow'
 import useChatStore from '../lib/chatStore'
 
@@ -266,8 +267,6 @@ const ConversationView = () => {
     )
   }
 
-  if (shouldDelayRender) return null
-
   // Render the appropriate chat interface with the conversation data
   return (
     <div className="relative flex h-full flex-1 flex-col overflow-hidden">
@@ -287,6 +286,7 @@ const ConversationView = () => {
         systemContextPrefix={systemContextPrefix}
         scrapbookEntry={scrapbookEntry}
       />
+      {shouldDelayRender && <ConversationLoadingOverlay text="Loading conversation..." />}
     </div>
   )
 }

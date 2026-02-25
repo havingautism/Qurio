@@ -3,6 +3,7 @@ import { createRootRoute, createRoute, createRouter, redirect } from '@tanstack/
 import { AlertTriangle, MoveLeft } from 'lucide-react'
 import App from './App'
 import { getNodeEnv, getPublicEnv } from './lib/publicEnv'
+import DotLoader from './components/DotLoader'
 
 const HomeView = React.lazy(() => import('./views/HomeView'))
 const ConversationView = React.lazy(() => import('./views/ConversationView'))
@@ -21,11 +22,31 @@ const DeepResearchConversationView = React.lazy(
   () => import('./views/DeepResearchConversationView'),
 )
 
-const SuspensePage = ({ children }) => (
-  <React.Suspense fallback={<div className="bg-background text-foreground min-h-screen" />}>
+const SuspensePage = ({ children, fallback = null }) => (
+  <React.Suspense
+    fallback={
+      fallback || (
+        <div className="bg-background text-foreground flex min-h-screen items-center justify-center">
+          <div className="text-[var(--color-text-secondary)] drop-shadow-[0_4px_18px_rgba(0,0,0,0.18)]">
+            <DotLoader size="8px" gap="5px" />
+          </div>
+        </div>
+      )
+    }
+  >
     {children}
   </React.Suspense>
 )
+
+const ConversationSuspenseFallback = () => (
+  <div className="bg-background text-foreground flex min-h-screen items-center justify-center">
+    <div className="text-[var(--color-text-secondary)] drop-shadow-[0_4px_18px_rgba(0,0,0,0.18)]">
+      <DotLoader size="8px" gap="5px" />
+    </div>
+  </div>
+)
+
+const PlainPageSuspenseFallback = () => <div className="bg-background min-h-screen" />
 
 const NotFound = () => {
   const basepath = (
@@ -89,7 +110,7 @@ export const conversationRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: 'conversation/$conversationId',
   component: () => (
-    <SuspensePage>
+    <SuspensePage fallback={<ConversationSuspenseFallback />}>
       <ConversationView />
     </SuspensePage>
   ),
@@ -99,7 +120,7 @@ export const expertConversationRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: 'expert/$conversationId',
   component: () => (
-    <SuspensePage>
+    <SuspensePage fallback={<ConversationSuspenseFallback />}>
       <ExpertConversationView />
     </SuspensePage>
   ),
@@ -109,7 +130,7 @@ export const deepResearchConversationRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: 'deepresearch/$conversationId',
   component: () => (
-    <SuspensePage>
+    <SuspensePage fallback={<ConversationSuspenseFallback />}>
       <DeepResearchConversationView />
     </SuspensePage>
   ),
@@ -189,7 +210,7 @@ export const scrapbookRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: 'scrapbook',
   component: () => (
-    <SuspensePage>
+    <SuspensePage fallback={<PlainPageSuspenseFallback />}>
       <ScrapbookView />
     </SuspensePage>
   ),
@@ -199,7 +220,7 @@ export const scrapbookDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: 'scrapbook/$entryId',
   component: () => (
-    <SuspensePage>
+    <SuspensePage fallback={<PlainPageSuspenseFallback />}>
       <ScrapbookDetailView />
     </SuspensePage>
   ),

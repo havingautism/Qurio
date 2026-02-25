@@ -1398,7 +1398,11 @@
         "regenerateSummary": "Regenerate Summary",
         "tagsTitle": "AI Tags",
         "addTag": "+ Add System Tag",
-        "saving": "Saving..."
+        "saving": "Saving...",
+        "askQuestion": "Ask a Question",
+        "contextBannerLabel": "Scrapbook Q&A",
+        "contextBannerPinned": "From Scrapbook",
+        "openSource": "Open source link"
       },
       "generate": {
         "failed": "Generation failed",

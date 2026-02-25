@@ -7,6 +7,7 @@ import {
   ExternalLink,
   Globe,
   Loader2,
+  MessageCircle,
   RotateCcw,
   Sparkles,
   Tag,
@@ -20,6 +21,7 @@ import {
   getPlatformLabel,
   resolveScrapbookModelConfig,
 } from '../lib/scrapbookService'
+import { createConversation, notifyConversationsChanged } from '../lib/conversationsService'
 import ColorBendsBackground from '../components/ui/ColorBendsBackground'
 import { Streamdown } from 'streamdown'
 import {
@@ -171,6 +173,61 @@ export default function ScrapbookDetailView() {
         }
       },
     })
+  }
+
+  // Handle "Ask" — create a new conversation with this scrapbook entry as hidden context
+  const handleAskQuestion = async () => {
+    if (!entry) return
+    try {
+      const { data: conversation, error } = await createConversation({
+        title: 'New Conversation',
+        scrapbook_id: entry.id,
+      })
+      if (error || !conversation) {
+        console.error('[Scrapbook] Failed to create conversation:', error)
+        return
+      }
+      notifyConversationsChanged({ scopes: ['library'] })
+
+      // Build a hidden system context block from the scrapbook entry (English prompt for AI)
+      const contextLines = [
+        `The following is a scrapbook entry the user is reading. Please answer their follow-up questions based on this content:`,
+        ``,
+        `Title: ${entry.title || '(Untitled)'}`,
+        entry.source_url ? `Source: ${entry.source_url}` : '',
+        ``,
+        entry.summary || entry.content || '',
+      ].filter(s => s !== null && s !== undefined)
+
+      const scrapbookContext = contextLines.join('\n').trim()
+
+      navigate({
+        to: '/conversation/$conversationId',
+        params: { conversationId: conversation.id },
+        state: {
+          // Hidden system prefix injected before user message
+          systemContextPrefix: scrapbookContext,
+          initialToggles: {
+            search: false,
+            searchTool: [],
+            searchBackend: null,
+            thinking: false,
+            deepResearch: false,
+            expertMode: false,
+          },
+          initialSpaceSelection: { mode: 'auto', space: null },
+          initialIsAgentAutoMode: true,
+          // Scrapbook entry card shown above input bar and pinned at top after first message
+          scrapbookEntry: {
+            title: entry.title,
+            source_url: entry.source_url || null,
+            summary: entry.summary || null,
+          },
+        },
+      })
+    } catch (err) {
+      console.error('[Scrapbook] Failed to start ask conversation:', err)
+    }
   }
 
   // Auto-trigger generation
@@ -436,6 +493,17 @@ ${entry.content}`
 
           {/* Right Side Actions */}
           <div className="pointer-events-auto relative flex items-center gap-2">
+            {/* Ask Question Button */}
+            <button
+              onClick={handleAskQuestion}
+              disabled={!entry}
+              className="relative z-10 inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-full border border-gray-200/50 bg-white/90 px-4 text-sm font-medium text-gray-700 shadow-sm backdrop-blur-xl transition-all hover:scale-105 hover:bg-white hover:shadow-md active:scale-95 disabled:opacity-40 dark:border-zinc-800/50 dark:bg-zinc-900/90 dark:text-gray-200 dark:hover:bg-zinc-900"
+              title={t('scrapbook.detail.askQuestion')}
+            >
+              <MessageCircle size={17} />
+              <span className="hidden sm:inline">{t('scrapbook.detail.askQuestion')}</span>
+            </button>
+
             <button
               onClick={handleDelete}
               className="relative z-10 inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-gray-200/50 bg-white/90 p-0 leading-none text-red-500 shadow-sm backdrop-blur-xl transition-all hover:scale-110 hover:bg-red-50 hover:text-red-600 hover:shadow-md active:scale-95 dark:border-zinc-800/50 dark:bg-zinc-900/90 dark:hover:bg-red-900/30 dark:hover:text-red-400"

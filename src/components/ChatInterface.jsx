@@ -45,6 +45,8 @@ import {
 import { listToolsViaBackend } from '../lib/backendClient'
 import { getLanguageInstruction, applyLanguageInstructionToText } from '../lib/chat/prompts'
 import { getModelConfigForConversation } from '../lib/chat/modelConfig'
+import ScrapbookContextBanner from './ScrapbookContextBanner'
+import { getScrapbookEntryById } from '../lib/scrapbookService'
 
 const DOCUMENT_CONTEXT_MAX_TOTAL = 12000
 const DOCUMENT_CONTEXT_MAX_PER_DOC = 4000
@@ -141,6 +143,8 @@ const ChatInterface = ({
   isSidebarPinned = false,
   isSpaceSelectionLocked = false,
   MessageListComponent = MessageList,
+  systemContextPrefix = '',
+  scrapbookEntry = null,
 }) => {
   const normalizeTitleEmojis = value => {
     if (Array.isArray(value)) {
@@ -218,6 +222,30 @@ const ChatInterface = ({
   useEffect(() => {
     resetLoading()
   }, [])
+
+  const [currentScrapbookEntry, setCurrentScrapbookEntry] = useState(scrapbookEntry)
+
+  // Hydrate scrapbook entry if scrapbook_id is present in conversation but entry isn't loaded
+  useEffect(() => {
+    // If we already have the entry in state (passed from router), or no id to fetch, skip
+    const scrapbookId = activeConversation?.scrapbook_id
+    if (!scrapbookId) {
+      // If conversation has no scrapbook_id, ensure we don't show a stale entry from a previous conversation state
+      if (currentScrapbookEntry && !scrapbookEntry) {
+        setCurrentScrapbookEntry(null)
+      }
+      return
+    }
+
+    // Fetch if missing or id mismatch
+    if (!currentScrapbookEntry || currentScrapbookEntry.id !== scrapbookId) {
+      getScrapbookEntryById(scrapbookId).then(({ data, error }) => {
+        if (!error && data) {
+          setCurrentScrapbookEntry(data)
+        }
+      })
+    }
+  }, [activeConversation?.scrapbook_id, scrapbookEntry])
 
   const activeConversationId = activeConversation?.id || conversationId
   const {
@@ -770,7 +798,11 @@ const ChatInterface = ({
       } = loadTogglePreferences()
 
       if (!isThinkingLocked) {
-        if (storedThinkingMode === 'smart' || storedThinkingMode === 'deep' || storedThinkingMode === 'fast') {
+        if (
+          storedThinkingMode === 'smart' ||
+          storedThinkingMode === 'deep' ||
+          storedThinkingMode === 'fast'
+        ) {
           setThinkingMode(storedThinkingMode)
           setIsThinkingActive(storedThinkingMode === 'deep')
         } else if (typeof storedThinkingEnabled === 'boolean') {
@@ -832,6 +864,8 @@ const ChatInterface = ({
   // Effect to handle initial message from homepage
   const hasInitialized = useRef(false)
   const isProcessingInitial = useRef(false)
+  // Track whether the scrapbook systemContextPrefix has already been used in first message
+  const systemContextUsedRef = useRef(false)
 
   useEffect(() => {
     const handleSettingsChange = () => {
@@ -1018,6 +1052,11 @@ const ChatInterface = ({
         setConversationTitle('')
         setConversationTitleEmojis([])
         setMessages([])
+        setQuotedText(null)
+        setQuoteContext(null)
+        quoteTextRef.current = ''
+        quoteSourceRef.current = ''
+
         const shouldPreserveAutoSpace = !isManualSpaceSelection && selectedSpace
         if (!shouldPreserveAutoSpace) {
           setSelectedSpace(null)
@@ -1530,11 +1569,7 @@ const ChatInterface = ({
         return raw === 'smart' || raw === 'deep' || raw === 'fast' ? raw : 'smart'
       })()
       const thinkingActive =
-        thinkingModeValue === 'deep'
-          ? true
-          : thinkingModeValue === 'fast'
-            ? false
-            : false
+        thinkingModeValue === 'deep' ? true : thinkingModeValue === 'fast' ? false : false
       const relatedActive = togglesOverride ? togglesOverride.related : isRelatedEnabled
       const expertModeActive = togglesOverride ? togglesOverride.expertMode : isExpertMode
       const searchTool = togglesOverride ? togglesOverride.searchTool : resolvedSearchToolIds
@@ -1630,6 +1665,14 @@ const ChatInterface = ({
           selectedAgent: agentForSend,
           isAgentAutoMode,
           agents: appAgents,
+          // Inject scrapbook context as hidden context on first message only (not shown in UI)
+          documentContextAppend:
+            systemContextPrefix && !systemContextUsedRef.current && messages.length === 0
+              ? (() => {
+                  systemContextUsedRef.current = true
+                  return systemContextPrefix
+                })()
+              : '',
           documentSources: baseDocumentSources,
           documentSelection: {
             documents: selectedDocuments,
@@ -2206,9 +2249,9 @@ const ChatInterface = ({
         {/* Messages Scroll Container */}
         <div
           ref={messagesContainerRef}
-          className="no-scrollbar relative flex-1 overflow-x-hidden overflow-y-auto sm:p-2"
+          className="no-scrollbar relative flex-1 overflow-x-hidden overflow-y-auto pt-20 sm:px-2 sm:pt-24 sm:pb-2"
         >
-          <div className="mx-auto mt-16 w-full max-w-3xl px-0 sm:px-5">
+          <div className="mx-auto w-full max-w-3xl px-0 sm:px-5">
             {showHistoryLoader && (
               <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
                 <FancyLoader />
@@ -2225,6 +2268,7 @@ const ChatInterface = ({
               onDelete={handleDeleteMessage}
               onUserRegenerate={handleRegenerateQuestion}
               onFormSubmit={handleFormSubmit}
+              scrapbookEntry={currentScrapbookEntry}
             />
             {/* Bottom Anchor */}
             <div ref={bottomRef} className="h-1" />
@@ -2264,6 +2308,11 @@ const ChatInterface = ({
           className="z-50 flex w-full shrink-0 justify-center rounded-b-3xl bg-transparent px-2 pt-0 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-0"
         >
           <div className="relative w-full max-w-3xl">
+            {/* Scrapbook context banner - shown above input before first message */}
+            {currentScrapbookEntry && messages.length === 0 && (
+              <ScrapbookContextBanner scrapbookEntry={currentScrapbookEntry} variant="input" />
+            )}
+
             {/* Scroll to bottom button - positioned relative to input area */}
 
             {showScrollButton && (

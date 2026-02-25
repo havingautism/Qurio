@@ -64,6 +64,7 @@ SCHEMA_STATEMENTS: list[str] = [
       is_thinking_enabled INTEGER NOT NULL DEFAULT 0,
       is_favorited INTEGER NOT NULL DEFAULT 0,
       session_summary TEXT DEFAULT NULL,
+      scrapbook_id TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );

@@ -19,6 +19,7 @@ const BaseMessageList = ({
   onQuote,
   onUserRegenerate,
   onFormSubmit,
+  scrapbookEntry,
 }) => {
   const { messages } = useChatStore(
     useShallow(state => ({
@@ -62,6 +63,7 @@ const BaseMessageList = ({
               : undefined
           }
           onFormSubmit={onFormSubmit}
+          scrapbookEntry={scrapbookEntry}
         />
       ))}
     </div>

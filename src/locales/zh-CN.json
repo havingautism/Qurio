@@ -1390,7 +1390,11 @@
         "regenerateSummary": "重新生成总结",
         "tagsTitle": "提取标签",
         "addTag": "+ 添加系统标签",
-        "saving": "保存中..."
+        "saving": "保存中...",
+        "askQuestion": "问一问",
+        "contextBannerLabel": "随手记追问",
+        "contextBannerPinned": "来自随手记",
+        "openSource": "打开原链接"
       },
       "generate": {
         "failed": "生成失败",

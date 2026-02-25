@@ -41,13 +41,13 @@ const invalidateExpertConversationIdsCache = () => {
   expertIdsCache = null
 }
 
-const _sanitizeInFilterValue = value => String(value || '').replace(/[,()]/g, '').trim()
+const _sanitizeInFilterValue = value =>
+  String(value || '')
+    .replace(/[,()]/g, '')
+    .trim()
 
 const listExpertConversationIds = async supabase => {
-  if (
-    expertIdsCache &&
-    Date.now() - Number(expertIdsCache.ts || 0) <= EXPERT_IDS_CACHE_TTL_MS
-  ) {
+  if (expertIdsCache && Date.now() - Number(expertIdsCache.ts || 0) <= EXPERT_IDS_CACHE_TTL_MS) {
     return expertIdsCache.value
   }
   if (expertIdsInFlight) return expertIdsInFlight
@@ -82,13 +82,7 @@ const listExpertConversationIds = async supabase => {
 
 const normalizeScopes = value => {
   const raw = Array.isArray(value) ? value : value ? [value] : []
-  return Array.from(
-    new Set(
-      raw
-        .map(item => String(item || '').trim())
-        .filter(Boolean),
-    ),
-  )
+  return Array.from(new Set(raw.map(item => String(item || '').trim()).filter(Boolean)))
 }
 
 const mergeConversationChangedDetail = (base, next) => {
@@ -193,7 +187,7 @@ export const listConversations = async (options = {}) => {
   let query = supabase
     .from(table)
     .select(
-      'id,title,title_emojis,created_at,updated_at,space_id,api_provider,is_favorited,last_agent_id',
+      'id,title,title_emojis,created_at,updated_at,space_id,api_provider,is_favorited,last_agent_id,scrapbook_id',
       {
         count: 'exact',
       },
@@ -309,7 +303,7 @@ export const listBookmarkedConversations = async (options = {}) => {
   let query = supabase
     .from(table)
     .select(
-      'id,title,title_emojis,created_at,updated_at,space_id,api_provider,is_favorited,last_agent_id',
+      'id,title,title_emojis,created_at,updated_at,space_id,api_provider,is_favorited,last_agent_id,scrapbook_id',
     )
     .eq('is_favorited', true)
     .order(sortBy, { ascending })
@@ -380,7 +374,7 @@ export const getConversation = async id => {
   const { data, error } = await supabase
     .from(table)
     .select(
-      'id,title,title_emojis,created_at,updated_at,space_id,api_provider,is_favorited,last_agent_id',
+      'id,title,title_emojis,created_at,updated_at,space_id,api_provider,is_favorited,last_agent_id,scrapbook_id',
     )
     .eq('id', id)
     .single()
@@ -439,9 +433,12 @@ export const listConversationsBySpace = async (spaceId, options = {}) => {
   // Build query with cursor or page-based pagination
   let query = supabase
     .from(table)
-    .select('id,title,title_emojis,created_at,updated_at,space_id,is_favorited,last_agent_id', {
-      count: 'exact',
-    })
+    .select(
+      'id,title,title_emojis,created_at,updated_at,space_id,is_favorited,last_agent_id,scrapbook_id',
+      {
+        count: 'exact',
+      },
+    )
     .eq('space_id', spaceId)
     .order(sortBy, { ascending })
     .limit(limit)
@@ -562,7 +559,9 @@ export const listExpertConversations = async (options = {}) => {
 
     let convQuery = supabase
       .from(table)
-      .select('id,title,title_emojis,created_at,updated_at,space_id,api_provider,is_favorited,last_agent_id')
+      .select(
+        'id,title,title_emojis,created_at,updated_at,space_id,api_provider,is_favorited,last_agent_id,scrapbook_id',
+      )
       .in('id', uniqueConversationIds)
 
     if (search && search.trim()) {
@@ -586,8 +585,7 @@ export const listExpertConversations = async (options = {}) => {
       .filter(Boolean)
 
     const hasMore = rows.length === limit
-    const nextCursor =
-      hasMore && rows.length > 0 ? rows[rows.length - 1]?.created_at || null : null
+    const nextCursor = hasMore && rows.length > 0 ? rows[rows.length - 1]?.created_at || null : null
 
     const result = {
       data: orderedConversations,

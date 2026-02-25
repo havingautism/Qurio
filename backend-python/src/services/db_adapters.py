@@ -305,6 +305,10 @@ class SQLiteAdapter:
             scrapbook_columns = {str(row[1]) for row in cursor.fetchall()}
             if "emoji" not in scrapbook_columns:
                 cursor.execute("ALTER TABLE scrapbook ADD COLUMN emoji TEXT")
+            cursor.execute("PRAGMA table_info(conversations)")
+            conv_columns = {str(row[1]) for row in cursor.fetchall()}
+            if "scrapbook_id" not in conv_columns:
+                cursor.execute("ALTER TABLE conversations ADD COLUMN scrapbook_id TEXT")
             self._conn.commit()
 
     def _execute(self, sql: str, params: list[Any] | tuple[Any, ...] = ()) -> sqlite3.Cursor:

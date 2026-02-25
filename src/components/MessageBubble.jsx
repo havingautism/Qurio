@@ -66,6 +66,7 @@ import ShareModal from './ShareModal'
 import YoutubeLogo from '../assets/youtube.svg?url'
 import BilibiliLogo from '../assets/bilibili.png?url'
 import useSettings from '../hooks/useSettings'
+import ScrapbookContextBanner from './ScrapbookContextBanner'
 
 const PROVIDER_META = {
   gemini: {
@@ -353,6 +354,7 @@ const MessageBubble = ({
   onUserRegenerate,
   onQuote,
   onFormSubmit,
+  scrapbookEntry = null,
   isLastRenderable = false,
   messageOverride = null,
   headerExtraContent = null,
@@ -2722,6 +2724,13 @@ const MessageBubble = ({
         {message.created_at && (
           <div className="my-1 flex w-full justify-center text-xs text-gray-400 select-none dark:text-gray-500">
             {formatMessageDate(message.created_at, t, i18n.language)}
+          </div>
+        )}
+
+        {/* Scrapbook context banner - shown only for the first message of an associated conversation */}
+        {messageIndex === 0 && scrapbookEntry && (
+          <div className="mx-auto my-2 w-full max-w-3xl px-0 sm:px-5">
+            <ScrapbookContextBanner scrapbookEntry={scrapbookEntry} variant="top" />
           </div>
         )}
         {/* Message Row Wrapper */}

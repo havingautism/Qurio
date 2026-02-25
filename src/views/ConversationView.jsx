@@ -6,6 +6,7 @@ import { getConversation, isExpertConversation } from '../lib/conversationsServi
 import { useAppContext } from '../App'
 import ChatInterface from '../components/ChatInterface'
 import DeepResearchChatInterface from '../components/DeepResearchChatInterface'
+import ScrapbookContextBanner from '../components/ScrapbookContextBanner'
 import { useShallow } from 'zustand/react/shallow'
 import useChatStore from '../lib/chatStore'
 
@@ -14,10 +15,11 @@ const ConversationView = () => {
   const location = useLocation()
   const navigate = useNavigate()
   const { spaces, deepResearchSpace, isSidebarPinned, spacesLoading } = useAppContext()
-  const { optimisticSelection, clearOptimisticSelection } = useChatStore(
+  const { optimisticSelection, clearOptimisticSelection, messagesLength } = useChatStore(
     useShallow(state => ({
       optimisticSelection: state.optimisticSelection,
       clearOptimisticSelection: state.clearOptimisticSelection,
+      messagesLength: state.messages.length,
     })),
   )
   const [conversation, setConversation] = useState(null)
@@ -205,6 +207,9 @@ const ConversationView = () => {
   const initialAttachments = initialChatState?.initialAttachments || []
   const initialDocumentIds = initialChatState?.initialDocumentIds || []
   const initialToggles = initialChatState?.initialToggles || {}
+  const systemContextPrefix = initialChatState?.systemContextPrefix || ''
+  // Use useState to preserve scrapbookEntry even if location.state is cleared after navigation
+  const [scrapbookEntry] = useState(() => initialChatState?.scrapbookEntry || null)
 
   const isDeepResearchConversation = useMemo(() => {
     if (initialChatState?.initialToggles?.deepResearch) return true
@@ -252,7 +257,9 @@ const ConversationView = () => {
             </button>
           </div>
           <p className="text-muted-foreground mt-3 text-xs">
-            {fetchError?.message ? `Details: ${fetchError.message}` : 'No additional error details.'}
+            {fetchError?.message
+              ? `Details: ${fetchError.message}`
+              : 'No additional error details.'}
           </p>
         </div>
       </div>
@@ -263,20 +270,24 @@ const ConversationView = () => {
 
   // Render the appropriate chat interface with the conversation data
   return (
-    <ChatComponent
-      spaces={spaces}
-      activeConversation={conversation}
-      conversationId={conversationId}
-      isSidebarPinned={isSidebarPinned}
-      isSpaceSelectionLocked={isDeepResearchConversation}
-      initialMessage={initialMessage}
-      initialAttachments={initialAttachments}
-      initialDocumentIds={initialDocumentIds}
-      initialToggles={initialToggles}
-      initialSpaceSelection={initialSpaceSelection}
-      initialAgentSelection={initialAgentSelection}
-      initialIsAgentAutoMode={initialIsAgentAutoMode}
-    />
+    <div className="relative flex h-full flex-1 flex-col overflow-hidden">
+      <ChatComponent
+        spaces={spaces}
+        activeConversation={conversation}
+        conversationId={conversationId}
+        isSidebarPinned={isSidebarPinned}
+        isSpaceSelectionLocked={isDeepResearchConversation}
+        initialMessage={initialMessage}
+        initialAttachments={initialAttachments}
+        initialDocumentIds={initialDocumentIds}
+        initialToggles={initialToggles}
+        initialSpaceSelection={initialSpaceSelection}
+        initialAgentSelection={initialAgentSelection}
+        initialIsAgentAutoMode={initialIsAgentAutoMode}
+        systemContextPrefix={systemContextPrefix}
+        scrapbookEntry={scrapbookEntry}
+      />
+    </div>
   )
 }
 

@@ -1,5 +1,6 @@
 ﻿import { useLoaderData, useParams, useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useState, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   ArrowLeft,
   Calendar,
@@ -21,7 +22,11 @@ import {
 } from '../lib/scrapbookService'
 import ColorBendsBackground from '../components/ui/ColorBendsBackground'
 import { Streamdown } from 'streamdown'
-import { generateEmojiViaBackend, generateTitleViaBackend, streamChatViaBackend } from '../lib/backendClient'
+import {
+  generateEmojiViaBackend,
+  generateTitleViaBackend,
+  streamChatViaBackend,
+} from '../lib/backendClient'
 import { loadSettings } from '../lib/settings'
 
 const getBackendUrl = () => {
@@ -51,6 +56,7 @@ const stripGeneratedTitlePrefix = value => {
 }
 
 export default function ScrapbookDetailView() {
+  const { t } = useTranslation()
   const { isSidebarPinned, showConfirmation } = useAppContext()
   const { entryId } = useParams({ strict: false })
   const navigate = useNavigate()
@@ -154,9 +160,9 @@ export default function ScrapbookDetailView() {
 
   const handleDelete = () => {
     showConfirmation({
-      title: '删除随手记',
-      message: '确定要删除这条随手记吗？删除后无法恢复。',
-      confirmText: '删除',
+      title: t('scrapbook.detail.deleteConfirmTitle'),
+      message: t('scrapbook.detail.deleteConfirmMsg'),
+      confirmText: t('scrapbook.detail.deleteConfirmBtn'),
       isDangerous: true,
       onConfirm: async () => {
         const { error } = await deleteScrapbookEntry(entryId)
@@ -206,7 +212,7 @@ export default function ScrapbookDetailView() {
       // 1. Resolve Provider models
       const modelConfig = resolveScrapbookModelConfig()
       if (!modelConfig.apiKey) {
-        setGenerationError('未配置 API Key，请先在 Scrapbook 设置中配置模型。')
+        setGenerationError(t('scrapbook.generate.missingApiKey'))
         setIsGenerating(false)
         return
       }
@@ -348,12 +354,14 @@ ${entry.content}`
           <ColorBendsBackground />
         </div>
         <div className="relative z-10 flex flex-col items-center gap-4 rounded-3xl border border-white/40 bg-white/40 p-8 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-black/40">
-          <p className="text-[var(--color-text-secondary)]">{error || '闅忔墜璁颁笉瀛樺湪'}</p>
+          <p className="text-[var(--color-text-secondary)]">
+            {error || t('scrapbook.list.notFound')}
+          </p>
           <button
             onClick={() => navigate({ to: '/scrapbook' })}
             className="rounded-xl border border-[var(--color-border)] bg-white/50 px-4 py-2 transition-all hover:bg-white/80 dark:bg-black/40 dark:hover:bg-black/60"
           >
-            杩斿洖鍒楄〃
+            {t('scrapbook.list.backToList')}
           </button>
         </div>
       </div>
@@ -361,7 +369,7 @@ ${entry.content}`
   }
 
   const tags = Array.isArray(entry.tags) ? entry.tags : []
-  const displayTitle = stripGeneratedTitlePrefix(entry.title) || '无标题'
+  const displayTitle = stripGeneratedTitlePrefix(entry.title) || t('scrapbook.detail.untitled')
   const platformColor = PLATFORM_COLORS[entry.platform] || PLATFORM_COLORS.unknown
   const dateStr = entry.created_at
     ? new Date(entry.created_at).toLocaleString('zh-CN', {
@@ -384,40 +392,62 @@ ${entry.content}`
         <ColorBendsBackground />
       </div>
 
-      <div className="relative z-10 flex h-full flex-col overflow-y-auto bg-white/40 pb-20 backdrop-blur-3xl sm:pb-8 dark:bg-black/40">
-        {/* Header */}
-        <div className="sticky top-0 z-20 flex flex-shrink-0 items-center justify-between border-b border-black/5 bg-white/40 px-6 py-4 backdrop-blur-md dark:border-white/10 dark:bg-black/40">
-          <button
-            onClick={() => navigate({ to: '/scrapbook' })}
-            className="flex items-center gap-2 rounded-xl bg-white/50 px-3 py-1.5 text-sm font-medium text-[var(--color-text-primary)] shadow-sm transition-all hover:bg-white/80 dark:bg-black/40 dark:hover:bg-black/60"
-          >
-            <ArrowLeft size={16} />
-            <span>返回列表</span>
-          </button>
-          <div className="flex items-center gap-2">
+      {/* Chat-like Header */}
+      <div className="pointer-events-none absolute top-0 right-0 left-0 z-40 flex w-full shrink-0 items-center justify-between gap-4 p-4">
+        {/* Transparent header with glassy fade */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-0 h-21 bg-gradient-to-b from-white/68 via-white/28 to-transparent [mask-image:linear-gradient(to_bottom,black_58%,transparent)] opacity-100 backdrop-blur-xl md:hidden dark:from-zinc-950/68 dark:via-zinc-950/28"
+        />
+        <div className="pointer-events-auto flex w-full items-center justify-between gap-2">
+          {/* Left Side: Back & Title Pill */}
+          <div className="flex min-w-0 flex-1 items-center gap-3">
             <button
-              onClick={handleRegenerateTitle}
-              disabled={isRegeneratingTitle || !entry}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-white/50 px-3 py-1.5 text-sm font-medium text-[var(--color-text-primary)] shadow-sm transition-all hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-black/40 dark:hover:bg-black/60"
-              title="重新生成标题"
+              onClick={() => navigate({ to: '/scrapbook' })}
+              className="flex h-12 shrink-0 items-center justify-center gap-2 rounded-full border border-gray-200/50 bg-white/90 px-4 text-sm font-medium text-gray-700 shadow-sm backdrop-blur-xl transition-all hover:scale-105 hover:bg-white hover:shadow-md active:scale-95 dark:border-zinc-800/50 dark:bg-zinc-900/90 dark:text-gray-200 dark:hover:bg-zinc-900"
+              title={t('scrapbook.list.backToList')}
             >
-              {isRegeneratingTitle ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : (
-                <Sparkles size={14} />
-              )}
-              <span className="hidden sm:inline">重新生成标题</span>
+              <ArrowLeft size={18} />
+              <span className="hidden sm:inline">{t('scrapbook.list.backToList')}</span>
             </button>
+
+            {/* Title Pill */}
+            <div className="group relative z-10 flex h-12 min-w-0 items-center gap-1 rounded-full border border-gray-200/50 bg-white/90 py-1.5 pr-2 pl-4 shadow-sm backdrop-blur-xl transition-[background-color,box-shadow,border-color] hover:bg-white hover:shadow-md md:max-w-[500px] dark:border-zinc-800/50 dark:bg-zinc-900/90 dark:hover:bg-zinc-900">
+              <div className="flex min-w-0 items-center gap-2 truncate font-medium text-gray-800 dark:text-gray-100">
+                {entry?.emoji && (
+                  <span className="mb-0.5 shrink-0 text-[1.2rem] leading-none">{entry.emoji}</span>
+                )}
+                <span className="truncate text-base sm:text-lg">{displayTitle}</span>
+              </div>
+              <button
+                onClick={handleRegenerateTitle}
+                disabled={isRegeneratingTitle || !entry}
+                className="relative z-20 ml-1 shrink-0 rounded-full p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-500 dark:hover:bg-zinc-800 dark:hover:text-gray-300"
+                title={t('scrapbook.detail.regenerateTitle')}
+              >
+                {isRegeneratingTitle ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <Sparkles size={14} />
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Right Side Actions */}
+          <div className="pointer-events-auto relative flex items-center gap-2">
             <button
               onClick={handleDelete}
-              className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/50 text-red-500 shadow-sm transition-all hover:bg-red-50 hover:text-red-600 dark:bg-black/40 dark:hover:bg-red-900/30 dark:hover:text-red-400"
-              title="删除"
+              className="relative z-10 inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-gray-200/50 bg-white/90 p-0 leading-none text-red-500 shadow-sm backdrop-blur-xl transition-all hover:scale-110 hover:bg-red-50 hover:text-red-600 hover:shadow-md active:scale-95 dark:border-zinc-800/50 dark:bg-zinc-900/90 dark:hover:bg-red-900/30 dark:hover:text-red-400"
+              title={t('scrapbook.detail.delete')}
             >
-              <Trash2 size={16} />
+              <Trash2 size={18} />
             </button>
           </div>
         </div>
+      </div>
 
+      <div className="relative z-10 flex h-full flex-col overflow-y-auto bg-white/40 pt-20 pb-20 backdrop-blur-3xl sm:pt-24 sm:pb-8 dark:bg-black/40">
         <div className="mx-auto w-full max-w-4xl px-6 pt-8 sm:px-10 sm:pt-12">
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-3">
@@ -442,16 +472,11 @@ ${entry.content}`
                 className="inline-flex items-center gap-2 rounded-xl bg-zinc-900 px-4 py-2 text-sm font-medium text-white shadow-md transition-all hover:-translate-y-0.5 hover:bg-zinc-800 hover:shadow-lg dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
               >
                 <Globe size={15} />
-                访问原文
+                {t('scrapbook.detail.visitOriginal')}
                 <ExternalLink size={13} className="opacity-70" />
               </a>
             )}
           </div>
-
-          <h1 className="mb-6 max-w-[100%] text-2xl leading-snug font-bold break-words text-[var(--color-text-primary)] sm:text-3xl">
-            {entry.emoji ? `${entry.emoji} ` : ''}
-            {displayTitle}
-          </h1>
 
           {entry.thumbnail && (
             <img
@@ -464,20 +489,22 @@ ${entry.content}`
           {/* Dynamic Summary Section */}
           <div className="mb-10 rounded-3xl border border-white/40 bg-white/50 p-6 shadow-sm backdrop-blur-md sm:p-8 dark:border-white/10 dark:bg-black/40">
             <h3 className="mb-4 flex items-center justify-between text-base font-bold text-[var(--color-text-primary)]">
-              <span className="flex items-center gap-2">✨ 智能深度总结</span>
+              <span className="flex items-center gap-2">
+                ✨ {t('scrapbook.detail.summaryTitle')}
+              </span>
               {!entry.summary && !isGenerating && !streamedSummary && (
                 <button
                   onClick={handleGenerateDeepSummary}
                   className="flex items-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90"
                 >
-                  点击生成长文总结
+                  {t('scrapbook.detail.regenerateSummary')}
                 </button>
               )}
             </h3>
 
             {generationError && (
               <div className="mb-4 rounded-xl border border-red-200 bg-red-50/50 p-3 text-sm text-red-600 dark:border-red-900/30 dark:bg-red-900/20 dark:text-red-400">
-                生成失败: {generationError}
+                {t('scrapbook.generate.failed')}: {generationError}
               </div>
             )}
 
@@ -488,11 +515,11 @@ ${entry.content}`
                 <Streamdown>{streamedSummary}</Streamdown>
               ) : isGenerating ? (
                 <div className="flex items-center gap-2 text-[var(--color-text-tertiary)] italic">
-                  <span className="animate-pulse">正在深度分析原文并组织结构...</span>
+                  <span className="animate-pulse">{t('messageBubble.statusThinking')}</span>
                 </div>
               ) : (
                 <div className="text-sm text-[var(--color-text-tertiary)] italic">
-                  暂无智能总结，请点击上方按钮生成。
+                  {t('scrapbook.detail.noSummary')}
                 </div>
               )}
             </div>
@@ -512,7 +539,7 @@ ${entry.content}`
                 className="flex items-center gap-2 rounded-xl border border-[var(--color-border)] bg-white/60 px-4 py-2 text-sm font-medium text-[var(--color-text-secondary)] shadow-sm backdrop-blur-sm transition-all hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] dark:bg-black/30"
               >
                 <RotateCcw size={14} />
-                重新生成总结
+                {t('scrapbook.detail.regenerateSummary')}
               </button>
             </div>
           )}

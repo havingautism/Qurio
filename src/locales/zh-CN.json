@@ -1354,5 +1354,66 @@
       "source": "来源",
       "updated": "更新"
     }
+  },
+  "scrapbook": {
+    "title": "随手记",
+      "platforms": {
+        "all": "全部",
+        "xhs": "小红书",
+        "wechat": "微信",
+        "youtube": "YouTube",
+        "bilibili": "Bilibili",
+        "twitter": "X/推特",
+        "telegram": "Telegram",
+        "rss": "RSS",
+        "manual": "手动",
+        "unknown": "其他"
+      },
+      "list": {
+        "notFound": "随手记不存在",
+        "backToList": "返回列表",
+        "emptySearch": "没有找到搜索结果",
+        "emptyList": "还没保存过内容",
+        "emptyHint": "点击右下角 + 按钮添加随手记",
+        "searchPlaceholder": "搜索标题、内容摘要、标签..."
+      },
+      "detail": {
+        "untitled": "无标题",
+        "visitOriginal": "访问原文",
+        "regenerateTitle": "重新生成标题",
+        "delete": "删除",
+        "deleteConfirmTitle": "删除随手记",
+        "deleteConfirmMsg": "确定要删除这条随手记吗？删除后无法恢复。",
+        "deleteConfirmBtn": "删除",
+        "summaryTitle": "AI 总结",
+        "noSummary": "该条目未保存详细内容，无法生成总结。",
+        "regenerateSummary": "重新生成总结",
+        "tagsTitle": "提取标签",
+        "addTag": "+ 添加系统标签",
+        "saving": "保存中..."
+      },
+      "generate": {
+        "failed": "生成失败",
+        "missingApiKey": "未配置 API Key，请先在 Scrapbook 设置中配置模型。"
+      },
+      "modal": {
+        "addSuccess": "添加成功！",
+        "updateSuccess": "更新成功！",
+        "addFailed": "添加失败，请重试。",
+        "addFromUrl": "链接",
+        "addManual": "手动",
+        "urlLabel": "内容链接",
+        "urlPlaceholder": "粘贴公众号/小红书/微博/B站等链接",
+        "urlHint": "系统将自动抓取原文，并生成总结。",
+        "titleLabel": "标题",
+        "titlePlaceholder": "输入自定义标题",
+        "summaryLabel": "内容摘要",
+        "summaryPlaceholder": "手动填写摘要内容（支持 Markdown）",
+        "contentLabel": "完整正文",
+        "contentPlaceholder": "手动填写完整正文",
+        "cancel": "取消",
+        "saveText": "保存条目",
+        "autoSave": "自动获取并保存"
+      }
+    }
   }
-}

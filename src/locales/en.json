@@ -1362,5 +1362,66 @@
       "source": "Source",
       "updated": "Updated"
     }
+  },
+  "scrapbook": {
+    "title": "Scrapbook",
+    "platforms": {
+      "all": "All",
+      "xhs": "rednote",
+      "wechat": "WeChat",
+        "youtube": "YouTube",
+        "bilibili": "Bilibili",
+        "twitter": "X/Twitter",
+        "telegram": "Telegram",
+        "rss": "RSS",
+        "manual": "Manual",
+        "unknown": "Other"
+      },
+      "list": {
+        "notFound": "Entry not found",
+        "backToList": "Back to List",
+        "emptySearch": "No matching results found",
+        "emptyList": "No saved items yet",
+        "emptyHint": "Click the + button below to add your first entry",
+        "searchPlaceholder": "Search by title, summary, tags..."
+      },
+      "detail": {
+        "untitled": "Untitled",
+        "visitOriginal": "Original",
+        "regenerateTitle": "Regenerate Title",
+        "delete": "Delete",
+        "deleteConfirmTitle": "Delete Entry",
+        "deleteConfirmMsg": "Are you sure you want to delete this entry? This action cannot be undone.",
+        "deleteConfirmBtn": "Delete",
+        "summaryTitle": "AI Summary",
+        "noSummary": "No content available to generate a summary.",
+        "regenerateSummary": "Regenerate Summary",
+        "tagsTitle": "AI Tags",
+        "addTag": "+ Add System Tag",
+        "saving": "Saving..."
+      },
+      "generate": {
+        "failed": "Generation failed",
+        "missingApiKey": "API Key is missing. Please configure a model in Scrapbook settings first."
+      },
+      "modal": {
+        "addSuccess": "Added successfully!",
+        "updateSuccess": "Updated successfully!",
+        "addFailed": "Failed to add, please try again.",
+        "addFromUrl": "From URL",
+        "addManual": "Manual",
+        "urlLabel": "Content Link",
+        "urlPlaceholder": "Paste URL here",
+        "urlHint": "We will automatically fetch the content and generate a summary.",
+        "titleLabel": "Title",
+        "titlePlaceholder": "Enter custom title",
+        "summaryLabel": "Summary",
+        "summaryPlaceholder": "Enter summary (Markdown supported)",
+        "contentLabel": "Full Content",
+        "contentPlaceholder": "Enter full original content",
+        "cancel": "Cancel",
+        "saveText": "Save Entry",
+        "autoSave": "Fetch & Save"
+      }
+    }
   }
-}

@@ -97,16 +97,16 @@ const ALL_PLATFORMS = [
 ]
 
 const PLATFORM_PILL_LABELS = {
-  all: '全部',
-  xhs: '小红书',
-  wechat: '微信',
-  youtube: 'YouTube',
-  bilibili: 'Bilibili',
-  twitter: 'X/推特',
-  telegram: 'Telegram',
-  rss: 'RSS',
-  manual: '手动',
-  unknown: '其他',
+  all: 'scrapbook.platforms.all',
+  xhs: 'scrapbook.platforms.xhs',
+  wechat: 'scrapbook.platforms.wechat',
+  youtube: 'scrapbook.platforms.youtube',
+  bilibili: 'scrapbook.platforms.bilibili',
+  twitter: 'scrapbook.platforms.twitter',
+  telegram: 'scrapbook.platforms.telegram',
+  rss: 'scrapbook.platforms.rss',
+  manual: 'scrapbook.platforms.manual',
+  unknown: 'scrapbook.platforms.unknown',
 }
 
 const PLATFORM_COLORS = {
@@ -132,6 +132,7 @@ const stripGeneratedTitlePrefix = value => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const ModelConfigPanel = ({ isOpen, onClose }) => {
+  const { t } = useTranslation()
   const initSettings = loadSettings()
 
   const [provider, setProvider] = useState(
@@ -263,9 +264,9 @@ const ModelConfigPanel = ({ isOpen, onClose }) => {
     <Dialog open={isOpen} onOpenChange={open => !open && onClose()}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>随手记 AI 模型</DialogTitle>
+          <DialogTitle>{t('settings.modelConfig')}</DialogTitle>
           <DialogDescription>
-            留空则继承全局默认模型。需先在「设置 → 账号」配置 API Key，对应 Provider 才会出现。
+            {t('settings.modelConfigDesc', '为不同任务选择不同的模型。留空则继承全局默认模型。')}
           </DialogDescription>
         </DialogHeader>
 
@@ -278,7 +279,7 @@ const ModelConfigPanel = ({ isOpen, onClose }) => {
               </span>
               {availableProviders.length === 0 ? (
                 <p className="py-1 text-xs text-amber-600 dark:text-amber-400">
-                  未检测到配置了 API Key 的 provider，请先在「设置 → 账号」中添加。
+                  {t('settings.noProvidersHint')}
                 </p>
               ) : (
                 <Select
@@ -286,20 +287,22 @@ const ModelConfigPanel = ({ isOpen, onClose }) => {
                   onValueChange={val => handleProviderChange(val === '__none__' ? '' : val)}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="继承全局">
+                    <SelectValue placeholder={t('settings.inheritGlobal', '继承全局')}>
                       {provider ? (
                         <div className="flex items-center gap-3">
                           {renderProviderIcon(provider, { size: 16 })}
                           <span>{provider}</span>
                         </div>
                       ) : (
-                        <span>继承全局</span>
+                        <span>{t('settings.inheritGlobal', '继承全局')}</span>
                       )}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__none__">
-                      <span className="text-[var(--color-text-secondary)]">继承全局</span>
+                      <span className="text-[var(--color-text-secondary)]">
+                        {t('settings.inheritGlobal', '继承全局')}
+                      </span>
                     </SelectItem>
                     {availableProviders.map(p => (
                       <SelectItem key={p} value={p}>
@@ -325,24 +328,26 @@ const ModelConfigPanel = ({ isOpen, onClose }) => {
                     onClick={() => setModelSource(s => (s === 'custom' ? 'list' : 'custom'))}
                     className="text-xs text-[var(--color-accent)] hover:underline"
                   >
-                    {modelSource === 'custom' ? '从列表选择' : '手动输入'}
+                    {modelSource === 'custom'
+                      ? t('settings.selectFromList', '从列表选择')
+                      : t('settings.manualInput', '手动输入')}
                   </button>
                 </div>
                 {modelSource === 'custom' ? (
                   <Input
                     value={customModel}
                     onChange={e => setCustomModel(e.target.value)}
-                    placeholder="输入 model 名称"
+                    placeholder={t('settings.inputModelName', '输入 model 名称')}
                     className="w-full"
                   />
                 ) : isLoadingModels ? (
                   <div className="flex items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-3 py-2 text-sm text-[var(--color-text-secondary)] shadow-sm">
                     <Loader2 size={16} className="animate-spin text-[var(--color-accent)]" />
-                    正在加载模型列表...
+                    {t('settings.loadingModels', '正在加载模型列表...')}
                   </div>
                 ) : modelsForProvider.length === 0 ? (
                   <p className="py-2 text-xs text-[var(--color-text-tertiary)]">
-                    暂无可用模型，点击「手动输入」
+                    {t('settings.noModelsAvailableHint', '暂无可用模型，点击「手动输入」')}
                   </p>
                 ) : (
                   <Select
@@ -350,7 +355,7 @@ const ModelConfigPanel = ({ isOpen, onClose }) => {
                     onValueChange={val => setModel(val === '__none__' ? '' : val)}
                   >
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="-- 选择模型 --">
+                      <SelectValue placeholder={t('settings.selectModel', '-- 选择模型 --')}>
                         {model ? (
                           <div className="flex items-center gap-2 truncate">
                             {getModelIcon(model) && (
@@ -365,13 +370,17 @@ const ModelConfigPanel = ({ isOpen, onClose }) => {
                             </span>
                           </div>
                         ) : (
-                          <span className="text-[var(--color-text-secondary)]">-- 选择模型 --</span>
+                          <span className="text-[var(--color-text-secondary)]">
+                            {t('settings.selectModel', '-- 选择模型 --')}
+                          </span>
                         )}
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__none__">
-                        <span className="text-[var(--color-text-secondary)]">-- 选择模型 --</span>
+                        <span className="text-[var(--color-text-secondary)]">
+                          {t('settings.selectModel', '-- 选择模型 --')}
+                        </span>
                       </SelectItem>
                       {modelsForProvider.map(m => (
                         <SelectItem key={m.value} value={m.value}>
@@ -397,14 +406,14 @@ const ModelConfigPanel = ({ isOpen, onClose }) => {
 
         <DialogFooter className="mt-4 flex w-full items-center gap-2 sm:justify-between">
           <Button variant="outline" onClick={handleReset} className="flex-1">
-            重置为全局
+            {t('settings.resetToGlobal', '重置为全局')}
           </Button>
           <Button
             onClick={handleSave}
             disabled={isLoadingModels}
             className="flex-1 rounded-xl bg-zinc-900 text-white shadow-md hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
           >
-            保存
+            {t('save')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -417,6 +426,7 @@ const ModelConfigPanel = ({ isOpen, onClose }) => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const AddModal = ({ isOpen, onClose, onAdded }) => {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [tab, setTab] = useState('url') // 'url' | 'manual'
   const [url, setUrl] = useState('')
@@ -453,16 +463,16 @@ const AddModal = ({ isOpen, onClose, onAdded }) => {
     if (!url.trim()) return
     setIsLoading(true)
     setError('')
-    setLoadingMsg('正在获取内容...')
+    setLoadingMsg(t('loadingContent', '正在获取内容...'))
 
     const modelConfig = resolveScrapbookModelConfig()
     if (!modelConfig.apiKey) {
-      setError('请先在设置中配置模型 API Key，或在右上角齿轮图标中覆盖模型配置')
+      setError(t('scrapbook.generate.missingApiKey'))
       setIsLoading(false)
       setLoadingMsg('')
       return
     }
-    setLoadingMsg('正在读取网页内容...')
+    setLoadingMsg(t('loadingContent', '正在读取网页内容...'))
     const { data, error: err } = await createScrapbookEntry({ source_url: url.trim() }, modelConfig)
     setIsLoading(false)
     setLoadingMsg('')
@@ -513,29 +523,29 @@ const AddModal = ({ isOpen, onClose, onAdded }) => {
     <Dialog open={isOpen} onOpenChange={open => !open && onClose()}>
       <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-[480px]">
         <DialogHeader className="border-b border-[var(--color-border)] px-5 py-4">
-          <DialogTitle>新建随手记</DialogTitle>
+          <DialogTitle>{t('scrapbook.modal.saveText', '新建随手记')}</DialogTitle>
         </DialogHeader>
 
         {/* Tabs */}
         <div className="flex border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
           {[
-            { id: 'url', label: '粘贴链接' },
-            { id: 'manual', label: '手动输入' },
-          ].map(t => (
+            { id: 'url', label: t('scrapbook.modal.addFromUrl') },
+            { id: 'manual', label: t('scrapbook.modal.addManual') },
+          ].map(tObj => (
             <button
-              key={t.id}
+              key={tObj.id}
               onClick={() => {
-                setTab(t.id)
+                setTab(tObj.id)
                 setError('')
               }}
               className={clsx(
                 'flex-1 border-b-2 py-3 text-sm font-medium transition-colors',
-                tab === t.id
+                tab === tObj.id
                   ? 'border-[var(--color-accent)] text-[var(--color-accent)]'
                   : 'border-transparent text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]',
               )}
             >
-              {t.label}
+              {tObj.label}
             </button>
           ))}
         </div>
@@ -545,7 +555,7 @@ const AddModal = ({ isOpen, onClose, onAdded }) => {
             <div className="space-y-3">
               <div className="flex flex-col gap-1.5">
                 <span className="text-xs font-medium text-[var(--color-text-secondary)]">
-                  内容链接
+                  {t('scrapbook.modal.urlLabel')}
                 </span>
                 <Input
                   ref={urlInputRef}
@@ -553,14 +563,13 @@ const AddModal = ({ isOpen, onClose, onAdded }) => {
                   value={url}
                   onChange={e => setUrl(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && !isLoading && handleUrlSave()}
-                  placeholder="https://mp.weixin.qq.com/... 或任意链接"
+                  placeholder={t('scrapbook.modal.urlPlaceholder')}
                   disabled={isLoading}
                   className="w-full text-sm"
                 />
               </div>
               <p className="text-xs text-[var(--color-text-tertiary)]">
-                支持小红书、微信公众号、YouTube、Bilibili、Twitter 等。系统将自动抓取原文，随时通过
-                AI 提取深度长摘要。
+                {t('scrapbook.modal.urlHint')}
               </p>
               {isLoading && (
                 <div className="flex items-center gap-2 text-sm text-[var(--color-accent)]">
@@ -572,7 +581,9 @@ const AddModal = ({ isOpen, onClose, onAdded }) => {
           ) : (
             <div className="space-y-4">
               <div className="flex flex-col gap-1.5">
-                <span className="text-xs font-medium text-[var(--color-text-secondary)]">平台</span>
+                <span className="text-xs font-medium text-[var(--color-text-secondary)]">
+                  {t('platform', '平台')}
+                </span>
                 <Select value={manualPlatform} onValueChange={setManualPlatform}>
                   <SelectTrigger>
                     <SelectValue />
@@ -587,45 +598,49 @@ const AddModal = ({ isOpen, onClose, onAdded }) => {
                 </Select>
               </div>
               <div className="flex flex-col gap-1.5">
-                <span className="text-xs font-medium text-[var(--color-text-secondary)]">标题</span>
+                <span className="text-xs font-medium text-[var(--color-text-secondary)]">
+                  {t('scrapbook.modal.titleLabel')}
+                </span>
                 <Input
                   type="text"
                   value={manualTitle}
                   onChange={e => setManualTitle(e.target.value)}
-                  placeholder="文章标题"
+                  placeholder={t('scrapbook.modal.titlePlaceholder')}
                 />
               </div>
               <div className="flex flex-col gap-1.5">
-                <span className="text-xs font-medium text-[var(--color-text-secondary)]">摘要</span>
+                <span className="text-xs font-medium text-[var(--color-text-secondary)]">
+                  {t('scrapbook.modal.summaryLabel')}
+                </span>
                 <Textarea
                   value={manualSummary}
                   onChange={e => setManualSummary(e.target.value)}
-                  placeholder="2-3 句话概括核心内容"
+                  placeholder={t('scrapbook.modal.summaryPlaceholder')}
                   rows={3}
                   className="resize-none"
                 />
               </div>
               <div className="flex flex-col gap-1.5">
                 <span className="text-xs font-medium text-[var(--color-text-secondary)]">
-                  原文内容（可选）
+                  {t('scrapbook.modal.contentLabel')}
                 </span>
                 <Textarea
                   value={manualContent}
                   onChange={e => setManualContent(e.target.value)}
-                  placeholder="粘贴原文..."
+                  placeholder={t('scrapbook.modal.contentPlaceholder')}
                   rows={4}
                   className="resize-none"
                 />
               </div>
               <div className="flex flex-col gap-1.5">
                 <span className="text-xs font-medium text-[var(--color-text-secondary)]">
-                  标签（逗号分隔）
+                  {t('scrapbook.detail.tagsTitle')}
                 </span>
                 <Input
                   type="text"
                   value={manualTags}
                   onChange={e => setManualTags(e.target.value)}
-                  placeholder="AI, 技术, 产品"
+                  placeholder="AI, tech, product"
                 />
               </div>
             </div>
@@ -640,7 +655,7 @@ const AddModal = ({ isOpen, onClose, onAdded }) => {
 
         <DialogFooter className="flex gap-2 border-t border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-5 py-4 sm:justify-end">
           <Button variant="outline" onClick={onClose} disabled={isLoading}>
-            取消
+            {t('scrapbook.modal.cancel')}
           </Button>
           <Button
             onClick={tab === 'url' ? handleUrlSave : handleManualSave}
@@ -648,7 +663,7 @@ const AddModal = ({ isOpen, onClose, onAdded }) => {
             className="flex items-center justify-center gap-2 rounded-xl bg-zinc-900 text-white shadow-md hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
           >
             {isLoading ? <Loader2 size={15} className="animate-spin" /> : null}
-            {isLoading ? '处理中...' : '保存'}
+            {isLoading ? t('scrapbook.detail.saving') : t('save')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -666,7 +681,7 @@ const EntryCard = ({ entry, onDelete }) => {
   const { showConfirmation } = useAppContext()
   const [isDeleting, setIsDeleting] = useState(false)
   const tags = Array.isArray(entry.tags) ? entry.tags : []
-  const displayTitle = stripGeneratedTitlePrefix(entry.title) || '无标题'
+  const displayTitle = stripGeneratedTitlePrefix(entry.title) || t('scrapbook.detail.untitled')
   const platformColor = PLATFORM_COLORS[entry.platform] || PLATFORM_COLORS.unknown
   const dateStr = entry.created_at
     ? new Date(entry.created_at).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
@@ -676,9 +691,9 @@ const EntryCard = ({ entry, onDelete }) => {
     e.preventDefault()
     e.stopPropagation()
     showConfirmation({
-      title: '删除随手记',
-      message: `确定要删除「${entry.title || '这条随手记'}」吗？删除后无法恢复。`,
-      confirmText: '删除',
+      title: t('scrapbook.detail.deleteConfirmTitle'),
+      message: t('scrapbook.detail.deleteConfirmMsg'),
+      confirmText: t('scrapbook.detail.deleteConfirmBtn'),
       isDangerous: true,
       onConfirm: async () => {
         setIsDeleting(true)
@@ -763,7 +778,7 @@ const EntryCard = ({ entry, onDelete }) => {
             className="ml-auto inline-flex items-center gap-1.5 rounded-xl bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white shadow-md transition-all hover:-translate-y-0.5 hover:bg-zinc-800 hover:shadow-lg dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
           >
             <Globe size={13} />
-            <span>访问原文</span>
+            <span>{t('scrapbook.detail.visitOriginal')}</span>
             <ExternalLink size={12} className="opacity-70" />
           </a>
         )}
@@ -777,6 +792,7 @@ const EntryCard = ({ entry, onDelete }) => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function ScrapbookView() {
+  const { t } = useTranslation()
   const { isSidebarPinned } = useAppContext()
   const [entries, setEntries] = useState([])
   const [isLoading, setIsLoading] = useState(true)
@@ -839,7 +855,7 @@ export default function ScrapbookView() {
                 <BookOpen size={20} className="flex-shrink-0" />
               </div>
               <h1 className="flex-shrink-0 text-2xl font-bold tracking-tight text-[var(--color-text-primary)]">
-                随手记
+                {t('scrapbook.title', '随手记')}
               </h1>
             </div>
 
@@ -853,7 +869,7 @@ export default function ScrapbookView() {
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                placeholder="搜索标题或摘要..."
+                placeholder={t('scrapbook.list.searchPlaceholder', '搜索标题、内容摘要、标签...')}
                 className="w-full rounded-2xl border border-white/40 bg-white/50 py-2.5 pr-4 pl-10 text-sm text-[var(--color-text-primary)] shadow-inner backdrop-blur-md transition-all placeholder:text-[var(--color-text-tertiary)] hover:bg-white/80 focus:bg-white focus:ring-2 focus:ring-[var(--color-accent)]/30 focus:outline-none dark:border-white/10 dark:bg-black/40 dark:hover:bg-black/60 dark:focus:bg-black/80"
               />
             </div>
@@ -888,7 +904,7 @@ export default function ScrapbookView() {
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              placeholder="搜索标题或摘要..."
+              placeholder={t('scrapbook.list.searchPlaceholder', '搜索标题、内容摘要、标签...')}
               className="w-full rounded-2xl border border-white/40 bg-white/50 py-2.5 pr-4 pl-10 text-sm text-[var(--color-text-primary)] shadow-inner backdrop-blur-md transition-all placeholder:text-[var(--color-text-tertiary)] hover:bg-white/80 focus:bg-white focus:ring-2 focus:ring-[var(--color-accent)]/30 focus:outline-none dark:border-white/10 dark:bg-black/40 dark:hover:bg-black/60 dark:focus:bg-black/80"
             />
           </div>
@@ -906,7 +922,7 @@ export default function ScrapbookView() {
                     : 'bg-white/50 text-[var(--color-text-secondary)] ring-1 ring-black/5 hover:bg-white/80 hover:text-[var(--color-text-primary)] dark:bg-black/40 dark:ring-white/10 dark:hover:bg-black/60',
                 )}
               >
-                {PLATFORM_PILL_LABELS[p]}
+                {t(PLATFORM_PILL_LABELS[p])}
               </button>
             ))}
           </div>
@@ -924,7 +940,7 @@ export default function ScrapbookView() {
                 <BookOpen size={36} className="text-[var(--color-text-tertiary)] drop-shadow-sm" />
               </div>
               <p className="text-sm font-medium text-[var(--color-text-secondary)]">
-                {searchQuery ? '没有找到匹配的内容' : '还没有随手记，点击右下角 + 开始收藏'}
+                {searchQuery ? t('scrapbook.list.emptySearch') : t('scrapbook.list.emptyHint')}
               </p>
             </div>
           ) : (

@@ -25,6 +25,8 @@ import {
   Tag,
   Trash2,
   X,
+  Video,
+  Image as ImageIcon,
 } from 'lucide-react'
 import clsx from 'clsx'
 import {
@@ -675,16 +677,49 @@ const AddModal = ({ isOpen, onClose, onAdded }) => {
 // Entry Card
 // ─────────────────────────────────────────────────────────────────────────────
 
+const getThumbnailUrl = entry => {
+  if (entry.thumbnail) return entry.thumbnail
+
+  // Try to extract YouTube video ID from source_url if platform is youtube
+  if (entry.platform === 'youtube' && entry.source_url) {
+    const ytMatch = entry.source_url.match(
+      /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i,
+    )
+    if (ytMatch && ytMatch[1]) {
+      // Use mqdefault.jpg which is widely available and good enough for small thumbnails
+      return `https://img.youtube.com/vi/${ytMatch[1]}/mqdefault.jpg`
+    }
+  }
+
+  // Try to extract first markdown image from content or summary
+  const imgRegex = /!\[.*?\]\((.*?)\)/
+  if (entry.content) {
+    const match = entry.content.match(imgRegex)
+    if (match && match[1]) return match[1]
+  }
+  if (entry.summary) {
+    const match = entry.summary.match(imgRegex)
+    if (match && match[1]) return match[1]
+  }
+
+  return null
+}
+
 const EntryCard = ({ entry, onDelete }) => {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { showConfirmation } = useAppContext()
   const [isDeleting, setIsDeleting] = useState(false)
-  const tags = Array.isArray(entry.tags) ? entry.tags : []
   const displayTitle = stripGeneratedTitlePrefix(entry.title) || t('scrapbook.detail.untitled')
-  const platformColor = PLATFORM_COLORS[entry.platform] || PLATFORM_COLORS.unknown
+  const actualThumbnail = getThumbnailUrl(entry)
+
+  // Date format: "昨天 02:24" or "2026/2/23"
   const dateStr = entry.created_at
-    ? new Date(entry.created_at).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
+    ? new Date(entry.created_at).toLocaleDateString('zh-CN', {
+        month: 'numeric',
+        day: 'numeric',
+        year: 'numeric',
+      })
     : ''
 
   const handleDelete = e => {
@@ -707,82 +742,66 @@ const EntryCard = ({ entry, onDelete }) => {
   return (
     <div
       onClick={() => navigate({ to: '/scrapbook/$entryId', params: { entryId: entry.id } })}
-      className="group relative flex cursor-pointer flex-col rounded-3xl border border-white/40 bg-white/40 px-5 py-3 shadow-sm backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:bg-white/60 hover:shadow-md dark:border-white/10 dark:bg-black/40 dark:hover:bg-black/50"
+      className="group relative flex cursor-pointer gap-4 rounded-3xl bg-white px-5 py-4 shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-all duration-300 hover:shadow-[0_4px_20px_rgba(0,0,0,0.08)] active:scale-[0.98] dark:bg-zinc-900/40"
     >
-      {/* Platform badge + date + delete in one row */}
-      <div className="mb-2 flex items-center gap-2">
-        <span className={clsx('rounded-full px-2 py-0.5 text-xs font-medium', platformColor)}>
-          {getPlatformLabel(entry.platform)}
-        </span>
-        <span className="ml-auto text-xs text-[var(--color-text-tertiary)]">{dateStr}</span>
-        <button
-          onClick={handleDelete}
-          disabled={isDeleting}
-          className="rounded-full p-1 text-[var(--color-text-tertiary)] opacity-0 transition-all group-hover:opacity-100 hover:bg-red-100 hover:text-red-500 dark:hover:bg-red-900/30"
-        >
-          {isDeleting ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
-        </button>
+      {/* Delete button (hover only on desktop, or long press on mobile - simplified to top right absolute for now) */}
+      <button
+        onClick={handleDelete}
+        disabled={isDeleting}
+        className="absolute top-2 right-2 rounded-full bg-white/80 p-1.5 text-gray-400 opacity-0 shadow-sm backdrop-blur-md transition-all group-hover:opacity-100 hover:bg-red-50 hover:text-red-500 md:top-3 md:right-3 dark:bg-zinc-800/80 dark:hover:bg-red-900/30"
+      >
+        {isDeleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+      </button>
+
+      {/* Left Content */}
+      <div className="flex min-w-0 flex-1 flex-col py-1">
+        <h3 className="mb-2 line-clamp-2 text-base leading-snug font-bold tracking-tight text-gray-900 dark:text-gray-100">
+          {displayTitle}
+        </h3>
+
+        {/* Summary Snippet - hidden if very long, keep to 2 lines max */}
+        {entry.summary && (
+          <p className="mb-3 line-clamp-2 text-[13px] leading-relaxed text-gray-500 dark:text-gray-400">
+            {/* Using simple string replace for demo, Streamdown might break inline flow */}
+            {entry.summary.replace(/[#*`_]/g, '').slice(0, 100)}...
+          </p>
+        )}
+
+        {/* Bottom Metadata */}
+        <div className="mt-auto flex items-center gap-2 text-xs text-gray-400">
+          <div
+            className={clsx(
+              'flex items-center gap-1 rounded-sm px-1 py-0.5 font-medium',
+              PLATFORM_COLORS[entry.platform] || PLATFORM_COLORS.unknown,
+            )}
+          >
+            {getPlatformLabel(entry.platform)}
+          </div>
+          <span>{dateStr}</span>
+        </div>
       </div>
 
-      {/* Thumbnail */}
-      {entry.thumbnail && (
-        <img
-          src={entry.thumbnail}
-          alt=""
-          className="mb-3 h-32 w-full rounded-xl object-cover"
-          onError={e => {
-            e.target.style.display = 'none'
-          }}
-        />
-      )}
-
-      {/* Title */}
-      <h3 className="mb-2 line-clamp-2 text-[15px] leading-snug font-semibold tracking-tight text-[var(--color-text-primary)]">
-        {entry.emoji ? `${entry.emoji} ` : ''}
-        {displayTitle}
-      </h3>
-
-      {/* Summary */}
-      {entry.summary && (
-        <div className="relative mb-3 flex-1 rounded-xl border border-white/10 bg-gray-200/70 px-3 py-2.5 dark:border-white/10 dark:bg-white/5">
-          {/* <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-medium tracking-[0.08em] text-[var(--color-text-tertiary)] uppercase">
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--color-accent)]/80" />
-            {t('common.summary')}
-          </div> */}
-          <div className="pointer-events-none max-h-[4.6rem] overflow-hidden text-xs leading-relaxed text-[var(--color-text-secondary)]">
-            <div className="prose prose-sm dark:prose-invert max-w-none text-xs leading-relaxed text-[var(--color-text-secondary)] [&_blockquote]:my-1 [&_blockquote]:border-l-2 [&_blockquote]:pl-2 [&_h1]:my-1 [&_h1]:text-xs [&_h1]:font-medium [&_h2]:my-1 [&_h2]:text-xs [&_h2]:font-medium [&_h3]:my-1 [&_h3]:text-xs [&_h3]:font-medium [&_ol]:my-1 [&_ol]:pl-4 [&_p]:my-1 [&_pre]:hidden [&_strong]:font-medium [&_table]:hidden [&_ul]:my-1 [&_ul]:pl-4 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
-              <Streamdown>{entry.summary}</Streamdown>
-            </div>
+      {/* Right Thumbnail */}
+      {actualThumbnail && (
+        <div className="relative shrink-0 overflow-hidden rounded-xl object-cover">
+          <img
+            src={actualThumbnail}
+            alt=""
+            className="h-28 w-[84px] object-cover"
+            onError={e => {
+              e.target.style.display = 'none'
+            }}
+          />
+          {/* Media type indicator bottom right corner */}
+          <div className="absolute right-1.5 bottom-1.5 rounded-md bg-black/40 p-0.5 text-white backdrop-blur-md">
+            {['youtube', 'bilibili'].includes(entry.platform) ? (
+              <Video size={10} fill="currentColor" className="text-white/90" />
+            ) : (
+              <ImageIcon size={10} className="text-white/90" />
+            )}
           </div>
-          {/* <div className="pointer-events-none absolute right-2 bottom-2 left-2 h-6 bg-gradient-to-t from-black/35 to-transparent dark:from-black/40" /> */}
         </div>
       )}
-
-      {/* Footer */}
-      <div className="mt-auto flex flex-wrap items-center gap-2">
-        {tags.slice(0, 3).map(tag => (
-          <span
-            key={tag}
-            className="inline-flex items-center gap-0.5 rounded-full bg-[var(--color-bg-primary)] px-2 py-0.5 text-xs text-[var(--color-text-tertiary)] ring-1 ring-[var(--color-border)]"
-          >
-            <Tag size={10} />
-            {tag}
-          </span>
-        ))}
-        {entry.source_url && (
-          <a
-            href={entry.source_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={e => e.stopPropagation()}
-            className="ml-auto inline-flex items-center gap-1.5 rounded-xl bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white shadow-md transition-all hover:-translate-y-0.5 hover:bg-zinc-800 hover:shadow-lg dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
-          >
-            <Globe size={13} />
-            <span>{t('scrapbook.detail.visitOriginal')}</span>
-            <ExternalLink size={12} className="opacity-70" />
-          </a>
-        )}
-      </div>
     </div>
   )
 }
@@ -838,7 +857,7 @@ export default function ScrapbookView() {
   return (
     <div
       className={clsx(
-        'relative flex h-full flex-col overflow-hidden bg-[var(--color-bg-primary)] transition-all duration-300',
+        'relative flex h-full flex-col overflow-hidden bg-[#f4f4f4] transition-all duration-300 dark:bg-black',
         isSidebarPinned ? 'ml-0 sm:ml-72' : 'ml-0 sm:ml-16',
       )}
     >
@@ -846,105 +865,111 @@ export default function ScrapbookView() {
         <ColorBendsBackground />
       </div>
 
-      <div className="relative z-10 flex h-full flex-col bg-white/40 backdrop-blur-3xl dark:bg-black/40">
+      <div className="relative z-10 flex h-full flex-col">
         {/* ── Header ─────────────────────────────────────────────────────── */}
-        <div className="flex-shrink-0 border-b border-black/5 px-6 py-5 dark:border-white/10">
+        <div className="flex-shrink-0 px-5 py-4 pb-2">
+          {/* Top Bar: Title + Actions */}
           <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-[var(--color-accent)] to-indigo-500 text-white shadow-[var(--color-accent)]/20 shadow-lg">
-                <BookOpen size={20} className="flex-shrink-0" />
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-500 text-white shadow-sm shadow-blue-500/20">
+                <BookOpen size={16} className="flex-shrink-0" />
               </div>
-              <h1 className="flex-shrink-0 text-2xl font-bold tracking-tight text-[var(--color-text-primary)]">
-                {t('scrapbook.title', '随手记')}
+              <h1 className="text-xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
+                {t('scrapbook.title', '小布记忆')}
               </h1>
             </div>
 
-            {/* Search */}
-            <div className="relative mx-6 hidden max-w-md flex-1 sm:block">
+            <div className="flex items-center gap-4 text-gray-700 dark:text-gray-300">
+              <button
+                // We'll reveal the search bar conditionally in a real app,
+                // but for now, we'll keep the design clean with just an icon
+                onClick={() => {
+                  /* handle search toggle */
+                  const wrapper = document.getElementById('mobile-search-wrapper')
+                  if (wrapper) wrapper.classList.toggle('hidden')
+                }}
+                className="hover:text-black dark:hover:text-white"
+              >
+                <Search size={20} strokeWidth={2.5} />
+              </button>
+
+              {/* Gear icon — model config */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowModelConfig(true)}
+                  title="AI 模型配置"
+                  className="hover:text-black dark:hover:text-white"
+                >
+                  <Settings2 size={20} strokeWidth={2.5} />
+                </button>
+                <ModelConfigPanel
+                  isOpen={showModelConfig}
+                  onClose={() => setShowModelConfig(false)}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Hidden by default Mobile Search Bar */}
+          <div id="mobile-search-wrapper" className="mb-4 hidden">
+            <div className="relative">
               <Search
                 size={16}
-                className="absolute top-1/2 left-3.5 -translate-y-1/2 text-[var(--color-text-tertiary)]"
+                className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400"
               />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 placeholder={t('scrapbook.list.searchPlaceholder', '搜索标题、内容摘要、标签...')}
-                className="w-full rounded-2xl border border-white/40 bg-white/50 py-2.5 pr-4 pl-10 text-sm text-[var(--color-text-primary)] shadow-inner backdrop-blur-md transition-all placeholder:text-[var(--color-text-tertiary)] hover:bg-white/80 focus:bg-white focus:ring-2 focus:ring-[var(--color-accent)]/30 focus:outline-none dark:border-white/10 dark:bg-black/40 dark:hover:bg-black/60 dark:focus:bg-black/80"
-              />
-            </div>
-
-            {/* Gear icon — model config */}
-            <div className="relative flex-shrink-0">
-              <button
-                onClick={() => setShowModelConfig(true)}
-                title="AI 模型配置"
-                className={clsx(
-                  'flex h-10 w-10 items-center justify-center rounded-2xl border border-white/40 bg-white/40 shadow-sm backdrop-blur-md transition-all hover:-translate-y-0.5 hover:bg-white/80 dark:border-white/10 dark:bg-black/40 dark:hover:bg-black/60',
-                  showModelConfig
-                    ? 'text-[var(--color-accent)]'
-                    : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]',
-                )}
-              >
-                <Settings2 size={18} />
-              </button>
-              <ModelConfigPanel
-                isOpen={showModelConfig}
-                onClose={() => setShowModelConfig(false)}
+                className="w-full rounded-full bg-white py-2 pr-4 pl-9 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:ring-1 focus:ring-gray-300 focus:outline-none dark:bg-zinc-900 dark:text-white dark:focus:ring-zinc-700"
               />
             </div>
           </div>
 
-          <div className="relative mb-4 sm:hidden">
-            <Search
-              size={16}
-              className="absolute top-1/2 left-3.5 -translate-y-1/2 text-[var(--color-text-tertiary)]"
-            />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder={t('scrapbook.list.searchPlaceholder', '搜索标题、内容摘要、标签...')}
-              className="w-full rounded-2xl border border-white/40 bg-white/50 py-2.5 pr-4 pl-10 text-sm text-[var(--color-text-primary)] shadow-inner backdrop-blur-md transition-all placeholder:text-[var(--color-text-tertiary)] hover:bg-white/80 focus:bg-white focus:ring-2 focus:ring-[var(--color-accent)]/30 focus:outline-none dark:border-white/10 dark:bg-black/40 dark:hover:bg-black/60 dark:focus:bg-black/80"
-            />
-          </div>
-
-          {/* Platform filter pills */}
-          <div className="flex flex-wrap gap-2">
-            {ALL_PLATFORMS.map(p => (
-              <button
-                key={p}
-                onClick={() => setActivePlatform(p)}
-                className={clsx(
-                  'rounded-full px-4 py-1.5 text-xs font-semibold tracking-wide shadow-sm transition-all',
-                  activePlatform === p
-                    ? 'bg-[var(--color-text-primary)] text-[var(--color-bg-primary)] ring-1 ring-black/5 dark:ring-white/10'
-                    : 'bg-white/50 text-[var(--color-text-secondary)] ring-1 ring-black/5 hover:bg-white/80 hover:text-[var(--color-text-primary)] dark:bg-black/40 dark:ring-white/10 dark:hover:bg-black/60',
-                )}
-              >
-                {t(PLATFORM_PILL_LABELS[p])}
-              </button>
-            ))}
+          {/* Platform filter pills (Scrollable array) */}
+          <div className="scrollbar-none -mx-5 flex snap-x snap-mandatory overflow-x-auto px-5 pb-2">
+            <div className="flex gap-2">
+              {ALL_PLATFORMS.map(p => {
+                const isActive = activePlatform === p
+                return (
+                  <button
+                    key={p}
+                    onClick={() => setActivePlatform(p)}
+                    className={clsx(
+                      'flex shrink-0 snap-start items-center justify-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium shadow-[0_1px_4px_rgba(0,0,0,0.03)] transition-all',
+                      isActive
+                        ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-800 dark:text-white'
+                        : 'bg-white/60 text-gray-500 hover:bg-white hover:text-gray-900 dark:bg-zinc-900/40 dark:text-gray-400 dark:hover:bg-zinc-800 dark:hover:text-white',
+                    )}
+                  >
+                    {/* Add small icon proxy based on platform if needed, here just rendering label */}
+                    {p === 'all' && <BookOpen size={12} />}
+                    {t(PLATFORM_PILL_LABELS[p])}
+                  </button>
+                )
+              })}
+            </div>
           </div>
         </div>
 
         {/* ── Content ────────────────────────────────────────────────────── */}
-        <div className="flex-1 overflow-y-auto px-6 py-6 pb-24">
+        <div className="flex-1 overflow-y-auto px-4 pb-24 sm:px-6">
           {isLoading ? (
             <div className="flex h-full items-center justify-center">
-              <Loader2 size={32} className="animate-spin text-[var(--color-accent)]" />
+              <Loader2 size={32} className="animate-spin text-gray-400" />
             </div>
           ) : filteredEntries.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
-              <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-white/50 shadow-sm backdrop-blur-md dark:bg-black/40">
-                <BookOpen size={36} className="text-[var(--color-text-tertiary)] drop-shadow-sm" />
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white shadow-sm dark:bg-zinc-900">
+                <BookOpen size={28} className="text-gray-300" />
               </div>
-              <p className="text-sm font-medium text-[var(--color-text-secondary)]">
+              <p className="text-sm font-medium text-gray-500">
                 {searchQuery ? t('scrapbook.list.emptySearch') : t('scrapbook.list.emptyHint')}
               </p>
             </div>
           ) : (
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {filteredEntries.map(entry => (
                 <EntryCard key={entry.id} entry={entry} onDelete={handleDelete} />
               ))}
@@ -955,9 +980,12 @@ export default function ScrapbookView() {
         {/* ── FAB ────────────────────────────────────────────────────────── */}
         <button
           onClick={() => setShowAddModal(true)}
-          className="absolute right-8 bottom-8 flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-900 text-white shadow-xl shadow-zinc-900/20 backdrop-blur-xl transition-all hover:-translate-y-1 hover:bg-zinc-800 hover:shadow-2xl active:scale-95 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+          className="absolute right-6 bottom-8 flex h-14 w-14 items-center justify-center rounded-[24px] bg-white text-gray-900 shadow-[0_8px_30px_rgba(0,0,0,0.12)] transition-all hover:scale-105 active:scale-95 dark:bg-zinc-800 dark:text-gray-100"
         >
-          <Plus size={26} />
+          {/* Plus icon inside a colorful gradient container or just styled colorful */}
+          <div className="flex items-center gap-1.5 bg-gradient-to-r from-blue-500 via-purple-500 to-red-500 bg-clip-text text-transparent">
+            <Plus size={28} className="text-black dark:text-white" strokeWidth={2} />
+          </div>
         </button>
 
         {/* ── Add Modal ──────────────────────────────────────────────────── */}
@@ -967,6 +995,7 @@ export default function ScrapbookView() {
           onAdded={handleAdded}
         />
       </div>
+      {/* End of z-10 relative flex h-full flex-col */}
     </div>
   )
 }

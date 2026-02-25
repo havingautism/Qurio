@@ -39,7 +39,7 @@ const getBackendUrl = () => {
 
 const getDbProvider = () => {
   const settings = loadSettings()
-  return settings.databaseProvider || 'supabase'
+  return settings.databaseProviderId || settings.databaseProvider || ''
 }
 
 const buildUrl = (path, params = {}) => {

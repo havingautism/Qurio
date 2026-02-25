@@ -29,10 +29,21 @@ from sse_starlette.sse import EventSourceResponse
 
 from ..models.db import DbFilter, DbOrder, DbQueryRequest
 from ..services.db_service import execute_db_async, get_db_adapter
-from ..services.email_monitor import poll_all_accounts, subscribe_notifications, unsubscribe_notifications
+from ..services.email_monitor import (
+    poll_all_accounts,
+    set_email_monitor_provider,
+    subscribe_notifications,
+    unsubscribe_notifications,
+)
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+def _sync_monitor_db_provider(db_provider: Optional[str]) -> None:
+    """Update the background email scheduler DB provider from the current request, if provided."""
+    if db_provider and str(db_provider).strip():
+        set_email_monitor_provider(db_provider)
 
 
 # ---------------------------------------------------------------------------
@@ -81,6 +92,14 @@ def _get_imap_provider(provider: str, email_address: str, app_password: str):
 # Connect / Config
 # ---------------------------------------------------------------------------
 
+@router.post("/email/monitor/provider")
+async def sync_email_monitor_provider(
+    db_provider: Optional[str] = Query(default=None, alias="dbProvider"),
+):
+    """Sync the background email monitor DB provider (lightweight, no email-table access)."""
+    _sync_monitor_db_provider(db_provider)
+    return {"success": True, "dbProvider": db_provider or None}
+
 @router.post("/email/connect")
 async def connect_email(
     body: EmailConnectRequest,
@@ -91,6 +110,7 @@ async def connect_email(
     Returns error if login fails or email already exists.
     """
     try:
+        _sync_monitor_db_provider(db_provider)
         # Validate credentials by attempting a real IMAP login
         import imaplib, socket
 
@@ -159,6 +179,7 @@ async def get_email_configs(
 ):
     """Get all email provider configs (passwords are omitted)."""
     try:
+        _sync_monitor_db_provider(db_provider)
         adapter = get_db_adapter(db_provider)
         if not adapter:
             return {"configs": []}
@@ -192,6 +213,7 @@ async def update_email_config(
 ):
     """Update a specific email config settings (interval, enabled state, summary model)."""
     try:
+        _sync_monitor_db_provider(db_provider)
         adapter = get_db_adapter(db_provider)
         if not adapter:
             raise HTTPException(status_code=500, detail="No DB adapter configured")
@@ -227,6 +249,7 @@ async def delete_email_config(
 ):
     """Delete a specific email config and all associated notifications (via CASCADE)."""
     try:
+        _sync_monitor_db_provider(db_provider)
         adapter = get_db_adapter(db_provider)
         if not adapter:
             raise HTTPException(status_code=500, detail="No DB adapter configured")
@@ -259,6 +282,7 @@ async def list_notifications(
 ):
     """List email notifications, newest first. Optionally filter by config_id."""
     try:
+        _sync_monitor_db_provider(db_provider)
         adapter = get_db_adapter(db_provider)
         if not adapter:
             return {"notifications": [], "total": 0}
@@ -296,6 +320,7 @@ async def mark_notification_read(
 ):
     """Mark a single notification as read."""
     try:
+        _sync_monitor_db_provider(db_provider)
         adapter = get_db_adapter(db_provider)
         if not adapter:
             raise HTTPException(status_code=500, detail="No DB adapter configured")
@@ -327,6 +352,7 @@ async def mark_all_notifications_read(
 ):
     """Mark all unread notifications as read. Optionally filter by config_id."""
     try:
+        _sync_monitor_db_provider(db_provider)
         adapter = get_db_adapter(db_provider)
         if not adapter:
             raise HTTPException(status_code=500, detail="No DB adapter configured")
@@ -357,6 +383,7 @@ async def delete_notification(
 ):
     """Delete a single notification."""
     try:
+        _sync_monitor_db_provider(db_provider)
         adapter = get_db_adapter(db_provider)
         if not adapter:
             raise HTTPException(status_code=500, detail="Database adapter not available")
@@ -388,6 +415,7 @@ async def trigger_poll(
 ):
     """Manually trigger an email poll cycle (for testing)."""
     try:
+        _sync_monitor_db_provider(db_provider)
         result = await poll_all_accounts(database_provider=db_provider)
         return {"success": True, **result}
     except Exception as e:
@@ -408,6 +436,7 @@ async def notification_stream(
     Frontend can connect to receive updates when new emails are polled.
     """
     import json
+    _sync_monitor_db_provider(db_provider)
 
     async def event_generator():
         queue = subscribe_notifications()

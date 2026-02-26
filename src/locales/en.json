@@ -299,6 +299,7 @@
   },
   "settings": {
     "title": "Settings",
+    "modelConfig": "Model Configuration",
     "email": {
       "title": "Email Notifications",
       "description": "Connect email accounts and Qurio will periodically fetch new emails and push AI-generated summaries as notifications. Supports multiple accounts.",

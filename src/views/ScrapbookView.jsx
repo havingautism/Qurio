@@ -291,7 +291,7 @@ const ModelConfigPanel = ({ isOpen, onClose }) => {
             {/* Provider */}
             <div className="flex flex-col gap-2">
               <span className="text-xs font-semibold tracking-wide text-[var(--color-text-secondary)] uppercase">
-                Provider
+                {t('settings.email.provider', '厂商')}
               </span>
               {availableProviders.length === 0 ? (
                 <p className="py-1 text-xs text-amber-600 dark:text-amber-400">
@@ -302,7 +302,7 @@ const ModelConfigPanel = ({ isOpen, onClose }) => {
                   value={provider || '__none__'}
                   onValueChange={val => handleProviderChange(val === '__none__' ? '' : val)}
                 >
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger className="w-full rounded-xl border-none bg-black/5 focus-visible:ring-1 focus-visible:ring-black/10 dark:bg-white/5 dark:focus-visible:ring-white/10">
                     <SelectValue placeholder={t('settings.inheritGlobal', '继承全局')}>
                       {provider ? (
                         <div className="flex items-center gap-3">
@@ -338,7 +338,7 @@ const ModelConfigPanel = ({ isOpen, onClose }) => {
               <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold tracking-wide text-[var(--color-text-secondary)] uppercase">
-                    Model
+                    {t('settings.email.model', '模型')}
                   </span>
                   <button
                     onClick={() => setModelSource(s => (s === 'custom' ? 'list' : 'custom'))}
@@ -354,7 +354,7 @@ const ModelConfigPanel = ({ isOpen, onClose }) => {
                     value={customModel}
                     onChange={e => setCustomModel(e.target.value)}
                     placeholder={t('settings.inputModelName', '输入 model 名称')}
-                    className="w-full"
+                    className="w-full rounded-xl border-none bg-black/5 px-4 focus-visible:ring-1 focus-visible:ring-black/10 dark:bg-white/5 dark:focus-visible:ring-white/10"
                   />
                 ) : isLoadingModels ? (
                   <div className="flex items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-3 py-2 text-sm text-[var(--color-text-secondary)] shadow-sm">
@@ -370,7 +370,7 @@ const ModelConfigPanel = ({ isOpen, onClose }) => {
                     value={model || '__none__'}
                     onValueChange={val => setModel(val === '__none__' ? '' : val)}
                   >
-                    <SelectTrigger className="w-full">
+                    <SelectTrigger className="w-full rounded-xl border-none bg-black/5 focus-visible:ring-1 focus-visible:ring-black/10 dark:bg-white/5 dark:focus-visible:ring-white/10">
                       <SelectValue placeholder={t('settings.selectModel', '-- 选择模型 --')}>
                         {model ? (
                           <div className="flex items-center gap-2 truncate">
@@ -421,7 +421,7 @@ const ModelConfigPanel = ({ isOpen, onClose }) => {
         </div>
 
         <DialogFooter className="mt-4 flex w-full items-center gap-2 sm:justify-between">
-          <Button variant="outline" onClick={handleReset} className="flex-1">
+          <Button variant="outline" onClick={handleReset} className="flex-1 rounded-xl">
             {t('settings.resetToGlobal', '重置为全局')}
           </Button>
           <Button
@@ -429,7 +429,7 @@ const ModelConfigPanel = ({ isOpen, onClose }) => {
             disabled={isLoadingModels}
             className="flex-1 rounded-xl bg-zinc-900 text-white shadow-md hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
           >
-            {t('save')}
+            {t('sidebar.save', '保存')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -538,32 +538,34 @@ const AddModal = ({ isOpen, onClose, onAdded }) => {
   return (
     <Dialog open={isOpen} onOpenChange={open => !open && onClose()}>
       <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-[480px]">
-        <DialogHeader className="border-b border-[var(--color-border)] px-5 py-4">
+        <DialogHeader className="px-5 pt-5 pb-2">
           <DialogTitle>{t('scrapbook.modal.saveText', '新建随手记')}</DialogTitle>
         </DialogHeader>
 
         {/* Tabs */}
-        <div className="flex border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
-          {[
-            { id: 'url', label: t('scrapbook.modal.addFromUrl') },
-            { id: 'manual', label: t('scrapbook.modal.addManual') },
-          ].map(tObj => (
-            <button
-              key={tObj.id}
-              onClick={() => {
-                setTab(tObj.id)
-                setError('')
-              }}
-              className={clsx(
-                'flex-1 border-b-2 py-3 text-sm font-medium transition-colors',
-                tab === tObj.id
-                  ? 'border-[var(--color-accent)] text-[var(--color-accent)]'
-                  : 'border-transparent text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]',
-              )}
-            >
-              {tObj.label}
-            </button>
-          ))}
+        <div className="mx-5 mt-1 mb-2">
+          <div className="flex rounded-xl bg-black/5 p-1 dark:bg-white/5">
+            {[
+              { id: 'url', label: t('scrapbook.modal.addFromUrl') },
+              { id: 'manual', label: t('scrapbook.modal.addManual') },
+            ].map(tObj => (
+              <button
+                key={tObj.id}
+                onClick={() => {
+                  setTab(tObj.id)
+                  setError('')
+                }}
+                className={clsx(
+                  'flex-1 rounded-lg py-2 text-sm font-medium transition-all',
+                  tab === tObj.id
+                    ? 'bg-white text-[var(--color-accent)] shadow-sm dark:bg-[#3f3f46]'
+                    : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]',
+                )}
+              >
+                {tObj.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="max-h-[60vh] space-y-4 overflow-y-auto p-5">
@@ -581,7 +583,7 @@ const AddModal = ({ isOpen, onClose, onAdded }) => {
                   onKeyDown={e => e.key === 'Enter' && !isLoading && handleUrlSave()}
                   placeholder={t('scrapbook.modal.urlPlaceholder')}
                   disabled={isLoading}
-                  className="w-full text-sm"
+                  className="w-full rounded-xl border-none bg-black/5 px-4 py-3 text-sm focus-visible:ring-1 focus-visible:ring-black/10 dark:bg-white/5 dark:focus-visible:ring-white/10"
                 />
               </div>
               <p className="text-xs text-[var(--color-text-tertiary)]">
@@ -622,6 +624,7 @@ const AddModal = ({ isOpen, onClose, onAdded }) => {
                   value={manualTitle}
                   onChange={e => setManualTitle(e.target.value)}
                   placeholder={t('scrapbook.modal.titlePlaceholder')}
+                  className="rounded-xl border-none bg-black/5 px-4 focus-visible:ring-1 focus-visible:ring-black/10 dark:bg-white/5 dark:focus-visible:ring-white/10"
                 />
               </div>
               <div className="flex flex-col gap-1.5">
@@ -633,7 +636,7 @@ const AddModal = ({ isOpen, onClose, onAdded }) => {
                   onChange={e => setManualSummary(e.target.value)}
                   placeholder={t('scrapbook.modal.summaryPlaceholder')}
                   rows={3}
-                  className="resize-none"
+                  className="resize-none rounded-xl border-none bg-black/5 p-4 focus-visible:ring-1 focus-visible:ring-black/10 dark:bg-white/5 dark:focus-visible:ring-white/10"
                 />
               </div>
               <div className="flex flex-col gap-1.5">
@@ -645,7 +648,7 @@ const AddModal = ({ isOpen, onClose, onAdded }) => {
                   onChange={e => setManualContent(e.target.value)}
                   placeholder={t('scrapbook.modal.contentPlaceholder')}
                   rows={4}
-                  className="resize-none"
+                  className="resize-none rounded-xl border-none bg-black/5 p-4 focus-visible:ring-1 focus-visible:ring-black/10 dark:bg-white/5 dark:focus-visible:ring-white/10"
                 />
               </div>
               <div className="flex flex-col gap-1.5">
@@ -657,6 +660,7 @@ const AddModal = ({ isOpen, onClose, onAdded }) => {
                   value={manualTags}
                   onChange={e => setManualTags(e.target.value)}
                   placeholder="AI, tech, product"
+                  className="rounded-xl border-none bg-black/5 px-4 focus-visible:ring-1 focus-visible:ring-black/10 dark:bg-white/5 dark:focus-visible:ring-white/10"
                 />
               </div>
             </div>
@@ -669,17 +673,22 @@ const AddModal = ({ isOpen, onClose, onAdded }) => {
           )}
         </div>
 
-        <DialogFooter className="flex gap-2 border-t border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-5 py-4 sm:justify-end">
-          <Button variant="outline" onClick={onClose} disabled={isLoading}>
+        <DialogFooter className="flex gap-2 px-5 pt-2 pb-5 sm:justify-end">
+          <Button
+            variant="outline"
+            className="rounded-xl border-none bg-black/5 hover:bg-black/10 dark:bg-white/5 dark:hover:bg-white/10"
+            onClick={onClose}
+            disabled={isLoading}
+          >
             {t('scrapbook.modal.cancel')}
           </Button>
           <Button
             onClick={tab === 'url' ? handleUrlSave : handleManualSave}
             disabled={isLoading || (tab === 'url' && !url.trim())}
-            className="flex items-center justify-center gap-2 rounded-xl bg-zinc-900 text-white shadow-md hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+            className="flex items-center justify-center gap-2 rounded-xl bg-zinc-900 px-6 text-white shadow-md hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
           >
             {isLoading ? <Loader2 size={15} className="animate-spin" /> : null}
-            {isLoading ? t('scrapbook.detail.saving') : t('save')}
+            {isLoading ? t('scrapbook.detail.saving') : t('sidebar.save', '保存')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -793,7 +802,7 @@ const EntryCard = ({ entry, onDelete }) => {
               PLATFORM_COLORS[entry.platform] || PLATFORM_COLORS.unknown,
             )}
           >
-            {getPlatformLabel(entry.platform)}
+            {getPlatformLabel(entry.platform, entry.source_url)}
           </div>
           <span>{dateStr}</span>
         </div>

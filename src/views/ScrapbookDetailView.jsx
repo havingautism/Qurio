@@ -539,7 +539,7 @@ ${entry.content}`
                   platformColor,
                 )}
               >
-                {getPlatformLabel(entry.platform)}
+                {getPlatformLabel(entry.platform, entry.source_url)}
               </span>
               <span className="flex items-center gap-1.5 text-sm font-medium text-[var(--color-text-tertiary)]">
                 <Calendar size={14} />

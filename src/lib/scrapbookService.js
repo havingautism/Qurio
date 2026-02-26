@@ -170,4 +170,32 @@ export const PLATFORM_LABELS = {
   unknown: '其他',
 }
 
-export const getPlatformLabel = platform => PLATFORM_LABELS[platform] || platform || '其他'
+/**
+ * Extract domain from a URL for display (e.g. 'https://juejin.cn/post/123' → 'juejin.cn')
+ */
+const extractDomain = url => {
+  if (!url) return null
+  try {
+    let domain = new URL(url).hostname.toLowerCase()
+    if (domain.startsWith('www.')) domain = domain.slice(4)
+    return domain || null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Get display label for a platform.
+ * For known platforms (youtube, bilibili, etc.) returns the Chinese label.
+ * For 'unknown' with a source_url, returns the domain name (e.g. 'juejin.cn').
+ * For 'manual' (no URL), returns '手动'.
+ */
+export const getPlatformLabel = (platform, sourceUrl) => {
+  if (!platform) return '其他'
+  if (PLATFORM_LABELS[platform] && platform !== 'unknown') return PLATFORM_LABELS[platform]
+  // For 'unknown' platform, try to extract domain from source_url for display
+  if (platform === 'unknown' && sourceUrl) {
+    return extractDomain(sourceUrl) || '其他'
+  }
+  return PLATFORM_LABELS[platform] || platform
+}

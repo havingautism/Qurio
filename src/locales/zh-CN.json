@@ -283,6 +283,7 @@
   },
   "settings": {
     "title": "设置",
+    "modelConfig": "模型配置",
     "email": {
       "title": "邮件通知",
       "description": "连接邮箱账号，Qurio 会定时拉取新邮件并用 AI 生成摘要推送为通知。支持同时连接多个邮箱。",

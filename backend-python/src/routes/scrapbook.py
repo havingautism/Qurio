@@ -40,8 +40,21 @@ def _utc_now() -> str:
 # Helpers
 # ---------------------------------------------------------------------------
 
+def _extract_domain(url: str) -> str:
+    """Extract the main domain from a URL (e.g. 'juejin.cn' from 'https://juejin.cn/post/123')."""
+    from urllib.parse import urlparse
+    try:
+        netloc = urlparse(url).netloc.lower()
+        # Strip 'www.' prefix for cleaner display
+        if netloc.startswith('www.'):
+            netloc = netloc[4:]
+        return netloc or 'unknown'
+    except Exception:
+        return 'unknown'
+
+
 def _detect_platform_from_url(url: str) -> str:
-    """Guess the platform from the URL pattern."""
+    """Guess the platform from the URL pattern. Returns domain name for unknown platforms."""
     url_lower = url.lower()
     if 'youtube.com' in url_lower or 'youtu.be' in url_lower:
         return 'youtube'
@@ -55,6 +68,7 @@ def _detect_platform_from_url(url: str) -> str:
         return 'twitter'
     if 't.me' in url_lower or 'telegram.org' in url_lower:
         return 'telegram'
+    # For unknown platforms, return 'unknown' so they group under the "其他" filter
     return 'unknown'
 
 
@@ -69,10 +83,16 @@ async def _fetch_url_content(url: str) -> dict[str, str]:
         reader = UniversalReader()
         result = await asyncio.wait_for(reader.read(url), timeout=30.0)
         if result and getattr(result, "content", None):
+            # x-reader uses 'source_type' (an Enum), not 'platform'
+            raw_type = getattr(result, "source_type", None)
+            platform_val = raw_type.value if raw_type else ""
+            # If x-reader returned 'manual' (Jina fallback), use domain name instead
+            if not platform_val or platform_val == "manual":
+                platform_val = _detect_platform_from_url(url)
             return {
                 "title": getattr(result, "title", None) or "",
                 "content": result.content or "",
-                "platform": str(getattr(result, "platform", "") or "unknown"),
+                "platform": platform_val,
             }
     except ImportError:
         logger.warning("[Scrapbook] x-reader not installed")
@@ -105,7 +125,7 @@ async def _fetch_url_content(url: str) -> dict[str, str]:
     except Exception as fallback_err:
         logger.error("[Scrapbook] Jina.ai fallback failed: %s", fallback_err)
 
-    return {"title": "", "content": "", "platform": "unknown"}
+    return {"title": "", "content": "", "platform": _extract_domain(url)}
 
 
 class TitleOnlyResponse(BaseModel):
@@ -324,11 +344,16 @@ async def create_scrapbook_entry(request: Request) -> JSONResponse:
 
     if source_url and not content:
         fetched = await _fetch_url_content(source_url)
-        content = fetched["content"]
-        fetched_title = fetched["title"]
+        content = fetched.get("content", "").strip()
+        fetched_title = fetched.get("title", "").strip()
         # Override platform with x-reader's detected value only if we still don't have a good one
-        if fetched["platform"] and fetched["platform"] not in ("", "unknown") and platform in ("manual", "unknown", ""):
+        if fetched.get("platform") and fetched["platform"] not in ("", "unknown") and platform in ("manual", "unknown", ""):
             platform = fetched["platform"]
+            
+        # If we STILL have no content after fetching, we must fail.
+        # Otherwise we end up saving an empty scrapbook entry.
+        if not content:
+            raise HTTPException(status_code=400, detail="Unable to read webpage content due to network or copyright restrictions.")
 
     if not source_url and not content and not title:
         raise HTTPException(status_code=400, detail="Provide source_url, content, or title")

@@ -2,23 +2,19 @@ import { useNavigate } from '@tanstack/react-router'
 import clsx from 'clsx'
 import {
   ArrowRight,
-  Bookmark,
   Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Clock,
   Library as LibraryIcon,
   Plus,
   Search,
-  Trash2,
   X,
   Menu,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppContext } from '../App'
-import EmojiDisplay from '../components/EmojiDisplay'
 import FancyLoader from '../components/FancyLoader'
 import { useToast } from '../contexts/ToastContext'
 import {
@@ -29,6 +25,7 @@ import {
 } from '../lib/conversationsService'
 import { deleteConversation } from '../lib/supabase'
 import ColorBendsBackground from '../components/ui/ColorBendsBackground'
+import ConversationCard from '../components/ConversationCard'
 
 // Sort option keys (constant for logic)
 const SORT_OPTION_KEYS = [
@@ -39,7 +36,7 @@ const SORT_OPTION_KEYS = [
 ]
 
 const LibraryView = () => {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
   const { spaces, deepResearchSpace, isSidebarPinned, showConfirmation, toggleSidebar } =
     useAppContext()
   const navigate = useNavigate()
@@ -47,15 +44,14 @@ const LibraryView = () => {
   const [activeSearchQuery, setActiveSearchQuery] = useState('') // Query actually sent to server
   const [sortOption, setSortOption] = useState(SORT_OPTION_KEYS[0])
   const [isSortOpen, setIsSortOpen] = useState(false)
-  const [expandedActionId, setExpandedActionId] = useState(null)
-  const toast = useToast()
-
   const [conversations, setConversations] = useState([])
   const [loading, setLoading] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
-  // const [emojiTick, setEmojiTick] = useState(0)
   const [totalCount, setTotalCount] = useState(0)
-  const limit = 10
+  const [isDeletingId, setIsDeletingId] = useState(null)
+  const limit = 12 // Increased limit for grid layout
+  const toast = useToast()
+
   const deepResearchSpaceIds = useMemo(() => {
     const ids = new Set()
     if (deepResearchSpace?.id) ids.add(String(deepResearchSpace.id))
@@ -67,7 +63,6 @@ const LibraryView = () => {
     return Array.from(ids)
   }, [deepResearchSpace?.id, spaces])
 
-  // Translated sort options for rendering
   const sortOptions = useMemo(
     () =>
       SORT_OPTION_KEYS.map(option => ({
@@ -78,7 +73,6 @@ const LibraryView = () => {
   )
 
   useEffect(() => {
-    // Reset to page 1 when sort or active search changes
     setCurrentPage(1)
   }, [sortOption, activeSearchQuery, deepResearchSpaceIds])
 
@@ -91,8 +85,6 @@ const LibraryView = () => {
         page: currentPage,
         limit,
         search: activeSearchQuery,
-        // Library shows all conversations - no space filtering needed
-        // Expert and DeepResearch views handle their own filtering
       })
 
       if (!error) {
@@ -114,13 +106,6 @@ const LibraryView = () => {
     window.addEventListener('conversations-changed', handleConversationsChanged)
     return () => window.removeEventListener('conversations-changed', handleConversationsChanged)
   }, [currentPage, sortOption, activeSearchQuery, deepResearchSpaceIds])
-
-  // useEffect(() => {
-  //   const intervalId = setInterval(() => {
-  //     setEmojiTick(prev => prev + 1)
-  //   }, 2000)
-  //   return () => clearInterval(intervalId)
-  // }, [])
 
   const handleSearch = () => {
     if (searchQuery.trim() !== activeSearchQuery) {
@@ -147,68 +132,11 @@ const LibraryView = () => {
     }
   }
 
-  // Filter conversations based on search query - Removed as we now do server-side search
-  const filteredConversations = conversations
-
-  // Helper to get space info
   const getSpaceInfo = spaceId => {
     if (!spaceId) return null
     return spaces.find(s => String(s.id) === String(spaceId))
   }
 
-  const normalizeTitleEmojis = value => {
-    if (Array.isArray(value)) {
-      return value
-        .map(item => String(item || '').trim())
-        .filter(Boolean)
-        .slice(0, 1)
-    }
-    if (typeof value === 'string' && value.trim()) {
-      try {
-        const parsed = JSON.parse(value)
-        if (Array.isArray(parsed)) {
-          return parsed
-            .map(item => String(item || '').trim())
-            .filter(Boolean)
-            .slice(0, 1)
-        }
-      } catch {
-        return []
-      }
-    }
-    return []
-  }
-
-  const resolveConversationEmoji = (conv, fallbackEmoji) => {
-    const emojiList = normalizeTitleEmojis(conv?.title_emojis ?? conv?.titleEmojis)
-    const resolvedList = emojiList.length > 0 ? emojiList : fallbackEmoji ? [fallbackEmoji] : []
-    if (resolvedList.length === 0) return '💬'
-    return resolvedList[0]
-    // const idText = String(conv?.id || '')
-    // let hash = 0
-    // for (let i = 0; i < idText.length; i += 1) {
-    //   hash = (hash + idText.charCodeAt(i)) % resolvedList.length
-    // }
-    // const index = (hash + emojiTick) % resolvedList.length
-    // return resolvedList[index]
-  }
-
-  // Format date helper
-  const formatDate = dateString => {
-    const date = new Date(dateString)
-    // Use current language for date formatting
-    const locale = i18n.language === 'zh-CN' ? 'zh-CN' : 'en-US'
-    return date.toLocaleString(locale, {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    })
-  }
-
-  // Handle toggle favorite
   const handleToggleFavorite = async conversation => {
     const newStatus = !conversation.is_favorited
     const { error } = await toggleFavorite(conversation.id, newStatus)
@@ -218,13 +146,10 @@ const LibraryView = () => {
       toast.error(t('errors.generic'))
     } else {
       toast.success(newStatus ? t('views.addBookmark') : t('views.removeBookmark'))
-      // Refresh data
       notifyConversationsChanged({ scopes: ['library', 'bookmarks'] })
     }
-    setExpandedActionId(null)
   }
 
-  // Handle delete conversation
   const handleDeleteConversation = async conversation => {
     if (!conversation) return
 
@@ -234,15 +159,16 @@ const LibraryView = () => {
       confirmText: t('confirmation.delete'),
       isDangerous: true,
       onConfirm: async () => {
+        setIsDeletingId(conversation.id)
         const { success, error } = await deleteConversation(conversation.id)
 
         if (success) {
           toast.success(t('views.libraryView.conversationDeleted'))
-          // Refresh data
           notifyConversationsChanged({ scopes: ['library', 'bookmarks'] })
         } else {
           console.error('Failed to delete conversation:', error)
           toast.error(t('views.libraryView.failedToDelete'))
+          setIsDeletingId(null)
         }
       },
     })
@@ -251,318 +177,189 @@ const LibraryView = () => {
   return (
     <div
       className={clsx(
-        'bg-background text-foreground relative h-full flex-1 overflow-hidden transition-all duration-300',
+        'relative flex h-full flex-1 flex-col overflow-hidden bg-[#f4f4f4] transition-all duration-300 dark:bg-black',
         isSidebarPinned ? 'ml-0 sm:ml-72' : 'ml-0 sm:ml-16',
       )}
     >
       <div className="pointer-events-none absolute inset-0 z-0 opacity-40 dark:opacity-20">
         <ColorBendsBackground />
       </div>
-      <div className="relative z-10 h-full overflow-y-auto">
-        <div className="mx-auto w-full max-w-5xl px-3 py-3.5 sm:px-6 sm:py-8">
-          {/* Header */}
-          <div className="mb-5 flex items-center justify-between sm:mb-8">
-            <div className="flex items-center gap-2.5 sm:gap-3">
+      <div className="relative z-10 flex h-full flex-col">
+        <div className="flex-1 overflow-x-hidden overflow-y-auto">
+          <div className="mx-auto w-full max-w-[1400px] px-4 py-4 sm:px-8 sm:py-8">
+            {/* Header */}
+            <div className="mb-6 flex items-center justify-between sm:mb-10">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => toggleSidebar()}
+                  className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-gray-200/50 bg-white/90 p-0 text-gray-600 shadow-sm backdrop-blur-xl transition-all hover:bg-white sm:hidden dark:border-zinc-800/50 dark:bg-zinc-900/90 dark:text-gray-300"
+                >
+                  <Menu size={20} strokeWidth={2} />
+                </button>
+                <div className="flex items-center gap-3">
+                  <LibraryIcon size={32} className="text-primary-500" />
+                  <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+                    {t('views.libraryView.title')}
+                  </h1>
+                </div>
+              </div>
               <button
-                onClick={() => toggleSidebar()}
-                aria-label="Open sidebar"
-                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-gray-200/50 bg-white/90 p-0 leading-none text-gray-600 shadow-sm backdrop-blur-xl transition-all hover:bg-white hover:shadow-md md:hidden dark:border-zinc-800/50 dark:bg-zinc-900/90 dark:text-gray-300 dark:hover:bg-zinc-900"
+                onClick={() => navigate({ to: '/new_chat' })}
+                className="flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-bold text-gray-900 shadow-sm transition-all hover:scale-105 hover:shadow-md active:scale-95 dark:bg-zinc-800 dark:text-white"
               >
-                <Menu size={20} strokeWidth={2} />
+                <Plus size={18} />
+                <span className="hidden sm:inline">{t('views.newThread')}</span>
               </button>
-              <LibraryIcon size={32} className="text-primary-500" />
-              <h1 className="text-2xl font-medium sm:text-3xl">{t('views.libraryView.title')}</h1>
             </div>
-            <button
-              onClick={() => navigate({ to: '/new_chat' })}
-              className="flex items-center gap-1.5 rounded-lg bg-gray-100 px-3 py-1.5 text-sm font-medium transition-colors hover:bg-gray-200 sm:gap-2 sm:px-4 sm:py-2 dark:bg-zinc-800 dark:hover:bg-zinc-700"
-            >
-              <Plus size={16} />
-              <span className="hidden sm:inline">{t('views.newThread')}</span>
-            </button>
-          </div>
 
-          {/* Search and Filters */}
-          <div className="mb-5 space-y-3 sm:mb-8 sm:space-y-4">
-            {/* Search Bar */}
-            <div className="relative">
-              <button
-                onClick={handleSearch}
-                className="absolute top-1/2 left-3 -translate-y-1/2 cursor-pointer text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-200"
-              >
-                <Search size={20} />
-              </button>
-              <input
-                type="text"
-                placeholder={t('views.libraryView.searchPlaceholder')}
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                onKeyDown={handleKeyDown}
-                className="w-full rounded-xl border border-transparent bg-gray-100 py-2.5 pr-20 pl-10 text-sm placeholder-gray-500 transition-all outline-none focus:border-gray-300 sm:py-3 dark:bg-zinc-900 dark:focus:border-zinc-700"
-              />
-              {searchQuery && (
+            {/* Search and Filters */}
+            <div className="mb-6 space-y-4 sm:mb-10">
+              <div className="relative">
+                <Search
+                  size={18}
+                  className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-400"
+                />
+                <input
+                  type="text"
+                  placeholder={t('views.libraryView.searchPlaceholder')}
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  className="focus:ring-primary-500/20 w-full rounded-2xl border-none bg-white py-3 pr-24 pl-12 text-sm text-gray-900 shadow-sm transition-all outline-none focus:ring-2 sm:py-3.5 dark:bg-zinc-900 dark:text-white"
+                />
                 <div className="absolute top-1/2 right-3 flex -translate-y-1/2 items-center gap-1">
-                  <button
-                    onClick={handleClearSearch}
-                    className="p-1 text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-200"
-                    title="Clear"
-                  >
-                    <X size={16} />
-                  </button>
-                  <div className="mx-1 h-4 w-px bg-gray-300 dark:bg-zinc-700" />
+                  {searchQuery && (
+                    <button
+                      onClick={handleClearSearch}
+                      className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800"
+                    >
+                      <X size={16} />
+                    </button>
+                  )}
                   <button
                     onClick={handleSearch}
-                    className="bg-primary-500 hover:bg-primary-600 rounded-md p-1 text-white transition-colors"
-                    title="Search"
+                    className="bg-primary-500 hover:bg-primary-600 flex h-8 w-8 items-center justify-center rounded-xl text-white transition-all active:scale-90"
                   >
-                    <ArrowRight size={16} />
+                    <ArrowRight size={18} />
                   </button>
                 </div>
-              )}
-              {!searchQuery && (
-                <button
-                  onClick={handleSearch}
-                  className="absolute top-1/2 right-3 -translate-y-1/2 p-1 text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-200"
-                  title="Search"
-                >
-                  <ArrowRight size={16} />
-                </button>
-              )}
-            </div>
+              </div>
 
-            {/* Filter Row (Visual only for now) */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                {/* <button className="px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 text-xs font-medium transition-colors">
-                Select
-              </button> */}
-                <button className="flex items-center gap-1 rounded-lg bg-gray-100 px-2.5 py-1.5 text-[11px] font-medium transition-colors hover:bg-gray-200 sm:px-3 sm:text-xs dark:bg-zinc-800 dark:hover:bg-zinc-700">
-                  <span>Type</span>
-                  <ChevronDown size={12} />
-                </button>
-                {/* <button className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 text-xs font-medium transition-colors">
-                <span>Temporary Threads: Show</span>
-                <ChevronDown size={12} />
-              </button> */}
-              </div>
-              <div className="relative">
-                <button
-                  onClick={() => setIsSortOpen(!isSortOpen)}
-                  className="flex items-center gap-1 rounded-lg bg-gray-100 px-2.5 py-1.5 text-[11px] font-medium transition-colors hover:bg-gray-200 sm:px-3 sm:text-xs dark:bg-zinc-800 dark:hover:bg-zinc-700"
-                >
-                  <span>
-                    {t('views.sort')}: {sortOptions.find(o => o.key === sortOption.key)?.label}
-                  </span>
-                  <ChevronDown size={12} />
-                </button>
-
-                {/* Sort Dropdown */}
-                {isSortOpen && (
-                  <>
-                    <div className="fixed inset-0 z-10" onClick={() => setIsSortOpen(false)} />
-                    <div className="absolute top-full right-0 z-20 mt-2 w-40 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg dark:border-zinc-800 dark:bg-zinc-900">
-                      {sortOptions.map(option => (
-                        <button
-                          key={option.key}
-                          onClick={() => {
-                            setSortOption(SORT_OPTION_KEYS.find(o => o.key === option.key))
-                            setIsSortOpen(false)
-                          }}
-                          className="group flex w-full items-center justify-between px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-zinc-800"
-                        >
-                          <span
-                            className={
-                              sortOption.key === option.key
-                                ? 'text-primary-500'
-                                : 'text-gray-700 dark:text-gray-300'
-                            }
-                          >
-                            {option.label}
-                          </span>
-                          {sortOption.key === option.key && (
-                            <Check size={14} className="text-primary-500" />
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Thread List */}
-          <div className="relative space-y-2.5 pb-20 sm:space-y-4 sm:pb-24">
-            {loading ? (
-              <div className="bg-background/40 absolute inset-0 flex items-center justify-center rounded-2xl backdrop-blur-md">
-                <FancyLoader />
-              </div>
-            ) : filteredConversations.length === 0 ? (
-              <div className="py-12 text-center text-gray-500">
-                {t('views.libraryView.noThreadsFound')}
-              </div>
-            ) : (
-              filteredConversations.map(conv => {
-                const space = getSpaceInfo(conv.space_id)
-                const isDeepResearchConversation =
-                  space?.isDeepResearchSystem ||
-                  (deepResearchSpace?.id && String(conv.space_id) === String(deepResearchSpace.id))
-                return (
-                  <div
-                    key={conv.id}
-                    data-conversation-id={conv.id}
-                    onClick={() =>
-                      navigate({
-                        to: isDeepResearchConversation
-                          ? '/deepresearch/$conversationId'
-                          : '/conversation/$conversationId',
-                        params: { conversationId: conv.id },
-                      })
-                    }
-                    className="group relative cursor-pointer rounded-xl border border-white/40 bg-white/60 p-3 shadow-sm backdrop-blur-xl transition-all hover:bg-white/80 sm:p-4 dark:border-zinc-800/50 dark:bg-zinc-900/60 dark:hover:bg-zinc-900/80"
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <button className="flex items-center gap-1.5 rounded-full bg-white/60 px-4 py-1.5 text-xs font-semibold text-gray-600 shadow-sm backdrop-blur-md transition-all hover:bg-white dark:bg-zinc-900/40 dark:text-gray-400 dark:hover:bg-zinc-900">
+                    <span>Type</span>
+                    <ChevronDown size={14} />
+                  </button>
+                </div>
+                <div className="relative">
+                  <button
+                    onClick={() => setIsSortOpen(!isSortOpen)}
+                    className="flex items-center gap-1.5 rounded-full bg-white/60 px-4 py-1.5 text-xs font-semibold text-gray-600 shadow-sm backdrop-blur-md transition-all hover:bg-white dark:bg-zinc-900/40 dark:text-gray-400 dark:hover:bg-zinc-900"
                   >
-                    <div className="flex items-start justify-between gap-2.5 sm:gap-4">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-100/50 sm:h-12 sm:w-12 dark:bg-zinc-800/50">
-                        <EmojiDisplay
-                          emoji={resolveConversationEmoji(conv, space?.emoji)}
-                          size="2rem"
-                        />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        {/* Title */}
-                        <h3 className="mb-0.5 flex items-center gap-1.5 truncate text-base font-medium text-gray-900 sm:mb-1 sm:gap-2 sm:text-lg dark:text-gray-100">
-                          {conv.title || t('views.untitledThread')}
-                          {conv.is_favorited && (
-                            <Bookmark
-                              size={14}
-                              className="text-primary-500 shrink-0 fill-current"
-                            />
-                          )}
-                        </h3>
-
-                        {/* Metadata */}
-                        <div className="flex min-w-0 items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                          <div className="flex shrink-0 items-center gap-1.5">
-                            <Clock size={14} />
-                            <span className="whitespace-nowrap">
-                              {formatDate(conv.updated_at || conv.created_at)}
-                            </span>
-                          </div>
-                          {space && (
-                            <div
-                              className="flex min-w-0 items-center gap-1"
-                              title={space.label || ''}
+                    <span>
+                      {t('views.sort')}: {sortOptions.find(o => o.key === sortOption.key)?.label}
+                    </span>
+                    <ChevronDown size={14} />
+                  </button>
+                  {isSortOpen && (
+                    <>
+                      <div className="fixed inset-0 z-20" onClick={() => setIsSortOpen(false)} />
+                      <div className="absolute top-full right-0 z-30 mt-2 w-44 overflow-hidden rounded-2xl bg-white/95 p-1.5 shadow-xl backdrop-blur-xl dark:bg-zinc-900/95">
+                        {sortOptions.map(option => (
+                          <button
+                            key={option.key}
+                            onClick={() => {
+                              setSortOption(SORT_OPTION_KEYS.find(o => o.key === option.key))
+                              setIsSortOpen(false)
+                            }}
+                            className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800"
+                          >
+                            <span
+                              className={
+                                sortOption.key === option.key
+                                  ? 'text-primary-500 font-bold'
+                                  : 'text-gray-700 dark:text-gray-300'
+                              }
                             >
-                              {space?.emoji && <EmojiDisplay emoji={space.emoji} size="0.95rem" />}
-                              <span className="max-w-[8.5rem] truncate sm:max-w-[12rem]">
-                                {space.label}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Actions */}
-                      <div className="relative">
-                        <button
-                          onClick={e => {
-                            e.stopPropagation()
-                            setExpandedActionId(prev => (prev === conv.id ? null : conv.id))
-                          }}
-                          className={clsx(
-                            'rounded-full p-1.5 text-gray-400 transition-all hover:bg-black/5 hover:text-gray-600 sm:p-2 dark:hover:bg-white/10 dark:hover:text-gray-200',
-                            'opacity-100',
-                            'md:opacity-0 md:group-hover:opacity-100',
-                            'flex min-h-[40px] min-w-[40px] items-center justify-center sm:min-h-[44px] sm:min-w-[44px]',
-                          )}
-                        >
-                          <ChevronDown
-                            size={18}
-                            strokeWidth={2}
-                            className={clsx(
-                              'transition-transform duration-200',
-                              expandedActionId === conv.id && 'rotate-180',
+                              {option.label}
+                            </span>
+                            {sortOption.key === option.key && (
+                              <Check size={14} className="text-primary-500" />
                             )}
-                          />
-                        </button>
+                          </button>
+                        ))}
                       </div>
-                    </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
 
-                    {/* Collapsible Actions Section */}
-                    {expandedActionId === conv.id && (
-                      <div className="animate-in fade-in slide-in-from-top-1 mt-1.5 flex flex-wrap gap-1.5 px-0.5 sm:mt-2 sm:gap-2 sm:px-1">
-                        <button
-                          onClick={e => {
-                            e.stopPropagation()
-                            handleToggleFavorite(conv)
-                          }}
-                          className={clsx(
-                            'flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition-colors sm:gap-2 sm:px-3 sm:text-xs',
-                            conv.is_favorited
-                              ? 'border-yellow-200 bg-yellow-50 text-yellow-600 dark:border-yellow-800/30 dark:bg-yellow-900/20 dark:text-yellow-400'
-                              : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-gray-400 dark:hover:bg-zinc-800',
-                          )}
-                        >
-                          <Bookmark
-                            size={13}
-                            className={clsx(conv.is_favorited && 'fill-current')}
-                          />
-                          <span>
-                            {conv.is_favorited ? t('views.removeBookmark') : t('views.addBookmark')}
-                          </span>
-                        </button>
-                        <button
-                          onClick={e => {
-                            e.stopPropagation()
-                            handleDeleteConversation(conv)
-                            setExpandedActionId(null)
-                          }}
-                          className="flex items-center gap-1.5 rounded-lg border border-red-100 bg-white px-2.5 py-1.5 text-[11px] font-medium text-red-600 transition-colors hover:bg-red-50 sm:gap-2 sm:px-3 sm:text-xs dark:border-red-900/30 dark:bg-zinc-900 dark:text-red-400 dark:hover:bg-red-900/20"
-                        >
-                          <Trash2 size={13} />
-                          <span>{t('views.deleteConversation')}</span>
-                        </button>
-                      </div>
-                    )}
+            {/* Grid Content */}
+            <div className="relative pb-32">
+              {loading ? (
+                <div className="flex h-64 items-center justify-center">
+                  <FancyLoader />
+                </div>
+              ) : conversations.length === 0 ? (
+                <div className="flex h-64 flex-col items-center justify-center gap-4 text-center">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white shadow-sm dark:bg-zinc-900">
+                    <LibraryIcon size={28} className="text-gray-300" />
                   </div>
-                )
-              })
-            )}
+                  <p className="text-sm font-medium text-gray-500">
+                    {t('views.libraryView.noThreadsFound')}
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">
+                  {conversations.map(conv => {
+                    const space = getSpaceInfo(conv.space_id)
+                    const isDeepResearch =
+                      space?.isDeepResearchSystem ||
+                      (deepResearchSpace?.id &&
+                        String(conv.space_id) === String(deepResearchSpace.id))
+                    return (
+                      <ConversationCard
+                        key={conv.id}
+                        conversation={conv}
+                        space={space}
+                        isDeepResearch={isDeepResearch}
+                        onToggleFavorite={handleToggleFavorite}
+                        onDelete={handleDeleteConversation}
+                        isDeleting={isDeletingId === conv.id}
+                      />
+                    )
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Fixed Pagination Controls */}
+        {/* Floating Pagination Controls */}
         {!loading && totalPages > 1 && (
-          <div
-            className={clsx(
-              'bg-background/95 fixed right-0 bottom-0 left-0 border-t border-gray-200 backdrop-blur dark:border-zinc-800',
-              isSidebarPinned ? 'pl-0 sm:pl-80' : 'pl-0 sm:pl-16',
-            )}
-          >
-            <div className="mx-auto max-w-5xl px-3 sm:px-6">
-              <div className="flex items-center justify-center gap-2 py-2.5 sm:gap-4 sm:py-4">
-                <button
-                  onClick={() => handlePageChange(currentPage - 1)}
-                  disabled={currentPage === 1}
-                  className="rounded-lg p-1.5 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 sm:p-2 dark:hover:bg-zinc-800"
-                  title="Previous Page"
-                >
-                  <ChevronLeft size={20} />
-                </button>
+          <div className="pointer-events-none absolute right-0 bottom-0 left-0 z-40 flex justify-center pb-8 sm:pb-10">
+            <div className="pointer-events-auto flex items-center gap-2 rounded-3xl bg-white/80 p-1.5 shadow-2xl backdrop-blur-2xl transition-all sm:gap-3 dark:bg-zinc-900/80">
+              <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-gray-600 transition-all hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-30 dark:bg-zinc-800 dark:text-gray-300 dark:hover:bg-zinc-700"
+              >
+                <ChevronLeft size={20} />
+              </button>
 
-                <span className="text-xs font-medium text-gray-600 sm:text-sm dark:text-gray-400">
-                  {t('views.pageOf', { current: currentPage, total: totalPages })}
-                </span>
-
-                <button
-                  onClick={() => handlePageChange(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                  className="rounded-lg p-1.5 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 sm:p-2 dark:hover:bg-zinc-800"
-                  title="Next Page"
-                >
-                  <ChevronRight size={20} />
-                </button>
+              <div className="px-3 text-xs font-bold tracking-widest text-gray-500 uppercase sm:text-sm">
+                {currentPage} <span className="mx-1 text-gray-300">/</span> {totalPages}
               </div>
+
+              <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-gray-600 transition-all hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-30 dark:bg-zinc-800 dark:text-gray-300 dark:hover:bg-zinc-700"
+              >
+                <ChevronRight size={20} />
+              </button>
             </div>
           </div>
         )}

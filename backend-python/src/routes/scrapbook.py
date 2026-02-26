@@ -21,7 +21,7 @@ from pydantic import BaseModel, Field
 from pydantic import BaseModel, Field
 
 from ..services.db_service import get_db_adapter
-from ..services.generation import generate_emoji
+from ..services.generation import generate_emoji, generate_title
 from ..services.llm_utils import run_agent_completion, safe_json_parse
 from ..models.db import DbFilter, DbOrder, DbQueryRequest
 from ..models.stream_chat import StreamChatRequest
@@ -116,11 +116,8 @@ async def _fetch_url_content(url: str) -> dict[str, str]:
                     if line.startswith("Title: "):
                         title = line.replace("Title: ", "").strip()
                         break
-                if not title and lines:
-                    for line in lines[:15]:
-                        if line.startswith("# "):
-                            title = line.replace("# ", "").strip()
-                            break
+
+
                 return {"title": title, "content": content, "platform": _detect_platform_from_url(url)}
     except Exception as fallback_err:
         logger.error("[Scrapbook] Jina.ai fallback failed: %s", fallback_err)
@@ -128,117 +125,7 @@ async def _fetch_url_content(url: str) -> dict[str, str]:
     return {"title": "", "content": "", "platform": _extract_domain(url)}
 
 
-class TitleOnlyResponse(BaseModel):
-    """Response model for scrapbook title generation."""
-    title: str = Field(..., description="A short, concise secondary title extracted from the content, max 80 chars.")
 
-
-def _get_output_value(output_obj: Any, *keys: str) -> Any:
-    if not output_obj:
-        return None
-    if isinstance(output_obj, dict):
-        for key in keys:
-            if key in output_obj:
-                return output_obj.get(key)
-        return None
-    for key in keys:
-        if hasattr(output_obj, key):
-            return getattr(output_obj, key)
-    return None
-
-
-async def _ai_generate_title(
-    *,
-    content: str,
-    url: str,
-    platform: str,
-    provider: str,
-    api_key: str,
-    base_url: str | None,
-    model: str | None,
-) -> dict[str, str]:
-    """
-    Use the configured AI model to generate just a short title.
-    Returns dict with: title.
-    """
-    # Limit snippet to 800 chars for extreme speed since we only need a title
-    snippet = content[:800]
-    messages = [
-        {
-            "role": "system",
-            "content": (
-                "You are an expert content analyzer. Given a piece of web content (article, video transcript, etc), "
-                "extract a clear, concise title (max 80 chars).\n\n"
-                "## Output\n"
-                'Return JSON with the key "title".'
-            ),
-        },
-        {
-            "role": "user",
-            "content": (
-                f"Platform: {platform}\nURL: {url}\n\nContent:\n{snippet}"
-            ),
-        },
-    ]
-    response_format = {"type": "json_object"} if provider != "gemini" else None
-    request = StreamChatRequest(
-        provider=provider,
-        apiKey=api_key,
-        baseUrl=base_url,
-        model=model,
-        messages=messages,
-        tools=[],
-        toolIds=[],
-        userTools=[],
-        responseFormat=response_format,
-        output_schema=TitleOnlyResponse,
-        skipDefaultTools=True,
-        stream=True,
-    )
-    result = await run_agent_completion(request)
-
-    content_str = result.get("content", "").strip()
-    
-    # Try structured output first
-    output_obj = result.get("output")
-    title = None
-
-    if output_obj:
-        title = _get_output_value(output_obj, "title")
-
-    if not title:
-        parsed = safe_json_parse(content_str) or {}
-        if isinstance(parsed, dict):
-            title = parsed.get("title")
-
-    return {"title": str(title or "")[:120]}
-
-
-async def _ai_generate_emoji(
-    *,
-    content: str,
-    url: str,
-    platform: str,
-    provider: str,
-    api_key: str,
-    base_url: str | None,
-    model: str | None,
-) -> str:
-    context = f"Platform: {platform}\nURL: {url}\n\n{content[:800]}".strip()
-    try:
-        result = await generate_emoji(
-            provider=provider,
-            first_message=context,
-            api_key=api_key,
-            base_url=base_url,
-            model=model,
-        )
-        emojis = result.get("emojis") or []
-        if isinstance(emojis, list) and emojis:
-            return str(emojis[0]).strip()
-    except Exception as exc:
-        logger.warning("[Scrapbook] Emoji generation failed: %s", exc)
-    return ""
 
 
 # ---------------------------------------------------------------------------
@@ -346,6 +233,9 @@ async def create_scrapbook_entry(request: Request) -> JSONResponse:
         fetched = await _fetch_url_content(source_url)
         content = fetched.get("content", "").strip()
         fetched_title = fetched.get("title", "").strip()
+        # Sanitize fetched_title: if Jina or x-reader put metadata in the title field, discard it
+        if "URL Source:" in fetched_title or "Markdown Content:" in fetched_title:
+            fetched_title = ""
         # Override platform with x-reader's detected value only if we still don't have a good one
         if fetched.get("platform") and fetched["platform"] not in ("", "unknown") and platform in ("manual", "unknown", ""):
             platform = fetched["platform"]
@@ -363,18 +253,30 @@ async def create_scrapbook_entry(request: Request) -> JSONResponse:
     if not title:
         title = fetched_title  # may still be empty — AI will fill it
 
+    # Double check if title is polluted
+    if "URL Source:" in title or "Markdown Content:" in title:
+        title = ""
+
     needs_ai_title = not title and bool(api_key)
     needs_ai_emoji = not emoji and bool(api_key)
 
     if needs_ai_title or needs_ai_emoji:
-        context_for_ai = content or source_url  # _ai_* functions truncate internally
+        prompt_lines = [
+            f"Platform: {platform or 'unknown'}",
+        ]
+        if source_url:
+            prompt_lines.append(f"Source URL: {source_url}")
+        prompt_lines.extend([
+            "",
+            "Content excerpt:",
+            str(content or title or source_url or "")[:3000]
+        ])
+        prompt_text = "\n".join(prompt_lines)
 
         title_coro = (
-            _ai_generate_title(
-                content=context_for_ai,
-                url=source_url,
-                platform=platform,
+            generate_title(
                 provider=provider,
+                first_message=prompt_text,
                 api_key=api_key,
                 base_url=base_url,
                 model=model,
@@ -383,11 +285,9 @@ async def create_scrapbook_entry(request: Request) -> JSONResponse:
             else asyncio.sleep(0)  # no-op placeholder
         )
         emoji_coro = (
-            _ai_generate_emoji(
-                content=title or context_for_ai or source_url,
-                url=source_url or "",
-                platform=platform,
+            generate_emoji(
                 provider=provider,
+                first_message=prompt_text,
                 api_key=api_key,
                 base_url=base_url,
                 model=model,
@@ -402,14 +302,22 @@ async def create_scrapbook_entry(request: Request) -> JSONResponse:
             )
             if needs_ai_title and isinstance(title_result, dict):
                 title = title_result.get("title") or title
-            if needs_ai_emoji and isinstance(emoji_result, str):
-                emoji = emoji_result.strip()
+            if needs_ai_emoji and isinstance(emoji_result, dict):
+                emoji_list = emoji_result.get("emojis") or []
+                if isinstance(emoji_list, list) and emoji_list:
+                    emoji = str(emoji_list[0]).strip()
         except Exception as exc:
             logger.error("[Scrapbook] Concurrent AI generation failed: %s", exc)
 
+    logger.info(f"[Scrapbook DEBUG] after AI gather, title={title!r}, emoji={emoji!r}")
+
     # Final fallback for title
     if not title:
-        title = (content[:80] if content else source_url) or "Untitled"
+        safe_fallback = content
+        if "Markdown Content:" in safe_fallback:
+            safe_fallback = safe_fallback.split("Markdown Content:", 1)[-1].strip()
+        title = (safe_fallback[:80] if safe_fallback else source_url) or "Untitled"
+        title = title.replace('\n', ' ').strip()
 
     # ── Step 3: Persist to DB ─────────────────────────────────────────────────
     adapter = get_db_adapter(database_provider)

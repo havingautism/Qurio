@@ -95,7 +95,7 @@ const ConversationCard = ({
   return (
     <div
       onClick={handleCardClick}
-      className="group relative flex min-h-[140px] cursor-pointer flex-col rounded-[32px] border border-white/40 bg-white/60 p-5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] backdrop-blur-xl transition-all duration-300 hover:translate-y-[-2px] hover:bg-white/90 hover:shadow-[0_8px_30px_rgba(0,0,0,0.06)] active:scale-[0.98] dark:border-zinc-800/50 dark:bg-zinc-900/60 dark:hover:bg-zinc-900/80"
+      className="group relative flex min-h-[140px] cursor-pointer flex-col rounded-[32px] border border-white/40 bg-white/70 p-5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] backdrop-blur-xl transition-all duration-300 hover:translate-y-[-4px] hover:scale-[1.01] hover:bg-white/90 hover:shadow-[0_8px_30px_rgba(0,0,0,0.06)] active:scale-[0.98] dark:border-zinc-800/50 dark:bg-zinc-900/40 dark:hover:bg-zinc-900/60"
     >
       {/* Action Buttons */}
       <div className="absolute top-5 right-5 z-30 flex gap-1.5 opacity-100 transition-all duration-200 md:opacity-0 md:group-hover:opacity-100">

@@ -767,7 +767,7 @@ const EntryCard = ({ entry, onDelete }) => {
   return (
     <div
       onClick={() => navigate({ to: '/scrapbook/$entryId', params: { entryId: entry.id } })}
-      className="group relative flex min-h-[156px] cursor-pointer gap-2 rounded-3xl bg-white px-5 py-4 shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-all duration-300 hover:shadow-[0_4px_20px_rgba(0,0,0,0.08)] active:scale-[0.98] sm:gap-4 dark:bg-zinc-900/40"
+      className="group relative flex min-h-[156px] cursor-pointer gap-2 rounded-3xl border border-white/40 bg-white/70 px-5 py-4 shadow-[0_4px_20px_rgba(0,0,0,0.03)] backdrop-blur-xl transition-all duration-300 hover:translate-y-[-4px] hover:scale-[1.01] hover:bg-white/90 hover:shadow-[0_8px_30px_rgba(0,0,0,0.06)] active:scale-[0.98] sm:gap-4 dark:border-zinc-800/50 dark:bg-zinc-900/40 dark:hover:bg-zinc-900/60"
     >
       {/* Delete button (hover only on desktop, or long press on mobile - simplified to top right absolute for now) */}
       <button

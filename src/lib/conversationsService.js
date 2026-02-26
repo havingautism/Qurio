@@ -193,22 +193,26 @@ export const listConversations = async (options = {}) => {
       },
     )
     .order(sortBy, { ascending })
-  if (!expertIdsError && Array.isArray(expertIds) && expertIds.length > 0) {
-    const normalizedExpertIds = expertIds.map(_sanitizeInFilterValue).filter(Boolean)
-    if (normalizedExpertIds.length > 0 && typeof query.not === 'function') {
-      query = query.not('id', 'in', `(${normalizedExpertIds.join(',')})`)
-    }
-  }
-
   // Handle Search
   if (search && search.trim()) {
     query = query.ilike('title', `%${search.trim()}%`)
   }
 
+  // 1. Exclude expert IDs
+  if (!expertIdsError && Array.isArray(expertIds) && expertIds.length > 0) {
+    const normalizedExpertIds = expertIds.map(_sanitizeInFilterValue).filter(Boolean)
+    if (normalizedExpertIds.length > 0) {
+      query = query.not('id', 'in', `(${normalizedExpertIds.join(',')})`)
+    }
+  }
+
+  // 2. Exclude specific spaces (like Deep Research)
   if (Array.isArray(excludeSpaceIds) && excludeSpaceIds.length > 0) {
     const normalized = excludeSpaceIds.map(String).filter(Boolean)
     if (normalized.length > 0) {
-      // Use OR to preserve NULL space_id (form conversations)
+      // Must use OR so we keep null space_ids AND don't override the previous .not operator
+      // We also wrap this in an explicit AND filter in Supabase postgREST if needed,
+      // but standard .or() appends to the query via AND by default in newer Supabase clients.
       query = query.or(`space_id.is.null,space_id.not.in.(${normalized.join(',')})`)
     }
   }

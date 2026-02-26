@@ -31,6 +31,7 @@ import {
   toggleFavorite,
 } from '../lib/conversationsService'
 import { deleteConversation } from '../lib/supabase'
+import ColorBendsBackground from '../components/ui/ColorBendsBackground'
 
 const SORT_OPTION_KEYS = [
   { key: 'newest', value: 'updated_at', ascending: false },
@@ -271,278 +272,289 @@ const ExpertView = () => {
   return (
     <div
       className={clsx(
-        'bg-background text-foreground h-full flex-1 overflow-y-auto transition-all duration-300',
+        'bg-background text-foreground relative h-full flex-1 overflow-hidden transition-all duration-300',
         isSidebarPinned ? 'ml-0 sm:ml-72' : 'ml-0 sm:ml-16',
       )}
     >
-      <div className="mx-auto w-full max-w-5xl px-3 py-3.5 sm:px-6 sm:py-8">
-        <div className="mb-5 flex items-center justify-between sm:mb-8">
-          <div className="flex items-center gap-2.5 sm:gap-3">
+      <div className="pointer-events-none absolute inset-0 z-0 opacity-40 dark:opacity-20">
+        <ColorBendsBackground />
+      </div>
+      <div className="relative z-10 h-full overflow-y-auto">
+        <div className="mx-auto w-full max-w-5xl px-3 py-3.5 sm:px-6 sm:py-8">
+          <div className="mb-5 flex items-center justify-between sm:mb-8">
+            <div className="flex items-center gap-2.5 sm:gap-3">
+              <button
+                onClick={() => toggleSidebar()}
+                aria-label="Open sidebar"
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-gray-200/50 bg-white/90 p-0 leading-none text-gray-600 shadow-sm backdrop-blur-xl transition-all hover:bg-white hover:shadow-md md:hidden dark:border-zinc-800/50 dark:bg-zinc-900/90 dark:text-gray-300 dark:hover:bg-zinc-900"
+              >
+                <Menu size={20} strokeWidth={2} />
+              </button>
+              <BrainCircuit size={32} className="text-primary-500 sm:block" />
+              <h1 className="text-2xl font-medium sm:text-3xl">{t('views.expertView.title')}</h1>
+            </div>
             <button
-              onClick={() => toggleSidebar()}
-              aria-label="Open sidebar"
-              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-gray-200/50 bg-white/90 p-0 leading-none text-gray-600 shadow-sm backdrop-blur-xl transition-all hover:bg-white hover:shadow-md md:hidden dark:border-zinc-800/50 dark:bg-zinc-900/90 dark:text-gray-300 dark:hover:bg-zinc-900"
+              onClick={() => setIsGuideOpen(true)}
+              className="flex items-center gap-1.5 rounded-lg bg-gray-100 px-3 py-1.5 text-sm font-medium transition-colors hover:bg-gray-200 sm:gap-2 sm:px-4 sm:py-2 dark:bg-zinc-800 dark:hover:bg-zinc-700"
             >
-              <Menu size={20} strokeWidth={2} />
+              <Plus size={16} />
+              <span className="hidden sm:inline">{t('views.expertView.createNew')}</span>
             </button>
-            <BrainCircuit size={32} className="text-primary-500 sm:block" />
-            <h1 className="text-2xl font-medium sm:text-3xl">{t('views.expertView.title')}</h1>
           </div>
-          <button
-            onClick={() => setIsGuideOpen(true)}
-            className="flex items-center gap-1.5 rounded-lg bg-gray-100 px-3 py-1.5 text-sm font-medium transition-colors hover:bg-gray-200 sm:gap-2 sm:px-4 sm:py-2 dark:bg-zinc-800 dark:hover:bg-zinc-700"
-          >
-            <Plus size={16} />
-            <span className="hidden sm:inline">{t('views.expertView.createNew')}</span>
-          </button>
-        </div>
 
-        <div className="mb-5 space-y-3 sm:mb-8 sm:space-y-4">
-          <div className="relative">
-            <button
-              onClick={handleSearch}
-              className="absolute top-1/2 left-3 -translate-y-1/2 cursor-pointer text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-200"
-            >
-              <Search size={20} />
-            </button>
-            <input
-              type="text"
-              placeholder={t('views.expertView.searchPlaceholder')}
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              onKeyDown={handleKeyDown}
-              className="w-full rounded-xl border border-transparent bg-gray-100 py-2.5 pr-20 pl-10 text-sm placeholder-gray-500 transition-all outline-none focus:border-gray-300 sm:py-3 dark:bg-zinc-900 dark:focus:border-zinc-700"
-            />
-            {searchQuery && (
-              <div className="absolute top-1/2 right-3 flex -translate-y-1/2 items-center gap-1">
-                <button
-                  onClick={handleClearSearch}
-                  className="p-1 text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-200"
-                >
-                  <X size={16} />
-                </button>
-                <div className="mx-1 h-4 w-px bg-gray-300 dark:bg-zinc-700" />
+          <div className="mb-5 space-y-3 sm:mb-8 sm:space-y-4">
+            <div className="relative">
+              <button
+                onClick={handleSearch}
+                className="absolute top-1/2 left-3 -translate-y-1/2 cursor-pointer text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-200"
+              >
+                <Search size={20} />
+              </button>
+              <input
+                type="text"
+                placeholder={t('views.expertView.searchPlaceholder')}
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                onKeyDown={handleKeyDown}
+                className="w-full rounded-xl border border-transparent bg-gray-100 py-2.5 pr-20 pl-10 text-sm placeholder-gray-500 transition-all outline-none focus:border-gray-300 sm:py-3 dark:bg-zinc-900 dark:focus:border-zinc-700"
+              />
+              {searchQuery && (
+                <div className="absolute top-1/2 right-3 flex -translate-y-1/2 items-center gap-1">
+                  <button
+                    onClick={handleClearSearch}
+                    className="p-1 text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-200"
+                  >
+                    <X size={16} />
+                  </button>
+                  <div className="mx-1 h-4 w-px bg-gray-300 dark:bg-zinc-700" />
+                  <button
+                    onClick={handleSearch}
+                    className="bg-primary-500 hover:bg-primary-600 rounded-md p-1 text-white transition-colors"
+                  >
+                    <ArrowRight size={16} />
+                  </button>
+                </div>
+              )}
+              {!searchQuery && (
                 <button
                   onClick={handleSearch}
-                  className="bg-primary-500 hover:bg-primary-600 rounded-md p-1 text-white transition-colors"
+                  className="absolute top-1/2 right-3 -translate-y-1/2 p-1 text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-200"
                 >
                   <ArrowRight size={16} />
                 </button>
-              </div>
-            )}
-            {!searchQuery && (
-              <button
-                onClick={handleSearch}
-                className="absolute top-1/2 right-3 -translate-y-1/2 p-1 text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-200"
-              >
-                <ArrowRight size={16} />
-              </button>
-            )}
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <button className="flex items-center gap-1 rounded-lg bg-gray-100 px-2.5 py-1.5 text-[11px] font-medium transition-colors hover:bg-gray-200 sm:px-3 sm:text-xs dark:bg-zinc-800 dark:hover:bg-zinc-700">
-                <span>Type</span>
-                <ChevronDown size={12} />
-              </button>
-            </div>
-            <div className="relative">
-              <button
-                onClick={() => setIsSortOpen(!isSortOpen)}
-                className="flex items-center gap-1 rounded-lg bg-gray-100 px-2.5 py-1.5 text-[11px] font-medium transition-colors hover:bg-gray-200 sm:px-3 sm:text-xs dark:bg-zinc-800 dark:hover:bg-zinc-700"
-              >
-                <span>
-                  {t('views.sort')}: {sortOptions.find(o => o.key === sortOption.key)?.label}
-                </span>
-                <ChevronDown size={12} />
-              </button>
-              {isSortOpen && (
-                <>
-                  <div className="fixed inset-0 z-10" onClick={() => setIsSortOpen(false)} />
-                  <div className="absolute top-full right-0 z-20 mt-2 w-40 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg dark:border-zinc-800 dark:bg-zinc-900">
-                    {sortOptions.map(option => (
-                      <button
-                        key={option.key}
-                        onClick={() => {
-                          setSortOption(SORT_OPTION_KEYS.find(o => o.key === option.key))
-                          setIsSortOpen(false)
-                        }}
-                        className="group flex w-full items-center justify-between px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-zinc-800"
-                      >
-                        <span
-                          className={
-                            sortOption.key === option.key
-                              ? 'text-primary-500'
-                              : 'text-gray-700 dark:text-gray-300'
-                          }
-                        >
-                          {option.label}
-                        </span>
-                        {sortOption.key === option.key && (
-                          <Check size={14} className="text-primary-500" />
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </>
               )}
             </div>
-          </div>
-        </div>
 
-        <div className="relative space-y-2.5 pb-20 sm:space-y-4 sm:pb-24">
-          {loading ? (
-            <div className="bg-background/40 absolute inset-0 flex items-center justify-center rounded-2xl backdrop-blur-md">
-              <FancyLoader />
-            </div>
-          ) : conversations.length === 0 ? (
-            <div className="py-12 text-center text-gray-500">{t('views.expertView.empty')}</div>
-          ) : (
-            conversations.map(conv => {
-              const space = getSpaceInfo(conv.space_id)
-              return (
-                <div
-                  key={conv.id}
-                  data-conversation-id={conv.id}
-                  onClick={() =>
-                    navigate({
-                      to: '/expert/$conversationId',
-                      params: { conversationId: conv.id },
-                    })
-                  }
-                  className="group hover:bg-primary-500/10 dark:hover:bg-primary-500/20 hover:border-primary-500/30 dark:hover:border-primary-500/40 relative cursor-pointer rounded-xl border-b border-gray-100 p-1.5 transition-colors last:border-0 hover:border sm:p-2 dark:border-zinc-800/50"
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <button className="flex items-center gap-1 rounded-lg bg-gray-100 px-2.5 py-1.5 text-[11px] font-medium transition-colors hover:bg-gray-200 sm:px-3 sm:text-xs dark:bg-zinc-800 dark:hover:bg-zinc-700">
+                  <span>Type</span>
+                  <ChevronDown size={12} />
+                </button>
+              </div>
+              <div className="relative">
+                <button
+                  onClick={() => setIsSortOpen(!isSortOpen)}
+                  className="flex items-center gap-1 rounded-lg bg-gray-100 px-2.5 py-1.5 text-[11px] font-medium transition-colors hover:bg-gray-200 sm:px-3 sm:text-xs dark:bg-zinc-800 dark:hover:bg-zinc-700"
                 >
-                  <div className="flex items-start justify-between gap-2.5 sm:gap-4">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-100 sm:h-12 sm:w-12 dark:bg-zinc-800">
-                      <EmojiDisplay
-                        emoji={resolveConversationEmoji(conv, space?.emoji)}
-                        size="2rem"
-                      />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h3 className="mb-0.5 flex items-center gap-1.5 truncate text-base font-medium text-gray-900 sm:mb-1 sm:gap-2 sm:text-lg dark:text-gray-100">
-                        {conv.title || t('views.untitledThread')}
-                        {conv.is_favorited && (
-                          <Bookmark size={14} className="text-primary-500 shrink-0 fill-current" />
-                        )}
-                      </h3>
-
-                      <div className="flex min-w-0 items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                        <div className="flex shrink-0 items-center gap-1.5">
-                          <Clock size={14} />
-                          <span className="whitespace-nowrap">
-                            {formatDate(conv.updated_at || conv.created_at)}
-                          </span>
-                        </div>
-                        {space && (
-                          <div
-                            className="flex min-w-0 items-center gap-1"
-                            title={space.label || ''}
+                  <span>
+                    {t('views.sort')}: {sortOptions.find(o => o.key === sortOption.key)?.label}
+                  </span>
+                  <ChevronDown size={12} />
+                </button>
+                {isSortOpen && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setIsSortOpen(false)} />
+                    <div className="absolute top-full right-0 z-20 mt-2 w-40 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg dark:border-zinc-800 dark:bg-zinc-900">
+                      {sortOptions.map(option => (
+                        <button
+                          key={option.key}
+                          onClick={() => {
+                            setSortOption(SORT_OPTION_KEYS.find(o => o.key === option.key))
+                            setIsSortOpen(false)
+                          }}
+                          className="group flex w-full items-center justify-between px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-zinc-800"
+                        >
+                          <span
+                            className={
+                              sortOption.key === option.key
+                                ? 'text-primary-500'
+                                : 'text-gray-700 dark:text-gray-300'
+                            }
                           >
-                            {space?.emoji && <EmojiDisplay emoji={space.emoji} size="0.95rem" />}
-                            <span className="max-w-[8.5rem] truncate sm:max-w-[12rem]">
-                              {space.label}
+                            {option.label}
+                          </span>
+                          {sortOption.key === option.key && (
+                            <Check size={14} className="text-primary-500" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="relative space-y-2.5 pb-20 sm:space-y-4 sm:pb-24">
+            {loading ? (
+              <div className="bg-background/40 absolute inset-0 flex items-center justify-center rounded-2xl backdrop-blur-md">
+                <FancyLoader />
+              </div>
+            ) : conversations.length === 0 ? (
+              <div className="py-12 text-center text-gray-500">{t('views.expertView.empty')}</div>
+            ) : (
+              conversations.map(conv => {
+                const space = getSpaceInfo(conv.space_id)
+                return (
+                  <div
+                    key={conv.id}
+                    data-conversation-id={conv.id}
+                    onClick={() =>
+                      navigate({
+                        to: '/expert/$conversationId',
+                        params: { conversationId: conv.id },
+                      })
+                    }
+                    className="group relative cursor-pointer rounded-xl border border-white/40 bg-white/60 p-3 shadow-sm backdrop-blur-xl transition-all hover:bg-white/80 sm:p-4 dark:border-zinc-800/50 dark:bg-zinc-900/60 dark:hover:bg-zinc-900/80"
+                  >
+                    <div className="flex items-start justify-between gap-2.5 sm:gap-4">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-100 sm:h-12 sm:w-12 dark:bg-zinc-800">
+                        <EmojiDisplay
+                          emoji={resolveConversationEmoji(conv, space?.emoji)}
+                          size="2rem"
+                        />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="mb-0.5 flex items-center gap-1.5 truncate text-base font-medium text-gray-900 sm:mb-1 sm:gap-2 sm:text-lg dark:text-gray-100">
+                          {conv.title || t('views.untitledThread')}
+                          {conv.is_favorited && (
+                            <Bookmark
+                              size={14}
+                              className="text-primary-500 shrink-0 fill-current"
+                            />
+                          )}
+                        </h3>
+
+                        <div className="flex min-w-0 items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                          <div className="flex shrink-0 items-center gap-1.5">
+                            <Clock size={14} />
+                            <span className="whitespace-nowrap">
+                              {formatDate(conv.updated_at || conv.created_at)}
                             </span>
                           </div>
-                        )}
+                          {space && (
+                            <div
+                              className="flex min-w-0 items-center gap-1"
+                              title={space.label || ''}
+                            >
+                              {space?.emoji && <EmojiDisplay emoji={space.emoji} size="0.95rem" />}
+                              <span className="max-w-[8.5rem] truncate sm:max-w-[12rem]">
+                                {space.label}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="relative">
+                        <button
+                          onClick={e => {
+                            e.stopPropagation()
+                            setExpandedActionId(prev => (prev === conv.id ? null : conv.id))
+                          }}
+                          className={clsx(
+                            'rounded-full p-1.5 text-gray-400 transition-all hover:bg-black/5 hover:text-gray-600 sm:p-2 dark:hover:bg-white/10 dark:hover:text-gray-200',
+                            'opacity-100',
+                            'md:opacity-0 md:group-hover:opacity-100',
+                            'flex min-h-[40px] min-w-[40px] items-center justify-center sm:min-h-[44px] sm:min-w-[44px]',
+                          )}
+                        >
+                          <ChevronDown
+                            size={18}
+                            strokeWidth={2}
+                            className={clsx(
+                              'transition-transform duration-200',
+                              expandedActionId === conv.id && 'rotate-180',
+                            )}
+                          />
+                        </button>
                       </div>
                     </div>
 
-                    <div className="relative">
-                      <button
-                        onClick={e => {
-                          e.stopPropagation()
-                          setExpandedActionId(prev => (prev === conv.id ? null : conv.id))
-                        }}
-                        className={clsx(
-                          'rounded-full p-1.5 text-gray-400 transition-all hover:bg-black/5 hover:text-gray-600 sm:p-2 dark:hover:bg-white/10 dark:hover:text-gray-200',
-                          'opacity-100',
-                          'md:opacity-0 md:group-hover:opacity-100',
-                          'flex min-h-[40px] min-w-[40px] items-center justify-center sm:min-h-[44px] sm:min-w-[44px]',
-                        )}
-                      >
-                        <ChevronDown
-                          size={18}
-                          strokeWidth={2}
+                    {expandedActionId === conv.id && (
+                      <div className="animate-in fade-in slide-in-from-top-1 mt-1.5 flex flex-wrap gap-1.5 px-0.5 sm:mt-2 sm:gap-2 sm:px-1">
+                        <button
+                          onClick={e => {
+                            e.stopPropagation()
+                            handleToggleFavorite(conv)
+                          }}
                           className={clsx(
-                            'transition-transform duration-200',
-                            expandedActionId === conv.id && 'rotate-180',
+                            'flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition-colors sm:gap-2 sm:px-3 sm:text-xs',
+                            conv.is_favorited
+                              ? 'border-yellow-200 bg-yellow-50 text-yellow-600 dark:border-yellow-800/30 dark:bg-yellow-900/20 dark:text-yellow-400'
+                              : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-gray-400 dark:hover:bg-zinc-800',
                           )}
-                        />
-                      </button>
-                    </div>
+                        >
+                          <Bookmark
+                            size={13}
+                            className={clsx(conv.is_favorited && 'fill-current')}
+                          />
+                          <span>
+                            {conv.is_favorited ? t('views.removeBookmark') : t('views.addBookmark')}
+                          </span>
+                        </button>
+                        <button
+                          onClick={e => {
+                            e.stopPropagation()
+                            handleDeleteConversation(conv)
+                            setExpandedActionId(null)
+                          }}
+                          className="flex items-center gap-1.5 rounded-lg border border-red-100 bg-white px-2.5 py-1.5 text-[11px] font-medium text-red-600 transition-colors hover:bg-red-50 sm:gap-2 sm:px-3 sm:text-xs dark:border-red-900/30 dark:bg-zinc-900 dark:text-red-400 dark:hover:bg-red-900/20"
+                        >
+                          <Trash2 size={13} />
+                          <span>{t('views.deleteConversation')}</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
-
-                  {expandedActionId === conv.id && (
-                    <div className="animate-in fade-in slide-in-from-top-1 mt-1.5 flex flex-wrap gap-1.5 px-0.5 sm:mt-2 sm:gap-2 sm:px-1">
-                      <button
-                        onClick={e => {
-                          e.stopPropagation()
-                          handleToggleFavorite(conv)
-                        }}
-                        className={clsx(
-                          'flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition-colors sm:gap-2 sm:px-3 sm:text-xs',
-                          conv.is_favorited
-                            ? 'border-yellow-200 bg-yellow-50 text-yellow-600 dark:border-yellow-800/30 dark:bg-yellow-900/20 dark:text-yellow-400'
-                            : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-gray-400 dark:hover:bg-zinc-800',
-                        )}
-                      >
-                        <Bookmark size={13} className={clsx(conv.is_favorited && 'fill-current')} />
-                        <span>
-                          {conv.is_favorited ? t('views.removeBookmark') : t('views.addBookmark')}
-                        </span>
-                      </button>
-                      <button
-                        onClick={e => {
-                          e.stopPropagation()
-                          handleDeleteConversation(conv)
-                          setExpandedActionId(null)
-                        }}
-                        className="flex items-center gap-1.5 rounded-lg border border-red-100 bg-white px-2.5 py-1.5 text-[11px] font-medium text-red-600 transition-colors hover:bg-red-50 sm:gap-2 sm:px-3 sm:text-xs dark:border-red-900/30 dark:bg-zinc-900 dark:text-red-400 dark:hover:bg-red-900/20"
-                      >
-                        <Trash2 size={13} />
-                        <span>{t('views.deleteConversation')}</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )
-            })
-          )}
-        </div>
-      </div>
-
-      {!loading && totalPages > 1 && (
-        <div
-          className={clsx(
-            'bg-background/95 fixed right-0 bottom-0 left-0 border-t border-gray-200 backdrop-blur dark:border-zinc-800',
-            isSidebarPinned ? 'pl-0 sm:pl-80' : 'pl-0 sm:pl-16',
-          )}
-        >
-          <div className="mx-auto max-w-5xl px-3 sm:px-6">
-            <div className="flex items-center justify-center gap-2 py-2.5 sm:gap-4 sm:py-4">
-              <button
-                onClick={() => handlePageChange(currentPage - 1)}
-                disabled={currentPage === 1}
-                className="rounded-lg p-1.5 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 sm:p-2 dark:hover:bg-zinc-800"
-              >
-                <ChevronLeft size={20} />
-              </button>
-              <span className="text-xs font-medium text-gray-600 sm:text-sm dark:text-gray-400">
-                {t('views.pageOf', { current: currentPage, total: totalPages })}
-              </span>
-              <button
-                onClick={() => handlePageChange(currentPage + 1)}
-                disabled={currentPage === totalPages}
-                className="rounded-lg p-1.5 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 sm:p-2 dark:hover:bg-zinc-800"
-              >
-                <ChevronRight size={20} />
-              </button>
-            </div>
+                )
+              })
+            )}
           </div>
         </div>
-      )}
+
+        {!loading && totalPages > 1 && (
+          <div
+            className={clsx(
+              'bg-background/95 fixed right-0 bottom-0 left-0 border-t border-gray-200 backdrop-blur dark:border-zinc-800',
+              isSidebarPinned ? 'pl-0 sm:pl-80' : 'pl-0 sm:pl-16',
+            )}
+          >
+            <div className="mx-auto max-w-5xl px-3 sm:px-6">
+              <div className="flex items-center justify-center gap-2 py-2.5 sm:gap-4 sm:py-4">
+                <button
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className="rounded-lg p-1.5 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 sm:p-2 dark:hover:bg-zinc-800"
+                >
+                  <ChevronLeft size={20} />
+                </button>
+                <span className="text-xs font-medium text-gray-600 sm:text-sm dark:text-gray-400">
+                  {t('views.pageOf', { current: currentPage, total: totalPages })}
+                </span>
+                <button
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  className="rounded-lg p-1.5 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 sm:p-2 dark:hover:bg-zinc-800"
+                >
+                  <ChevronRight size={20} />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
       <ExpertGuideModal
         isOpen={isGuideOpen}

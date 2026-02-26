@@ -42,9 +42,15 @@ def _utc_now() -> str:
 
 def _extract_domain(url: str) -> str:
     """Extract the main domain from a URL (e.g. 'juejin.cn' from 'https://juejin.cn/post/123')."""
+    if not url:
+        return 'unknown'
     from urllib.parse import urlparse
     try:
-        netloc = urlparse(url).netloc.lower()
+        u = url.strip()
+        # urlparse requires a scheme to identify netloc
+        if '://' not in u and not u.startswith('//'):
+            u = 'https://' + u
+        netloc = urlparse(u).netloc.lower()
         # Strip 'www.' prefix for cleaner display
         if netloc.startswith('www.'):
             netloc = netloc[4:]
@@ -55,21 +61,23 @@ def _extract_domain(url: str) -> str:
 
 def _detect_platform_from_url(url: str) -> str:
     """Guess the platform from the URL pattern. Returns domain name for unknown platforms."""
-    url_lower = url.lower()
-    if 'youtube.com' in url_lower or 'youtu.be' in url_lower:
+    domain = _extract_domain(url)
+    
+    if domain in ('youtube.com', 'youtu.be'):
         return 'youtube'
-    if 'bilibili.com' in url_lower or 'b23.tv' in url_lower:
+    if domain in ('bilibili.com', 'b23.tv'):
         return 'bilibili'
-    if 'xiaohongshu.com' in url_lower or 'xhslink.com' in url_lower or 'xhs.link' in url_lower:
+    if domain in ('xiaohongshu.com', 'xhslink.com', 'xhs.link'):
         return 'xhs'
-    if 'mp.weixin.qq.com' in url_lower or 'weixin.qq.com' in url_lower:
+    if domain in ('mp.weixin.qq.com', 'weixin.qq.com'):
         return 'wechat'
-    if 'twitter.com' in url_lower or 'x.com' in url_lower:
+    if domain in ('twitter.com', 'x.com'):
         return 'twitter'
-    if 't.me' in url_lower or 'telegram.org' in url_lower:
+    if domain in ('t.me', 'telegram.org'):
         return 'telegram'
-    # For unknown platforms, return 'unknown' so they group under the "其他" filter
-    return 'unknown'
+    
+    # For unknown platforms, use domain name instead of 'unknown' so it shows up nicely in the UI
+    return domain
 
 
 async def _fetch_url_content(url: str) -> dict[str, str]:
@@ -86,9 +94,16 @@ async def _fetch_url_content(url: str) -> dict[str, str]:
             # x-reader uses 'source_type' (an Enum), not 'platform'
             raw_type = getattr(result, "source_type", None)
             platform_val = raw_type.value if raw_type else ""
+            
+            # Override x-reader's buggy "x.com in url" check
+            actual_platform = _detect_platform_from_url(url)
+            if platform_val == "twitter" and actual_platform != "twitter":
+                platform_val = actual_platform
+
             # If x-reader returned 'manual' (Jina fallback), use domain name instead
             if not platform_val or platform_val == "manual":
-                platform_val = _detect_platform_from_url(url)
+                platform_val = actual_platform
+            
             return {
                 "title": getattr(result, "title", None) or "",
                 "content": result.content or "",
@@ -318,6 +333,12 @@ async def create_scrapbook_entry(request: Request) -> JSONResponse:
             safe_fallback = safe_fallback.split("Markdown Content:", 1)[-1].strip()
         title = (safe_fallback[:80] if safe_fallback else source_url) or "Untitled"
         title = title.replace('\n', ' ').strip()
+
+    # Final safety check: if we have a source URL but platform is still generic, force domain extraction
+    if source_url and platform in ("manual", "unknown", ""):
+        domain_fallback = _extract_domain(source_url)
+        if domain_fallback != "unknown":
+            platform = domain_fallback
 
     # ── Step 3: Persist to DB ─────────────────────────────────────────────────
     adapter = get_db_adapter(database_provider)

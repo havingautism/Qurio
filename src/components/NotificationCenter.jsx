@@ -622,7 +622,7 @@ const NotificationCenter = () => {
       <button
         id="notification-center-bell"
         onClick={() => setIsOpen(prev => !prev)}
-        className="bg-user-bubble relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl text-gray-600 transition-all duration-300 hover:scale-105 hover:bg-gray-100 active:scale-95 dark:bg-zinc-800 dark:text-gray-300 dark:hover:bg-zinc-700"
+        className="relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border border-white/75 bg-white/55 text-slate-600 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)] transition-all duration-300 hover:scale-105 hover:border-white hover:bg-white/75 hover:text-slate-900 active:scale-95 dark:border-white/10 dark:bg-white/5 dark:text-white/75 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] dark:hover:border-white/15 dark:hover:bg-white/10 dark:hover:text-white"
         title={t('notificationCenter.title')}
       >
         {/* <Bell size={20} /> */}

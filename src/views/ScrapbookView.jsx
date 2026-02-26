@@ -1,15 +1,10 @@
 /**
- * ScrapbookView — URL-first scrapbook interface.
+ * ScrapbookView 鈥?URL-first scrapbook interface.
  *
- * ┌─ Header ────────────────────────────────────────────────────────┐
- * │  随手记   [search]                          [gear/model config] │
- * ├─ Platform filter pills ─────────────────────────────────────────┤
- * ├─ Card grid ─────────────────────────────────────────────────────┤
- * └─ FAB (+) ───────────────────────────────────────────────────────┘
- *
+ * 鈹屸攢 Header 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹? * 鈹? 闅忔墜璁?  [search]                          [gear/model config] 鈹? * 鈹溾攢 Platform filter pills 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹? * 鈹溾攢 Card grid 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹? * 鈹斺攢 FAB (+) 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹? *
  * Add modal:
- *  - Tab "链接"  → paste URL → AI auto-fetches & generates title/summary
- *  - Tab "手动"  → manual title / summary / content input
+ *  - Tab "閾炬帴"  鈫?paste URL 鈫?AI auto-fetches & generates title/summary
+ *  - Tab "鎵嬪姩"  鈫?manual title / summary / content input
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -69,7 +64,7 @@ import {
 } from '@/components/ui/select'
 import { getModelIcon, getModelIconClassName, renderProviderIcon } from '../lib/modelIcons'
 
-// ENV_VARS — same as AgentModal, used in hasApiKey check
+// ENV_VARS 鈥?same as AgentModal, used in hasApiKey check
 const ENV_VARS = {
   openAIKey: getPublicEnv('PUBLIC_OPENAI_API_KEY'),
   googleApiKey: getPublicEnv('PUBLIC_GOOGLE_API_KEY'),
@@ -83,9 +78,9 @@ const ENV_VARS = {
   minimaxKey: getPublicEnv('PUBLIC_MINIMAX_API_KEY'),
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 // Constants
-// ─────────────────────────────────────────────────────────────────────────────
+// 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
 const ALL_PLATFORMS = [
   'all',
@@ -128,12 +123,12 @@ const PLATFORM_COLORS = {
 const stripGeneratedTitlePrefix = value => {
   if (!value) return ''
   const trimmed = String(value).trim()
-  return trimmed.replace(/^(?:title|标题)\s*[:：-]\s*/i, '').trim() || trimmed
+  return trimmed.replace(/^(?:title|鏍囬)\s*[:锛?]\s*/i, '').trim() || trimmed
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 // Model Config Panel (inside ScrapbookView header)
-// ─────────────────────────────────────────────────────────────────────────────
+// 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
 const getCardSummarySnippet = (summary, maxLen = 170) => {
   if (!summary) return ''
@@ -281,9 +276,7 @@ const ModelConfigPanel = ({ isOpen, onClose }) => {
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>{t('settings.modelConfig')}</DialogTitle>
-          <DialogDescription>
-            {t('settings.modelConfigDesc', '为不同任务选择不同的模型。留空则继承全局默认模型。')}
-          </DialogDescription>
+          <DialogDescription>{t('settings.modelConfigDesc')}</DialogDescription>
         </DialogHeader>
 
         <div className="py-2">
@@ -291,7 +284,7 @@ const ModelConfigPanel = ({ isOpen, onClose }) => {
             {/* Provider */}
             <div className="flex flex-col gap-2">
               <span className="text-xs font-semibold tracking-wide text-[var(--color-text-secondary)] uppercase">
-                {t('settings.email.provider', '厂商')}
+                {t('settings.email.provider', '鍘傚晢')}
               </span>
               {availableProviders.length === 0 ? (
                 <p className="py-1 text-xs text-amber-600 dark:text-amber-400">
@@ -303,21 +296,21 @@ const ModelConfigPanel = ({ isOpen, onClose }) => {
                   onValueChange={val => handleProviderChange(val === '__none__' ? '' : val)}
                 >
                   <SelectTrigger className="w-full rounded-xl border-none bg-black/5 focus-visible:ring-1 focus-visible:ring-black/10 dark:bg-white/5 dark:focus-visible:ring-white/10">
-                    <SelectValue placeholder={t('settings.inheritGlobal', '继承全局')}>
+                    <SelectValue placeholder={t('settings.inheritGlobal', '缁ф壙鍏ㄥ眬')}>
                       {provider ? (
                         <div className="flex items-center gap-3">
                           {renderProviderIcon(provider, { size: 16 })}
                           <span>{provider}</span>
                         </div>
                       ) : (
-                        <span>{t('settings.inheritGlobal', '继承全局')}</span>
+                        <span>{t('settings.inheritGlobal', '缁ф壙鍏ㄥ眬')}</span>
                       )}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__none__">
                       <span className="text-[var(--color-text-secondary)]">
-                        {t('settings.inheritGlobal', '继承全局')}
+                        {t('settings.inheritGlobal', '缁ф壙鍏ㄥ眬')}
                       </span>
                     </SelectItem>
                     {availableProviders.map(p => (
@@ -338,32 +331,32 @@ const ModelConfigPanel = ({ isOpen, onClose }) => {
               <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold tracking-wide text-[var(--color-text-secondary)] uppercase">
-                    {t('settings.email.model', '模型')}
+                    {t('settings.email.model', '妯″瀷')}
                   </span>
                   <button
                     onClick={() => setModelSource(s => (s === 'custom' ? 'list' : 'custom'))}
                     className="text-xs text-[var(--color-accent)] hover:underline"
                   >
                     {modelSource === 'custom'
-                      ? t('settings.selectFromList', '从列表选择')
-                      : t('settings.manualInput', '手动输入')}
+                      ? t('settings.selectFromList')
+                      : t('settings.manualInput')}
                   </button>
                 </div>
                 {modelSource === 'custom' ? (
                   <Input
                     value={customModel}
                     onChange={e => setCustomModel(e.target.value)}
-                    placeholder={t('settings.inputModelName', '输入 model 名称')}
+                    placeholder={t('settings.inputModelName', '杈撳叆 model 鍚嶇О')}
                     className="w-full rounded-xl border-none bg-black/5 px-4 focus-visible:ring-1 focus-visible:ring-black/10 dark:bg-white/5 dark:focus-visible:ring-white/10"
                   />
                 ) : isLoadingModels ? (
                   <div className="flex items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-3 py-2 text-sm text-[var(--color-text-secondary)] shadow-sm">
                     <Loader2 size={16} className="animate-spin text-[var(--color-accent)]" />
-                    {t('settings.loadingModels', '正在加载模型列表...')}
+                    {t('settings.loadingModels')}
                   </div>
                 ) : modelsForProvider.length === 0 ? (
                   <p className="py-2 text-xs text-[var(--color-text-tertiary)]">
-                    {t('settings.noModelsAvailableHint', '暂无可用模型，点击「手动输入」')}
+                    {t('settings.noModelsAvailableHint')}
                   </p>
                 ) : (
                   <Select
@@ -371,7 +364,7 @@ const ModelConfigPanel = ({ isOpen, onClose }) => {
                     onValueChange={val => setModel(val === '__none__' ? '' : val)}
                   >
                     <SelectTrigger className="w-full rounded-xl border-none bg-black/5 focus-visible:ring-1 focus-visible:ring-black/10 dark:bg-white/5 dark:focus-visible:ring-white/10">
-                      <SelectValue placeholder={t('settings.selectModel', '-- 选择模型 --')}>
+                      <SelectValue placeholder={t('settings.selectModel', '-- 閫夋嫨妯″瀷 --')}>
                         {model ? (
                           <div className="flex items-center gap-2 truncate">
                             {getModelIcon(model) && (
@@ -387,7 +380,7 @@ const ModelConfigPanel = ({ isOpen, onClose }) => {
                           </div>
                         ) : (
                           <span className="text-[var(--color-text-secondary)]">
-                            {t('settings.selectModel', '-- 选择模型 --')}
+                            {t('settings.selectModel', '-- 閫夋嫨妯″瀷 --')}
                           </span>
                         )}
                       </SelectValue>
@@ -395,7 +388,7 @@ const ModelConfigPanel = ({ isOpen, onClose }) => {
                     <SelectContent>
                       <SelectItem value="__none__">
                         <span className="text-[var(--color-text-secondary)]">
-                          {t('settings.selectModel', '-- 选择模型 --')}
+                          {t('settings.selectModel', '-- 閫夋嫨妯″瀷 --')}
                         </span>
                       </SelectItem>
                       {modelsForProvider.map(m => (
@@ -422,14 +415,14 @@ const ModelConfigPanel = ({ isOpen, onClose }) => {
 
         <DialogFooter className="mt-4 flex w-full items-center gap-2 sm:justify-between">
           <Button variant="outline" onClick={handleReset} className="flex-1 rounded-xl">
-            {t('settings.resetToGlobal', '重置为全局')}
+            {t('settings.resetToGlobal', '閲嶇疆涓哄叏灞€')}
           </Button>
           <Button
             onClick={handleSave}
             disabled={isLoadingModels}
             className="flex-1 rounded-xl bg-zinc-900 text-white shadow-md hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
           >
-            {t('sidebar.save', '保存')}
+            {t('sidebar.save', '淇濆瓨')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -437,9 +430,9 @@ const ModelConfigPanel = ({ isOpen, onClose }) => {
   )
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 // Add Modal
-// ─────────────────────────────────────────────────────────────────────────────
+// 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
 const AddModal = ({ isOpen, onClose, onAdded }) => {
   const { t } = useTranslation()
@@ -479,7 +472,7 @@ const AddModal = ({ isOpen, onClose, onAdded }) => {
     if (!url.trim()) return
     setIsLoading(true)
     setError('')
-    setLoadingMsg(t('loadingContent', '正在获取内容...'))
+    setLoadingMsg(t('loadingContent', '姝ｅ湪鑾峰彇鍐呭...'))
 
     const modelConfig = resolveScrapbookModelConfig()
     if (!modelConfig.apiKey) {
@@ -488,7 +481,7 @@ const AddModal = ({ isOpen, onClose, onAdded }) => {
       setLoadingMsg('')
       return
     }
-    setLoadingMsg(t('loadingContent', '正在读取网页内容...'))
+    setLoadingMsg(t('loadingContent', '姝ｅ湪璇诲彇缃戦〉鍐呭...'))
     const { data, error: err } = await createScrapbookEntry({ source_url: url.trim() }, modelConfig)
     setIsLoading(false)
     setLoadingMsg('')
@@ -506,7 +499,7 @@ const AddModal = ({ isOpen, onClose, onAdded }) => {
 
   const handleManualSave = async () => {
     if (!manualTitle.trim() && !manualContent.trim()) {
-      setError('请填写标题或内容')
+      setError('璇峰～鍐欐爣棰樻垨鍐呭')
       return
     }
     setIsLoading(true)
@@ -539,7 +532,7 @@ const AddModal = ({ isOpen, onClose, onAdded }) => {
     <Dialog open={isOpen} onOpenChange={open => !open && onClose()}>
       <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-[480px]">
         <DialogHeader className="px-5 pt-5 pb-2">
-          <DialogTitle>{t('scrapbook.modal.saveText', '新建随手记')}</DialogTitle>
+          <DialogTitle>{t('scrapbook.modal.saveText')}</DialogTitle>
         </DialogHeader>
 
         {/* Tabs */}
@@ -600,7 +593,7 @@ const AddModal = ({ isOpen, onClose, onAdded }) => {
             <div className="space-y-4">
               <div className="flex flex-col gap-1.5">
                 <span className="text-xs font-medium text-[var(--color-text-secondary)]">
-                  {t('platform', '平台')}
+                  {t('platform', '骞冲彴')}
                 </span>
                 <Select value={manualPlatform} onValueChange={setManualPlatform}>
                   <SelectTrigger>
@@ -688,7 +681,7 @@ const AddModal = ({ isOpen, onClose, onAdded }) => {
             className="flex items-center justify-center gap-2 rounded-xl bg-zinc-900 px-6 text-white shadow-md hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
           >
             {isLoading ? <Loader2 size={15} className="animate-spin" /> : null}
-            {isLoading ? t('scrapbook.detail.saving') : t('sidebar.save', '保存')}
+            {isLoading ? t('scrapbook.detail.saving') : t('sidebar.save', '淇濆瓨')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -696,9 +689,9 @@ const AddModal = ({ isOpen, onClose, onAdded }) => {
   )
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 // Entry Card
-// ─────────────────────────────────────────────────────────────────────────────
+// 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
 const getThumbnailUrl = entry => {
   if (entry.thumbnail) return entry.thumbnail
@@ -738,7 +731,7 @@ const EntryCard = ({ entry, onDelete }) => {
   const actualThumbnail = getThumbnailUrl(entry)
   const summarySnippet = getCardSummarySnippet(entry.summary)
 
-  // Date format: "昨天 02:24" or "2026/2/23"
+  // Date format: "鏄ㄥぉ 02:24" or "2026/2/23"
   const dateStr = entry.created_at
     ? new Date(entry.created_at).toLocaleDateString('zh-CN', {
         month: 'numeric',
@@ -767,7 +760,7 @@ const EntryCard = ({ entry, onDelete }) => {
   return (
     <div
       onClick={() => navigate({ to: '/scrapbook/$entryId', params: { entryId: entry.id } })}
-      className="group relative flex min-h-[156px] cursor-pointer gap-2 rounded-3xl border border-white/40 bg-white/70 px-5 py-4 shadow-[0_4px_20px_rgba(0,0,0,0.03)] backdrop-blur-xl transition-all duration-300 hover:translate-y-[-4px] hover:scale-[1.01] hover:bg-white/90 hover:shadow-[0_8px_30px_rgba(0,0,0,0.06)] active:scale-[0.98] sm:gap-4 dark:border-zinc-800/50 dark:bg-zinc-900/40 dark:hover:bg-zinc-900/60"
+      className="group relative flex min-h-[156px] cursor-pointer gap-1 rounded-3xl border border-white/40 bg-white/70 px-5 py-4 shadow-[0_4px_20px_rgba(0,0,0,0.03)] backdrop-blur-xl transition-all duration-300 hover:translate-y-[-4px] hover:scale-[1.01] hover:bg-white/90 hover:shadow-[0_8px_30px_rgba(0,0,0,0.06)] active:scale-[0.98] sm:gap-2 dark:border-zinc-800/50 dark:bg-zinc-900/40 dark:hover:bg-zinc-900/60"
     >
       {/* Delete button (hover only on desktop, or long press on mobile - simplified to top right absolute for now) */}
       <button
@@ -779,7 +772,7 @@ const EntryCard = ({ entry, onDelete }) => {
       </button>
 
       {/* Left Content */}
-      <div className={clsx('flex min-w-0 flex-1 flex-col py-1', actualThumbnail && 'pr-2 sm:pr-8')}>
+      <div className={clsx('flex min-w-0 flex-1 flex-col py-1', actualThumbnail && 'pr-2')}>
         <h3 className="mb-2 min-h-[2.75rem] pr-1 text-base leading-snug font-bold tracking-tight text-gray-900 dark:text-gray-100">
           <span className="flex items-start gap-1.5">
             {entry.emoji && <span className="mt-[1px] shrink-0 leading-none">{entry.emoji}</span>}
@@ -840,9 +833,9 @@ const EntryCard = ({ entry, onDelete }) => {
   )
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 // ScrapbookView (main)
-// ─────────────────────────────────────────────────────────────────────────────
+// 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
 export default function ScrapbookView() {
   const { t } = useTranslation()
@@ -900,12 +893,14 @@ export default function ScrapbookView() {
       </div>
 
       <div className="relative z-10 flex h-full flex-col">
-        {/* ── Header ─────────────────────────────────────────────────────── */}
-        <div className="flex-shrink-0 px-4 pt-4 md:px-5 md:py-4">
-          {/* Top Bar: Menu/Title + Actions */}
-          <div className="mb-4 flex items-center justify-between">
-            {/* Left Box: Menu Toggle & Title */}
-            {/* <div className="flex items-center gap-3">
+        <div className="flex-1 overflow-x-hidden overflow-y-auto">
+          <div className="mx-auto w-full max-w-[1400px] px-4 py-4 sm:px-8 sm:py-8">
+            {/* Header */}
+            <div className="flex-shrink-0 px-0 pt-0">
+              {/* Top Bar: Menu/Title + Actions */}
+              <div className="mb-4 flex items-center justify-between">
+                {/* Left Box: Menu Toggle & Title */}
+                {/* <div className="flex items-center gap-3">
               <button
                 onClick={() => toggleSidebar()}
                 aria-label="Open sidebar"
@@ -920,120 +915,122 @@ export default function ScrapbookView() {
               </div>
 
               <h1 className="text-xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
-                {t('scrapbook.title', '随手记')}
+                {t('scrapbook.title', '闅忔墜璁?)}
               </h1>
             </div> */}
-            <div className="flex items-center gap-2.5 sm:gap-3">
-              <button
-                onClick={() => toggleSidebar()}
-                aria-label="Open sidebar"
-                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-gray-200/50 bg-white/90 p-0 leading-none text-gray-600 shadow-sm backdrop-blur-xl transition-all hover:bg-white hover:shadow-md md:hidden dark:border-zinc-800/50 dark:bg-zinc-900/90 dark:text-gray-300 dark:hover:bg-zinc-900"
-              >
-                <Menu size={20} strokeWidth={2} />
-              </button>
-              <PencilLine size={32} className="text-primary-500" />
-              <h1 className="text-2xl font-medium sm:text-3xl">{t('scrapbook.title', '随手记')}</h1>
-            </div>
-            {/* Right Box: Search, Settings etc. */}
-            <div className="flex items-center gap-3">
-              <button
-                // We'll reveal the search bar conditionally in a real app,
-                // but for now, we'll keep the design clean with just an icon
-                onClick={() => {
-                  /* handle search toggle */
-                  const wrapper = document.getElementById('mobile-search-wrapper')
-                  if (wrapper) wrapper.classList.toggle('hidden')
-                }}
-                className="hover:text-black dark:hover:text-white"
-              >
-                <Search size={20} strokeWidth={2.5} />
-              </button>
-
-              {/* Gear icon — model config */}
-              <div className="relative">
-                <button
-                  onClick={() => setShowModelConfig(true)}
-                  title="AI 模型配置"
-                  className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all hover:bg-gray-200/50 hover:text-black md:h-8 md:w-8 md:rounded-lg dark:text-gray-300 dark:hover:bg-zinc-800 dark:hover:text-white"
-                >
-                  <Settings2 size={20} strokeWidth={2.5} />
-                </button>
-                <ModelConfigPanel
-                  isOpen={showModelConfig}
-                  onClose={() => setShowModelConfig(false)}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Hidden by default Mobile Search Bar */}
-          <div id="mobile-search-wrapper" className="mb-4 hidden">
-            <div className="relative">
-              <Search
-                size={16}
-                className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400"
-              />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                placeholder={t('scrapbook.list.searchPlaceholder', '搜索标题、内容摘要、标签...')}
-                className="w-full rounded-full bg-white py-2 pr-4 pl-9 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:ring-1 focus:ring-gray-300 focus:outline-none dark:bg-zinc-900 dark:text-white dark:focus:ring-zinc-700"
-              />
-            </div>
-          </div>
-
-          {/* Platform filter pills (Scrollable array) */}
-          <div className="scrollbar-none flex snap-x snap-mandatory overflow-x-auto px-4 pb-2 sm:px-4 sm:pb-0 md:-mx-5 md:px-5">
-            <div className="flex gap-2">
-              {ALL_PLATFORMS.map(p => {
-                const isActive = activePlatform === p
-                return (
+                <div className="flex items-center gap-2.5 sm:gap-3">
                   <button
-                    key={p}
-                    onClick={() => setActivePlatform(p)}
-                    className={clsx(
-                      'flex shrink-0 snap-start items-center justify-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium shadow-[0_1px_4px_rgba(0,0,0,0.03)] transition-all',
-                      isActive
-                        ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-800 dark:text-white'
-                        : 'bg-white/60 text-gray-500 hover:bg-white hover:text-gray-900 dark:bg-zinc-900/40 dark:text-gray-400 dark:hover:bg-zinc-800 dark:hover:text-white',
-                    )}
+                    onClick={() => toggleSidebar()}
+                    aria-label="Open sidebar"
+                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-gray-200/50 bg-white/90 p-0 leading-none text-gray-600 shadow-sm backdrop-blur-xl transition-all hover:bg-white hover:shadow-md md:hidden dark:border-zinc-800/50 dark:bg-zinc-900/90 dark:text-gray-300 dark:hover:bg-zinc-900"
                   >
-                    {/* Add small icon proxy based on platform if needed, here just rendering label */}
-                    {p === 'all' && <BookOpen size={12} />}
-                    {t(PLATFORM_PILL_LABELS[p])}
+                    <Menu size={20} strokeWidth={2} />
                   </button>
-                )
-              })}
+                  <PencilLine size={32} className="text-primary-500" />
+                  <h1 className="text-2xl font-medium sm:text-3xl">{t('scrapbook.title')}</h1>
+                </div>
+                {/* Right Box: Search, Settings etc. */}
+                <div className="flex items-center gap-3">
+                  <button
+                    // We'll reveal the search bar conditionally in a real app,
+                    // but for now, we'll keep the design clean with just an icon
+                    onClick={() => {
+                      /* handle search toggle */
+                      const wrapper = document.getElementById('mobile-search-wrapper')
+                      if (wrapper) wrapper.classList.toggle('hidden')
+                    }}
+                    className="hover:text-black dark:hover:text-white"
+                  >
+                    <Search size={20} strokeWidth={2.5} />
+                  </button>
+
+                  {/* Gear icon model config */}
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowModelConfig(true)}
+                      title="AI model config"
+                      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all hover:bg-gray-200/50 hover:text-black md:h-8 md:w-8 md:rounded-lg dark:text-gray-300 dark:hover:bg-zinc-800 dark:hover:text-white"
+                    >
+                      <Settings2 size={20} strokeWidth={2.5} />
+                    </button>
+                    <ModelConfigPanel
+                      isOpen={showModelConfig}
+                      onClose={() => setShowModelConfig(false)}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Hidden by default Mobile Search Bar */}
+              <div id="mobile-search-wrapper" className="mb-4 hidden">
+                <div className="relative">
+                  <Search
+                    size={16}
+                    className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400"
+                  />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    placeholder={t('scrapbook.list.searchPlaceholder')}
+                    className="w-full rounded-full bg-white py-2 pr-4 pl-9 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:ring-1 focus:ring-gray-300 focus:outline-none dark:bg-zinc-900 dark:text-white dark:focus:ring-zinc-700"
+                  />
+                </div>
+              </div>
+
+              {/* Platform filter pills (Scrollable array) */}
+              <div className="scrollbar-none flex snap-x snap-mandatory overflow-x-auto pb-2 sm:pb-4">
+                <div className="flex gap-2">
+                  {ALL_PLATFORMS.map(p => {
+                    const isActive = activePlatform === p
+                    return (
+                      <button
+                        key={p}
+                        onClick={() => setActivePlatform(p)}
+                        className={clsx(
+                          'flex shrink-0 snap-start items-center justify-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium shadow-[0_1px_4px_rgba(0,0,0,0.03)] transition-all',
+                          isActive
+                            ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-800 dark:text-white'
+                            : 'bg-white/60 text-gray-500 hover:bg-white hover:text-gray-900 dark:bg-zinc-900/40 dark:text-gray-400 dark:hover:bg-zinc-800 dark:hover:text-white',
+                        )}
+                      >
+                        {/* Add small icon proxy based on platform if needed, here just rendering label */}
+                        {p === 'all' && <BookOpen size={12} />}
+                        {t(PLATFORM_PILL_LABELS[p])}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* 鈹€鈹€ Content 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ */}
+            <div className="pb-24">
+              {isLoading ? (
+                <div className="flex h-full items-center justify-center">
+                  <Loader2 size={32} className="animate-spin text-gray-400" />
+                </div>
+              ) : filteredEntries.length === 0 ? (
+                <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white shadow-sm dark:bg-zinc-900">
+                    <BookOpen size={28} className="text-gray-300" />
+                  </div>
+                  <p className="text-sm font-medium text-gray-500">
+                    {searchQuery ? t('scrapbook.list.emptySearch') : t('scrapbook.list.emptyHint')}
+                  </p>
+                </div>
+              ) : (
+                <div className="grid gap-4 sm:grid-cols-2 lg:gap-5 xl:grid-cols-3 2xl:grid-cols-4 2xl:gap-6">
+                  {filteredEntries.map(entry => (
+                    <EntryCard key={entry.id} entry={entry} onDelete={handleDelete} />
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
 
-        {/* ── Content ────────────────────────────────────────────────────── */}
-        <div className="flex-1 overflow-y-auto px-4 pb-24 sm:px-6">
-          {isLoading ? (
-            <div className="flex h-full items-center justify-center">
-              <Loader2 size={32} className="animate-spin text-gray-400" />
-            </div>
-          ) : filteredEntries.length === 0 ? (
-            <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white shadow-sm dark:bg-zinc-900">
-                <BookOpen size={28} className="text-gray-300" />
-              </div>
-              <p className="text-sm font-medium text-gray-500">
-                {searchQuery ? t('scrapbook.list.emptySearch') : t('scrapbook.list.emptyHint')}
-              </p>
-            </div>
-          ) : (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {filteredEntries.map(entry => (
-                <EntryCard key={entry.id} entry={entry} onDelete={handleDelete} />
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* ── FAB ────────────────────────────────────────────────────────── */}
+        {/* 鈹€鈹€ FAB 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ */}
         <button
           onClick={() => setShowAddModal(true)}
           className="absolute right-6 bottom-8 z-150 flex h-14 w-14 items-center justify-center rounded-[24px] bg-white text-gray-900 shadow-lg backdrop-blur-lg transition-all hover:scale-105 active:scale-95 dark:bg-zinc-800 dark:text-gray-100"
@@ -1044,7 +1041,7 @@ export default function ScrapbookView() {
           </div>
         </button>
 
-        {/* ── Add Modal ──────────────────────────────────────────────────── */}
+        {/* 鈹€鈹€ Add Modal 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ */}
         <AddModal
           isOpen={showAddModal}
           onClose={() => setShowAddModal(false)}

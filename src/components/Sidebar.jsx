@@ -21,7 +21,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import React, { useEffect, useMemo, useState } from 'react'
-import { useLocation } from '@tanstack/react-router'
+import { useLocation, useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { useAppContext } from '../App'
 import { useToast } from '../contexts/ToastContext'
@@ -37,6 +37,7 @@ import {
   toggleFavorite,
 } from '../lib/conversationsService'
 import { getSpaceDisplayLabel } from '../lib/spaceDisplay'
+import { listScrapbookEntries } from '../lib/scrapbookService'
 import { deleteConversation } from '../lib/supabase'
 import DotLoader from './DotLoader'
 import EmojiDisplay from './EmojiDisplay'
@@ -70,6 +71,7 @@ const Sidebar = ({
 }) => {
   const { openDeepResearchGuide } = useDeepResearchGuide()
   const location = useLocation()
+  const navigate = useNavigate()
   const { t, i18n } = useTranslation()
   const isStandalone =
     typeof window !== 'undefined' &&
@@ -118,6 +120,9 @@ const Sidebar = ({
   const [isExpertLoading, setIsExpertLoading] = useState(false)
   const [expertLoadingMore, setExpertLoadingMore] = useState(false)
   const [expertDirty, setExpertDirty] = useState(false)
+  const [scrapbookEntries, setScrapbookEntries] = useState([])
+  const [isScrapbookLoading, setIsScrapbookLoading] = useState(false)
+  const [scrapbookDirty, setScrapbookDirty] = useState(false)
 
   // Spaces interaction state
   const [expandedSpaces, setExpandedSpaces] = useState(new Set())
@@ -228,6 +233,12 @@ const Sidebar = ({
     // }
     // const index = (hash + emojiTick) % resolvedList.length
     // return resolvedList[index]
+  }
+
+  const stripGeneratedTitlePrefix = value => {
+    const raw = String(value || '').trim()
+    if (!raw) return ''
+    return raw.replace(/^#\s*/u, '').trim()
   }
 
   const formatDateTime = value => {
@@ -437,6 +448,22 @@ const Sidebar = ({
     }
   }
 
+  const fetchScrapbookEntries = async () => {
+    try {
+      setIsScrapbookLoading(true)
+      const { data, error } = await listScrapbookEntries({ limit: SIDEBAR_FETCH_LIMIT })
+      if (!error) {
+        setScrapbookEntries(Array.isArray(data) ? data : [])
+      } else {
+        console.error('Failed to load scrapbook entries:', error)
+      }
+    } catch (err) {
+      console.error('Error loading scrapbook entries:', err)
+    } finally {
+      setIsScrapbookLoading(false)
+    }
+  }
+
   useEffect(() => {
     const filtered = (appConversations || []).filter(
       conv => !deepResearchSpaceIds.includes(String(conv.space_id)),
@@ -546,21 +573,29 @@ const Sidebar = ({
         fetchExpertConversations(true).finally(() => setExpertDirty(false))
       }
     }
+    if (sidebarLoadTab === 'scrapbook') {
+      if (scrapbookDirty || (!isScrapbookLoading && scrapbookEntries.length === 0)) {
+        fetchScrapbookEntries().finally(() => setScrapbookDirty(false))
+      }
+    }
   }, [
     sidebarLoadTab,
     bookmarksDirty,
     deepResearchDirty,
     expertDirty,
+    scrapbookDirty,
     deepResearchSpaceId,
     bookmarkedConversations.length,
     deepResearchConversations.length,
     expertConversations.length,
+    scrapbookEntries.length,
     isBookmarksLoading,
     bookmarksLoadingMore,
     isDeepResearchLoading,
     deepResearchLoadingMore,
     isExpertLoading,
     expertLoadingMore,
+    isScrapbookLoading,
   ])
 
   // Close dropdown when sidebar collapses (mouse leaves)
@@ -582,6 +617,7 @@ const Sidebar = ({
     const path = String(location?.pathname || '')
     if (path.startsWith('/scrapbook')) {
       setActiveTab(prev => (prev === 'scrapbook' ? prev : 'scrapbook'))
+      setScrapbookDirty(true)
       return
     }
     if (path.startsWith('/bookmarks')) {
@@ -630,6 +666,10 @@ const Sidebar = ({
     () => NAV_ITEM_KEYS.map(item => ({ ...item, label: t(`sidebar.${item.id}`) })),
     [t],
   )
+  const activeScrapbookEntryId = useMemo(() => {
+    const match = String(location?.pathname || '').match(/^\/scrapbook\/([^/]+)/)
+    return match?.[1] || null
+  }, [location?.pathname])
 
   const getThemeIcon = () => {
     switch (theme) {
@@ -961,9 +1001,9 @@ const Sidebar = ({
                 key={item.id}
                 onClick={() => {
                   if (item.id === 'scrapbook') {
-                    // Scrapbook is a standalone page - always navigate directly
                     setActiveTab('scrapbook')
-                    onNavigate('scrapbook')
+                    // Mobile: switch to scrapbook list panel. Desktop: navigate to full scrapbook view.
+                    if (!isOpen) onNavigate('scrapbook')
                     return
                   }
                   setActiveTab(item.id)
@@ -978,8 +1018,7 @@ const Sidebar = ({
                   }
                 }}
                 onMouseEnter={() => {
-                  // Scrapbook should not expand the sidebar panel on hover
-                  if (!isMobile && item.id !== 'scrapbook') setHoveredTab(item.id)
+                  if (!isMobile) setHoveredTab(item.id)
                 }}
                 className={clsx(
                   'group relative flex cursor-pointer flex-col items-center justify-center overflow-hidden rounded-xl px-0 py-2.5 transition-all duration-300',
@@ -1089,6 +1128,8 @@ const Sidebar = ({
                             ? t('sidebar.spaces')
                             : displayTab === 'agents'
                               ? t('sidebar.agents')
+                              : displayTab === 'scrapbook'
+                                ? t('sidebar.scrapbook')
                               : ''}
                 </h2>
                 {/* View Full Page Button (Mobile Only, or always if useful)
@@ -1121,7 +1162,8 @@ const Sidebar = ({
             {(displayTab === 'library' ||
               displayTab === 'bookmarks' ||
               displayTab === 'expert' ||
-              displayTab === 'deepResearch') && (
+              displayTab === 'deepResearch' ||
+              displayTab === 'scrapbook') && (
               <div className="no-scrollbar flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-2">
                 {!isConversationsLoading &&
                   displayTab === 'library' &&
@@ -1875,6 +1917,90 @@ const Sidebar = ({
                         <span className="h-px flex-1 bg-gray-200 dark:bg-zinc-800" />
                       </div>
                     )}
+                  </div>
+                )}
+
+                {displayTab === 'scrapbook' && (
+                  <div className="flex h-full min-h-0 flex-col">
+                    <div className="shrink-0 px-2 pb-2">
+                      <button
+                        onClick={() => onNavigate('scrapbook')}
+                        className="bg-user-bubble/50 hover:bg-user-bubble dark:hover:bg-user-bubble/10 relative flex w-full cursor-pointer items-center gap-3 rounded-xl p-2.5 text-left text-gray-600 transition-transform hover:scale-105 dark:bg-zinc-800 dark:text-gray-300"
+                      >
+                        <div className="bg-primary-100/70 dark:bg-primary-900/30 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-base text-gray-700 dark:text-gray-100">
+                          <Plus size={16} />
+                        </div>
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          {t('scrapbook.title', '随手记')}
+                        </span>
+                      </button>
+                      <div className="mt-2 h-px bg-gray-200 dark:bg-zinc-800" />
+                    </div>
+
+                    <div className="no-scrollbar flex flex-1 flex-col gap-2 overflow-y-auto overscroll-contain px-2">
+                      {isScrapbookLoading && scrapbookEntries.length === 0 && (
+                        <div className="flex justify-center py-2">
+                          <DotLoader />
+                        </div>
+                      )}
+
+                      {!isScrapbookLoading && scrapbookEntries.length === 0 && (
+                        <div className="flex flex-col items-center gap-2 px-2 py-3 text-xs text-gray-500 dark:text-gray-400">
+                          <Coffee size={24} className="text-black dark:text-white" />
+                          <div>{t('scrapbook.list.emptyHint')}</div>
+                        </div>
+                      )}
+
+                      {scrapbookEntries.map(entry => {
+                        const entryId = String(entry?.id || '')
+                        const isActive = activeScrapbookEntryId === entryId
+                        const title =
+                          stripGeneratedTitlePrefix(entry?.title) || t('scrapbook.detail.untitled')
+                        return (
+                          <div
+                            key={entryId || title}
+                            onClick={() => {
+                              if (!entryId) return
+                              navigate({
+                                to: '/scrapbook/$entryId',
+                                params: { entryId },
+                              })
+                              if (isMobile && onClose) onClose()
+                            }}
+                            className={clsx(
+                              'group relative cursor-pointer truncate rounded-xl px-1 py-2.5 text-sm transition-all duration-200 md:p-2.5',
+                              isActive
+                                ? 'bg-primary-500/10 text-primary-500 dark:bg-primary-500/20 dark:text-primary-400'
+                                : 'text-gray-700 hover:bg-primary-50 dark:text-gray-300 dark:hover:bg-zinc-800',
+                            )}
+                            title={title}
+                          >
+                            <div className="relative z-10 flex w-full items-center gap-3 overflow-hidden">
+                              <div className="bg-primary-100 dark:bg-primary-900/30 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-base">
+                                <EmojiDisplay
+                                  emoji={String(entry?.emoji || '📝')}
+                                  size="1.2em"
+                                  className="shrink-0"
+                                />
+                              </div>
+                              <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+                                <span className="truncate font-medium">{title}</span>
+                                <span
+                                  className={clsx(
+                                    'mt-0.5 text-[11px]',
+                                    isActive
+                                      ? 'text-primary-600 dark:text-primary-400'
+                                      : 'text-gray-400',
+                                  )}
+                                >
+                                  {formatDateTime(entry?.updated_at || entry?.created_at)}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
                   </div>
                 )}
               </div>

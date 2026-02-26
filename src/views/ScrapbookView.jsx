@@ -984,7 +984,7 @@ export default function ScrapbookView() {
           </div>
 
           {/* Platform filter pills (Scrollable array) */}
-          <div className="scrollbar-none flex snap-x snap-mandatory overflow-x-auto px-4 sm:px-4 md:-mx-5 md:px-5">
+          <div className="scrollbar-none flex snap-x snap-mandatory overflow-x-auto px-4 pb-2 sm:px-4 sm:pb-0 md:-mx-5 md:px-5">
             <div className="flex gap-2">
               {ALL_PLATFORMS.map(p => {
                 const isActive = activePlatform === p

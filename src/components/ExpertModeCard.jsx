@@ -17,7 +17,8 @@ const ExpertModeCard = memo(({ onClick }) => {
     <div className="flex w-full justify-center">
       <div className="group relative w-full cursor-pointer" onClick={onClick}>
         {/* Card Container: low-contrast light mode, vivid dark mode */}
-        <div className="relative z-10 h-32 overflow-hidden rounded-3xl bg-gradient-to-br from-[#ece8f8] via-[#ddd8f4] to-[#cfd0ef] p-6 shadow-md transition-all duration-500 group-hover:scale-[1.02] group-hover:shadow-xl active:scale-[0.98] sm:h-36 dark:from-[#2b1f57] dark:via-[#373f7a] dark:to-[#2b4f7a] dark:shadow-lg dark:group-hover:shadow-2xl">
+        <div className="relative z-10 h-32 overflow-hidden rounded-3xl border border-white/75 bg-white/58 p-6 shadow-[0_8px_26px_rgba(15,23,42,0.08)] backdrop-blur-xl transition-all duration-500 group-hover:scale-[1.02] group-hover:shadow-[0_12px_30px_rgba(15,23,42,0.14)] active:scale-[0.98] sm:h-36 dark:border-white/10 dark:bg-[#0f172a]/40">
+          <div className="absolute inset-0 bg-gradient-to-br from-violet-100/65 via-fuchsia-100/35 to-sky-100/45 dark:from-violet-500/14 dark:via-fuchsia-500/10 dark:to-sky-400/10" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.12)_1px,transparent_1px)] bg-[size:24px_24px] opacity-25 dark:opacity-30" />
 
           <div className="pointer-events-none absolute inset-0 z-0">
@@ -40,7 +41,7 @@ const ExpertModeCard = memo(({ onClick }) => {
               <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-2">
                   <EmojiDisplay emoji="🧠" size="1.6rem" className="drop-shadow-md" />
-                  <h3 className="text-lg font-bold tracking-tight whitespace-nowrap text-[#2f315f] md:text-xl lg:text-2xl dark:text-[#eef1ff] dark:drop-shadow-md">
+                  <h3 className="text-lg font-bold tracking-tight whitespace-nowrap text-slate-800 md:text-xl lg:text-2xl dark:text-[#eef1ff] dark:drop-shadow-md">
                     {t('homeView.expertEntry')}
                   </h3>
                 </div>
@@ -53,11 +54,11 @@ const ExpertModeCard = memo(({ onClick }) => {
             </div>
 
             <div className="flex items-end justify-between">
-              <p className="max-w-[70%] text-xs font-medium text-[#4a4e78] md:text-sm dark:text-[#d7dcff] dark:drop-shadow-sm">
+              <p className="max-w-[70%] text-xs font-medium text-slate-600 md:text-sm dark:text-[#d7dcff] dark:drop-shadow-sm">
                 {t('homeView.expertEntryHint')}
               </p>
 
-              <div className="rounded-full bg-white/45 p-2 text-[#4a4e78] shadow-md backdrop-blur-md transition-all duration-300 group-hover:translate-x-1 group-hover:bg-white/60 dark:bg-white/10 dark:text-white dark:shadow-lg dark:group-hover:bg-white/20">
+              <div className="rounded-full border border-white/75 bg-white/72 p-2 text-slate-600 shadow-md backdrop-blur-md transition-all duration-300 group-hover:translate-x-1 group-hover:bg-white/88 dark:border-white/12 dark:bg-white/[0.12] dark:text-white dark:shadow-lg dark:group-hover:bg-white/[0.2]">
                 <ArrowRight size={20} />
               </div>
             </div>

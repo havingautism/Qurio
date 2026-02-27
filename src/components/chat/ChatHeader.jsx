@@ -141,10 +141,10 @@ const ChatHeader = ({
                   if (isSelectorLocked) return
                   setIsSelectorOpen(prev => !prev)
                 }}
-                className={`flex h-12 items-center gap-2 rounded-full border border-gray-200/50 py-2 pr-3 pl-3 text-sm font-medium shadow-sm backdrop-blur-xl transition-all dark:border-zinc-800/50 ${
+                className={`glass-elite-pill flex h-12 items-center gap-2 rounded-full py-2 pr-3 pl-3 text-sm font-medium transition-all ${
                   isSelectorLocked
                     ? 'cursor-not-allowed bg-gray-100/80 text-gray-500 dark:bg-zinc-800/80 dark:text-gray-400'
-                    : 'bg-white/90 text-gray-700 hover:scale-105 hover:bg-white hover:shadow-md active:scale-95 dark:bg-zinc-900/90 dark:text-gray-200 dark:hover:bg-zinc-900'
+                    : 'text-gray-700 hover:scale-105 active:scale-95 dark:text-gray-200'
                 }`}
               >
                 {isMetaLoading ? (
@@ -169,7 +169,7 @@ const ChatHeader = ({
               {/* Dropdown */}
               {!isSelectorLocked && isSelectorOpen && (
                 <div
-                  className="absolute top-full left-0 z-50 mt-2 w-64 overflow-hidden rounded-2xl border border-gray-200/50 bg-white/95 shadow-xl backdrop-blur-xl dark:border-zinc-700/50 dark:bg-[#18181b]/95"
+                  className="glass-elite-dropdown absolute top-full left-0 z-50 mt-2 w-64 overflow-hidden rounded-2xl"
                   onMouseDown={e => e.stopPropagation()}
                 >
                   <div className="flex flex-col space-y-1 p-2">
@@ -212,7 +212,7 @@ const ChatHeader = ({
             {/* Title - Floating Pill Style */}
             <div
               ref={titleBubbleRef}
-              className="group relative z-10 flex h-12 min-w-0 items-center gap-1 rounded-full border border-gray-200/50 bg-white/90 py-1.5 pr-2 pl-4 shadow-sm backdrop-blur-xl transition-[background-color,box-shadow,border-color] hover:bg-white hover:shadow-md md:max-w-[400px] dark:border-zinc-800/50 dark:bg-zinc-900/90 dark:hover:bg-zinc-900"
+              className="glass-elite-pill group relative z-10 flex h-12 min-w-0 items-center gap-1 rounded-full py-1.5 pr-2 pl-4 transition-[background-color,box-shadow,border-color] md:max-w-[400px]"
             >
               <h1 className="flex min-w-0 items-center gap-2 truncate font-medium text-gray-800 dark:text-gray-100">
                 {isTitleLoading || isMetaLoading ? (
@@ -254,7 +254,7 @@ const ChatHeader = ({
               </button>
               {isTitleBubbleOpen && !isTitleLoading && !isMetaLoading && (
                 <div className="pointer-events-none absolute top-full left-0 z-50 mt-2 w-auto max-w-[min(72vw,560px)] px-2 md:px-0">
-                  <div className="pointer-events-auto inline-block max-w-full rounded-2xl border border-gray-200/60 bg-white/92 px-4 py-3 text-sm leading-relaxed text-gray-800 shadow-xl backdrop-blur-xl dark:border-zinc-700/60 dark:bg-zinc-900/92 dark:text-gray-100">
+                  <div className="glass-elite-dropdown pointer-events-auto inline-block max-w-full rounded-2xl px-4 py-3 text-sm leading-relaxed text-gray-800 dark:text-gray-100">
                     <div className="wrap-break-word whitespace-normal">{resolvedTitle}</div>
                   </div>
                 </div>

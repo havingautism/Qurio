@@ -141,7 +141,7 @@ const fetchStreamWithConnectTimeout = async (url, options = {}, connectTimeoutMs
  * @param {string} apiKey - API key for the provider
  * @param {string} baseUrl - Optional custom base URL
  * @param {string} model - Optional model name
- * @returns {Promise<{title: string, emojis?: string[]}>}
+ * @returns {Promise<{title: string}>}
  */
 export const generateTitleViaBackend = async (
   provider,
@@ -154,6 +154,52 @@ export const generateTitleViaBackend = async (
 ) => {
   const response = await fetchWithTimeout(
     `${getBackendUrl()}/api/title`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        provider,
+        message,
+        apiKey,
+        baseUrl,
+        model,
+        userTimezone,
+        userLocale,
+      }),
+    },
+    15000,
+  )
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Unknown error' }))
+    throw new Error(getBackendErrorMessage(error, response.status))
+  }
+
+  return response.json()
+}
+
+/**
+ * Generate emoji(s) for a conversation/message context
+ * @param {string} provider - AI provider name
+ * @param {string} message - User message / context text
+ * @param {string} apiKey - API key for the provider
+ * @param {string} baseUrl - Optional custom base URL
+ * @param {string} model - Optional model name
+ * @returns {Promise<{emojis?: string[]}>}
+ */
+export const generateEmojiViaBackend = async (
+  provider,
+  message,
+  apiKey,
+  baseUrl,
+  model,
+  userTimezone,
+  userLocale,
+) => {
+  const response = await fetchWithTimeout(
+    `${getBackendUrl()}/api/emoji`,
     {
       method: 'POST',
       headers: {

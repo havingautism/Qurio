@@ -42,6 +42,7 @@ _MAX_NOTIFICATIONS_PER_ACCOUNT = 5
 
 # Global scheduler instance (APScheduler)
 _scheduler = None
+_scheduler_database_provider: str | None = None
 
 # SSE broadcast: list of queues for connected clients
 _sse_subscribers: list[asyncio.Queue] = []
@@ -87,6 +88,28 @@ async def _get_unread_count(database_provider: str | None) -> int:
         return len(notifications)
     except Exception:
         return 0
+
+
+def get_email_monitor_provider() -> str | None:
+    """Return the currently configured DB provider for scheduled polling."""
+    return _scheduler_database_provider
+
+
+def set_email_monitor_provider(database_provider: str | None) -> str | None:
+    """
+    Update the DB provider used by the scheduled email poller.
+    This changes future scheduler runs immediately (no restart required).
+    """
+    global _scheduler_database_provider
+    normalized = (str(database_provider).strip() if database_provider else "") or None
+    if normalized == _scheduler_database_provider:
+        return _scheduler_database_provider
+    _scheduler_database_provider = normalized
+    logger.info(
+        "[EmailMonitor] Scheduler DB provider updated to: %s",
+        _scheduler_database_provider or "<default>",
+    )
+    return _scheduler_database_provider
 
 
 # ---------------------------------------------------------------------------
@@ -399,6 +422,11 @@ async def poll_all_accounts(database_provider: str | None = None) -> dict:
         return {"polled": 0, "error": str(e)}
 
 
+async def _scheduled_poll_all_accounts() -> dict:
+    """Scheduler entrypoint that always reads the latest runtime-selected provider."""
+    return await poll_all_accounts(database_provider=get_email_monitor_provider())
+
+
 # ---------------------------------------------------------------------------
 # Scheduler lifecycle
 # ---------------------------------------------------------------------------
@@ -412,21 +440,24 @@ def start_email_monitor(database_provider: str | None = None) -> None:
     try:
         from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
+        set_email_monitor_provider(database_provider)
         _scheduler = AsyncIOScheduler()
 
         # Schedule poll_all_accounts to run every 15 minutes
         # The interval is fixed here; per-account intervals could be added later.
         _scheduler.add_job(
-            poll_all_accounts,
+            _scheduled_poll_all_accounts,
             trigger="interval",
             minutes=15,
             id="email_poll",
             replace_existing=True,
-            kwargs={"database_provider": database_provider},
         )
 
         _scheduler.start()
-        logger.info("[EmailMonitor] Scheduler started (interval: 15 minutes).")
+        logger.info(
+            "[EmailMonitor] Scheduler started (interval: 15 minutes, database_provider=%s).",
+            get_email_monitor_provider() or "<default>",
+        )
     except Exception as e:
         logger.error("[EmailMonitor] Failed to start scheduler: %s", e)
 

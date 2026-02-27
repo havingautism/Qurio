@@ -84,8 +84,12 @@ function startBackend() {
     }
   }
 
-  backendProcess.stdout?.on('data', chunk => handleBackendOutput(chunk, data => process.stdout.write(data)))
-  backendProcess.stderr?.on('data', chunk => handleBackendOutput(chunk, data => process.stderr.write(data)))
+  backendProcess.stdout?.on('data', chunk =>
+    handleBackendOutput(chunk, data => process.stdout.write(data)),
+  )
+  backendProcess.stderr?.on('data', chunk =>
+    handleBackendOutput(chunk, data => process.stderr.write(data)),
+  )
 
   backendProcess.on('exit', code => {
     backendProcess = null
@@ -129,7 +133,9 @@ async function findAvailablePort(host, preferredPort, maxAttempts = 50) {
     const available = await isPortAvailable(host, candidate)
     if (available) return candidate
   }
-  throw new Error(`Unable to find available port from ${preferredPort} after ${maxAttempts} attempts`)
+  throw new Error(
+    `Unable to find available port from ${preferredPort} after ${maxAttempts} attempts`,
+  )
 }
 
 function startWebDevServer() {
@@ -227,10 +233,10 @@ function stopWebDevServer() {
 function createWindow() {
   const runtimeBackendUrl = `http://${backendHost}:${backendPort}`
   const win = new BrowserWindow({
-    width: 1440,
-    height: 900,
-    minWidth: 1100,
-    minHeight: 720,
+    width: 1980,
+    height: 1280,
+    minWidth: 1980,
+    minHeight: 1280,
     autoHideMenuBar: true,
     webPreferences: {
       contextIsolation: true,

@@ -54,7 +54,7 @@ const PROVIDER_TO_KEY = {
 const buildUrl = (backendUrl, path, params = {}) => {
   const url = new URL(`${backendUrl}${path}`)
   const settings = loadSettings()
-  const dbProvider = settings.databaseProvider || ''
+  const dbProvider = settings.databaseProviderId || settings.databaseProvider || ''
   if (dbProvider) url.searchParams.set('dbProvider', dbProvider)
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v))
   return url.toString()

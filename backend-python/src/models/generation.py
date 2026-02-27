@@ -4,6 +4,10 @@ from pydantic import BaseModel, Field, field_validator
 class TitleResponse(BaseModel):
     """Response model for title generation."""
     title: str = Field(..., description="A short, concise title (max 5 words).")
+
+
+class EmojiResponse(BaseModel):
+    """Response model for emoji generation."""
     emojis: list[str] = Field(..., description="An array containing exactly 1 emoji character.")
 
     @field_validator("emojis", mode="before")

@@ -177,6 +177,21 @@ CREATE TABLE IF NOT EXISTS public.space_agents (
   PRIMARY KEY (space_id, agent_id)
 );
 
+CREATE TABLE IF NOT EXISTS public.scrapbook (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  title TEXT NOT NULL DEFAULT '',
+  summary TEXT NOT NULL DEFAULT '',
+  content TEXT NOT NULL DEFAULT '',
+  source_url TEXT,
+  platform TEXT NOT NULL DEFAULT 'manual',
+  thumbnail TEXT,
+  tags JSONB NOT NULL DEFAULT '[]'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_scrapbook_created_at ON public.scrapbook(created_at DESC);
+
 CREATE TABLE IF NOT EXISTS public.home_notes (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   content TEXT NOT NULL DEFAULT '',
@@ -291,6 +306,11 @@ FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
 DROP TRIGGER IF EXISTS trg_document_chunks_updated_at ON public.document_chunks;
 CREATE TRIGGER trg_document_chunks_updated_at
 BEFORE UPDATE ON public.document_chunks
+FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_scrapbook_updated_at ON public.scrapbook;
+CREATE TRIGGER trg_scrapbook_updated_at
+BEFORE UPDATE ON public.scrapbook
 FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
 
 DROP TRIGGER IF EXISTS trg_home_notes_updated_at ON public.home_notes;

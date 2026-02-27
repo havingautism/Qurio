@@ -64,6 +64,7 @@ SCHEMA_STATEMENTS: list[str] = [
       is_thinking_enabled INTEGER NOT NULL DEFAULT 0,
       is_favorited INTEGER NOT NULL DEFAULT 0,
       session_summary TEXT DEFAULT NULL,
+      scrapbook_id TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
@@ -176,6 +177,25 @@ SCHEMA_STATEMENTS: list[str] = [
       created_at TEXT NOT NULL,
       PRIMARY KEY (space_id, agent_id)
     );
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS scrapbook (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL DEFAULT '',
+      emoji TEXT,
+      summary TEXT NOT NULL DEFAULT '',
+      content TEXT NOT NULL DEFAULT '',
+      source_url TEXT,
+      platform TEXT NOT NULL DEFAULT 'manual',
+      thumbnail TEXT,
+      tags TEXT NOT NULL DEFAULT '[]',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_scrapbook_created_at
+      ON scrapbook(created_at DESC);
     """,
     """
     CREATE TABLE IF NOT EXISTS home_notes (

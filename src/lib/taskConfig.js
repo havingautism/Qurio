@@ -14,6 +14,7 @@ export const TASK_TYPES = {
 export const TASK_MAPPING = {
   // Lightweight tasks - use liteModel
   generateTitle: TASK_TYPES.LITE,
+  generateEmoji: TASK_TYPES.LITE,
   generateRelatedQuestions: TASK_TYPES.LITE,
   generateTitleAndSpace: TASK_TYPES.LITE,
   generateResearchPlan: TASK_TYPES.LITE,

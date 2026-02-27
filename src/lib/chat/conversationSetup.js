@@ -248,9 +248,18 @@ export const preselectTitleForManual = async (
     credentials.baseUrl,
     modelConfig.model,
   )
+  const emojiResult =
+    typeof provider.generateEmoji === 'function'
+      ? await provider.generateEmoji(
+          promptText,
+          credentials.apiKey,
+          credentials.baseUrl,
+          modelConfig.model,
+        ).catch(() => ({ emojis: [] }))
+      : { emojis: [] }
   return {
     title: result?.title || 'New Conversation',
-    emojis: Array.isArray(result?.emojis) ? result.emojis : [],
+    emojis: Array.isArray(emojiResult?.emojis) ? emojiResult.emojis : [],
   }
 }
 
@@ -297,8 +306,17 @@ export const preselectTitleForDeepResearch = async (
     credentials.baseUrl,
     modelConfig.model,
   )
+  const emojiResult =
+    typeof provider.generateEmoji === 'function'
+      ? await provider.generateEmoji(
+          promptText,
+          credentials.apiKey,
+          credentials.baseUrl,
+          modelConfig.model,
+        ).catch(() => ({ emojis: [] }))
+      : { emojis: [] }
   return {
     title: normalizeDeepResearchTitle(result?.title || '', settings),
-    emojis: Array.isArray(result?.emojis) ? result.emojis : [],
+    emojis: Array.isArray(emojiResult?.emojis) ? emojiResult.emojis : [],
   }
 }

@@ -1622,19 +1622,37 @@ const DeepResearchChatInterface = ({
       const agentForTitle = selectedAgent || defaultAgent || null
       const languageInstruction = getLanguageInstruction(agentForTitle, settings)
       const promptText = applyLanguageInstructionToText(contextText, languageInstruction)
-      const titleResult = await provider.generateTitle(
-        promptText,
-        credentials.apiKey,
-        credentials.baseUrl,
-        modelConfig.model,
-      )
-      const newTitle = titleResult?.title || ''
-      if (!newTitle) return
-      setConversationTitle(newTitle)
-      setConversationTitleEmojis(Array.isArray(titleResult?.emojis) ? titleResult.emojis : [])
       const convId = conversationId || activeConversation?.id
+      let newTitle = ''
+      let titleEmojis = Array.isArray(conversationTitleEmojis) ? conversationTitleEmojis : []
+
+      const titlePromise = provider
+        .generateTitle(promptText, credentials.apiKey, credentials.baseUrl, modelConfig.model)
+        .then(titleResult => {
+          const nextTitle = titleResult?.title || ''
+          if (nextTitle) {
+            newTitle = nextTitle
+            setConversationTitle(nextTitle)
+          }
+          return titleResult
+        })
+
+      const emojiPromise =
+        typeof provider.generateEmoji === 'function'
+          ? provider
+              .generateEmoji(promptText, credentials.apiKey, credentials.baseUrl, modelConfig.model)
+              .then(emojiResult => {
+                const nextEmojis = Array.isArray(emojiResult?.emojis) ? emojiResult.emojis : []
+                titleEmojis = nextEmojis
+                setConversationTitleEmojis(nextEmojis)
+                return emojiResult
+              })
+              .catch(() => ({ emojis: [] }))
+          : Promise.resolve({ emojis: [] })
+
+      await Promise.allSettled([titlePromise, emojiPromise])
+      if (!newTitle) return
       if (convId) {
-        const titleEmojis = Array.isArray(titleResult?.emojis) ? titleResult.emojis : []
         await updateConversation(convId, {
           title: newTitle,
           title_emojis: titleEmojis,
@@ -1659,6 +1677,8 @@ const DeepResearchChatInterface = ({
     messages,
     settings,
     setConversationTitle,
+    setConversationTitleEmojis,
+    conversationTitleEmojis,
   ])
 
   // Create a ref for the messages scroll container

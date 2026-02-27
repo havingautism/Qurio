@@ -5,6 +5,7 @@ Custom local tools implemented as an Agno Toolkit.
 from __future__ import annotations
 
 import ast
+import asyncio
 import concurrent.futures
 import inspect
 import json
@@ -481,12 +482,44 @@ class QurioLocalTools(Toolkit):
             except Exception as exc:
                 return {"valid": False, "error": f"Unable to repair JSON: {exc}"}
 
-    @tool(name="webpage_reader", description="Read and scrape webpages.")
+    @tool(name="webpage_reader", description="Read and scrape webpages, auto-detecting platform (WeChat, X/Twitter, Bilibili, YouTube, XHS, Telegram, RSS, etc.).")
     async def webpage_reader(self, url: str) -> dict[str, Any]:
+        """
+        Fetch webpage or platform content and return structured text.
+
+        Priority:
+        1. x-reader (UniversalReader) — auto-detects platform and uses the best fetcher
+        2. Jina.ai — generic fallback for any URL
+        """
         normalized = re.sub(r"^https?://r\.jina\.ai/", "", (url or "").strip())
         if not normalized:
             return {"error": "Missing required field: url"}
 
+        # --- Attempt 1: x-reader UniversalReader ---
+        try:
+            from x_reader.reader import UniversalReader  # type: ignore[import]
+            reader = UniversalReader()
+            result = await asyncio.wait_for(reader.read(normalized), timeout=25.0)
+            if result and getattr(result, "content", None):
+                platform = str(getattr(result, "platform", "") or "unknown")
+                return {
+                    "url": normalized,
+                    "title": getattr(result, "title", None) or "",
+                    "content": result.content,
+                    "source": f"x-reader/{platform}",
+                    "platform": platform,
+                }
+        except ImportError:
+            # x-reader not installed; fall through to Jina.ai
+            pass
+        except Exception as xr_err:
+            # x-reader failed (network error, anti-scraping, etc.); log and fall through
+            import logging
+            logging.getLogger(__name__).warning(
+                "x-reader failed for %s, falling back to Jina.ai: %s", normalized, xr_err
+            )
+
+        # --- Attempt 2: Jina.ai fallback ---
         request_url = f"https://r.jina.ai/{normalized}"
         try:
             timeout = httpx.Timeout(connect=8.0, read=18.0, write=8.0, pool=8.0)

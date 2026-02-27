@@ -19,6 +19,7 @@
     "deselectAll": "Deselect All",
     "files": "Files",
     "edit": "Edit",
+    "summary": "Summary",
     "stop": "Stop"
   },
   "app": {
@@ -255,6 +256,8 @@
     "addedToBookmarks": "Added to bookmarks",
     "removedFromBookmarks": "Removed from bookmarks",
     "untitled": "Untitled",
+    "summary": "Summary",
+    "scrapbook": "Scrapbook",
     "status": {
       "streaming": "Streaming",
       "complete": "Complete"
@@ -296,6 +299,17 @@
   },
   "settings": {
     "title": "Settings",
+    "modelConfig": "Model Configuration",
+    "modelConfigDesc": "Configure AI models for Scrapbook tasks like summarization and title generation.",
+    "selectFromList": "Select from list",
+    "manualInput": "Manual input",
+    "inputModelName": "Input model name",
+    "loadingModels": "Loading models...",
+    "noModelsAvailableHint": "No models available for this provider.",
+    "noProvidersHint": "No providers configured. Please add API keys in General settings first.",
+    "resetToGlobal": "Reset to Global",
+    "inheritGlobal": "Inherit Global",
+    "selectModel": "-- Select Model --",
     "email": {
       "title": "Email Notifications",
       "description": "Connect email accounts and Qurio will periodically fetch new emails and push AI-generated summaries as notifications. Supports multiple accounts.",
@@ -613,6 +627,7 @@
     "embeddingRefreshModels": "Refresh models",
     "modelSourceList": "List",
     "modelSourceCustom": "Custom",
+    "provider": "Provider",
     "models": {
       "modelConfiguration": "Model Configuration",
       "modelConfigurationHint": "Choose different models for different tasks, or enter a custom model ID.",
@@ -655,7 +670,6 @@
     "customModelIdPlaceholder": "Enter your own model id",
     "refreshing": "Refreshing...",
     "refreshModels": "Refresh Models",
-    "loadingModels": "Loading models...",
     "modelsLoaded": "{{count}} models loaded",
     "usingFallbackModels": "Using fallback models",
     "spacesTable": "spaces table",
@@ -1359,5 +1373,87 @@
       "source": "Source",
       "updated": "Updated"
     }
+  },
+  "scrapbook": {
+    "login": {
+      "xhsRequired": "Login is required to fetch this content. Click the button below to log in via the popup window, then close it to resume.",
+      "triggerLogin": "Authorize Login",
+      "loggingIn": "Opening login window...",
+      "loginSuccess": "Login successful, retrying fetch..."
+    },
+    "engine": {
+      "required": "An enhanced engine is required for WeChat, XHS, or dynamic pages.",
+      "hint": "Click below to install the browser core (~150MB). This will significantly improve success rates for complex sites.",
+      "hintTitle": "Enhanced Engine Recommended",
+      "hintMsg": "Installing Chromium allows full capture of WeChat, XHS, and dynamic sites. Without it, some content may be missing.",
+      "install": "Install Now",
+      "installing": "Installing scraper engine, please wait...",
+      "success": "Engine installed! Retrying fetch..."
+    },
+    "title": "Scrapbook",
+    "platforms": {
+      "all": "All",
+      "xhs": "rednote",
+      "wechat": "WeChat",
+        "youtube": "YouTube",
+        "bilibili": "Bilibili",
+        "twitter": "X/Twitter",
+        "telegram": "Telegram",
+        "rss": "RSS",
+        "manual": "Manual",
+        "unknown": "Other"
+      },
+      "list": {
+        "notFound": "Entry not found",
+        "backToList": "Back to List",
+        "emptySearch": "No matching results found",
+        "emptyList": "No saved items yet",
+        "emptyHint": "Click the + button below to add your first entry",
+        "searchPlaceholder": "Search by title, summary, tags..."
+      },
+      "detail": {
+        "untitled": "Untitled",
+        "visitOriginal": "Original",
+        "regenerateTitle": "Regenerate Title",
+        "delete": "Delete",
+        "deleteConfirmTitle": "Delete Entry",
+        "deleteConfirmMsg": "Are you sure you want to delete this entry? This action cannot be undone.",
+        "deleteConfirmBtn": "Delete",
+        "summaryTitle": "AI Summary",
+        "noSummary": "No content available to generate a summary.",
+        "regenerateSummary": "Regenerate Summary",
+        "tagsTitle": "AI Tags",
+        "addTag": "+ Add System Tag",
+        "saving": "Saving...",
+        "askQuestion": "Ask a Question",
+        "contextBannerLabel": "Scrapbook Q&A",
+        "contextBannerPinned": "From Scrapbook",
+        "openSource": "Open source link"
+      },
+      "generate": {
+        "failed": "Generation failed",
+        "missingApiKey": "API Key is missing. Please configure a model in Scrapbook settings first."
+      },
+      "modal": {
+        "addSuccess": "Added successfully!",
+        "updateSuccess": "Updated successfully!",
+        "addFailed": "Failed to add, please try again.",
+        "fetching": "Fetching content...",
+        "analyzing": "Analyzing and saving...",
+        "addFromUrl": "From URL",
+        "addManual": "Manual",
+        "urlLabel": "Content Link",
+        "urlPlaceholder": "Paste URL here",
+        "urlHint": "We will automatically fetch the content and generate a summary.",
+        "titleLabel": "Title",
+        "titlePlaceholder": "Enter custom title",
+        "summaryLabel": "Summary",
+        "summaryPlaceholder": "Enter summary (Markdown supported)",
+        "contentLabel": "Full Content",
+        "contentPlaceholder": "Enter full original content",
+        "cancel": "Cancel",
+        "saveText": "Save Entry",
+        "autoSave": "Fetch & Save"
+      }
+    }
   }
-}

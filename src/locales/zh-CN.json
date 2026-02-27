@@ -19,7 +19,8 @@
     "files": "文件",
     "close": "关闭",
     "edit": "编辑",
-    "stop": "停止"
+    "stop": "停止",
+    "summary": "摘要"
   },
   "app": {
     "name": "Qurio",
@@ -238,6 +239,8 @@
     "addedToBookmarks": "已添加到收藏",
     "removedFromBookmarks": "已从收藏中移除",
     "untitled": "无标题",
+    "summary": "摘要",
+    "scrapbook": "随手记",
     "status": {
       "streaming": "正在传输",
       "complete": "已完成"
@@ -280,6 +283,17 @@
   },
   "settings": {
     "title": "设置",
+    "modelConfig": "模型配置",
+    "modelConfigDesc": "配置用于随手记任务（如总结和标题生成）的 AI 模型。",
+    "selectFromList": "从列表选择",
+    "manualInput": "手动输入",
+    "inputModelName": "输入模型名称",
+    "loadingModels": "加载模型中...",
+    "noModelsAvailableHint": "该厂商暂无可用模型。",
+    "noProvidersHint": "未配置提供商。请先在常规设置中配置 API Key。",
+    "resetToGlobal": "重置为全局",
+    "inheritGlobal": "继承全局",
+    "selectModel": "-- 选择模型 --",
     "email": {
       "title": "邮件通知",
       "description": "连接邮箱账号，Qurio 会定时拉取新邮件并用 AI 生成摘要推送为通知。支持同时连接多个邮箱。",
@@ -597,6 +611,7 @@
     "embeddingRefreshModels": "刷新模型",
     "modelSourceList": "列表",
     "modelSourceCustom": "自定义",
+    "provider": "厂商",
     "models": {
       "modelConfiguration": "模型配置",
       "modelConfigurationHint": "为不同任务选择不同的模型，或输入自定义模型 ID。",
@@ -639,7 +654,6 @@
     "customModelIdPlaceholder": "输入您自己的模型 ID",
     "refreshing": "刷新中...",
     "refreshModels": "刷新模型",
-    "loadingModels": "加载模型中...",
     "modelsLoaded": "已加载 {{count}} 个模型",
     "usingFallbackModels": "使用备用模型",
     "spacesTable": "spaces 表",
@@ -1351,5 +1365,87 @@
       "source": "来源",
       "updated": "更新"
     }
+  },
+  "scrapbook": {
+    "login": {
+      "xhsRequired": "该链接抓取需要登录授权。请点击下方按钮在弹出的窗口中完成登录，完成后关闭窗口即可重新抓取。",
+      "triggerLogin": "去登录授权",
+      "loggingIn": "正在准备登录窗口...",
+      "loginSuccess": "登录成功，正在尝试重新抓取内容..."
+    },
+    "engine": {
+      "required": "抓取微信、小红书或动态网页需要增强型引擎。",
+      "hint": "点击下方按钮将为您一键安装浏览器内核（约 150MB），安装后可显著提升抓取成功率。",
+      "hintTitle": "建议安装增强型引擎",
+      "hintMsg": "安装后可更完整地抓取微信、小红书及动态加载的网页。如果不安装，系统将尝试普通模式。",
+      "install": "立即一键安装",
+      "installing": "正在安装抓取引擎，请稍候...",
+      "success": "安装成功！正在重新抓取内容..."
+    },
+    "title": "随手记",
+      "platforms": {
+        "all": "全部",
+        "xhs": "小红书",
+        "wechat": "微信",
+        "youtube": "YouTube",
+        "bilibili": "Bilibili",
+        "twitter": "X/推特",
+        "telegram": "Telegram",
+        "rss": "RSS",
+        "manual": "手动",
+        "unknown": "其他"
+      },
+      "list": {
+        "notFound": "随手记不存在",
+        "backToList": "返回列表",
+        "emptySearch": "没有找到搜索结果",
+        "emptyList": "还没保存过内容",
+        "emptyHint": "点击右下角 + 按钮添加随手记",
+        "searchPlaceholder": "搜索标题、内容摘要、标签..."
+      },
+      "detail": {
+        "untitled": "无标题",
+        "visitOriginal": "访问原文",
+        "regenerateTitle": "重新生成标题",
+        "delete": "删除",
+        "deleteConfirmTitle": "删除随手记",
+        "deleteConfirmMsg": "确定要删除这条随手记吗？删除后无法恢复。",
+        "deleteConfirmBtn": "删除",
+        "summaryTitle": "AI 总结",
+        "noSummary": "该条目未保存详细内容，无法生成总结。",
+        "regenerateSummary": "重新生成总结",
+        "tagsTitle": "提取标签",
+        "addTag": "+ 添加系统标签",
+        "saving": "保存中...",
+        "askQuestion": "问一问",
+        "contextBannerLabel": "随手记追问",
+        "contextBannerPinned": "来自随手记",
+        "openSource": "打开原链接"
+      },
+      "generate": {
+        "failed": "生成失败",
+        "missingApiKey": "未配置 API Key，请先在 Scrapbook 设置中配置模型。"
+      },
+      "modal": {
+        "addSuccess": "添加成功！",
+        "updateSuccess": "更新成功！",
+        "addFailed": "添加失败，请重试。",
+        "fetching": "正在抓取内容...",
+        "analyzing": "正在分析并保存...",
+        "addFromUrl": "链接",
+        "addManual": "手动",
+        "urlLabel": "内容链接",
+        "urlPlaceholder": "粘贴公众号/小红书/微博/B站等链接",
+        "urlHint": "系统将自动抓取原文，并生成总结。",
+        "titleLabel": "标题",
+        "titlePlaceholder": "输入自定义标题",
+        "summaryLabel": "内容摘要",
+        "summaryPlaceholder": "手动填写摘要内容（支持 Markdown）",
+        "contentLabel": "完整正文",
+        "contentPlaceholder": "手动填写完整正文",
+        "cancel": "取消",
+        "saveText": "保存条目",
+        "autoSave": "自动获取并保存"
+      }
+    }
   }
-}

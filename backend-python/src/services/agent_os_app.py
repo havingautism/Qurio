@@ -39,6 +39,9 @@ from ..routes import (
     db as db_route,
 )
 from ..routes import (
+    emoji as emoji_route,
+)
+from ..routes import (
     memory as memory_route,
 )
 from ..routes import (
@@ -49,6 +52,12 @@ from ..routes import (
 )
 from ..routes import (
     email as email_route,
+)
+from ..routes import (
+    scrapbook as scrapbook_route,
+)
+from ..routes import (
+    env as env_route,
 )
 from .agent_registry import build_agent
 from .email_monitor import start_email_monitor, stop_email_monitor
@@ -101,6 +110,7 @@ def _build_base_app() -> FastAPI:
     app.include_router(stream_chat_route.router, prefix="/api")
     app.include_router(daily_tip_route.router, prefix="/api")
     app.include_router(title_route.router, prefix="/api")
+    app.include_router(emoji_route.router, prefix="/api")
     app.include_router(title_and_space.router, prefix="/api")
     app.include_router(title_space_agent.router, prefix="/api")
     app.include_router(space_agent.router, prefix="/api")
@@ -112,6 +122,8 @@ def _build_base_app() -> FastAPI:
     app.include_router(mcp_tools.router, prefix="/api/mcp-tools")
     app.include_router(db_route.router, prefix="/api")
     app.include_router(email_route.router, prefix="/api")
+    app.include_router(scrapbook_route.router, prefix="/api")
+    app.include_router(env_route.router, prefix="/api")
     return app
 
 

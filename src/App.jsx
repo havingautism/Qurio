@@ -47,6 +47,20 @@ const isDeepResearchSpace = space => space?.isDeepResearch || space?.is_deep_res
 
 const isDeepResearchAgent = agent => agent?.isDeepResearch || agent?.is_deep_research
 
+const syncEmailMonitorProvider = async () => {
+  try {
+    const settings = loadSettings()
+    const backendUrl = settings.backendUrl || 'http://127.0.0.1:3002'
+    const dbProvider = settings.databaseProviderId || settings.databaseProvider || ''
+    if (!dbProvider) return
+    const url = new URL(`${backendUrl}/api/email/monitor/provider`)
+    url.searchParams.set('dbProvider', dbProvider)
+    await fetch(url.toString(), { method: 'POST' })
+  } catch (error) {
+    console.warn('Failed to sync email monitor provider:', error)
+  }
+}
+
 function App() {
   const location = useLocation()
   const navigate = useNavigate()
@@ -278,6 +292,18 @@ function App() {
     syncRemoteSettings()
   }, [])
 
+  // Keep backend email monitor provider aligned with the selected DB provider on app startup
+  // and after DB settings changes, without requiring the user to open the Email panel first.
+  useEffect(() => {
+    syncEmailMonitorProvider()
+    const handleDatabaseSettingsChanged = () => {
+      syncEmailMonitorProvider()
+    }
+    window.addEventListener('database-settings-changed', handleDatabaseSettingsChanged)
+    return () =>
+      window.removeEventListener('database-settings-changed', handleDatabaseSettingsChanged)
+  }, [])
+
   useEffect(() => {
     const settings = loadSettings()
     if (!settings.databaseProviderId) {
@@ -321,6 +347,9 @@ function App() {
           break
         case 'bookmarks':
           navigate({ to: '/bookmarks' })
+          break
+        case 'scrapbook':
+          navigate({ to: '/scrapbook' })
           break
         case 'deepResearch':
           navigate({ to: '/deepresearch' })
@@ -1011,10 +1040,15 @@ function App() {
                 <div
                   className={`relative ml-0 flex w-full flex-1 flex-col overflow-hidden transition-all duration-300`}
                 >
-                  {/* Mobile Header - Hide on Chat/Conversation routes as they have their own header */}
-                  {!location.pathname.includes('/conversation/') &&
-                    !location.pathname.includes('/deepresearch/') &&
-                    !location.pathname.includes('/expert/') &&
+                  {/* Mobile Header - Hide on Chat/Conversation/Scrapbook/Main Views as they have their own header */}
+                  {!location.pathname.includes('/conversation') &&
+                    !location.pathname.includes('/deepresearch') &&
+                    !location.pathname.includes('/expert') &&
+                    !location.pathname.includes('/scrapbook') &&
+                    !location.pathname.includes('/library') &&
+                    !location.pathname.includes('/agents') &&
+                    !location.pathname.includes('/spaces') &&
+                    !location.pathname.includes('/bookmarks') &&
                     !location.pathname.includes('/new_chat') && (
                       <div className="relative z-30 h-20 shrink-0 md:hidden">
                         <div

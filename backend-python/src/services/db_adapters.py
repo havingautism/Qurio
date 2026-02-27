@@ -45,6 +45,7 @@ JSON_COLUMNS: dict[str, set[str]] = {
     "memory_domains": {"aliases"},
     "user_tools": {"config", "input_schema"},
     "pending_form_runs": {"requirements_data", "messages"},
+    "scrapbook": {"tags"},
 }
 
 TABLES_WITH_ID = {
@@ -65,6 +66,7 @@ TABLES_WITH_ID = {
     "pending_form_runs",
     "email_provider_configs",
     "email_notifications",
+    "scrapbook",
 }
 
 TABLES_WITH_UPDATED_AT = {
@@ -81,6 +83,7 @@ TABLES_WITH_UPDATED_AT = {
     "memory_summaries",
     "user_tools",
     "email_provider_configs",
+    "scrapbook",
 }
 
 TABLES_WITH_CREATED_AT = {
@@ -103,6 +106,7 @@ TABLES_WITH_CREATED_AT = {
     "pending_form_runs",
     "email_provider_configs",
     "email_notifications",
+    "scrapbook",
 }
 
 
@@ -278,6 +282,33 @@ class SQLiteAdapter:
                     "ALTER TABLE agents "
                     "ADD COLUMN use_global_model_settings INTEGER NOT NULL DEFAULT 1"
                 )
+            # Forward migration: ensure scrapbook table exists for pre-existing DBs.
+            cursor.execute(
+                "CREATE TABLE IF NOT EXISTS scrapbook ("
+                "id TEXT PRIMARY KEY, "
+                "title TEXT NOT NULL DEFAULT '', "
+                "emoji TEXT, "
+                "summary TEXT NOT NULL DEFAULT '', "
+                "content TEXT NOT NULL DEFAULT '', "
+                "source_url TEXT, "
+                "platform TEXT NOT NULL DEFAULT 'manual', "
+                "thumbnail TEXT, "
+                "tags TEXT NOT NULL DEFAULT '[]', "
+                "created_at TEXT NOT NULL, "
+                "updated_at TEXT NOT NULL)"
+            )
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_scrapbook_created_at "
+                "ON scrapbook(created_at DESC)"
+            )
+            cursor.execute("PRAGMA table_info(scrapbook)")
+            scrapbook_columns = {str(row[1]) for row in cursor.fetchall()}
+            if "emoji" not in scrapbook_columns:
+                cursor.execute("ALTER TABLE scrapbook ADD COLUMN emoji TEXT")
+            cursor.execute("PRAGMA table_info(conversations)")
+            conv_columns = {str(row[1]) for row in cursor.fetchall()}
+            if "scrapbook_id" not in conv_columns:
+                cursor.execute("ALTER TABLE conversations ADD COLUMN scrapbook_id TEXT")
             self._conn.commit()
 
     def _execute(self, sql: str, params: list[Any] | tuple[Any, ...] = ()) -> sqlite3.Cursor:

@@ -1,5 +1,5 @@
 """
-Title generation API routes.
+Emoji generation API routes.
 """
 
 from __future__ import annotations
@@ -9,13 +9,13 @@ from fastapi.responses import JSONResponse
 from starlette.responses import Response
 
 from ..providers import is_provider_supported
-from ..services.generation import generate_title
+from ..services.generation import generate_emoji
 
-router = APIRouter(tags=["title"])
+router = APIRouter(tags=["emoji"])
 
 
-@router.post("/title")
-async def title(request: Request) -> Response:
+@router.post("/emoji")
+async def emoji(request: Request) -> Response:
     body = await request.json()
     provider = body.get("provider")
     message = body.get("message")
@@ -33,29 +33,7 @@ async def title(request: Request) -> Response:
     if not is_provider_supported(provider):
         return JSONResponse(status_code=400, content={"error": f"Unsupported provider: {provider}"})
 
-    result = await _build_title_result(
-        provider=provider,
-        message=message,
-        api_key=api_key,
-        base_url=base_url,
-        model=model,
-        user_timezone=user_timezone,
-        user_locale=user_locale,
-    )
-    return JSONResponse(content=result)
-
-
-async def _build_title_result(
-    *,
-    provider: str,
-    message: str,
-    api_key: str,
-    base_url: str | None,
-    model: str | None,
-    user_timezone: str | None,
-    user_locale: str | None,
-) -> dict[str, object]:
-    result = await generate_title(
+    result = await generate_emoji(
         provider=provider,
         first_message=message,
         api_key=api_key,
@@ -64,7 +42,4 @@ async def _build_title_result(
         user_timezone=user_timezone,
         user_locale=user_locale,
     )
-    return {
-        "title": result.get("title") or "New Conversation",
-    }
-
+    return JSONResponse(content={"emojis": result.get("emojis") or []})

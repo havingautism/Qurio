@@ -181,6 +181,9 @@ const MEMORY_SETTINGS_KEYS = [
   'liteModelSource',
   'enableLongTermMemory',
   'userSelfIntro',
+  'scrapbookProvider',
+  'scrapbookModel',
+  'scrapbookModelSource',
 ]
 
 export const updateMemorySettings = settings => {
@@ -196,8 +199,7 @@ export const updateMemorySettings = settings => {
 
 export const loadSettings = (overrides = {}) => {
   const electronMode = isElectronRuntime()
-  const electronBackendUrl =
-    getElectronBackendUrlFromBridge() || getElectronBackendUrlOverride()
+  const electronBackendUrl = getElectronBackendUrlFromBridge() || getElectronBackendUrlOverride()
 
   // Supabase Env Vars
   const envSupabaseUrl = electronMode ? '' : getPublicEnv('PUBLIC_SUPABASE_URL')
@@ -236,6 +238,9 @@ export const loadSettings = (overrides = {}) => {
   const localEmbeddingProvider = localStorage.getItem('embeddingProvider')
   const localEmbeddingModel = localStorage.getItem('embeddingModel')
   const localEmbeddingModelSource = localStorage.getItem('embeddingModelSource')
+  const localScrapbookProvider = localStorage.getItem('scrapbookProvider')
+  const localScrapbookModel = localStorage.getItem('scrapbookModel')
+  const localScrapbookModelSource = localStorage.getItem('scrapbookModelSource')
   const localDefaultModel = localStorage.getItem('defaultModel')
   const localLiteModel = localStorage.getItem('liteModel')
   const localDefaultModelProvider = localStorage.getItem('defaultModelProvider')
@@ -325,6 +330,11 @@ export const loadSettings = (overrides = {}) => {
     // But for migration, maybe we should check LS if Memory is empty?
     // No, user wants to Stop storing in LS.
 
+    // Scrapbook AI model (falls back to global default model if not set)
+    scrapbookProvider: overrides.scrapbookProvider || localScrapbookProvider || '',
+    scrapbookModel: overrides.scrapbookModel || localScrapbookModel || '',
+    scrapbookModelSource: overrides.scrapbookModelSource || localScrapbookModelSource || 'list',
+
     // Model configuration
     liteModel: overrides.liteModel || localLiteModel || '',
     defaultModel: overrides.defaultModel || localDefaultModel || '',
@@ -411,10 +421,13 @@ export const loadSettings = (overrides = {}) => {
   if (!mergedSettings.DeepSeekKey)
     mergedSettings.DeepSeekKey = electronMode ? '' : getPublicEnv('PUBLIC_DEEPSEEK_API_KEY') || ''
   if (!mergedSettings.VolcengineKey)
-    mergedSettings.VolcengineKey =
-      electronMode ? '' : getPublicEnv('PUBLIC_VOLCENGINE_API_KEY') || ''
+    mergedSettings.VolcengineKey = electronMode
+      ? ''
+      : getPublicEnv('PUBLIC_VOLCENGINE_API_KEY') || ''
   if (!mergedSettings.ModelScopeKey)
-    mergedSettings.ModelScopeKey = electronMode ? '' : getPublicEnv('PUBLIC_MODELSCOPE_API_KEY') || ''
+    mergedSettings.ModelScopeKey = electronMode
+      ? ''
+      : getPublicEnv('PUBLIC_MODELSCOPE_API_KEY') || ''
   if (!mergedSettings.KimiKey)
     mergedSettings.KimiKey = electronMode ? '' : getPublicEnv('PUBLIC_KIMI_API_KEY') || ''
   if (!mergedSettings.googleApiKey)
@@ -568,6 +581,15 @@ export const saveSettings = async settings => {
   }
   if (settings.embeddingModelSource !== undefined) {
     localStorage.setItem('embeddingModelSource', settings.embeddingModelSource)
+  }
+  if (settings.scrapbookProvider !== undefined) {
+    localStorage.setItem('scrapbookProvider', settings.scrapbookProvider)
+  }
+  if (settings.scrapbookModel !== undefined) {
+    localStorage.setItem('scrapbookModel', settings.scrapbookModel)
+  }
+  if (settings.scrapbookModelSource !== undefined) {
+    localStorage.setItem('scrapbookModelSource', settings.scrapbookModelSource)
   }
   if (settings.defaultModel !== undefined) {
     localStorage.setItem('defaultModel', settings.defaultModel)

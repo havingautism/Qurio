@@ -18,8 +18,9 @@ const DeepResearchCard = memo(({ onClick }) => {
     <div className="flex w-full justify-center">
       <div className="group relative w-full cursor-pointer" onClick={onClick}>
         {/* Card Container: low-contrast light mode, original vivid dark mode */}
-        <div className="relative z-10 h-32 overflow-hidden rounded-3xl bg-gradient-to-br from-[#e8ebf8] via-[#d7def4] to-[#c7d1ee] p-6 shadow-md transition-all duration-500 group-hover:scale-[1.02] group-hover:shadow-xl active:scale-[0.98] sm:h-36 dark:from-[#312e81] dark:via-[#1e1b4b] dark:to-black dark:shadow-lg dark:group-hover:shadow-2xl">
-          <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.12)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.12)_1px,transparent_1px)] bg-[size:20px_20px] opacity-18 dark:opacity-20" />
+        <div className="relative z-10 h-32 overflow-hidden rounded-3xl border border-white/75 bg-white/58 p-6 shadow-[0_8px_26px_rgba(15,23,42,0.08)] backdrop-blur-xl transition-all duration-500 group-hover:scale-[1.02] group-hover:shadow-[0_12px_30px_rgba(15,23,42,0.14)] active:scale-[0.98] sm:h-36 dark:border-white/10 dark:bg-[#0f172a]/40">
+          <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/65 via-blue-100/35 to-cyan-100/45 dark:from-indigo-500/12 dark:via-blue-500/8 dark:to-cyan-400/10" />
+          <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.12)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.12)_1px,transparent_1px)] bg-[size:20px_20px] opacity-25 dark:opacity-20" />
 
           <div className="pointer-events-none absolute inset-0 z-0">
             {PARTICLES.map(p => (
@@ -41,7 +42,7 @@ const DeepResearchCard = memo(({ onClick }) => {
               <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-2">
                   <EmojiDisplay emoji="🔬" size="1.6rem" className="drop-shadow-md" />
-                  <h3 className="text-lg font-bold tracking-tight whitespace-nowrap text-[#2d3a62] md:text-xl lg:text-2xl dark:text-white dark:drop-shadow-md">
+                  <h3 className="text-lg font-bold tracking-tight whitespace-nowrap text-slate-800 md:text-xl lg:text-2xl dark:text-white dark:drop-shadow-md">
                     {t('homeView.deepResearchEntry')}
                   </h3>
                 </div>
@@ -54,11 +55,11 @@ const DeepResearchCard = memo(({ onClick }) => {
             </div>
 
             <div className="flex items-end justify-between">
-              <p className="max-w-[70%] text-xs font-medium text-[#46557f] md:text-sm dark:text-indigo-100/80 dark:drop-shadow-sm">
+              <p className="max-w-[70%] text-xs font-medium text-slate-600 md:text-sm dark:text-indigo-100/80 dark:drop-shadow-sm">
                 {t('homeView.deepResearchEntryHint')}
               </p>
 
-              <div className="rounded-full bg-white/45 p-2 text-[#46557f] shadow-md backdrop-blur-md transition-all duration-300 group-hover:translate-x-1 group-hover:bg-white/60 dark:bg-white/10 dark:text-white dark:shadow-lg dark:group-hover:bg-white/20">
+              <div className="rounded-full border border-white/75 bg-white/72 p-2 text-slate-600 shadow-md backdrop-blur-md transition-all duration-300 group-hover:translate-x-1 group-hover:bg-white/88 dark:border-white/12 dark:bg-white/[0.12] dark:text-white dark:shadow-lg dark:group-hover:bg-white/[0.2]">
                 <ArrowRight size={20} />
               </div>
             </div>

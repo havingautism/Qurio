@@ -2,6 +2,7 @@ import { getProvider } from '../providers'
 
 const isLiteTask = task =>
   task === 'generateTitle' ||
+  task === 'generateEmoji' ||
   task === 'generateTitleAndSpace' ||
   task === 'generateRelatedQuestions' ||
   task === 'generateResearchPlan' ||

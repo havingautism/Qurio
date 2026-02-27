@@ -300,6 +300,16 @@
   "settings": {
     "title": "Settings",
     "modelConfig": "Model Configuration",
+    "modelConfigDesc": "Configure AI models for Scrapbook tasks like summarization and title generation.",
+    "selectFromList": "Select from list",
+    "manualInput": "Manual input",
+    "inputModelName": "Input model name",
+    "loadingModels": "Loading models...",
+    "noModelsAvailableHint": "No models available for this provider.",
+    "noProvidersHint": "No providers configured. Please add API keys in General settings first.",
+    "resetToGlobal": "Reset to Global",
+    "inheritGlobal": "Inherit Global",
+    "selectModel": "-- Select Model --",
     "email": {
       "title": "Email Notifications",
       "description": "Connect email accounts and Qurio will periodically fetch new emails and push AI-generated summaries as notifications. Supports multiple accounts.",
@@ -617,6 +627,7 @@
     "embeddingRefreshModels": "Refresh models",
     "modelSourceList": "List",
     "modelSourceCustom": "Custom",
+    "provider": "Provider",
     "models": {
       "modelConfiguration": "Model Configuration",
       "modelConfigurationHint": "Choose different models for different tasks, or enter a custom model ID.",
@@ -659,7 +670,6 @@
     "customModelIdPlaceholder": "Enter your own model id",
     "refreshing": "Refreshing...",
     "refreshModels": "Refresh Models",
-    "loadingModels": "Loading models...",
     "modelsLoaded": "{{count}} models loaded",
     "usingFallbackModels": "Using fallback models",
     "spacesTable": "spaces table",

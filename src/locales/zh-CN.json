@@ -284,6 +284,16 @@
   "settings": {
     "title": "设置",
     "modelConfig": "模型配置",
+    "modelConfigDesc": "配置用于随手记任务（如总结和标题生成）的 AI 模型。",
+    "selectFromList": "从列表选择",
+    "manualInput": "手动输入",
+    "inputModelName": "输入模型名称",
+    "loadingModels": "加载模型中...",
+    "noModelsAvailableHint": "该厂商暂无可用模型。",
+    "noProvidersHint": "未配置提供商。请先在常规设置中配置 API Key。",
+    "resetToGlobal": "重置为全局",
+    "inheritGlobal": "继承全局",
+    "selectModel": "-- 选择模型 --",
     "email": {
       "title": "邮件通知",
       "description": "连接邮箱账号，Qurio 会定时拉取新邮件并用 AI 生成摘要推送为通知。支持同时连接多个邮箱。",
@@ -601,6 +611,7 @@
     "embeddingRefreshModels": "刷新模型",
     "modelSourceList": "列表",
     "modelSourceCustom": "自定义",
+    "provider": "厂商",
     "models": {
       "modelConfiguration": "模型配置",
       "modelConfigurationHint": "为不同任务选择不同的模型，或输入自定义模型 ID。",
@@ -643,7 +654,6 @@
     "customModelIdPlaceholder": "输入您自己的模型 ID",
     "refreshing": "刷新中...",
     "refreshModels": "刷新模型",
-    "loadingModels": "加载模型中...",
     "modelsLoaded": "已加载 {{count}} 个模型",
     "usingFallbackModels": "使用备用模型",
     "spacesTable": "spaces 表",

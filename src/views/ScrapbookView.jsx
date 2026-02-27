@@ -123,12 +123,12 @@ const PLATFORM_COLORS = {
 const stripGeneratedTitlePrefix = value => {
   if (!value) return ''
   const trimmed = String(value).trim()
-  return trimmed.replace(/^(?:title|鏍囬)\s*[:锛?]\s*/i, '').trim() || trimmed
+  return trimmed.replace(/^(?:title|标题|標題)\s*[:：]\s*/i, '').trim() || trimmed
 }
 
-// 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+// -----------------------------------------------------------------------------
 // Model Config Panel (inside ScrapbookView header)
-// 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+// -----------------------------------------------------------------------------
 
 const getCardSummarySnippet = (summary, maxLen = 170) => {
   if (!summary) return ''
@@ -296,21 +296,21 @@ const ModelConfigPanel = ({ isOpen, onClose }) => {
                   onValueChange={val => handleProviderChange(val === '__none__' ? '' : val)}
                 >
                   <SelectTrigger className="w-full rounded-xl border-none bg-black/5 focus-visible:ring-1 focus-visible:ring-black/10 dark:bg-white/5 dark:focus-visible:ring-white/10">
-                    <SelectValue placeholder={t('settings.inheritGlobal', '缁ф壙鍏ㄥ眬')}>
+                    <SelectValue placeholder={t('settings.inheritGlobal')}>
                       {provider ? (
                         <div className="flex items-center gap-3">
                           {renderProviderIcon(provider, { size: 16 })}
                           <span>{provider}</span>
                         </div>
                       ) : (
-                        <span>{t('settings.inheritGlobal', '缁ф壙鍏ㄥ眬')}</span>
+                        <span>{t('settings.inheritGlobal')}</span>
                       )}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__none__">
                       <span className="text-[var(--color-text-secondary)]">
-                        {t('settings.inheritGlobal', '缁ф壙鍏ㄥ眬')}
+                        {t('settings.inheritGlobal')}
                       </span>
                     </SelectItem>
                     {availableProviders.map(p => (
@@ -346,7 +346,7 @@ const ModelConfigPanel = ({ isOpen, onClose }) => {
                   <Input
                     value={customModel}
                     onChange={e => setCustomModel(e.target.value)}
-                    placeholder={t('settings.inputModelName', '杈撳叆 model 鍚嶇О')}
+                    placeholder={t('settings.inputModelName')}
                     className="w-full rounded-xl border-none bg-black/5 px-4 focus-visible:ring-1 focus-visible:ring-black/10 dark:bg-white/5 dark:focus-visible:ring-white/10"
                   />
                 ) : isLoadingModels ? (
@@ -364,7 +364,7 @@ const ModelConfigPanel = ({ isOpen, onClose }) => {
                     onValueChange={val => setModel(val === '__none__' ? '' : val)}
                   >
                     <SelectTrigger className="w-full rounded-xl border-none bg-black/5 focus-visible:ring-1 focus-visible:ring-black/10 dark:bg-white/5 dark:focus-visible:ring-white/10">
-                      <SelectValue placeholder={t('settings.selectModel', '-- 閫夋嫨妯″瀷 --')}>
+                      <SelectValue placeholder={t('settings.selectModel')}>
                         {model ? (
                           <div className="flex items-center gap-2 truncate">
                             {getModelIcon(model) && (
@@ -380,7 +380,7 @@ const ModelConfigPanel = ({ isOpen, onClose }) => {
                           </div>
                         ) : (
                           <span className="text-[var(--color-text-secondary)]">
-                            {t('settings.selectModel', '-- 閫夋嫨妯″瀷 --')}
+                            {t('settings.selectModel')}
                           </span>
                         )}
                       </SelectValue>
@@ -388,7 +388,7 @@ const ModelConfigPanel = ({ isOpen, onClose }) => {
                     <SelectContent>
                       <SelectItem value="__none__">
                         <span className="text-[var(--color-text-secondary)]">
-                          {t('settings.selectModel', '-- 閫夋嫨妯″瀷 --')}
+                          {t('settings.selectModel')}
                         </span>
                       </SelectItem>
                       {modelsForProvider.map(m => (
@@ -415,7 +415,7 @@ const ModelConfigPanel = ({ isOpen, onClose }) => {
 
         <DialogFooter className="mt-4 flex w-full items-center gap-2 sm:justify-between">
           <Button variant="outline" onClick={handleReset} className="flex-1 rounded-xl">
-            {t('settings.resetToGlobal', '閲嶇疆涓哄叏灞€')}
+            {t('settings.resetToGlobal')}
           </Button>
           <Button
             onClick={handleSave}
@@ -430,9 +430,9 @@ const ModelConfigPanel = ({ isOpen, onClose }) => {
   )
 }
 
-// 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+// -----------------------------------------------------------------------------
 // Add Modal
-// 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+// -----------------------------------------------------------------------------
 
 const AddModal = ({ isOpen, onClose, onAdded }) => {
   const { t } = useTranslation()
@@ -472,7 +472,7 @@ const AddModal = ({ isOpen, onClose, onAdded }) => {
     if (!url.trim()) return
     setIsLoading(true)
     setError('')
-    setLoadingMsg(t('loadingContent', '姝ｅ湪鑾峰彇鍐呭...'))
+    setLoadingMsg(t('settings.loadingModels'))
 
     const modelConfig = resolveScrapbookModelConfig()
     if (!modelConfig.apiKey) {
@@ -481,7 +481,7 @@ const AddModal = ({ isOpen, onClose, onAdded }) => {
       setLoadingMsg('')
       return
     }
-    setLoadingMsg(t('loadingContent', '姝ｅ湪璇诲彇缃戦〉鍐呭...'))
+    setLoadingMsg(t('settings.loadingModels'))
     const { data, error: err } = await createScrapbookEntry({ source_url: url.trim() }, modelConfig)
     setIsLoading(false)
     setLoadingMsg('')
@@ -499,7 +499,7 @@ const AddModal = ({ isOpen, onClose, onAdded }) => {
 
   const handleManualSave = async () => {
     if (!manualTitle.trim() && !manualContent.trim()) {
-      setError('璇峰～鍐欐爣棰樻垨鍐呭')
+      setError(t('scrapbook.modal.addFailed'))
       return
     }
     setIsLoading(true)
@@ -593,7 +593,7 @@ const AddModal = ({ isOpen, onClose, onAdded }) => {
             <div className="space-y-4">
               <div className="flex flex-col gap-1.5">
                 <span className="text-xs font-medium text-[var(--color-text-secondary)]">
-                  {t('platform', '骞冲彴')}
+                  {t('settings.provider')}
                 </span>
                 <Select value={manualPlatform} onValueChange={setManualPlatform}>
                   <SelectTrigger>
@@ -681,7 +681,7 @@ const AddModal = ({ isOpen, onClose, onAdded }) => {
             className="flex items-center justify-center gap-2 rounded-xl bg-zinc-900 px-6 text-white shadow-md hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
           >
             {isLoading ? <Loader2 size={15} className="animate-spin" /> : null}
-            {isLoading ? t('scrapbook.detail.saving') : t('sidebar.save', '淇濆瓨')}
+            {isLoading ? t('scrapbook.detail.saving') : t('sidebar.save')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -731,7 +731,7 @@ const EntryCard = ({ entry, onDelete }) => {
   const actualThumbnail = getThumbnailUrl(entry)
   const summarySnippet = getCardSummarySnippet(entry.summary)
 
-  // Date format: "鏄ㄥぉ 02:24" or "2026/2/23"
+  // Date format: "Yesterday 02:24" or "2026/2/23"
   const dateStr = entry.created_at
     ? new Date(entry.created_at).toLocaleDateString('zh-CN', {
         month: 'numeric',
@@ -915,9 +915,7 @@ export default function ScrapbookView() {
                 <PencilLine size={16} className="shrink-0" />
               </div>
 
-              <h1 className="text-xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
-                {t('scrapbook.title', '闅忔墜璁?)}
-              </h1>
+                <h1 className="text-2xl font-medium sm:text-3xl">{t('scrapbook.title')}</h1>
             </div> */}
               <div className="flex items-center gap-2.5 sm:gap-3">
                 <button

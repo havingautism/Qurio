@@ -102,8 +102,8 @@ const ConversationCard = ({
         <button
           onClick={handleFavoriteClick}
           className={clsx(
-            'flex h-8 w-8 items-center justify-center rounded-full bg-white/90 shadow-sm backdrop-blur-md transition-all hover:bg-yellow-50 hover:text-yellow-500 dark:bg-zinc-800/90 dark:hover:bg-yellow-900/20',
-            conversation.is_favorited ? 'font-bold text-yellow-500' : 'text-gray-400',
+            'hover:bg-primary-50 hover:text-primary-500 dark:hover:bg-primary-900/20 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 shadow-sm backdrop-blur-md transition-all dark:bg-zinc-800/90',
+            conversation.is_favorited ? 'text-primary-500 font-bold' : 'text-gray-400',
           )}
           title={conversation.is_favorited ? t('views.removeBookmark') : t('views.addBookmark')}
         >

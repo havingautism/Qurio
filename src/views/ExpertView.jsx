@@ -54,6 +54,7 @@ const ExpertView = () => {
   const [isGuideOpen, setIsGuideOpen] = useState(false)
   const [isCreatingConversation, setIsCreatingConversation] = useState(false)
   const [isDeletingId, setIsDeletingId] = useState(null)
+  const [isSearchOpen, setIsSearchOpen] = useState(false)
   const limit = 12
 
   const sortOptions = useMemo(
@@ -229,24 +230,34 @@ const ExpertView = () => {
         <ColorBendsBackground />
       </div>
       <div className="relative z-10 flex h-full flex-col">
-        <div className="flex-1 overflow-x-hidden overflow-y-auto">
-          <div className="mx-auto w-full max-w-[1400px] px-4 py-4 sm:px-8 sm:py-8">
-            {/* Header */}
-            <div className="mb-6 flex items-center justify-between sm:mb-10">
+        {/* Fixed Header */}
+        <div className="mx-auto w-full max-w-[1400px] shrink-0 px-4 pt-4 pb-2 sm:px-8 sm:pt-8 sm:pb-4">
+          {/* Header */}
+          <div className="mb-6 flex items-center justify-between sm:mb-10">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => toggleSidebar()}
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-gray-200/50 bg-white/90 p-0 text-gray-600 shadow-sm backdrop-blur-xl transition-all hover:bg-white sm:hidden dark:border-zinc-800/50 dark:bg-zinc-900/90 dark:text-gray-300"
+              >
+                <Menu size={20} strokeWidth={2} />
+              </button>
               <div className="flex items-center gap-3">
-                <button
-                  onClick={() => toggleSidebar()}
-                  className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-gray-200/50 bg-white/90 p-0 text-gray-600 shadow-sm backdrop-blur-xl transition-all hover:bg-white sm:hidden dark:border-zinc-800/50 dark:bg-zinc-900/90 dark:text-gray-300"
-                >
-                  <Menu size={20} strokeWidth={2} />
-                </button>
-                <div className="flex items-center gap-3">
-                  <BrainCircuit size={32} className="text-primary-500" />
-                  <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-                    {t('views.expertView.title')}
-                  </h1>
-                </div>
+                <BrainCircuit size={32} className="text-primary-500" />
+                <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+                  {t('views.expertView.title')}
+                </h1>
               </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setIsSearchOpen(!isSearchOpen)}
+                className={clsx(
+                  'flex h-10 w-10 items-center justify-center rounded-full transition-all hover:bg-white dark:hover:bg-zinc-800',
+                  isSearchOpen ? 'text-primary-500' : 'text-gray-600 dark:text-gray-400',
+                )}
+              >
+                <Search size={22} strokeWidth={2.5} />
+              </button>
               <button
                 onClick={() => setIsGuideOpen(true)}
                 className="flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-bold text-gray-900 shadow-sm transition-all hover:scale-105 hover:shadow-md active:scale-95 dark:bg-zinc-800 dark:text-white"
@@ -255,9 +266,11 @@ const ExpertView = () => {
                 <span className="hidden sm:inline">{t('views.expertView.createNew')}</span>
               </button>
             </div>
+          </div>
 
-            {/* Search and Filters */}
-            <div className="mb-6 space-y-4 sm:mb-10">
+          {/* Expandable Search Bar */}
+          {isSearchOpen && (
+            <div className="mb-4 animate-in fade-in slide-in-from-top-2 duration-200">
               <div className="relative">
                 <Search
                   size={18}
@@ -269,6 +282,7 @@ const ExpertView = () => {
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   onKeyDown={handleKeyDown}
+                  autoFocus
                   className="focus:ring-primary-500/20 w-full rounded-2xl border-none bg-white py-3 pr-24 pl-12 text-sm text-gray-900 shadow-sm transition-all outline-none focus:ring-2 sm:py-3.5 dark:bg-zinc-900 dark:text-white"
                 />
                 <div className="absolute top-1/2 right-3 flex -translate-y-1/2 items-center gap-1">
@@ -288,58 +302,66 @@ const ExpertView = () => {
                   </button>
                 </div>
               </div>
+            </div>
+          )}
 
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <button className="flex items-center gap-1.5 rounded-full bg-white/60 px-4 py-1.5 text-xs font-semibold text-gray-600 shadow-sm backdrop-blur-md transition-all hover:bg-white dark:bg-zinc-900/40 dark:text-gray-400 dark:hover:bg-zinc-900">
-                    <span>Type</span>
-                    <ChevronDown size={14} />
-                  </button>
-                </div>
-                <div className="relative">
-                  <button
-                    onClick={() => setIsSortOpen(!isSortOpen)}
-                    className="flex items-center gap-1.5 rounded-full bg-white/60 px-4 py-1.5 text-xs font-semibold text-gray-600 shadow-sm backdrop-blur-md transition-all hover:bg-white dark:bg-zinc-900/40 dark:text-gray-400 dark:hover:bg-zinc-900"
-                  >
-                    <span>
-                      {t('views.sort')}: {sortOptions.find(o => o.key === sortOption.key)?.label}
-                    </span>
-                    <ChevronDown size={14} />
-                  </button>
-                  {isSortOpen && (
-                    <>
-                      <div className="fixed inset-0 z-20" onClick={() => setIsSortOpen(false)} />
-                      <div className="absolute top-full right-0 z-30 mt-2 w-44 overflow-hidden rounded-2xl bg-white/95 p-1.5 shadow-xl backdrop-blur-xl dark:bg-zinc-900/95">
-                        {sortOptions.map(option => (
-                          <button
-                            key={option.key}
-                            onClick={() => {
-                              setSortOption(SORT_OPTION_KEYS.find(o => o.key === option.key))
-                              setIsSortOpen(false)
-                            }}
-                            className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800"
+          {/* Filters Area */}
+          <div className="mb-2 space-y-4 sm:mb-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <button className="flex items-center gap-1.5 rounded-full bg-white/60 px-4 py-1.5 text-xs font-semibold text-gray-600 shadow-sm backdrop-blur-md transition-all hover:bg-white dark:bg-zinc-900/40 dark:text-gray-400 dark:hover:bg-zinc-900">
+                  <span>Type</span>
+                  <ChevronDown size={14} />
+                </button>
+              </div>
+              <div className="relative">
+                <button
+                  onClick={() => setIsSortOpen(!isSortOpen)}
+                  className="flex items-center gap-1.5 rounded-full bg-white/60 px-4 py-1.5 text-xs font-semibold text-gray-600 shadow-sm backdrop-blur-md transition-all hover:bg-white dark:bg-zinc-900/40 dark:text-gray-400 dark:hover:bg-zinc-900"
+                >
+                  <span>
+                    {t('views.sort')}: {sortOptions.find(o => o.key === sortOption.key)?.label}
+                  </span>
+                  <ChevronDown size={14} />
+                </button>
+                {isSortOpen && (
+                  <>
+                    <div className="fixed inset-0 z-20" onClick={() => setIsSortOpen(false)} />
+                    <div className="absolute top-full right-0 z-30 mt-2 w-44 overflow-hidden rounded-2xl bg-white/95 p-1.5 shadow-xl backdrop-blur-xl dark:bg-zinc-900/95">
+                      {sortOptions.map(option => (
+                        <button
+                          key={option.key}
+                          onClick={() => {
+                            setSortOption(SORT_OPTION_KEYS.find(o => o.key === option.key))
+                            setIsSortOpen(false)
+                          }}
+                          className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800"
+                        >
+                          <span
+                            className={
+                              sortOption.key === option.key
+                                ? 'text-primary-500 font-bold'
+                                : 'text-gray-700 dark:text-gray-300'
+                            }
                           >
-                            <span
-                              className={
-                                sortOption.key === option.key
-                                  ? 'text-primary-500 font-bold'
-                                  : 'text-gray-700 dark:text-gray-300'
-                              }
-                            >
-                              {option.label}
-                            </span>
-                            {sortOption.key === option.key && (
-                              <Check size={14} className="text-primary-500" />
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </div>
+                            {option.label}
+                          </span>
+                          {sortOption.key === option.key && (
+                            <Check size={14} className="text-primary-500" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
             </div>
+          </div>
+        </div>
 
+        {/* Scrollable Container */}
+        <div className="no-scrollbar sm:scrollbar-default relative min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
+          <div className="mx-auto w-full max-w-[1400px] px-4 pb-4 sm:px-8 sm:pb-8">
             {/* Grid Content */}
             <div className="relative pb-32">
               {loading ? (

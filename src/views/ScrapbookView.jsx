@@ -845,6 +845,7 @@ export default function ScrapbookView() {
   const [activePlatform, setActivePlatform] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [showAddModal, setShowAddModal] = useState(false)
+  const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [showModelConfig, setShowModelConfig] = useState(false)
   const modelConfigRef = useRef(null)
 
@@ -893,14 +894,14 @@ export default function ScrapbookView() {
       </div>
 
       <div className="relative z-10 flex h-full flex-col">
-        <div className="flex-1 overflow-x-hidden overflow-y-auto">
-          <div className="mx-auto w-full max-w-[1400px] px-4 py-4 sm:px-8 sm:py-8">
-            {/* Header */}
-            <div className="flex-shrink-0 px-0 pt-0">
-              {/* Top Bar: Menu/Title + Actions */}
-              <div className="mb-4 flex items-center justify-between">
-                {/* Left Box: Menu Toggle & Title */}
-                {/* <div className="flex items-center gap-3">
+        {/* Fixed Header */}
+        <div className="mx-auto w-full max-w-[1400px] shrink-0 px-4 pt-4 pb-2 sm:px-8 sm:pt-8 sm:pb-4">
+          {/* Header */}
+          <div className="flex-shrink-0 px-0 pt-0">
+            {/* Top Bar: Menu/Title + Actions */}
+            <div className="mb-4 flex items-center justify-between">
+              {/* Left Box: Menu Toggle & Title */}
+              {/* <div className="flex items-center gap-3">
               <button
                 onClick={() => toggleSidebar()}
                 aria-label="Open sidebar"
@@ -918,93 +919,105 @@ export default function ScrapbookView() {
                 {t('scrapbook.title', '闅忔墜璁?)}
               </h1>
             </div> */}
-                <div className="flex items-center gap-2.5 sm:gap-3">
-                  <button
-                    onClick={() => toggleSidebar()}
-                    aria-label="Open sidebar"
-                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-gray-200/50 bg-white/90 p-0 leading-none text-gray-600 shadow-sm backdrop-blur-xl transition-all hover:bg-white hover:shadow-md md:hidden dark:border-zinc-800/50 dark:bg-zinc-900/90 dark:text-gray-300 dark:hover:bg-zinc-900"
-                  >
-                    <Menu size={20} strokeWidth={2} />
-                  </button>
-                  <PencilLine size={32} className="text-primary-500" />
-                  <h1 className="text-2xl font-medium sm:text-3xl">{t('scrapbook.title')}</h1>
-                </div>
-                {/* Right Box: Search, Settings etc. */}
-                <div className="flex items-center gap-3">
-                  <button
-                    // We'll reveal the search bar conditionally in a real app,
-                    // but for now, we'll keep the design clean with just an icon
-                    onClick={() => {
-                      /* handle search toggle */
-                      const wrapper = document.getElementById('mobile-search-wrapper')
-                      if (wrapper) wrapper.classList.toggle('hidden')
-                    }}
-                    className="hover:text-black dark:hover:text-white"
-                  >
-                    <Search size={20} strokeWidth={2.5} />
-                  </button>
+              <div className="flex items-center gap-2.5 sm:gap-3">
+                <button
+                  onClick={() => toggleSidebar()}
+                  aria-label="Open sidebar"
+                  className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-gray-200/50 bg-white/90 p-0 leading-none text-gray-600 shadow-sm backdrop-blur-xl transition-all hover:bg-white hover:shadow-md md:hidden dark:border-zinc-800/50 dark:bg-zinc-900/90 dark:text-gray-300 dark:hover:bg-zinc-900"
+                >
+                  <Menu size={20} strokeWidth={2} />
+                </button>
+                <PencilLine size={32} className="text-primary-500" />
+                <h1 className="text-2xl font-medium sm:text-3xl">{t('scrapbook.title')}</h1>
+              </div>
+              {/* Right Box: Search, Settings etc. */}
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setIsSearchOpen(!isSearchOpen)}
+                  className={clsx(
+                    'flex h-10 w-10 items-center justify-center rounded-full transition-all hover:bg-white dark:hover:bg-zinc-800',
+                    isSearchOpen ? 'text-primary-500' : 'text-gray-600 dark:text-gray-400',
+                  )}
+                >
+                  <Search size={22} strokeWidth={2.5} />
+                </button>
 
-                  {/* Gear icon model config */}
-                  <div className="relative">
-                    <button
-                      onClick={() => setShowModelConfig(true)}
-                      title="AI model config"
-                      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all hover:bg-gray-200/50 hover:text-black md:h-8 md:w-8 md:rounded-lg dark:text-gray-300 dark:hover:bg-zinc-800 dark:hover:text-white"
-                    >
-                      <Settings2 size={20} strokeWidth={2.5} />
-                    </button>
-                    <ModelConfigPanel
-                      isOpen={showModelConfig}
-                      onClose={() => setShowModelConfig(false)}
-                    />
-                  </div>
+                {/* Gear icon model config */}
+                <div className="relative">
+                  <button
+                    onClick={() => setShowModelConfig(true)}
+                    title="AI model config"
+                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all hover:bg-gray-200/50 hover:text-black md:h-8 md:w-8 md:rounded-lg dark:text-gray-300 dark:hover:bg-zinc-800 dark:hover:text-white"
+                  >
+                    <Settings2 size={20} strokeWidth={2.5} />
+                  </button>
+                  <ModelConfigPanel
+                    isOpen={showModelConfig}
+                    onClose={() => setShowModelConfig(false)}
+                  />
                 </div>
               </div>
+            </div>
 
-              {/* Hidden by default Mobile Search Bar */}
-              <div id="mobile-search-wrapper" className="mb-4 hidden">
+            {/* Expandable Search Bar */}
+            {isSearchOpen && (
+              <div className="animate-in fade-in slide-in-from-top-2 mb-4 duration-200">
                 <div className="relative">
                   <Search
-                    size={16}
-                    className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400"
+                    size={18}
+                    className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-400"
                   />
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
                     placeholder={t('scrapbook.list.searchPlaceholder')}
-                    className="w-full rounded-full bg-white py-2 pr-4 pl-9 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:ring-1 focus:ring-gray-300 focus:outline-none dark:bg-zinc-900 dark:text-white dark:focus:ring-zinc-700"
+                    autoFocus
+                    className="focus:ring-primary-500/20 w-full rounded-2xl bg-white py-3 pr-4 pl-12 text-sm text-gray-900 shadow-sm transition-all outline-none focus:ring-2 dark:bg-zinc-900 dark:text-white"
                   />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      className="absolute top-1/2 right-3 -translate-y-1/2 rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800"
+                    >
+                      <X size={16} />
+                    </button>
+                  )}
                 </div>
               </div>
+            )}
 
-              {/* Platform filter pills (Scrollable array) */}
-              <div className="scrollbar-none flex snap-x snap-mandatory overflow-x-auto pb-2 sm:pb-4">
-                <div className="flex gap-2">
-                  {ALL_PLATFORMS.map(p => {
-                    const isActive = activePlatform === p
-                    return (
-                      <button
-                        key={p}
-                        onClick={() => setActivePlatform(p)}
-                        className={clsx(
-                          'flex shrink-0 snap-start items-center justify-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium shadow-[0_1px_4px_rgba(0,0,0,0.03)] transition-all',
-                          isActive
-                            ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-800 dark:text-white'
-                            : 'bg-white/60 text-gray-500 hover:bg-white hover:text-gray-900 dark:bg-zinc-900/40 dark:text-gray-400 dark:hover:bg-zinc-800 dark:hover:text-white',
-                        )}
-                      >
-                        {/* Add small icon proxy based on platform if needed, here just rendering label */}
-                        {p === 'all' && <BookOpen size={12} />}
-                        {t(PLATFORM_PILL_LABELS[p])}
-                      </button>
-                    )
-                  })}
-                </div>
+            {/* Platform filter pills (Scrollable array) */}
+            <div className="scrollbar-none flex snap-x snap-mandatory overflow-x-auto pb-2 sm:pb-4">
+              <div className="flex gap-2">
+                {ALL_PLATFORMS.map(p => {
+                  const isActive = activePlatform === p
+                  return (
+                    <button
+                      key={p}
+                      onClick={() => setActivePlatform(p)}
+                      className={clsx(
+                        'flex shrink-0 snap-start items-center justify-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium shadow-[0_1px_4px_rgba(0,0,0,0.03)] transition-all',
+                        isActive
+                          ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-800 dark:text-white'
+                          : 'bg-white/60 text-gray-500 hover:bg-white hover:text-gray-900 dark:bg-zinc-900/40 dark:text-gray-400 dark:hover:bg-zinc-800 dark:hover:text-white',
+                      )}
+                    >
+                      {/* Add small icon proxy based on platform if needed, here just rendering label */}
+                      {p === 'all' && <BookOpen size={12} />}
+                      {t(PLATFORM_PILL_LABELS[p])}
+                    </button>
+                  )
+                })}
               </div>
             </div>
+          </div>
+        </div>
 
-            {/* 鈹€鈹€ Content 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ */}
+        {/* Scrollable Container */}
+        <div className="no-scrollbar sm:scrollbar-default relative min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
+          <div className="mx-auto w-full max-w-[1400px] px-4 pb-4 sm:px-8 sm:pb-8">
+            {/* Content Area */}
             <div className="pb-24">
               {isLoading ? (
                 <div className="flex h-full items-center justify-center">

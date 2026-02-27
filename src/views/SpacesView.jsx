@@ -72,10 +72,10 @@ const SpacesView = () => {
       <div className="pointer-events-none absolute inset-0 z-0 opacity-40 dark:opacity-20">
         <ColorBendsBackground />
       </div>
-      <div className="relative z-10 h-full overflow-y-auto">
-        <div className="mx-auto w-full max-w-5xl px-3 py-5 sm:px-6 sm:py-8">
-          {/* Header */}
-          <div className="mb-8 flex items-center gap-3">
+      <div className="relative z-10 flex h-full flex-col">
+        {/* Fixed Header */}
+        <div className="mx-auto w-full max-w-[1400px] shrink-0 px-4 pt-4 pb-2 sm:px-8 sm:pt-8 sm:pb-4">
+          <div className="mb-4 flex items-center gap-3">
             <button
               onClick={() => toggleSidebar()}
               aria-label="Open sidebar"
@@ -86,53 +86,60 @@ const SpacesView = () => {
             <LayoutGrid size={32} className="text-primary-500" />
             <h1 className="text-2xl font-medium sm:text-3xl">{t('views.spacesView.title')}</h1>
           </div>
+        </div>
 
-          {/* My Spaces Section */}
-          <div className="mb-12">
-            <h2 className="mb-4 text-lg font-medium text-gray-700 dark:text-gray-300">
-              {t('views.spacesView.mySpaces')}
-            </h2>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {/* Create Card */}
-              <div
-                onClick={onCreateSpace}
-                className="group flex min-h-[160px] cursor-pointer flex-col justify-between rounded-xl border border-white/40 bg-white/60 p-6 shadow-sm backdrop-blur-xl transition-all hover:bg-white/80 dark:border-zinc-800/50 dark:bg-zinc-900/60 dark:hover:bg-zinc-900/80"
-              >
-                <div className="bg-primary-500 mb-4 flex h-10 w-10 items-center justify-center rounded-full text-white transition-transform group-hover:scale-110">
-                  <Plus size={24} />
-                </div>
-                <div>
-                  <h3 className="mb-1 text-lg font-medium">{t('views.spacesView.createSpace')}</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {t('views.spacesView.createSpaceDescription')}
-                  </p>
-                </div>
-              </div>
-
-              {/* User Spaces */}
-              {displaySpaces.map(space => (
+        {/* Scrollable Container */}
+        <div className="no-scrollbar sm:scrollbar-default relative min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
+          <div className="mx-auto w-full max-w-[1400px] px-4 pb-4 sm:px-8 sm:pb-8">
+            {/* My Spaces Section */}
+            <div className="mb-12">
+              <h2 className="mb-4 text-lg font-medium text-gray-700 dark:text-gray-300">
+                {t('views.spacesView.mySpaces')}
+              </h2>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {/* Create Card */}
                 <div
-                  key={space.id}
-                  onClick={() =>
-                    navigate({
-                      to: '/space/$spaceId',
-                      params: { spaceId: space.id },
-                    })
-                  }
+                  onClick={onCreateSpace}
                   className="group flex min-h-[160px] cursor-pointer flex-col justify-between rounded-xl border border-white/40 bg-white/60 p-6 shadow-sm backdrop-blur-xl transition-all hover:bg-white/80 dark:border-zinc-800/50 dark:bg-zinc-900/60 dark:hover:bg-zinc-900/80"
                 >
-                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-gray-200 text-xl dark:bg-zinc-800">
-                    <EmojiDisplay emoji={space.emoji} />
+                  <div className="bg-primary-500 mb-4 flex h-10 w-10 items-center justify-center rounded-full text-white transition-transform group-hover:scale-110">
+                    <Plus size={24} />
                   </div>
                   <div>
-                    <h3 className="mb-1 truncate text-lg font-medium">{space.label}</h3>
-                    <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                      <Clock size={12} />
-                      <span>{formatDate(space.created_at)}</span>
-                    </div>
+                    <h3 className="mb-1 text-lg font-medium">
+                      {t('views.spacesView.createSpace')}
+                    </h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {t('views.spacesView.createSpaceDescription')}
+                    </p>
                   </div>
                 </div>
-              ))}
+
+                {/* User Spaces */}
+                {displaySpaces.map(space => (
+                  <div
+                    key={space.id}
+                    onClick={() =>
+                      navigate({
+                        to: '/space/$spaceId',
+                        params: { spaceId: space.id },
+                      })
+                    }
+                    className="group flex min-h-[160px] cursor-pointer flex-col justify-between rounded-xl border border-white/40 bg-white/60 p-6 shadow-sm backdrop-blur-xl transition-all hover:bg-white/80 dark:border-zinc-800/50 dark:bg-zinc-900/60 dark:hover:bg-zinc-900/80"
+                  >
+                    <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-gray-200 text-xl dark:bg-zinc-800">
+                      <EmojiDisplay emoji={space.emoji} />
+                    </div>
+                    <div>
+                      <h3 className="mb-1 truncate text-lg font-medium">{space.label}</h3>
+                      <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                        <Clock size={12} />
+                        <span>{formatDate(space.created_at)}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>

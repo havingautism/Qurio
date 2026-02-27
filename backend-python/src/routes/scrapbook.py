@@ -80,16 +80,57 @@ def _detect_platform_from_url(url: str) -> str:
     return domain
 
 
+async def _is_browser_missing() -> bool:
+    """
+    Check if Playwright Chromium is missing.
+    """
+    try:
+        # Check if the playwright command exists and chromium is installed
+        # A more lightweight check than actually launching a browser
+        import shutil
+        if not shutil.which("playwright"):
+            # If playwright CLI is missing, it's definitely missing
+            return True
+            
+        # Try to see if we can find the chromium executable path via playwright CLI
+        process = await asyncio.create_subprocess_exec(
+            "playwright", "install", "--help",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        stdout, _ = await process.communicate()
+        # If we can't even run help, something is wrong
+        if process.returncode != 0:
+            return True
+            
+        # Actually, the most reliable way without launching is checking the cache directory
+        # But that's platform dependent. 
+        # For now, we'll rely on catching the specific error message in the caller.
+        return False
+    except Exception:
+        return True
+
 async def _fetch_url_content(url: str) -> dict[str, str]:
     """
     Fetch content from a URL using x-reader (UniversalReader).
     Returns dict with: title, content, platform.
     Falls back to empty strings on failures.
     """
+    # Proactive check for known platforms that heavily depend on browser
+    url_low = url.lower()
+    is_complex_site = "weixin.qq.com" in url_low or "xiaohongshu.com" in url_low
+    
+    if is_complex_site:
+        if await _is_browser_missing():
+            logger.warning("[Scrapbook] Browser engine missing for known complex site: %s", url)
+            raise HTTPException(status_code=412, detail="MISSING_SCRAPER_ENGINE")
+
     try:
         from x_reader.reader import UniversalReader  # type: ignore[import]
         reader = UniversalReader()
-        result = await asyncio.wait_for(reader.read(url), timeout=30.0)
+        # Increased timeout to 50s. 
+        # Jina takes 30s, giving 20s for Browser fetch (more reasonable).
+        result = await asyncio.wait_for(reader.read(url), timeout=50.0)
         if result and getattr(result, "content", None):
             # x-reader uses 'source_type' (an Enum), not 'platform'
             raw_type = getattr(result, "source_type", None)
@@ -113,7 +154,15 @@ async def _fetch_url_content(url: str) -> dict[str, str]:
         logger.warning("[Scrapbook] x-reader not installed")
     except asyncio.TimeoutError:
         logger.warning("[Scrapbook] x-reader timed out for %s", url)
+        # Only throw MISSING_SCRAPER_ENGINE if browser is actually missing
+        if is_complex_site and await _is_browser_missing():
+             raise HTTPException(status_code=412, detail="MISSING_SCRAPER_ENGINE")
+        # Otherwise, just let it fall back or fail as a normal timeout
     except Exception as e:
+        err_msg = str(e).lower()
+        if "playwright install" in err_msg or "executable doesn't exist" in err_msg:
+            logger.warning("[Scrapbook] Scraper engine (browser) missing for %s", url)
+            raise HTTPException(status_code=412, detail="MISSING_SCRAPER_ENGINE")
         logger.warning("[Scrapbook] x-reader failed for %s: %s", url, e)
 
     # Fallback to Jina.ai

@@ -1375,6 +1375,19 @@
     }
   },
   "scrapbook": {
+    "login": {
+      "xhsRequired": "Login is required to fetch this content. Click the button below to log in via the popup window, then close it to resume.",
+      "triggerLogin": "Authorize Login",
+      "loggingIn": "Opening login window...",
+      "loginSuccess": "Login successful, retrying fetch..."
+    },
+    "engine": {
+      "required": "An enhanced engine is required for WeChat, XHS, or dynamic pages.",
+      "hint": "Click below to install the browser core (~150MB). This will significantly improve success rates for complex sites.",
+      "install": "Install Now",
+      "installing": "Installing scraper engine, please wait...",
+      "success": "Engine installed! Retrying fetch..."
+    },
     "title": "Scrapbook",
     "platforms": {
       "all": "All",
@@ -1423,6 +1436,8 @@
         "addSuccess": "Added successfully!",
         "updateSuccess": "Updated successfully!",
         "addFailed": "Failed to add, please try again.",
+        "fetching": "Fetching content...",
+        "analyzing": "Analyzing and saving...",
         "addFromUrl": "From URL",
         "addManual": "Manual",
         "urlLabel": "Content Link",

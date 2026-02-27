@@ -34,6 +34,7 @@ import {
   PLATFORM_LABELS,
   resolveScrapbookModelConfig,
 } from '../lib/scrapbookService'
+import { installScraperEngine } from '../lib/services/envService'
 import { useNavigate } from '@tanstack/react-router'
 import { useAppContext } from '../App'
 import { loadSettings, saveSettings } from '../lib/settings'
@@ -449,6 +450,7 @@ const AddModal = ({ isOpen, onClose, onAdded }) => {
   const [manualContent, setManualContent] = useState('')
   const [manualPlatform, setManualPlatform] = useState('manual')
   const [manualTags, setManualTags] = useState('')
+  const [isInstallingEngine, setIsInstallingEngine] = useState(false)
 
   const urlInputRef = useRef(null)
 
@@ -472,7 +474,7 @@ const AddModal = ({ isOpen, onClose, onAdded }) => {
     if (!url.trim()) return
     setIsLoading(true)
     setError('')
-    setLoadingMsg(t('settings.loadingModels'))
+    setLoadingMsg(t('scrapbook.modal.fetching'))
 
     const modelConfig = resolveScrapbookModelConfig()
     if (!modelConfig.apiKey) {
@@ -481,12 +483,16 @@ const AddModal = ({ isOpen, onClose, onAdded }) => {
       setLoadingMsg('')
       return
     }
-    setLoadingMsg(t('settings.loadingModels'))
+    setLoadingMsg(t('scrapbook.modal.analyzing'))
     const { data, error: err } = await createScrapbookEntry({ source_url: url.trim() }, modelConfig)
     setIsLoading(false)
     setLoadingMsg('')
     if (err) {
-      setError(err)
+      if (err === 'MISSING_SCRAPER_ENGINE') {
+        setError('MISSING_SCRAPER_ENGINE')
+      } else {
+        setError(err)
+      }
       return
     }
     const createdId = data?.item?.id || data?.id
@@ -582,6 +588,54 @@ const AddModal = ({ isOpen, onClose, onAdded }) => {
               <p className="text-xs text-[var(--color-text-tertiary)]">
                 {t('scrapbook.modal.urlHint')}
               </p>
+
+              {error === 'MISSING_SCRAPER_ENGINE' && (
+                <div className="space-y-3 rounded-xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-900/30 dark:bg-blue-900/10">
+                  <div className="flex gap-3">
+                    <div className="shrink-0 pt-0.5">
+                      <div className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/50">
+                        <Settings2 size={12} className="text-blue-600 dark:text-blue-400" />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-blue-900 dark:text-blue-200">
+                        {t('scrapbook.engine.required')}
+                      </p>
+                      <p className="text-xs text-blue-700 dark:text-blue-400">
+                        {t('scrapbook.engine.hint')}
+                      </p>
+                      <Button
+                        onClick={async () => {
+                          setIsInstallingEngine(true)
+                          setLoadingMsg(t('scrapbook.engine.installing'))
+                          const { error: installErr } = await installScraperEngine()
+                          setIsInstallingEngine(false)
+                          if (!installErr) {
+                            setError('')
+                            setLoadingMsg(t('scrapbook.engine.success'))
+                            setTimeout(() => {
+                              handleUrlSave() // Auto retry
+                            }, 500)
+                          } else {
+                            setError(installErr)
+                          }
+                        }}
+                        disabled={isInstallingEngine}
+                        className="h-8 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600"
+                      >
+                        {isInstallingEngine ? (
+                          <>
+                            <Loader2 size={12} className="mr-1.5 animate-spin" />
+                            {t('scrapbook.engine.installing')}
+                          </>
+                        ) : (
+                          t('scrapbook.engine.install')
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
               {isLoading && (
                 <div className="flex items-center gap-2 text-sm text-[var(--color-accent)]">
                   <Loader2 size={16} className="animate-spin" />
@@ -681,7 +735,7 @@ const AddModal = ({ isOpen, onClose, onAdded }) => {
             className="flex items-center justify-center gap-2 rounded-xl bg-zinc-900 px-6 text-white shadow-md hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
           >
             {isLoading ? <Loader2 size={15} className="animate-spin" /> : null}
-            {isLoading ? t('scrapbook.detail.saving') : t('sidebar.save')}
+            {isLoading ? t('scrapbook.modal.fetching') : t('scrapbook.modal.saveText')}
           </Button>
         </DialogFooter>
       </DialogContent>

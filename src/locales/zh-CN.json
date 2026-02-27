@@ -1367,6 +1367,19 @@
     }
   },
   "scrapbook": {
+    "login": {
+      "xhsRequired": "该链接抓取需要登录授权。请点击下方按钮在弹出的窗口中完成登录，完成后关闭窗口即可重新抓取。",
+      "triggerLogin": "去登录授权",
+      "loggingIn": "正在准备登录窗口...",
+      "loginSuccess": "登录成功，正在尝试重新抓取内容..."
+    },
+    "engine": {
+      "required": "抓取微信、小红书或动态网页需要增强型引擎。",
+      "hint": "点击下方按钮将为您一键安装浏览器内核（约 150MB），安装后可显著提升抓取成功率。",
+      "install": "立即一键安装",
+      "installing": "正在安装抓取引擎，请稍候...",
+      "success": "安装成功！正在重新抓取内容..."
+    },
     "title": "随手记",
       "platforms": {
         "all": "全部",
@@ -1415,6 +1428,8 @@
         "addSuccess": "添加成功！",
         "updateSuccess": "更新成功！",
         "addFailed": "添加失败，请重试。",
+        "fetching": "正在抓取内容...",
+        "analyzing": "正在分析并保存...",
         "addFromUrl": "链接",
         "addManual": "手动",
         "urlLabel": "内容链接",

@@ -18,7 +18,7 @@ export const checkEnvStatus = async () => {
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     return await res.json()
   } catch (err) {
-    return { status: 'error', message: err.message, playwright_installed: false }
+    return { status: 'error', message: err.message, chromium_installed: false }
   }
 }
 

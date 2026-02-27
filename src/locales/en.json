@@ -1384,6 +1384,8 @@
     "engine": {
       "required": "An enhanced engine is required for WeChat, XHS, or dynamic pages.",
       "hint": "Click below to install the browser core (~150MB). This will significantly improve success rates for complex sites.",
+      "hintTitle": "Enhanced Engine Recommended",
+      "hintMsg": "Installing Chromium allows full capture of WeChat, XHS, and dynamic sites. Without it, some content may be missing.",
       "install": "Install Now",
       "installing": "Installing scraper engine, please wait...",
       "success": "Engine installed! Retrying fetch..."

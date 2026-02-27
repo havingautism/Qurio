@@ -24,6 +24,18 @@ import {
   Image as ImageIcon,
   Menu,
   PencilLine,
+  RefreshCw,
+  FileText,
+  ChevronRight,
+  Hash,
+  Clock,
+  Laptop,
+  MessageSquare,
+  Pin,
+  PinOff,
+  Inbox,
+  Info,
+  AlertCircle,
 } from 'lucide-react'
 import clsx from 'clsx'
 import {
@@ -34,7 +46,7 @@ import {
   PLATFORM_LABELS,
   resolveScrapbookModelConfig,
 } from '../lib/scrapbookService'
-import { installScraperEngine } from '../lib/services/envService'
+import { checkEnvStatus, installScraperEngine } from '../lib/services/envService'
 import { useNavigate } from '@tanstack/react-router'
 import { useAppContext } from '../App'
 import { loadSettings, saveSettings } from '../lib/settings'
@@ -451,6 +463,7 @@ const AddModal = ({ isOpen, onClose, onAdded }) => {
   const [manualPlatform, setManualPlatform] = useState('manual')
   const [manualTags, setManualTags] = useState('')
   const [isInstallingEngine, setIsInstallingEngine] = useState(false)
+  const [isEngineInstalled, setIsEngineInstalled] = useState(true)
 
   const urlInputRef = useRef(null)
 
@@ -467,6 +480,18 @@ const AddModal = ({ isOpen, onClose, onAdded }) => {
       setManualTags('')
       setManualPlatform('manual')
       setTimeout(() => urlInputRef.current?.focus(), 100)
+
+      // Proactive check for scraper engine
+      const fetchEnvStatus = async () => {
+        const data = await checkEnvStatus()
+        // Check chromium_installed (browser binary), not just playwright_installed (python module)
+        if (data && data.chromium_installed === false) {
+          setIsEngineInstalled(false)
+        } else {
+          setIsEngineInstalled(true)
+        }
+      }
+      fetchEnvStatus()
     }
   }, [isOpen])
 
@@ -590,48 +615,80 @@ const AddModal = ({ isOpen, onClose, onAdded }) => {
               </p>
 
               {error === 'MISSING_SCRAPER_ENGINE' && (
-                <div className="space-y-3 rounded-xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-900/30 dark:bg-blue-900/10">
-                  <div className="flex gap-3">
-                    <div className="shrink-0 pt-0.5">
-                      <div className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/50">
-                        <Settings2 size={12} className="text-blue-600 dark:text-blue-400" />
-                      </div>
+                <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-4 dark:border-blue-900/30 dark:bg-blue-900/10">
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5 rounded-full bg-blue-100 p-1.5 text-blue-600 dark:bg-blue-900/50 dark:text-blue-400">
+                      <AlertCircle size={14} />
                     </div>
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium text-blue-900 dark:text-blue-200">
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-blue-900 dark:text-blue-100">
                         {t('scrapbook.engine.required')}
                       </p>
-                      <p className="text-xs text-blue-700 dark:text-blue-400">
+                      <p className="mt-1 text-xs leading-relaxed text-blue-700/80 dark:text-blue-300/60">
                         {t('scrapbook.engine.hint')}
                       </p>
-                      <Button
+                      <div className="mt-3">
+                        <Button
+                          onClick={async () => {
+                            setIsInstallingEngine(true)
+                            setLoadingMsg(t('scrapbook.engine.installing'))
+                            const { error: installErr } = await installScraperEngine()
+                            setIsInstallingEngine(false)
+                            if (!installErr) {
+                              setError('')
+                              setIsEngineInstalled(true)
+                              setLoadingMsg(t('scrapbook.engine.success'))
+                              setTimeout(() => {
+                                handleUrlSave() // Auto retry
+                              }, 500)
+                            } else {
+                              setError(installErr)
+                            }
+                          }}
+                          disabled={isInstallingEngine}
+                          className="h-8 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600"
+                        >
+                          {isInstallingEngine ? (
+                            <>
+                              <Loader2 size={12} className="mr-1.5 animate-spin" />
+                              {t('scrapbook.engine.installing')}
+                            </>
+                          ) : (
+                            t('scrapbook.engine.install')
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {!isEngineInstalled && !error && !isLoading && (
+                <div className="rounded-xl border border-zinc-200 bg-zinc-50/50 p-3.5 dark:border-zinc-800 dark:bg-zinc-900/40">
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5 text-zinc-500">
+                      <Info size={14} />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                        {t('scrapbook.engine.hintTitle')}
+                      </p>
+                      <p className="mt-0.5 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-500">
+                        {t('scrapbook.engine.hintMsg')}
+                      </p>
+                      <button
                         onClick={async () => {
                           setIsInstallingEngine(true)
-                          setLoadingMsg(t('scrapbook.engine.installing'))
-                          const { error: installErr } = await installScraperEngine()
+                          const { error: instErr } = await installScraperEngine()
                           setIsInstallingEngine(false)
-                          if (!installErr) {
-                            setError('')
-                            setLoadingMsg(t('scrapbook.engine.success'))
-                            setTimeout(() => {
-                              handleUrlSave() // Auto retry
-                            }, 500)
-                          } else {
-                            setError(installErr)
-                          }
+                          if (!instErr) setIsEngineInstalled(true)
                         }}
                         disabled={isInstallingEngine}
-                        className="h-8 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600"
+                        className="mt-2 text-[11px] font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
                       >
-                        {isInstallingEngine ? (
-                          <>
-                            <Loader2 size={12} className="mr-1.5 animate-spin" />
-                            {t('scrapbook.engine.installing')}
-                          </>
-                        ) : (
-                          t('scrapbook.engine.install')
-                        )}
-                      </Button>
+                        {isInstallingEngine
+                          ? t('scrapbook.engine.installing')
+                          : t('scrapbook.engine.install')}
+                      </button>
                     </div>
                   </div>
                 </div>

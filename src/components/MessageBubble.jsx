@@ -2758,12 +2758,12 @@ const MessageBubble = ({
               return (
                 <div
                   className={clsx(
-                    'relative w-fit max-w-full rounded-3xl px-3 py-2 text-base',
-                    'bg-primary-500 dark:bg-primary-900 text-white dark:text-gray-100',
+                    'relative w-fit max-w-full rounded-[28px] border px-3.5 py-2.5 text-base shadow-[0_18px_36px_-24px_rgba(59,130,246,0.55)] backdrop-blur-xl',
+                    'border-primary-300/30 bg-primary-500/88 text-white dark:border-primary-400/20 dark:bg-primary-900/58 dark:text-gray-100',
                   )}
                 >
                   {quoteToRender && (
-                    <div className="mb-2 rounded-3xl bg-white/20 p-3 text-sm dark:bg-black/20">
+                    <div className="mb-2 rounded-[22px] border border-white/18 bg-white/16 p-3 text-sm dark:border-white/10 dark:bg-black/18">
                       <div className="mb-1 font-medium">{t('messageBubble.quoting')}</div>
                       <div className="line-clamp-2 italic">{quoteToRender.text}</div>
                     </div>
@@ -2800,7 +2800,7 @@ const MessageBubble = ({
                       part.type === 'url' ? (
                         <span
                           key={`url-${index}`}
-                          className="rounded-sm bg-white/20 px-1 text-white underline decoration-white/70"
+                          className="rounded-sm bg-white/18 px-1 text-white underline decoration-white/70"
                         >
                           {part.value}
                         </span>
@@ -3344,8 +3344,7 @@ const MessageBubble = ({
                 setIsSourcesOpen(prev => !prev)
               }}
               className={clsx(
-                'inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold',
-                'border-gray-200/80 bg-gray-100/90 text-gray-700 hover:bg-gray-200 dark:border-zinc-700 dark:bg-zinc-800/80 dark:text-gray-200 dark:hover:bg-zinc-700/90',
+                'glass-elite-chip inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-gray-700 dark:text-gray-200',
               )}
             >
               <span className="flex -space-x-2">
@@ -3365,7 +3364,7 @@ const MessageBubble = ({
             </button>
           )}
         </summary>
-        <div className="mt-3 rounded-2xl border border-gray-200/90 bg-gray-50/45 px-3 py-4 dark:border-zinc-700/70 dark:bg-zinc-900/35">
+        <div className="glass-elite-soft mt-3 rounded-2xl px-3 py-4">
           <div
             ref={workflowContainerRef}
             className={clsx(

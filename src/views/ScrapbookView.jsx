@@ -26,6 +26,7 @@ import {
   PencilLine,
   RefreshCw,
   FileText,
+  ChevronLeft,
   ChevronRight,
   Hash,
   Clock,
@@ -958,15 +959,25 @@ export default function ScrapbookView() {
   const [showAddModal, setShowAddModal] = useState(false)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [showModelConfig, setShowModelConfig] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
   const modelConfigRef = useRef(null)
+  const limit = 12
 
   const fetchEntries = useCallback(async () => {
     setIsLoading(true)
-    const { data } = await listScrapbookEntries({
+    const { data, count } = await listScrapbookEntries({
       platform: activePlatform !== 'all' ? activePlatform : undefined,
+      page: currentPage,
+      limit,
     })
     setEntries(data)
+    setTotalCount(count)
     setIsLoading(false)
+  }, [activePlatform, currentPage])
+
+  useEffect(() => {
+    setCurrentPage(1)
   }, [activePlatform])
 
   useEffect(() => {
@@ -1127,13 +1138,13 @@ export default function ScrapbookView() {
         <div className="no-scrollbar sm:scrollbar-default relative min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
           <div className="mx-auto w-full max-w-[1400px] px-4 pb-4 sm:px-8 sm:pb-8">
             {/* Content Area */}
-            <div className="pb-24">
+            <div className="pb-32">
               {isLoading ? (
-                <div className="flex h-full items-center justify-center">
+                <div className="flex h-64 items-center justify-center">
                   <Loader2 size={32} className="animate-spin text-gray-400" />
                 </div>
               ) : filteredEntries.length === 0 ? (
-                <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
+                <div className="flex h-64 flex-col items-center justify-center gap-4 text-center">
                   <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white shadow-sm dark:bg-zinc-900">
                     <BookOpen size={28} className="text-gray-300" />
                   </div>
@@ -1151,6 +1162,34 @@ export default function ScrapbookView() {
             </div>
           </div>
         </div>
+
+        {/* Floating Pagination Controls */}
+        {!isLoading && totalCount > limit && (
+          <div className="pointer-events-none absolute right-0 bottom-0 left-0 z-40 flex justify-center pb-8 sm:pb-10">
+            <div className="pointer-events-auto flex items-center gap-2 rounded-3xl bg-white/80 p-1.5 shadow-2xl backdrop-blur-2xl transition-all sm:gap-3 dark:bg-zinc-900/80">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-gray-600 transition-all hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-30 dark:bg-zinc-800 dark:text-gray-300 dark:hover:bg-zinc-700"
+              >
+                <ChevronLeft size={20} />
+              </button>
+
+              <div className="px-3 text-xs font-bold tracking-widest text-gray-500 uppercase sm:text-sm">
+                {currentPage} <span className="mx-1 text-gray-300">/</span>{' '}
+                {Math.ceil(totalCount / limit)}
+              </div>
+
+              <button
+                onClick={() => setCurrentPage(prev => prev + 1)}
+                disabled={currentPage >= Math.ceil(totalCount / limit)}
+                className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-gray-600 transition-all hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-30 dark:bg-zinc-800 dark:text-gray-300 dark:hover:bg-zinc-700"
+              >
+                <ChevronRight size={20} />
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* 鈹€鈹€ FAB 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ */}
         <button

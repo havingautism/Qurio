@@ -38,7 +38,7 @@ const ExpertGuideModal = ({ isOpen, onClose, spaces = [], onStart, loading = fal
       <div className={clsx('flex items-start justify-between', isMobile ? 'mb-4' : 'mb-4')}>
         <div className="flex items-center gap-2">
           {!isMobile && (
-            <div className="rounded-lg bg-gray-100 p-2 dark:bg-zinc-800">
+            <div className="glass-elite-chip rounded-xl p-2">
               <BrainCircuit size={18} className="text-primary-500" />
             </div>
           )}
@@ -51,7 +51,7 @@ const ExpertGuideModal = ({ isOpen, onClose, spaces = [], onStart, loading = fal
         <button
           type="button"
           onClick={onClose}
-          className="rounded-full p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-zinc-800 dark:hover:text-gray-200"
+          className="glass-elite-chip rounded-full p-2 text-gray-500 transition-colors hover:text-gray-700 dark:text-gray-300 dark:hover:text-white"
         >
           <X size={20} />
         </button>
@@ -97,13 +97,13 @@ const ExpertGuideModal = ({ isOpen, onClose, spaces = [], onStart, loading = fal
                   type="button"
                   onClick={() => setSelectedSpaceId(String(space.id))}
                   className={clsx(
-                    'relative flex items-center gap-3 rounded-2xl border p-4 text-left transition-all',
+                    'glass-elite-soft relative flex items-center gap-3 rounded-[24px] p-4 text-left transition-all',
                     isSelected
-                      ? 'border-primary-500 bg-primary-50/60 dark:border-primary-500 dark:bg-primary-900/20'
-                      : 'hover:border-primary-200 border-gray-200 bg-white hover:bg-gray-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700 dark:hover:bg-zinc-800',
+                      ? 'border-primary-300/35 bg-white/82 dark:border-primary-500/35 dark:bg-white/[0.12]'
+                      : 'hover:border-white/26 hover:bg-white/18 dark:hover:border-white/10 dark:hover:bg-white/[0.05]',
                   )}
                 >
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-gray-900/5 dark:bg-zinc-800 dark:ring-white/10">
+                  <div className="glass-elite-chip flex h-10 w-10 shrink-0 items-center justify-center rounded-xl">
                     <EmojiDisplay emoji={space?.emoji} size="1.5rem" />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -132,7 +132,7 @@ const ExpertGuideModal = ({ isOpen, onClose, spaces = [], onStart, loading = fal
         className={clsx(
           'mt-5 flex gap-2',
           isMobile
-            ? 'shrink-0 border-t border-gray-100 bg-white/95 pt-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.25rem)] backdrop-blur dark:border-zinc-800/50 dark:bg-[#1E1E1E]/95'
+            ? 'shrink-0 border-t border-white/18 pt-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.25rem)] dark:border-white/8'
             : 'justify-end',
         )}
       >
@@ -170,7 +170,7 @@ const ExpertGuideModal = ({ isOpen, onClose, spaces = [], onStart, loading = fal
   if (isMobile) {
     return (
       <Drawer open={isOpen} onOpenChange={open => !open && onClose()}>
-        <DrawerContent className="h-[92dvh] max-h-[92dvh] overflow-hidden rounded-t-3xl border-t border-gray-200 bg-white dark:border-zinc-800 dark:bg-[#1E1E1E]">
+        <DrawerContent className="h-[92dvh] max-h-[92dvh] overflow-hidden">
           <div className="flex h-full min-h-0 flex-col px-4 pt-4 pb-3">{content}</div>
         </DrawerContent>
       </Drawer>

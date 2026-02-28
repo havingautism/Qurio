@@ -6,11 +6,11 @@ const MobileDrawer = ({ isOpen, onClose, title, icon: Icon, children }) => {
     <Drawer open={isOpen} onOpenChange={onClose}>
       <DrawerContent className="max-h-[85dvh] sm:max-h-[80vh]">
         {/* Header */}
-        <DrawerHeader className="mx-2 border-b border-gray-100 px-5 pb-3 dark:border-zinc-800/50">
+        <DrawerHeader className="mx-2 border-b border-white/20 px-5 pb-3 dark:border-white/8">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               {Icon && (
-                <div className="bg-primary-500/10 dark:bg-primary-500/20 text-primary-500 flex h-9 w-9 items-center justify-center rounded-xl">
+                <div className="glass-elite-chip text-primary-500 flex h-9 w-9 items-center justify-center rounded-xl">
                   <Icon size={18} strokeWidth={2} />
                 </div>
               )}
@@ -20,7 +20,7 @@ const MobileDrawer = ({ isOpen, onClose, title, icon: Icon, children }) => {
             </div>
             <button
               onClick={onClose}
-              className="-mr-2 rounded-xl p-2 text-gray-400 transition-all duration-200 hover:bg-gray-100 hover:text-gray-600 active:scale-95 dark:hover:bg-zinc-800 dark:hover:text-gray-200"
+              className="glass-elite-chip -mr-2 rounded-xl p-2 text-gray-400 transition-all duration-200 hover:text-gray-600 active:scale-95 dark:hover:text-gray-200"
             >
               <X size={20} strokeWidth={2} />
             </button>

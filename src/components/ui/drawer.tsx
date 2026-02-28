@@ -33,7 +33,7 @@ const DrawerOverlay = React.forwardRef<
   <DrawerPrimitive.Overlay
     ref={ref}
     className={cn(
-      'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/60 backdrop-blur-md transition-all duration-300',
+      'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/52 backdrop-blur-xl transition-all duration-300',
       className,
     )}
     {...props}
@@ -53,17 +53,17 @@ const DrawerContent = React.forwardRef<
       <DrawerPrimitive.Content
         ref={ref}
         className={cn(
-          'data-[state=closed]:animate-out fixed z-50 flex flex-col bg-white transition-all duration-300 outline-none data-[state=closed]:duration-200 data-[state=closed]:ease-in data-[state=open]:duration-200 data-[state=open]:ease-out dark:bg-[#1E1E1E]',
+          'glass-elite-panel data-[state=closed]:animate-out fixed z-50 flex flex-col transition-all duration-300 outline-none data-[state=closed]:duration-200 data-[state=closed]:ease-in data-[state=open]:duration-200 data-[state=open]:ease-out',
           direction === 'bottom' &&
-            'data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom inset-x-0 bottom-0 mt-24 rounded-t-3xl border-t border-gray-200 dark:border-zinc-800',
+            'data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom inset-x-0 bottom-0 mt-24 rounded-t-[28px]',
           direction === 'right' &&
-            'data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right inset-y-0 right-0 h-full rounded-l-2xl border-l border-gray-200 dark:border-zinc-800',
+            'data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right inset-y-0 right-0 h-full rounded-l-[28px]',
           className,
         )}
         {...props}
       >
         {direction === 'bottom' && (
-          <div className="mx-auto mt-3 mb-2 h-1.5 w-12 shrink-0 rounded-full bg-gray-300 dark:bg-zinc-700" />
+          <div className="mx-auto mt-3 mb-2 h-1.5 w-12 shrink-0 rounded-full bg-black/12 dark:bg-white/14" />
         )}
         {children}
         <DrawerPrimitive.Title className="sr-only">Drawer</DrawerPrimitive.Title>
@@ -79,7 +79,7 @@ DrawerContent.displayName = 'DrawerContent'
 const DrawerHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      'mx-2 grid gap-1.5 border-b border-gray-100 p-4 px-5 pb-3 text-center sm:text-left dark:border-zinc-800/50',
+      'mx-2 grid gap-1.5 border-b border-white/25 p-4 px-5 pb-3 text-center sm:text-left dark:border-white/8',
       className,
     )}
     {...props}

@@ -2213,7 +2213,7 @@ const ChatInterface = ({
   return (
     <div
       className={clsx(
-        'bg-background text-foreground flex h-full flex-1 flex-col transition-all duration-300 sm:px-4',
+        'bg-background text-foreground relative isolate flex h-full flex-1 flex-col overflow-hidden transition-all duration-300 sm:px-4',
         isSidebarPinned ? 'md:ml-78' : 'md:ml-16',
         // Fixed left shift for large screens
         // 'xl:-translate-x-30',
@@ -2221,6 +2221,11 @@ const ChatInterface = ({
         !isXLScreen && 'sidebar-shift',
       )}
     >
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.22)_0%,rgba(255,255,255,0.06)_34%,rgba(255,255,255,0)_100%)] dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.05)_0%,rgba(255,255,255,0.018)_32%,rgba(255,255,255,0)_100%)]" />
+        <div className="bg-primary-500/10 absolute top-12 left-[8%] h-56 w-56 rounded-full blur-[110px] dark:bg-primary-500/12" />
+        <div className="bg-primary-400/8 absolute right-[8%] bottom-24 h-72 w-72 rounded-full blur-[140px] dark:bg-primary-400/10" />
+      </div>
       <div className="relative flex min-h-0 w-full flex-1 flex-col">
         {/* Title Bar */}
         <ChatHeader
@@ -2319,7 +2324,7 @@ const ChatInterface = ({
               <button
                 onClick={() => scrollToBottom('smooth')}
                 className={clsx(
-                  'animate-in fade-in slide-in-from-bottom-2 absolute -top-14 left-1/2 z-30 -translate-x-1/2 rounded-full border border-gray-200/60 bg-white p-2.5 shadow-lg transition-all duration-300 hover:scale-105 hover:bg-gray-50 active:scale-95 dark:border-zinc-700/60 dark:bg-zinc-800 dark:hover:bg-zinc-700',
+                  'glass-elite-pill animate-in fade-in slide-in-from-bottom-2 absolute -top-14 left-1/2 z-30 -translate-x-1/2 rounded-full p-2.5 transition-all duration-300 hover:scale-105 active:scale-95',
                   isLoading &&
                     'scroll-to-bottom-breathing border-primary-400/70 dark:border-primary-500/70',
                 )}

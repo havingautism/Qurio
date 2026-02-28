@@ -862,7 +862,7 @@ const ChatInputBar = React.memo(
             <div className="flex flex-col gap-2">
               {/* Edited Message Indicator */}
               {showEditing && (
-                <div className="animate-in slide-in-from-bottom-2 z-50 flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-2 shadow-sm dark:border-zinc-800 dark:bg-[#1a1a1a]">
+                <div className="glass-elite-soft animate-in slide-in-from-bottom-2 z-50 flex items-center justify-between rounded-xl px-4 py-2">
                   <div className="mr-2 flex flex-col overflow-hidden">
                     <span className="text-primary-500 text-[10px] font-bold tracking-wider uppercase">
                       Editing
@@ -882,7 +882,7 @@ const ChatInputBar = React.memo(
               )}
               {/* Quote Indicator */}
               {quotedText && (
-                <div className="animate-in slide-in-from-bottom-2 z-50 flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-2 shadow-sm dark:border-zinc-800 dark:bg-[#1a1a1a]">
+                <div className="glass-elite-soft animate-in slide-in-from-bottom-2 z-50 flex items-center justify-between rounded-xl px-4 py-2">
                   <div className="mr-2 flex flex-col overflow-hidden">
                     <span className="text-primary-500 text-[10px] font-bold tracking-wider uppercase">
                       Quote
@@ -902,7 +902,7 @@ const ChatInputBar = React.memo(
               )}
               {/* Attachment Previews */}
               {(attachments.length > 0 || selectedDocuments.length > 0) && (
-                <div className="code-scrollbar z-50 flex gap-2 overflow-x-auto rounded-xl border border-gray-200/70 bg-[#F9F9F9] px-2 py-2 dark:border-zinc-700/50 dark:bg-[#1a1a1a]">
+                <div className="glass-elite-soft code-scrollbar z-50 flex gap-2 overflow-x-auto rounded-xl px-2 py-2">
                   {attachments.map((att, idx) => (
                     <div
                       key={`img-${idx}`}
@@ -961,7 +961,7 @@ const ChatInputBar = React.memo(
             {/* Capsule Input Grid Container */}
             <div
               className={clsx(
-                'relative grid gap-2 bg-white p-1.5 shadow-sm transition-all duration-300 focus-within:shadow-md dark:bg-zinc-800',
+                'glass-elite-panel relative grid gap-2 p-1.5 transition-all duration-300 focus-within:shadow-[0_18px_38px_-24px_rgba(15,23,42,0.52)]',
                 isMultiline
                   ? 'grid-cols-[1fr_auto] items-end rounded-[26px]'
                   : 'grid-cols-[auto_1fr_auto] items-center rounded-[32px]',
@@ -990,7 +990,7 @@ const ChatInputBar = React.memo(
                   <button
                     onClick={() => setIsUploadMenuOpen(!isUploadMenuOpen)}
                     disabled={isInteractionLocked}
-                    className="rounded-full p-1.5 text-gray-500 transition-colors hover:bg-gray-200 hover:text-gray-900 sm:p-2 dark:text-gray-400 dark:hover:bg-zinc-800 dark:hover:text-gray-100"
+                    className="glass-elite-chip rounded-full p-1.5 text-gray-500 transition-colors hover:text-gray-900 sm:p-2 dark:text-gray-400 dark:hover:text-gray-100"
                     title={t('common.upload')}
                     aria-label={t('common.upload')}
                     aria-expanded={isUploadMenuOpen}
@@ -1072,11 +1072,11 @@ const ChatInputBar = React.memo(
                   <button
                     onClick={() => setIsCapsuleMenuOpen(!isCapsuleMenuOpen)}
                     disabled={isInteractionLocked}
-                    className={clsx(
-                      'rounded-full p-1.5 transition-colors sm:p-2',
+                  className={clsx(
+                      'glass-elite-chip rounded-full p-1.5 transition-colors sm:p-2',
                       thinkingMode !== 'fast' || isSearchActive || isCapsuleMenuOpen
-                        ? 'text-primary-600 bg-primary-50 dark:bg-primary-900/20'
-                        : 'text-gray-500 hover:bg-gray-200 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-zinc-800 dark:hover:text-gray-100',
+                        ? 'border-primary-400/45 bg-white/84 text-primary-600 dark:border-primary-500/35 dark:bg-white/[0.12]'
+                        : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100',
                     )}
                     title="Model & Settings"
                     aria-label={t('chatInterface.modelSettings')}
@@ -1171,12 +1171,12 @@ const ChatInputBar = React.memo(
                     (!isLoading && !inputValue.trim() && attachments.length === 0)
                   }
                   className={clsx(
-                    'flex items-center justify-center rounded-full p-1.5 shadow-sm transition-all duration-300 sm:p-2',
+                    'glass-elite-pill flex items-center justify-center rounded-full p-1.5 transition-all duration-300 sm:p-2',
                     isLoading
-                      ? 'bg-gray-200 text-gray-900 hover:bg-gray-300 dark:bg-zinc-800 dark:text-white dark:hover:bg-zinc-700'
+                      ? 'bg-white/88 text-gray-900 hover:bg-white dark:bg-white/[0.14] dark:text-white'
                       : inputValue.trim() || attachments.length > 0
-                        ? 'bg-primary-500 hover:bg-primary-600 text-white hover:scale-105 active:scale-95'
-                        : 'cursor-not-allowed bg-gray-200 text-gray-400 dark:bg-zinc-800 dark:text-zinc-600',
+                        ? 'border-primary-300/45 bg-white/82 text-primary-600 hover:scale-105 dark:border-primary-500/35 dark:bg-white/[0.14] dark:text-white'
+                        : 'cursor-not-allowed bg-white/60 text-gray-400 dark:bg-white/[0.06] dark:text-zinc-600',
                   )}
                 >
                   {isLoading ? (
@@ -1362,12 +1362,12 @@ const ChatInputBar = React.memo(
                     setIsThinkingMenuOpen(prev => !prev)
                   }}
                   className={clsx(
-                    'flex items-center gap-2 rounded-xl p-2.5 text-sm font-medium transition-all duration-200',
+                    'glass-elite-chip flex items-center gap-2 rounded-xl p-2.5 text-sm font-medium transition-all duration-200',
                     thinkingMode !== 'fast'
-                      ? 'text-primary-500 bg-primary-50 dark:bg-primary-900/20'
+                      ? 'border-primary-400/45 bg-white/84 text-primary-500 dark:border-primary-500/35 dark:bg-white/[0.12]'
                       : 'text-gray-500 dark:text-gray-400',
                     isThinkingLocked && 'cursor-not-allowed opacity-60',
-                    !isThinkingLocked && 'hover:bg-gray-100 dark:hover:bg-zinc-700',
+                    !isThinkingLocked && '',
                   )}
                 >
                   <Brain size={18} strokeWidth={2} />
@@ -1375,8 +1375,11 @@ const ChatInputBar = React.memo(
                   <ChevronDown size={14} />
                 </button>
                 {isThinkingMenuOpen && !isMobile && (
-                  <div className="absolute bottom-full left-0 z-30 mb-2 w-72 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-zinc-700 dark:bg-zinc-900">
-                    <div className="space-y-1 p-2">
+                  <div className="glass-elite-dropdown absolute bottom-full left-0 z-30 mb-2 w-56 overflow-hidden rounded-2xl">
+                    <div className="px-4 py-2 text-[10px] tracking-wide text-gray-500 uppercase dark:text-zinc-400">
+                      {t('homeView.think')}
+                    </div>
+                    <div className="space-y-1 px-2 pb-2">
                       {thinkingModeOptions.map(option => {
                         const isActive = thinkingMode === option.id
                         return (
@@ -1389,21 +1392,20 @@ const ChatInputBar = React.memo(
                               setIsThinkingMenuOpen(false)
                             }}
                             className={clsx(
-                              'flex w-full items-start justify-between rounded-xl px-3 py-2.5 text-left text-sm transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800',
+                              'flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition-colors hover:bg-white/70 dark:hover:bg-white/[0.08]',
                               isActive
                                 ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
                                 : 'text-gray-700 dark:text-gray-200',
                             )}
                           >
-                            <span className="flex flex-col">
+                            <span className="flex items-center gap-2.5">
+                              <Brain
+                                size={14}
+                                className={isActive ? 'text-primary-500' : 'text-gray-400'}
+                              />
                               <span className="font-medium">{option.label}</span>
-                              <span className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                                {option.description}
-                              </span>
                             </span>
-                            {isActive && (
-                              <Check size={14} className="text-primary-500 mt-0.5 shrink-0" />
-                            )}
+                            {isActive && <Check size={14} className="text-primary-500 shrink-0" />}
                           </button>
                         )
                       })}
@@ -1459,9 +1461,9 @@ const ChatInputBar = React.memo(
                   }
                   onClick={onToggleSearch}
                   className={clsx(
-                    'flex items-center gap-2 rounded-xl p-2.5 text-sm font-medium transition-all duration-200 hover:bg-gray-100 dark:hover:bg-zinc-700',
+                    'glass-elite-chip flex items-center gap-2 rounded-xl p-2.5 text-sm font-medium transition-all duration-200',
                     isSearchActive
-                      ? 'text-primary-500 bg-primary-50 dark:bg-primary-900/20'
+                      ? 'border-primary-400/45 bg-white/84 text-primary-500 dark:border-primary-500/35 dark:bg-white/[0.12]'
                       : 'text-gray-500 dark:text-gray-400',
                   )}
                 >
@@ -1487,7 +1489,7 @@ const ChatInputBar = React.memo(
                 {isSearchMenuOpen && (
                   <div
                     ref={searchMenuRef}
-                    className="absolute bottom-full left-0 z-30 mb-2 w-48 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-zinc-700 dark:bg-zinc-900"
+                    className="glass-elite-dropdown absolute bottom-full left-0 z-30 mb-2 w-48 overflow-hidden rounded-2xl"
                   >
                     <div className="px-4 py-2 text-[10px] tracking-wide text-gray-500 uppercase dark:text-zinc-400">
                       {t('chatInterface.searchMenuTitle')}
@@ -1593,9 +1595,9 @@ const ChatInputBar = React.memo(
                     onAgentSelectorToggle()
                   }}
                   className={clsx(
-                    'flex items-center gap-2 rounded-xl p-2.5 text-sm font-medium transition-all duration-200 hover:bg-gray-100 dark:hover:bg-zinc-700',
+                    'glass-elite-chip flex items-center gap-2 rounded-xl p-2.5 text-sm font-medium transition-all duration-200',
                     selectedAgent || isAgentAutoMode
-                      ? 'text-primary-500 bg-primary-50 dark:bg-primary-900/20'
+                      ? 'border-primary-400/45 bg-white/84 text-primary-500 dark:border-primary-500/35 dark:bg-white/[0.12]'
                       : 'text-gray-500 dark:text-gray-400',
                   )}
                   disabled={isInteractionLocked || agentsLoading}
@@ -1623,7 +1625,7 @@ const ChatInputBar = React.memo(
                   <ChevronDown size={14} strokeWidth={2} />
                 </button>
                 {isAgentSelectorOpen && (
-                  <div className="animate-in slide-in-from-bottom-2 absolute bottom-full left-0 z-30 mb-2 w-64 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-zinc-700 dark:bg-[#202222]">
+                  <div className="glass-elite-dropdown animate-in slide-in-from-bottom-2 absolute bottom-full left-0 z-30 mb-2 w-64 overflow-hidden rounded-2xl">
                     <div className="no-scrollbar flex max-h-[min(calc(100vh-140px),500px)] flex-col gap-1 overflow-y-auto scroll-smooth p-2">
                       {/* Auto mode option */}
                       <button

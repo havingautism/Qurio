@@ -192,6 +192,8 @@ async def list_scrapbook(
     platform: str | None = None,
     q: str | None = None,
     limit: int = 50,
+    cursor: str | None = None,
+    page: int | None = None,
     database_provider: str | None = None,
 ) -> JSONResponse:
     """Return saved scrapbook entries, newest first."""
@@ -203,7 +205,17 @@ async def list_scrapbook(
     if platform and platform != "all":
         filters.append(DbFilter(op="eq", column="platform", value=platform))
     if q:
-        filters.append(DbFilter(op="ilike", column="title", value=q))
+        filters.append(DbFilter(op="ilike", column="title", value=f"%{q}%"))
+    if cursor and not page:
+        filters.append(DbFilter(op="lt", column="created_at", value=cursor))
+
+    from src.models.db import DbRange
+    
+    range_val = None
+    if page and page > 0:
+        from_idx = (page - 1) * limit
+        to_idx = from_idx + limit - 1
+        range_val = DbRange(**{"from": from_idx, "to": to_idx})
 
     req = DbQueryRequest(
         providerId=adapter.config.id,
@@ -222,10 +234,21 @@ async def list_scrapbook(
         ],
         filters=filters or None,
         order=[DbOrder(column="created_at", ascending=False)],
-        limit=limit,
+        limit=limit if not range_val else None,
+        range=range_val,
+        count="exact" if page else None,
     )
     result = adapter.execute(req)
-    return JSONResponse(content={"items": result.data or [], "error": result.error})
+    if result.error:
+        return JSONResponse(status_code=500, content={"error": result.error})
+
+    items = result.data if result.data else []
+    
+    res_content = {"items": items}
+    if page:
+        res_content["count"] = result.count or 0
+        
+    return JSONResponse(content=res_content)
 
 
 # ---------------------------------------------------------------------------

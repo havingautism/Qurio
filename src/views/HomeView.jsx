@@ -1286,7 +1286,7 @@ const HomeView = () => {
                       className={clsx(
                         'glass-elite-chip flex items-center gap-2 rounded-lg p-2 text-sm font-medium transition-all duration-200',
                         homeAttachments.length > 0
-                          ? 'border-primary-400/45 text-primary-500 dark:border-primary-500/35 bg-white/80 dark:bg-white/[0.12]'
+                          ? 'border-primary-200 bg-primary-50 text-primary-600 dark:border-primary-500/30 dark:bg-primary-900/20 dark:text-primary-500'
                           : 'text-gray-600 dark:text-gray-300',
                       )}
                     >
@@ -1318,7 +1318,7 @@ const HomeView = () => {
                       className={clsx(
                         'glass-elite-chip flex items-center gap-2 rounded-lg p-2 text-xs font-medium transition-colors',
                         homeThinkingMode !== 'fast'
-                          ? 'border-primary-400/45 text-primary-500 dark:border-primary-500/35 bg-white/80 dark:bg-white/[0.12]'
+                          ? 'border-primary-200 bg-primary-50 text-primary-600 dark:border-primary-500/30 dark:bg-primary-900/20 dark:text-primary-500'
                           : 'text-gray-600 dark:text-gray-300',
                         isHomeThinkingLocked ? 'cursor-not-allowed opacity-60' : '',
                       )}
@@ -1335,8 +1335,8 @@ const HomeView = () => {
                     </button>
                     {isHomeThinkingMenuOpen && !isHomeMobile && (
                       <div className="absolute top-full left-0 z-50 mt-2 w-72 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-zinc-700 dark:bg-zinc-900">
-                        <div className="space-y-1 p-2">
-                          <div className="mt-1 space-y-1 rounded-xl bg-gray-50/80 p-1.5 dark:bg-zinc-900/50">
+                        <div className="p-2">
+                          <div className="space-y-1">
                             {homeThinkingOptions.map(option => {
                               const isActive = option.id === homeThinkingMode
                               return (
@@ -1443,7 +1443,7 @@ const HomeView = () => {
                       className={clsx(
                         'glass-elite-chip flex items-center gap-2 rounded-lg p-2 text-xs font-medium transition-colors',
                         isHomeSearchActive
-                          ? 'border-primary-400/45 text-primary-500 dark:border-primary-500/35 bg-white/80 dark:bg-white/[0.12]'
+                          ? 'border-primary-200 bg-primary-50 text-primary-600 dark:border-primary-500/30 dark:bg-primary-900/20 dark:text-primary-500'
                           : 'text-gray-600 dark:text-gray-300',
                       )}
                     >
@@ -1473,7 +1473,7 @@ const HomeView = () => {
                           {/* {t('chatInterface.searchMenuTitle')} */}
                         </div>
                         <div className="no-scrollbar max-h-[min(calc(100vh-140px),550px)] space-y-3 overflow-y-auto scroll-smooth px-2 pb-2">
-                          <div className="mt-1 space-y-1 rounded-xl bg-gray-50/80 p-1.5 dark:bg-zinc-900/50">
+                          <div className="space-y-1">
                             <div className="space-y-3">
                               <div className="px-2 py-1 text-[10px] tracking-wide text-gray-500 uppercase dark:text-zinc-400">
                                 {t('tools.webSearch')}
@@ -1678,7 +1678,7 @@ const HomeView = () => {
                         'glass-elite-chip flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition-colors',
                         isHomeSpaceAuto
                           ? 'text-gray-600 dark:text-gray-300'
-                          : 'border-primary-400/45 text-primary-500 dark:border-primary-500/35 bg-white/80 dark:bg-white/[0.12]',
+                          : 'border-primary-200 bg-primary-50 text-primary-600 dark:border-primary-500/30 dark:bg-primary-900/20 dark:text-primary-500',
                       )}
                     >
                       <LayoutGrid size={18} />
@@ -1748,7 +1748,7 @@ const HomeView = () => {
                   <button
                     onClick={handleStartChat}
                     disabled={!homeInput.trim() && homeAttachments.length === 0}
-                    className="glass-elite-pill border-primary-300/45 text-primary-600 dark:border-primary-500/35 rounded-full bg-white/82 p-2 shadow-[0_10px_24px_-14px_rgba(59,130,246,0.48)] transition-all hover:shadow-[0_14px_28px_-14px_rgba(59,130,246,0.55)] disabled:opacity-50 dark:bg-white/[0.14] dark:text-white"
+                    className="glass-elite-pill border-primary-300/45 text-primary-600 dark:border-primary-500/35 dark:text-primary-500 rounded-full bg-white/82 p-2 shadow-[0_10px_24px_-14px_rgba(59,130,246,0.48)] transition-all hover:shadow-[0_14px_28px_-14px_rgba(59,130,246,0.55)] disabled:opacity-50 dark:bg-white/[0.14]"
                   >
                     <ArrowRight size={18} />
                   </button>

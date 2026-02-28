@@ -181,9 +181,9 @@
   --glass-panel-bg-strong: rgba(255, 255, 255, 0.84);
   --glass-panel-border: rgba(255, 255, 255, 0.72);
   --glass-panel-highlight: rgba(255, 255, 255, 0.52);
-  --glass-chip-bg: rgba(255, 255, 255, 0.52);
-  --glass-chip-bg-hover: rgba(255, 255, 255, 0.74);
-  --glass-chip-border: rgba(255, 255, 255, 0.66);
+  --glass-chip-bg: rgba(0, 0, 0, 0.04);
+  --glass-chip-bg-hover: rgba(0, 0, 0, 0.08);
+  --glass-chip-border: rgba(0, 0, 0, 0.08);
   --glass-dropdown-bg: rgba(255, 255, 255, 0.93);
   --glass-dropdown-bg-strong: rgba(255, 255, 255, 0.98);
   --glass-dropdown-border: rgba(255, 255, 255, 0.88);

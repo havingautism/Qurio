@@ -972,7 +972,7 @@ const HomeView = () => {
       <div>
         <button
           onClick={handleSelectHomeSpaceAuto}
-          className={`mb-1 flex w-full items-center justify-between rounded-lg px-3 py-2 text-left transition-colors hover:bg-white/70 dark:hover:bg-white/[0.08] ${
+          className={`mb-1 flex w-full items-center justify-between rounded-lg px-3 py-2 text-left transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800 ${
             isHomeSpaceAuto ? 'text-primary-500' : 'text-gray-700 dark:text-gray-200'
           }`}
         >
@@ -994,7 +994,7 @@ const HomeView = () => {
             <div key={idx + 'content'} className="mb-1 rounded-lg">
               <button
                 onClick={() => handleToggleHomeSpace(space)}
-                className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left transition-colors hover:bg-white/70 dark:hover:bg-white/[0.08]"
+                className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800"
               >
                 <div className="flex items-center gap-3">
                   <span className="flex items-center justify-center text-lg">
@@ -1019,7 +1019,7 @@ const HomeView = () => {
                   <button
                     type="button"
                     onClick={() => handleSelectHomeAgentAuto(space)}
-                    className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left transition-colors hover:bg-white/70 dark:hover:bg-white/[0.08] ${
+                    className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800 ${
                       isHomeAgentAuto && isSelected
                         ? 'text-primary-500'
                         : 'text-gray-700 dark:text-gray-200'
@@ -1053,7 +1053,7 @@ const HomeView = () => {
                           key={agent.id}
                           type="button"
                           onClick={() => handleSelectHomeAgent(space, agent.id)}
-                          className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left transition-colors hover:bg-white/70 dark:hover:bg-white/[0.08]"
+                          className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800"
                         >
                           <div className="flex items-center gap-2">
                             <span className="text-lg">
@@ -1286,7 +1286,7 @@ const HomeView = () => {
                       className={clsx(
                         'glass-elite-chip flex items-center gap-2 rounded-lg p-2 text-sm font-medium transition-all duration-200',
                         homeAttachments.length > 0
-                          ? 'border-primary-400/45 bg-white/80 text-primary-500 dark:border-primary-500/35 dark:bg-white/[0.12]'
+                          ? 'border-primary-400/45 text-primary-500 dark:border-primary-500/35 bg-white/80 dark:bg-white/[0.12]'
                           : 'text-gray-600 dark:text-gray-300',
                       )}
                     >
@@ -1294,7 +1294,7 @@ const HomeView = () => {
                     </button>
                     {/* Upload Dropdown */}
                     {isHomeUploadMenuOpen && !isHomeMobile && (
-                      <UploadPopover className="glass-elite-dropdown top-full w-72">
+                      <UploadPopover className="top-full w-72">
                         <div className="no-scrollbar max-h-[min(calc(100vh-140px),600px)] overflow-y-auto scroll-smooth">
                           {homeUploadMenuContent}
                         </div>
@@ -1318,11 +1318,9 @@ const HomeView = () => {
                       className={clsx(
                         'glass-elite-chip flex items-center gap-2 rounded-lg p-2 text-xs font-medium transition-colors',
                         homeThinkingMode !== 'fast'
-                          ? 'border-primary-400/45 bg-white/80 text-primary-500 dark:border-primary-500/35 dark:bg-white/[0.12]'
+                          ? 'border-primary-400/45 text-primary-500 dark:border-primary-500/35 bg-white/80 dark:bg-white/[0.12]'
                           : 'text-gray-600 dark:text-gray-300',
-                        isHomeThinkingLocked
-                          ? 'cursor-not-allowed opacity-60'
-                          : '',
+                        isHomeThinkingLocked ? 'cursor-not-allowed opacity-60' : '',
                       )}
                     >
                       <Brain size={18} />
@@ -1336,39 +1334,39 @@ const HomeView = () => {
                       />
                     </button>
                     {isHomeThinkingMenuOpen && !isHomeMobile && (
-                      <div className="glass-elite-dropdown absolute top-full left-0 z-50 mt-2 w-56 overflow-hidden rounded-xl">
-                        <div className="px-4 py-2 text-[10px] tracking-wide text-gray-500 uppercase dark:text-zinc-400">
-                          {t('homeView.think')}
-                        </div>
-                        <div className="space-y-1 px-2 pb-2">
-                          {homeThinkingOptions.map(option => {
-                            const isActive = option.id === homeThinkingMode
-                            const OptionIcon = option.icon || Brain
-                            return (
-                              <button
-                                key={option.id}
-                                type="button"
-                                onClick={() => {
-                                  setHomeThinkingMode(option.id)
-                                  setIsHomeThinkingMenuOpen(false)
-                                }}
-                                className={clsx(
-                                  'flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-white/70 dark:hover:bg-white/[0.08]',
-                                  isActive
-                                    ? 'bg-primary-50 text-primary-600 dark:bg-primary-900/20 dark:text-primary-400'
-                                    : 'text-gray-700 dark:text-gray-200',
-                                )}
-                              >
-                                <span className="flex items-center gap-2.5">
-                                  <span className="text-gray-500 dark:text-gray-400">
-                                    <OptionIcon size={14} />
+                      <div className="absolute top-full left-0 z-50 mt-2 w-72 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-zinc-700 dark:bg-zinc-900">
+                        <div className="space-y-1 p-2">
+                          <div className="mt-1 space-y-1 rounded-xl bg-gray-50/80 p-1.5 dark:bg-zinc-900/50">
+                            {homeThinkingOptions.map(option => {
+                              const isActive = option.id === homeThinkingMode
+                              return (
+                                <button
+                                  key={option.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setHomeThinkingMode(option.id)
+                                    setIsHomeThinkingMenuOpen(false)
+                                  }}
+                                  className={clsx(
+                                    'flex w-full items-start justify-between rounded-xl px-3 py-2.5 text-left text-sm transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800',
+                                    isActive
+                                      ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
+                                      : 'text-gray-700 dark:text-gray-200',
+                                  )}
+                                >
+                                  <span className="flex flex-col">
+                                    <span className="font-medium">{option.label}</span>
+                                    <span className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                                      {option.description}
+                                    </span>
                                   </span>
-                                  <span className="font-medium">{option.label}</span>
-                                </span>
-                                {isActive && <Check size={14} className="text-primary-500" />}
-                              </button>
-                            )
-                          })}
+                                  {isActive && (
+                                    <Check size={14} className="text-primary-500 mt-0.5 shrink-0" />
+                                  )}
+                                </button>
+                              )
+                            })}
+                          </div>
                         </div>
                       </div>
                     )}
@@ -1413,7 +1411,9 @@ const HomeView = () => {
                                       <OptionIcon size={14} />
                                     </span>
                                     <span className="flex flex-col">
-                                      <span className="font-medium leading-tight">{option.label}</span>
+                                      <span className="leading-tight font-medium">
+                                        {option.label}
+                                      </span>
                                       <span className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
                                         {option.description}
                                       </span>
@@ -1443,7 +1443,7 @@ const HomeView = () => {
                       className={clsx(
                         'glass-elite-chip flex items-center gap-2 rounded-lg p-2 text-xs font-medium transition-colors',
                         isHomeSearchActive
-                          ? 'border-primary-400/45 bg-white/80 text-primary-500 dark:border-primary-500/35 dark:bg-white/[0.12]'
+                          ? 'border-primary-400/45 text-primary-500 dark:border-primary-500/35 bg-white/80 dark:bg-white/[0.12]'
                           : 'text-gray-600 dark:text-gray-300',
                       )}
                     >
@@ -1468,95 +1468,97 @@ const HomeView = () => {
                       />
                     </button>
                     {isHomeSearchMenuOpen && !isHomeMobile && (
-                      <div className="glass-elite-dropdown absolute top-full left-0 z-50 mt-2 w-56 overflow-hidden rounded-xl">
+                      <div className="absolute top-full left-0 z-50 mt-2 w-56 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-zinc-700 dark:bg-zinc-900">
                         <div className="px-4 py-2 text-[10px] tracking-wide text-gray-500 uppercase dark:text-zinc-400">
                           {/* {t('chatInterface.searchMenuTitle')} */}
                         </div>
                         <div className="no-scrollbar max-h-[min(calc(100vh-140px),550px)] space-y-3 overflow-y-auto scroll-smooth px-2 pb-2">
-                          <div className="space-y-3">
-                            <div className="px-2 py-1 text-[10px] tracking-wide text-gray-500 uppercase dark:text-zinc-400">
-                              {t('tools.webSearch')}
-                            </div>
-                            <div className="flex flex-col gap-1">
-                              {SEARCH_BACKEND_OPTIONS.map(option => {
-                                const isActive = homeSearchBackend === option.id
-                                return (
-                                  <button
-                                    key={option.id}
-                                    type="button"
-                                    onClick={() => handleSelectHomeSearchBackend(option.id)}
-                                    className={clsx(
-                                      'flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-white/70 dark:hover:bg-white/[0.08]',
-                                      isActive
-                                        ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
-                                        : 'text-gray-700 dark:text-gray-200',
-                                    )}
-                                  >
-                                    <span className="flex items-center gap-2">
-                                      {option.iconUrl ? (
-                                        <img
-                                          src={option.iconUrl}
-                                          alt=""
-                                          className="h-4 w-4 rounded-sm"
-                                        />
-                                      ) : (
-                                        <EmojiDisplay emoji={'✨'} size="1.1rem" />
+                          <div className="mt-1 space-y-1 rounded-xl bg-gray-50/80 p-1.5 dark:bg-zinc-900/50">
+                            <div className="space-y-3">
+                              <div className="px-2 py-1 text-[10px] tracking-wide text-gray-500 uppercase dark:text-zinc-400">
+                                {t('tools.webSearch')}
+                              </div>
+                              <div className="flex flex-col gap-1">
+                                {SEARCH_BACKEND_OPTIONS.map(option => {
+                                  const isActive = homeSearchBackend === option.id
+                                  return (
+                                    <button
+                                      key={option.id}
+                                      type="button"
+                                      onClick={() => handleSelectHomeSearchBackend(option.id)}
+                                      className={clsx(
+                                        'flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800',
+                                        isActive
+                                          ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
+                                          : 'text-gray-700 dark:text-gray-200',
                                       )}
-                                      {t(option.labelKey)}
-                                    </span>
-                                    {isActive && <Check size={14} className="text-primary-500" />}
-                                  </button>
-                                )
-                              })}
+                                    >
+                                      <span className="flex items-center gap-2">
+                                        {option.iconUrl ? (
+                                          <img
+                                            src={option.iconUrl}
+                                            alt=""
+                                            className="h-4 w-4 rounded-sm"
+                                          />
+                                        ) : (
+                                          <EmojiDisplay emoji={'✨'} size="1.1rem" />
+                                        )}
+                                        {t(option.labelKey)}
+                                      </span>
+                                      {isActive && <Check size={14} className="text-primary-500" />}
+                                    </button>
+                                  )
+                                })}
+                              </div>
                             </div>
-                          </div>
-                          <div className="h-px bg-gray-200 dark:bg-zinc-800" />
-                          <div className="space-y-3">
-                            <div className="px-2 py-1 text-[10px] tracking-wide text-gray-500 uppercase dark:text-zinc-400">
-                              {t('tools.academicSearch')}
-                            </div>
-                            <div className="flex flex-col gap-1">
-                              {ACADEMIC_SEARCH_TOOL_OPTIONS.map(option => {
-                                const isActive =
-                                  isHomeSearchActive && homeSearchTools.includes(option.id)
-                                return (
-                                  <button
-                                    key={option.id}
-                                    type="button"
-                                    onClick={() => handleSelectHomeSearchTool(option.id)}
-                                    className={clsx(
-                                      'flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-white/70 dark:hover:bg-white/[0.08]',
-                                      isActive
-                                        ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
-                                        : 'text-gray-700 dark:text-gray-200',
-                                    )}
-                                  >
-                                    <span className="flex items-center gap-2">
-                                      {option.iconUrl ? (
-                                        <img
-                                          src={option.iconUrl}
-                                          alt=""
-                                          className="h-4 w-4 rounded-sm"
-                                        />
-                                      ) : (
-                                        <EmojiDisplay emoji={'✨'} size="1.1rem" />
+                            <div className="h-px bg-gray-200 dark:bg-zinc-800" />
+                            <div className="space-y-3">
+                              <div className="px-2 py-1 text-[10px] tracking-wide text-gray-500 uppercase dark:text-zinc-400">
+                                {t('tools.academicSearch')}
+                              </div>
+                              <div className="flex flex-col gap-1">
+                                {ACADEMIC_SEARCH_TOOL_OPTIONS.map(option => {
+                                  const isActive =
+                                    isHomeSearchActive && homeSearchTools.includes(option.id)
+                                  return (
+                                    <button
+                                      key={option.id}
+                                      type="button"
+                                      onClick={() => handleSelectHomeSearchTool(option.id)}
+                                      className={clsx(
+                                        'flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800',
+                                        isActive
+                                          ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
+                                          : 'text-gray-700 dark:text-gray-200',
                                       )}
-                                      {t(option.labelKey)}
-                                    </span>
-                                    {isActive && <Check size={14} className="text-primary-500" />}
-                                  </button>
-                                )
-                              })}
+                                    >
+                                      <span className="flex items-center gap-2">
+                                        {option.iconUrl ? (
+                                          <img
+                                            src={option.iconUrl}
+                                            alt=""
+                                            className="h-4 w-4 rounded-sm"
+                                          />
+                                        ) : (
+                                          <EmojiDisplay emoji={'✨'} size="1.1rem" />
+                                        )}
+                                        {t(option.labelKey)}
+                                      </span>
+                                      {isActive && <Check size={14} className="text-primary-500" />}
+                                    </button>
+                                  )
+                                })}
+                              </div>
                             </div>
+                            <div className="h-px bg-gray-200 dark:bg-zinc-800" />
+                            <button
+                              type="button"
+                              onClick={handleClearHomeSearch}
+                              className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm text-gray-500 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-zinc-800"
+                            >
+                              <span>{t('common.close')}</span>
+                            </button>
                           </div>
-                          <div className="h-px bg-gray-200 dark:bg-zinc-800" />
-                          <button
-                            type="button"
-                            onClick={handleClearHomeSearch}
-                            className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm text-gray-500 transition-colors hover:bg-white/70 dark:text-gray-400 dark:hover:bg-white/[0.08]"
-                          >
-                            <span>{t('common.close')}</span>
-                          </button>
                         </div>
                       </div>
                     )}
@@ -1676,7 +1678,7 @@ const HomeView = () => {
                         'glass-elite-chip flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition-colors',
                         isHomeSpaceAuto
                           ? 'text-gray-600 dark:text-gray-300'
-                          : 'border-primary-400/45 bg-white/80 text-primary-500 dark:border-primary-500/35 dark:bg-white/[0.12]',
+                          : 'border-primary-400/45 text-primary-500 dark:border-primary-500/35 bg-white/80 dark:bg-white/[0.12]',
                       )}
                     >
                       <LayoutGrid size={18} />
@@ -1706,7 +1708,7 @@ const HomeView = () => {
                       />
                     </button>
                     {!isHomeMobile && isHomeSpaceSelectorOpen && (
-                      <div className="glass-elite-dropdown absolute top-full left-0 z-50 mt-2 w-60 overflow-hidden rounded-xl">
+                      <div className="absolute top-full left-0 z-50 mt-2 w-60 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-zinc-700 dark:bg-zinc-900">
                         <div className="no-scrollbar max-h-[min(calc(100vh-140px),500px)] overflow-y-auto scroll-smooth">
                           {renderHomeSpaceMenuContent()}
                         </div>
@@ -1746,7 +1748,7 @@ const HomeView = () => {
                   <button
                     onClick={handleStartChat}
                     disabled={!homeInput.trim() && homeAttachments.length === 0}
-                    className="glass-elite-pill rounded-full border-primary-300/45 bg-white/82 p-2 text-primary-600 shadow-[0_10px_24px_-14px_rgba(59,130,246,0.48)] transition-all hover:shadow-[0_14px_28px_-14px_rgba(59,130,246,0.55)] disabled:opacity-50 dark:border-primary-500/35 dark:bg-white/[0.14] dark:text-white"
+                    className="glass-elite-pill border-primary-300/45 text-primary-600 dark:border-primary-500/35 rounded-full bg-white/82 p-2 shadow-[0_10px_24px_-14px_rgba(59,130,246,0.48)] transition-all hover:shadow-[0_14px_28px_-14px_rgba(59,130,246,0.55)] disabled:opacity-50 dark:bg-white/[0.14] dark:text-white"
                   >
                     <ArrowRight size={18} />
                   </button>

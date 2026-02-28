@@ -1374,14 +1374,14 @@ const HomeView = () => {
                       open={isHomeThinkingMenuOpen && isHomeMobile}
                       onOpenChange={setIsHomeThinkingMenuOpen}
                     >
-                      <DrawerContent className="max-h-[55vh] rounded-t-3xl border-t border-gray-200 bg-white dark:border-zinc-800 dark:bg-[#1E1E1E]">
-                        <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-zinc-800/50">
+                      <DrawerContent className="max-h-[55vh]">
+                        <div className="flex shrink-0 items-center justify-between border-b border-white/18 px-5 py-4 dark:border-white/8">
                           <h3 className="text-base leading-none font-bold text-gray-900 dark:text-gray-100">
                             {t('homeView.think')}
                           </h3>
                           <button
                             onClick={() => setIsHomeThinkingMenuOpen(false)}
-                            className="-mr-2 rounded-full p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-zinc-800 dark:hover:text-gray-200"
+                            className="glass-elite-chip -mr-2 rounded-full p-2 text-gray-500 transition-colors hover:text-gray-700 dark:text-gray-300 dark:hover:text-white"
                           >
                             <X size={20} />
                           </button>
@@ -1400,9 +1400,9 @@ const HomeView = () => {
                                     setIsHomeThinkingMenuOpen(false)
                                   }}
                                   className={clsx(
-                                    'flex w-full items-start justify-between rounded-lg px-4 py-3 text-left text-sm transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800',
+                                    'glass-elite-soft flex w-full items-start justify-between rounded-[22px] px-4 py-3 text-left text-sm transition-colors hover:border-white/26 hover:bg-white/18 dark:hover:border-white/10 dark:hover:bg-white/[0.05]',
                                     isActive
-                                      ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
+                                      ? 'border-primary-300/35 bg-white/82 text-primary-600 dark:border-primary-500/35 dark:bg-white/[0.12] dark:text-primary-300'
                                       : 'text-gray-700 dark:text-gray-200',
                                   )}
                                 >
@@ -1566,14 +1566,14 @@ const HomeView = () => {
                       open={isHomeSearchMenuOpen && isHomeMobile}
                       onOpenChange={setIsHomeSearchMenuOpen}
                     >
-                      <DrawerContent className="max-h-[70vh] rounded-t-3xl border-t border-gray-200 bg-white dark:border-zinc-800 dark:bg-[#1E1E1E]">
-                        <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-zinc-800/50">
+                      <DrawerContent className="max-h-[70vh]">
+                        <div className="flex shrink-0 items-center justify-between border-b border-white/18 px-5 py-4 dark:border-white/8">
                           <h3 className="text-base leading-none font-bold text-gray-900 dark:text-gray-100">
                             {/* {t('chatInterface.searchMenuTitle')} */}
                           </h3>
                           <button
                             onClick={() => setIsHomeSearchMenuOpen(false)}
-                            className="-mr-2 rounded-full p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-zinc-800 dark:hover:text-gray-200"
+                            className="glass-elite-chip -mr-2 rounded-full p-2 text-gray-500 transition-colors hover:text-gray-700 dark:text-gray-300 dark:hover:text-white"
                           >
                             <X size={20} />
                           </button>
@@ -1593,9 +1593,9 @@ const HomeView = () => {
                                       type="button"
                                       onClick={() => handleSelectHomeSearchBackend(option.id)}
                                       className={clsx(
-                                        'flex w-full items-center justify-between rounded-lg px-4 py-3 text-left text-sm transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800',
+                                        'glass-elite-soft flex w-full items-center justify-between rounded-[22px] px-4 py-3 text-left text-sm transition-colors hover:border-white/26 hover:bg-white/18 dark:hover:border-white/10 dark:hover:bg-white/[0.05]',
                                         isActive
-                                          ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
+                                          ? 'border-primary-300/35 bg-white/82 text-primary-600 dark:border-primary-500/35 dark:bg-white/[0.12] dark:text-primary-300'
                                           : 'text-gray-700 dark:text-gray-200',
                                       )}
                                     >
@@ -1617,7 +1617,7 @@ const HomeView = () => {
                                 })}
                               </div>
                             </div>
-                            <div className="h-px bg-gray-200 dark:bg-zinc-800" />
+                            <div className="h-px bg-white/12 dark:bg-white/[0.07]" />
                             <div className="space-y-3">
                               <div className="px-2 py-1 text-[10px] tracking-wide text-gray-500 uppercase dark:text-zinc-400">
                                 {t('tools.academicSearch')}
@@ -1632,9 +1632,9 @@ const HomeView = () => {
                                       type="button"
                                       onClick={() => handleSelectHomeSearchTool(option.id)}
                                       className={clsx(
-                                        'flex w-full items-center justify-between rounded-lg px-4 py-3 text-left text-sm transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800',
+                                        'glass-elite-soft flex w-full items-center justify-between rounded-[22px] px-4 py-3 text-left text-sm transition-colors hover:border-white/26 hover:bg-white/18 dark:hover:border-white/10 dark:hover:bg-white/[0.05]',
                                         isActive
-                                          ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
+                                          ? 'border-primary-300/35 bg-white/82 text-primary-600 dark:border-primary-500/35 dark:bg-white/[0.12] dark:text-primary-300'
                                           : 'text-gray-700 dark:text-gray-200',
                                       )}
                                     >
@@ -1656,11 +1656,11 @@ const HomeView = () => {
                                 })}
                               </div>
                             </div>
-                            <div className="h-px bg-gray-200 dark:bg-zinc-800" />
+                            <div className="h-px bg-white/12 dark:bg-white/[0.07]" />
                             <button
                               type="button"
                               onClick={handleClearHomeSearch}
-                              className="flex w-full items-center justify-between rounded-lg px-4 py-3 text-left text-sm text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-zinc-800"
+                              className="glass-elite-soft flex w-full items-center justify-between rounded-[22px] px-4 py-3 text-left text-sm text-gray-500 transition-colors hover:border-white/26 hover:bg-white/18 dark:text-gray-400 dark:hover:border-white/10 dark:hover:bg-white/[0.05]"
                             >
                               <span>{t('common.close')}</span>
                             </button>
@@ -1721,8 +1721,8 @@ const HomeView = () => {
                       open={isHomeSpaceSelectorOpen}
                       onOpenChange={setIsHomeSpaceSelectorOpen}
                     >
-                      <DrawerContent className="max-h-[85vh] rounded-t-3xl border-t border-gray-200 bg-white dark:border-zinc-800 dark:bg-[#1E1E1E]">
-                        <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-zinc-800/50">
+                      <DrawerContent className="max-h-[85vh]">
+                        <div className="flex shrink-0 items-center justify-between border-b border-white/18 px-5 py-4 dark:border-white/8">
                           <div className="flex flex-col">
                             <h3 className="mb-1 text-base leading-none font-bold text-gray-900 dark:text-gray-100">
                               {t('homeView.spaces') + ' and ' + t('homeView.agents')}
@@ -1730,7 +1730,7 @@ const HomeView = () => {
                           </div>
                           <button
                             onClick={() => setIsHomeSpaceSelectorOpen(false)}
-                            className="-mr-2 rounded-full p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-zinc-800 dark:hover:text-gray-200"
+                            className="glass-elite-chip -mr-2 rounded-full p-2 text-gray-500 transition-colors hover:text-gray-700 dark:text-gray-300 dark:hover:text-white"
                           >
                             <X size={20} />
                           </button>

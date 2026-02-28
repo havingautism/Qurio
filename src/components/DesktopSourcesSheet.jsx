@@ -22,10 +22,10 @@ const DesktopSourcesSheet = ({ isOpen, onClose, sources = [], title }) => {
     <Drawer open={isOpen} onOpenChange={onClose} direction="right">
       <DrawerContent className="w-full sm:max-w-md md:max-w-lg lg:max-w-xl">
         {/* Header */}
-        <DrawerHeader className="shrink-0 border-b border-gray-100 px-6 py-5 text-left dark:border-zinc-800/50">
+        <DrawerHeader className="shrink-0 border-b border-white/18 px-6 py-5 text-left dark:border-white/8">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="text-primary-500 bg-primary-500/10 flex h-10 w-10 items-center justify-center rounded-full">
+              <div className="glass-elite-chip text-primary-500 flex h-10 w-10 items-center justify-center rounded-full">
                 <Globe size={20} />
               </div>
               <div className="flex flex-col">
@@ -39,7 +39,7 @@ const DesktopSourcesSheet = ({ isOpen, onClose, sources = [], title }) => {
             </div>
             <button
               onClick={onClose}
-              className="-mr-2 rounded-full p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-zinc-800 dark:hover:text-gray-200"
+              className="glass-elite-chip -mr-2 rounded-full p-2 text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-200"
             >
               <X size={20} />
             </button>
@@ -65,10 +65,10 @@ const DesktopSourcesSheet = ({ isOpen, onClose, sources = [], title }) => {
                       href={url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="group flex flex-col gap-2 rounded-xl border border-gray-100 bg-gray-50 p-4 transition-all hover:border-gray-200 hover:bg-gray-100 hover:shadow-sm active:scale-[0.98] dark:border-zinc-800/50 dark:bg-zinc-800/30 dark:hover:border-zinc-700/50 dark:hover:bg-zinc-800"
+                      className="glass-elite-soft group flex flex-col gap-2 rounded-[28px] p-4 transition-all hover:border-white/28 hover:bg-white/18 active:scale-[0.98] dark:hover:border-white/12 dark:hover:bg-white/[0.04]"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white text-[10px] font-bold text-gray-500 shadow-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-gray-400">
+                        <div className="glass-elite-chip flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-gray-500 dark:text-gray-400">
                           {source.originalIndex !== undefined
                             ? source.originalIndex + 1
                             : absoluteIndex + 1}
@@ -80,7 +80,7 @@ const DesktopSourcesSheet = ({ isOpen, onClose, sources = [], title }) => {
                               `https://www.google.com/s2/favicons?domain=${getHostname(url)}&sz=128`
                             }
                             alt=""
-                            className="h-5 w-5 rounded-full border border-white/80 bg-white object-cover shadow-sm transition-opacity group-hover:opacity-100 dark:border-zinc-800"
+                            className="h-5 w-5 rounded-full border border-white/70 bg-white/90 object-cover shadow-sm transition-opacity group-hover:opacity-100 dark:border-white/10 dark:bg-white/10"
                           />
                         )}
                         <h4 className="mb-0 line-clamp-1 flex-1 text-sm font-semibold text-gray-900 dark:text-gray-100">
@@ -103,12 +103,12 @@ const DesktopSourcesSheet = ({ isOpen, onClose, sources = [], title }) => {
 
         {/* Pagination Footer */}
         {Math.ceil(sources.length / itemsPerPage) > 1 && (
-          <div className="shrink-0 border-t border-gray-100 bg-gray-50/50 p-4 dark:border-zinc-800/50 dark:bg-zinc-900/50">
-            <div className="flex items-center justify-center gap-6">
+          <div className="shrink-0 border-t border-white/18 p-4 dark:border-white/8">
+            <div className="glass-elite-soft mx-auto flex w-fit items-center justify-center gap-6 rounded-full px-4 py-2">
               <button
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
-                className="rounded-full bg-white p-2 text-gray-600 shadow-sm transition-colors hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-white dark:bg-zinc-800 dark:text-gray-400 dark:hover:bg-zinc-700 dark:disabled:hover:bg-zinc-800"
+                className="glass-elite-chip rounded-full p-2 text-gray-600 transition-colors disabled:opacity-30 dark:text-gray-400"
               >
                 <ChevronLeft size={18} />
               </button>
@@ -120,7 +120,7 @@ const DesktopSourcesSheet = ({ isOpen, onClose, sources = [], title }) => {
                   setCurrentPage(p => Math.min(Math.ceil(sources.length / itemsPerPage), p + 1))
                 }
                 disabled={currentPage === Math.ceil(sources.length / itemsPerPage)}
-                className="rounded-full bg-white p-2 text-gray-600 shadow-sm transition-colors hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-white dark:bg-zinc-800 dark:text-gray-400 dark:hover:bg-zinc-700 dark:disabled:hover:bg-zinc-800"
+                className="glass-elite-chip rounded-full p-2 text-gray-600 transition-colors disabled:opacity-30 dark:text-gray-400"
               >
                 <ChevronRight size={18} />
               </button>

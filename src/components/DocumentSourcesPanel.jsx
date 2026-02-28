@@ -64,14 +64,14 @@ const SourcesModal = ({ isOpen, onClose, sources }) => {
 
   return (
     <Drawer open={isOpen} onOpenChange={onClose}>
-      <DrawerContent className="max-h-[85vh] rounded-t-3xl border-t border-gray-200 bg-white sm:max-h-[80vh] sm:max-w-2xl sm:rounded-2xl dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-zinc-800">
+      <DrawerContent className="max-h-[85vh] sm:max-h-[80vh] sm:max-w-2xl">
+        <div className="flex items-center justify-between border-b border-white/18 px-4 py-3 dark:border-white/8">
           <div className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             {t('sources.documentSources')} ({sources.length})
           </div>
           <button
             onClick={onClose}
-            className="rounded-full p-2 text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800"
+            className="glass-elite-chip rounded-full p-2 text-gray-500 transition-colors hover:text-gray-700 dark:text-gray-300 dark:hover:text-white"
           >
             <X size={20} />
           </button>
@@ -81,10 +81,10 @@ const SourcesModal = ({ isOpen, onClose, sources }) => {
           {sources.map((source, idx) => (
             <div
               key={idx}
-              className="rounded-xl border border-gray-100 bg-gray-50 p-2.5 dark:border-zinc-700/50 dark:bg-zinc-800/50"
+              className="glass-elite-soft rounded-[24px] p-3"
             >
               <div className="mb-2 flex items-start gap-3">
-                <div className="flex items-center justify-center rounded-lg bg-white p-2 leading-none shadow-sm dark:bg-zinc-700">
+                <div className="glass-elite-chip flex items-center justify-center rounded-xl p-2 leading-none">
                   <FileIcon fileType={source.fileType} size={18} />
                 </div>
                 <div className="min-w-0 flex-1">
@@ -131,11 +131,11 @@ const DocumentSourcesPanel = ({ sources = [], isOpen, onClose }) => {
           {sources.map((source, idx) => (
             <div
               key={source.id || idx}
-              className="group cursor-default rounded-2xl border border-gray-200 bg-gray-50 p-3 shadow-sm transition-shadow hover:shadow-md dark:border-zinc-700 dark:bg-zinc-900/50"
+              className="glass-elite-soft group cursor-default rounded-2xl p-3 transition-all hover:border-white/26 hover:bg-white/18 dark:hover:border-white/10 dark:hover:bg-white/[0.05]"
             >
               <div className="mb-2 flex items-center justify-between gap-2">
                 <div className="flex min-w-0 items-center gap-2">
-                  <div className="flex items-center justify-center rounded bg-white p-1 leading-none shadow-sm dark:bg-zinc-800">
+                  <div className="glass-elite-chip flex items-center justify-center rounded-lg p-1 leading-none">
                     <FileIcon fileType={source.fileType} size={12} />
                   </div>
                   <div className="truncate text-xs font-semibold text-gray-900 dark:text-white">

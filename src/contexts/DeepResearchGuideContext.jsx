@@ -206,14 +206,14 @@ export const DeepResearchGuideProvider = ({
 
       <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-zinc-800/60">
         <div className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
-          <div className="bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 rounded-lg p-1.5">
+          <div className="glass-elite-chip text-primary-600 dark:text-primary-400 rounded-xl p-1.5">
             <Microscope size={18} />
           </div>
           <h3 className="text-base font-bold">{t('homeView.deepResearchModalTitle')}</h3>
         </div>
         <button
           onClick={closeDeepResearchGuide}
-          className="-mr-2 rounded-full p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-zinc-800 dark:hover:text-gray-200"
+          className="glass-elite-chip -mr-2 rounded-full p-2 text-gray-500 transition-colors hover:text-gray-700 dark:text-gray-300 dark:hover:text-white"
         >
           <X size={20} />
         </button>
@@ -497,7 +497,7 @@ export const DeepResearchGuideProvider = ({
         </div>
       </div>
 
-      <div className="shrink-0 border-t border-gray-100 bg-gray-50/95 px-5 py-4 pb-[calc(env(safe-area-inset-bottom,0px)+1rem)] backdrop-blur sm:bg-gray-50/50 sm:py-6 dark:border-zinc-800/60 dark:bg-zinc-900/95 sm:dark:bg-zinc-900/30">
+      <div className="shrink-0 border-t border-white/18 px-5 py-4 pb-[calc(env(safe-area-inset-bottom,0px)+1rem)] sm:py-6 dark:border-white/8">
         <div className="flex items-center justify-between gap-3">
           <button
             type="button"
@@ -511,7 +511,7 @@ export const DeepResearchGuideProvider = ({
               <button
                 type="button"
                 onClick={() => setDeepResearchStep(step => Math.max(1, step - 1))}
-                className="rounded-xl border border-gray-200 px-3.5 py-2 text-sm font-bold text-gray-600 transition-all hover:bg-white sm:px-5 sm:py-2.5 dark:border-zinc-700 dark:text-gray-300 dark:hover:bg-zinc-800"
+                className="glass-elite-chip rounded-xl px-3.5 py-2 text-sm font-bold text-gray-600 transition-all hover:text-gray-900 sm:px-5 sm:py-2.5 dark:text-gray-300 dark:hover:text-white"
               >
                 {t('homeView.deepResearchBack')}
               </button>
@@ -563,7 +563,7 @@ export const DeepResearchGuideProvider = ({
       {isOpen &&
         (isMobile ? (
           <Drawer open={isOpen} onOpenChange={open => !open && closeDeepResearchGuide()}>
-            <DrawerContent className="h-[92dvh] max-h-[92dvh] overflow-hidden rounded-t-3xl border-t border-gray-200 bg-white dark:border-zinc-800 dark:bg-[#1E1E1E]">
+            <DrawerContent className="h-[92dvh] max-h-[92dvh] overflow-hidden">
               {guideContent}
             </DrawerContent>
           </Drawer>

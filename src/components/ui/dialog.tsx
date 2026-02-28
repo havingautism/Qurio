@@ -16,7 +16,7 @@ const DialogOverlay = React.forwardRef<
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/50 backdrop-blur-sm',
+      'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/52 backdrop-blur-xl',
       className,
     )}
     {...props}
@@ -33,14 +33,14 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        'fixed top-[50%] left-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-gray-200 bg-[#f9f9f9] p-6 shadow-2xl duration-200 sm:rounded-2xl dark:border-zinc-700 dark:bg-[#191a1a]',
+        'glass-elite-panel fixed top-[50%] left-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 p-6 shadow-[0_28px_72px_-34px_rgba(15,23,42,0.62)] duration-200 sm:rounded-[28px]',
         'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
         className,
       )}
       {...props}
     >
       {children}
-      <DialogPrimitive.Close className="focus:ring-primary-500/20 absolute top-4 right-4 rounded-full p-1 text-gray-400 transition-colors hover:text-gray-600 focus:ring-2 focus:outline-none disabled:pointer-events-none data-[state=open]:bg-gray-100 dark:hover:text-gray-200 dark:data-[state=open]:bg-zinc-800">
+      <DialogPrimitive.Close className="glass-elite-chip focus:ring-primary-500/20 absolute top-4 right-4 rounded-full p-1.5 text-gray-500 transition-colors hover:text-gray-700 focus:ring-2 focus:outline-none disabled:pointer-events-none dark:text-gray-300 dark:hover:text-white">
         <X className="h-4 w-4" />
         <span className="sr-only">Close</span>
       </DialogPrimitive.Close>

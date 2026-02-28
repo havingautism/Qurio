@@ -121,7 +121,10 @@ const Sidebar = ({
   const [expertLoadingMore, setExpertLoadingMore] = useState(false)
   const [expertDirty, setExpertDirty] = useState(false)
   const [scrapbookEntries, setScrapbookEntries] = useState([])
+  const [scrapbookNextCursor, setScrapbookNextCursor] = useState(null)
+  const [scrapbookHasMore, setScrapbookHasMore] = useState(true)
   const [isScrapbookLoading, setIsScrapbookLoading] = useState(false)
+  const [scrapbookLoadingMore, setScrapbookLoadingMore] = useState(false)
   const [scrapbookDirty, setScrapbookDirty] = useState(false)
 
   // Spaces interaction state
@@ -483,12 +486,31 @@ const Sidebar = ({
     }
   }
 
-  const fetchScrapbookEntries = async () => {
+  const fetchScrapbookEntries = async (loadMore = false) => {
+    if (loadMore && !scrapbookHasMore) return
+    const currentCursor = loadMore ? scrapbookNextCursor : null
     try {
-      setIsScrapbookLoading(true)
-      const { data, error } = await listScrapbookEntries({ limit: SIDEBAR_FETCH_LIMIT })
+      if (loadMore) {
+        setScrapbookLoadingMore(true)
+      } else {
+        setIsScrapbookLoading(true)
+      }
+      const { data, error } = await listScrapbookEntries({
+        limit: SIDEBAR_FETCH_LIMIT,
+        cursor: currentCursor,
+      })
       if (!error) {
-        setScrapbookEntries(Array.isArray(data) ? data : [])
+        const newData = Array.isArray(data) ? data : []
+        const moreAvailable = newData.length >= SIDEBAR_FETCH_LIMIT
+        const newCursor = newData.length > 0 ? newData[newData.length - 1].created_at : null
+
+        if (loadMore) {
+          setScrapbookEntries(prev => [...prev, ...newData])
+        } else {
+          setScrapbookEntries(newData)
+        }
+        setScrapbookNextCursor(newCursor)
+        setScrapbookHasMore(moreAvailable)
       } else {
         console.error('Failed to load scrapbook entries:', error)
       }
@@ -496,6 +518,7 @@ const Sidebar = ({
       console.error('Error loading scrapbook entries:', err)
     } finally {
       setIsScrapbookLoading(false)
+      setScrapbookLoadingMore(false)
     }
   }
 
@@ -609,7 +632,10 @@ const Sidebar = ({
       }
     }
     if (sidebarLoadTab === 'scrapbook') {
-      if (scrapbookDirty || (!isScrapbookLoading && scrapbookEntries.length === 0)) {
+      if (
+        scrapbookDirty ||
+        (!isScrapbookLoading && !scrapbookLoadingMore && scrapbookEntries.length === 0)
+      ) {
         fetchScrapbookEntries().finally(() => setScrapbookDirty(false))
       }
     }
@@ -631,6 +657,7 @@ const Sidebar = ({
     isExpertLoading,
     expertLoadingMore,
     isScrapbookLoading,
+    scrapbookLoadingMore,
   ])
 
   // Close dropdown when sidebar collapses (mouse leaves)
@@ -960,6 +987,16 @@ const Sidebar = ({
       totalCount: section.items.length,
     }))
   }, [expertConversations])
+
+  const groupedScrapbookEntries = useMemo(() => {
+    const groups = groupConversationsByDate(scrapbookEntries)
+    return groups.map(section => ({
+      ...section,
+      items: section.items.slice(0, MAX_CONVERSATIONS_PER_SECTION),
+      hasMore: section.items.length > MAX_CONVERSATIONS_PER_SECTION,
+      totalCount: section.items.length,
+    }))
+  }, [scrapbookEntries])
 
   // Spaces list pagination inside sidebar
   const visibleSpaces = useMemo(() => {
@@ -1543,8 +1580,8 @@ const Sidebar = ({
                                     conv.is_favorited
                                       ? isScrapbookSidebarTheme
                                         ? glassTone(
-                                        'border border-slate-700/50 bg-primary-500/20 text-primary-400',
-                                        'border border-slate-200 bg-primary-500/10 text-primary-600',
+                                            'bg-primary-500/20 text-primary-400 border border-slate-700/50',
+                                            'bg-primary-500/10 text-primary-600 border border-slate-200',
                                           )
                                         : 'border-amber-200 bg-amber-50 text-amber-600 dark:border-amber-800/30 dark:bg-amber-900/20 dark:text-amber-400'
                                       : isScrapbookSidebarTheme
@@ -1865,8 +1902,8 @@ const Sidebar = ({
                                         conv.is_favorited
                                           ? isScrapbookSidebarTheme
                                             ? glassTone(
-                                            'border border-slate-700/50 bg-primary-500/20 text-primary-400',
-                                            'border border-slate-200 bg-primary-500/10 text-primary-600',
+                                                'bg-primary-500/20 text-primary-400 border border-slate-700/50',
+                                                'bg-primary-500/10 text-primary-600 border border-slate-200',
                                               )
                                             : 'bg-primary-50 text-primary-500 dark:bg-primary-600/20 dark:text-primary-500'
                                           : isScrapbookSidebarTheme
@@ -2161,8 +2198,8 @@ const Sidebar = ({
                                         conv.is_favorited
                                           ? isScrapbookSidebarTheme
                                             ? glassTone(
-                                            'border border-slate-700/50 bg-primary-500/20 text-primary-400',
-                                            'border border-slate-200 bg-primary-500/10 text-primary-600',
+                                                'bg-primary-500/20 text-primary-400 border border-slate-700/50',
+                                                'bg-primary-500/10 text-primary-600 border border-slate-200',
                                               )
                                             : 'bg-primary-50 text-primary-500 dark:bg-primary-600/20 dark:text-primary-500'
                                           : isScrapbookSidebarTheme
@@ -2382,8 +2419,8 @@ const Sidebar = ({
                                 conv.is_favorited
                                   ? isScrapbookSidebarTheme
                                     ? glassTone(
-                                    'border border-slate-700/50 bg-primary-500/20 text-primary-400',
-                                    'border border-slate-200 bg-primary-500/10 text-primary-600',
+                                        'bg-primary-500/20 text-primary-400 border border-slate-700/50',
+                                        'bg-primary-500/10 text-primary-600 border border-slate-200',
                                       )
                                     : 'bg-primary-50 text-primary-500 dark:bg-primary-600/20 dark:text-primary-500'
                                   : isScrapbookSidebarTheme
@@ -2533,84 +2570,150 @@ const Sidebar = ({
                         </div>
                       )}
 
-                      {scrapbookEntries.map(entry => {
-                        const entryId = String(entry?.id || '')
-                        const isActive = activeScrapbookEntryId === entryId
-                        const title =
-                          stripGeneratedTitlePrefix(entry?.title) || t('scrapbook.detail.untitled')
-                        return (
+                      {groupedScrapbookEntries.map(section => (
+                        <div key={section.title} className="flex flex-col gap-1">
                           <div
-                            key={entryId || title}
-                            onClick={() => {
-                              if (!entryId) return
-                              navigate({
-                                to: '/scrapbook/$entryId',
-                                params: { entryId },
-                              })
-                              if (isMobile && onClose) onClose()
-                            }}
                             className={clsx(
-                              'group relative cursor-pointer truncate rounded-xl px-1 py-2.5 text-sm transition-all duration-200 md:p-2.5',
-                              isActive
-                                ? isScrapbookSidebarTheme
-                                  ? glassTone(
-                                      'border border-white/12 bg-white/[0.08] text-white shadow-[0_8px_20px_rgba(37,99,235,0.12)]',
-                                      'border border-white/80 bg-white/68 text-slate-900 shadow-[0_8px_20px_rgba(37,99,235,0.08)]',
-                                    )
-                                  : 'bg-primary-500/10 text-primary-500 dark:bg-primary-500/20 dark:text-primary-400'
-                                : isScrapbookSidebarTheme
-                                  ? glassTone(
-                                      'border border-transparent text-white/88 hover:border-white/8 hover:bg-white/[0.04]',
-                                      'border border-transparent text-slate-700 hover:border-slate-200/90 hover:bg-white/85 hover:shadow-[0_4px_14px_rgba(15,23,42,0.05)]',
-                                    )
-                                  : 'hover:bg-primary-50 text-gray-700 dark:text-gray-300 dark:hover:bg-zinc-800',
+                              'mt-1 flex justify-center px-2 text-[10px] tracking-wide uppercase',
+                              isScrapbookSidebarTheme
+                                ? glassTone('text-white/40', 'text-slate-400')
+                                : 'text-gray-400',
                             )}
-                            title={title}
                           >
-                            <div className="relative z-10 flex w-full items-center gap-3 overflow-hidden">
-                              <div
-                                className={clsx(
-                                  'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-base',
-                                  isScrapbookSidebarTheme
-                                    ? isActive
-                                      ? glassTone(
-                                          'border border-white/15 bg-gradient-to-br from-blue-400/25 to-fuchsia-400/20',
-                                          'border border-white/80 bg-gradient-to-br from-blue-100/90 to-fuchsia-100/90',
-                                        )
-                                      : glassTone(
-                                          'border border-white/8 bg-white/[0.03]',
-                                          'border border-white/75 bg-white/42',
-                                        )
-                                    : 'bg-primary-100 dark:bg-primary-900/30',
-                                )}
-                              >
-                                <EmojiDisplay
-                                  emoji={String(entry?.emoji || '📒')}
-                                  size="1.2em"
-                                  className="shrink-0"
-                                />
-                              </div>
-                              <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-                                <span className="truncate font-medium">{title}</span>
-                                <span
-                                  className={clsx(
-                                    'mt-0.5 text-[11px]',
-                                    isActive
-                                      ? isScrapbookSidebarTheme
-                                        ? glassTone('text-white/70', 'text-slate-500')
-                                        : 'text-primary-600 dark:text-primary-400'
-                                      : isScrapbookSidebarTheme
-                                        ? glassTone('text-white/45', 'text-slate-400')
-                                        : 'text-gray-400',
-                                  )}
-                                >
-                                  {formatDateTime(entry?.updated_at || entry?.created_at)}
-                                </span>
-                              </div>
-                            </div>
+                            {translateDateTitle(section.title)}
                           </div>
-                        )
-                      })}
+                          {section.items.map(entry => {
+                            const entryId = String(entry?.id || '')
+                            const isActive = activeScrapbookEntryId === entryId
+                            const title =
+                              stripGeneratedTitlePrefix(entry?.title) ||
+                              t('scrapbook.detail.untitled')
+                            return (
+                              <div
+                                key={entryId || title}
+                                onClick={() => {
+                                  if (!entryId) return
+                                  navigate({
+                                    to: '/scrapbook/$entryId',
+                                    params: { entryId },
+                                  })
+                                  if (isMobile && onClose) onClose()
+                                }}
+                                className={clsx(
+                                  'group relative cursor-pointer truncate rounded-xl px-1 py-2.5 text-sm transition-all duration-200 md:p-2.5',
+                                  isActive
+                                    ? isScrapbookSidebarTheme
+                                      ? glassTone(
+                                          'border border-white/12 bg-white/[0.08] text-white shadow-[0_8px_20px_rgba(37,99,235,0.12)]',
+                                          'border border-white/80 bg-white/68 text-slate-900 shadow-[0_8px_20px_rgba(37,99,235,0.08)]',
+                                        )
+                                      : 'bg-primary-500/10 text-primary-500 dark:bg-primary-500/20 dark:text-primary-400'
+                                    : isScrapbookSidebarTheme
+                                      ? glassTone(
+                                          'border border-transparent text-white/88 hover:border-white/8 hover:bg-white/[0.04]',
+                                          'border border-transparent text-slate-700 hover:border-slate-200/90 hover:bg-white/85 hover:shadow-[0_4px_14px_rgba(15,23,42,0.05)]',
+                                        )
+                                      : 'hover:bg-primary-50 text-gray-700 dark:text-gray-300 dark:hover:bg-zinc-800',
+                                )}
+                                title={title}
+                              >
+                                <div className="relative z-10 flex w-full items-center gap-3 overflow-hidden">
+                                  <div
+                                    className={clsx(
+                                      'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-base',
+                                      isScrapbookSidebarTheme
+                                        ? isActive
+                                          ? glassTone(
+                                              'border border-white/15 bg-gradient-to-br from-blue-400/25 to-fuchsia-400/20',
+                                              'border border-white/80 bg-gradient-to-br from-blue-100/90 to-fuchsia-100/90',
+                                            )
+                                          : glassTone(
+                                              'border border-white/8 bg-white/[0.03]',
+                                              'border border-white/75 bg-white/42',
+                                            )
+                                        : 'bg-primary-100 dark:bg-primary-900/30',
+                                    )}
+                                  >
+                                    <EmojiDisplay
+                                      emoji={String(entry?.emoji || '📒')}
+                                      size="1.2em"
+                                      className="shrink-0"
+                                    />
+                                  </div>
+                                  <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+                                    <span className="truncate font-medium">{title}</span>
+                                    <span
+                                      className={clsx(
+                                        'mt-0.5 text-[11px]',
+                                        isActive
+                                          ? isScrapbookSidebarTheme
+                                            ? glassTone('text-white/70', 'text-slate-500')
+                                            : 'text-primary-600 dark:text-primary-400'
+                                          : isScrapbookSidebarTheme
+                                            ? glassTone('text-white/45', 'text-slate-400')
+                                            : 'text-gray-400',
+                                      )}
+                                    >
+                                      {formatDateTime(entry?.updated_at || entry?.created_at)}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      ))}
+
+                      {scrapbookEntries.length > 0 && (
+                        <div className="px-2 py-2 pb-4">
+                          {scrapbookHasMore ? (
+                            <button
+                              onClick={() => fetchScrapbookEntries(true)}
+                              disabled={scrapbookLoadingMore}
+                              className={clsx(
+                                'flex w-full items-center justify-center gap-2 rounded-xl py-2 text-xs font-medium transition-colors',
+                                isScrapbookSidebarTheme
+                                  ? glassTone(
+                                      'border border-white/8 bg-white/[0.03] text-white/80 hover:bg-white/[0.06]',
+                                      'border border-white/75 bg-white/45 text-slate-700 hover:bg-white/70',
+                                    )
+                                  : 'bg-primary-50 text-gray-700 hover:translate-y-[-2px] hover:transform dark:bg-zinc-800 dark:text-gray-200',
+                              )}
+                            >
+                              {scrapbookLoadingMore ? <DotLoader /> : t('sidebar.loadMore')}
+                            </button>
+                          ) : (
+                            <div
+                              className={clsx(
+                                'flex items-center gap-2 py-2 text-[10px]',
+                                isScrapbookSidebarTheme
+                                  ? glassTone('text-white/40', 'text-slate-400')
+                                  : 'text-gray-400',
+                              )}
+                            >
+                              <span
+                                className={clsx(
+                                  'h-px flex-1',
+                                  isScrapbookSidebarTheme
+                                    ? glassTone('bg-white/8', 'bg-slate-200/70')
+                                    : 'bg-gray-200 dark:bg-zinc-800',
+                                )}
+                              />
+                              <span className="whitespace-nowrap">
+                                {t('sidebar.noMoreThreads')}
+                              </span>
+                              <span
+                                className={clsx(
+                                  'h-px flex-1',
+                                  isScrapbookSidebarTheme
+                                    ? glassTone('bg-white/8', 'bg-slate-200/70')
+                                    : 'bg-gray-200 dark:bg-zinc-800',
+                                )}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}

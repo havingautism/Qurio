@@ -192,6 +192,7 @@ async def list_scrapbook(
     platform: str | None = None,
     q: str | None = None,
     limit: int = 50,
+    cursor: str | None = None,
     database_provider: str | None = None,
 ) -> JSONResponse:
     """Return saved scrapbook entries, newest first."""
@@ -204,6 +205,8 @@ async def list_scrapbook(
         filters.append(DbFilter(op="eq", column="platform", value=platform))
     if q:
         filters.append(DbFilter(op="ilike", column="title", value=q))
+    if cursor:
+        filters.append(DbFilter(op="lt", column="created_at", value=cursor))
 
     req = DbQueryRequest(
         providerId=adapter.config.id,

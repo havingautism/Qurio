@@ -70,12 +70,13 @@ const _getBaseUrl = (provider, settings) => {
 /**
  * List scrapbook entries (newest first).
  */
-export const listScrapbookEntries = async ({ platform, q, limit = 50 } = {}) => {
+export const listScrapbookEntries = async ({ platform, q, cursor, limit = 50 } = {}) => {
   try {
     const params = new URLSearchParams()
     const databaseProvider = getSelectedDatabaseProvider()
     if (platform && platform !== 'all') params.set('platform', platform)
     if (q) params.set('q', q)
+    if (cursor) params.set('cursor', cursor)
     if (limit) params.set('limit', String(limit))
     if (databaseProvider) params.set('database_provider', databaseProvider)
     const res = await fetch(`${getBackendUrl()}/api/scrapbook?${params.toString()}`)

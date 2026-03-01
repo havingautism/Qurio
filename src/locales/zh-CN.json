@@ -66,6 +66,8 @@
     "ddgNewsSearchInfo": "使用 DuckDuckGo (DDGS) 搜索新闻。",
     "newsSearch": "新闻搜索",
     "newsSearchInfo": "使用所选搜索后端检索新闻。",
+    "exaSearch": "Exa 搜索",
+    "exaSearchInfo": "使用 Agno 官方 Exa 工具执行网页搜索。",
     "arxivSearch": "arXiv 搜索",
     "arxivSearchInfo": "搜索 arXiv 论文并返回元数据。",
     "arxivRead": "arXiv 阅读论文",
@@ -115,12 +117,22 @@
   },
   "searchBackends": {
     "auto": "自动",
+    "exa": "Exa",
+    "exaRequiresKey": "请先在设置中配置 Exa API Key",
     "duckduckgo": "DuckDuckGo",
     "google": "Google",
     "bing": "Bing",
     "brave": "Brave",
     "yandex": "Yandex",
     "yahoo": "Yahoo"
+  },
+  "exaCategories": {
+    "company": "公司",
+    "researchPaper": "研究论文",
+    "news": "新闻",
+    "pdf": "PDF",
+    "github": "GitHub",
+    "tweet": "推文"
   },
   "customTools": {
     "title": "我的工具",
@@ -479,10 +491,13 @@
     },
     "toolsApiProviders": {
       "tavily": "Tavily",
-      "serpapi": "SerpApi"
+      "serpapi": "SerpApi",
+      "exa": "Exa"
     },
     "toolsApiKey": "工具 API 密钥",
     "toolsApiKeyPlaceholder": "输入工具 API 密钥",
+    "exaApiKeyHint": "Exa 搜索",
+    "exaApiKeyDescription": "当聊天输入框的搜索后端切换为 Exa 时使用。Agno 官方 Exa 工具需要配置该 Key。",
     "imageSearchNote": "图片搜索",
     "serpApiKeyPlaceholder": "输入 SerpApi 密钥",
     "serpApiTitle": "SerpApi 配置",
@@ -1448,4 +1463,4 @@
         "autoSave": "自动获取并保存"
       }
     }
-  }
+}

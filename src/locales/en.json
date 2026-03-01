@@ -66,6 +66,8 @@
     "ddgNewsSearchInfo": "Search recent news using DuckDuckGo (DDGS).",
     "newsSearch": "News Search",
     "newsSearchInfo": "Search news using the selected web search backend.",
+    "exaSearch": "Exa Search",
+    "exaSearchInfo": "Search the web using Agno's Exa toolkit.",
     "arxivSearch": "arXiv Search",
     "arxivSearchInfo": "Search arXiv for papers and return article metadata.",
     "arxivRead": "arXiv Read Papers",
@@ -115,12 +117,22 @@
   },
   "searchBackends": {
     "auto": "Auto",
+    "exa": "Exa",
+    "exaRequiresKey": "Configure an Exa API key in Settings first",
     "duckduckgo": "DuckDuckGo",
     "google": "Google",
     "bing": "Bing",
     "brave": "Brave",
     "yandex": "Yandex",
     "yahoo": "Yahoo"
+  },
+  "exaCategories": {
+    "company": "Company",
+    "researchPaper": "Research Paper",
+    "news": "News",
+    "pdf": "PDF",
+    "github": "GitHub",
+    "tweet": "Tweet"
   },
   "knowledgeBase": {
     "title": "Knowledge Base",
@@ -495,10 +507,13 @@
     },
     "toolsApiProviders": {
       "tavily": "Tavily",
-      "serpapi": "SerpApi"
+      "serpapi": "SerpApi",
+      "exa": "Exa"
     },
     "toolsApiKey": "Tool API Key",
     "toolsApiKeyPlaceholder": "Enter your tool API key",
+    "exaApiKeyHint": "Exa Search",
+    "exaApiKeyDescription": "Used when the chat input search backend is set to Exa. Required for Agno's Exa toolkit.",
     "imageSearchNote": "Image Search",
     "serpApiKeyPlaceholder": "Enter your SerpApi key",
     "serpApiTitle": "SerpApi Configuration",
@@ -1456,4 +1471,4 @@
         "autoSave": "Fetch & Save"
       }
     }
-  }
+}

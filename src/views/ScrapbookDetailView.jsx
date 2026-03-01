@@ -29,12 +29,7 @@ import {
   generateTitleViaBackend,
   streamChatViaBackend,
 } from '../lib/backendClient'
-import { loadSettings } from '../lib/settings'
-
-const getBackendUrl = () => {
-  const settings = loadSettings()
-  return settings.backendUrl || 'http://127.0.0.1:3002'
-}
+import { getBackendUrl, loadSettings } from '../lib/settings'
 
 const getSelectedDatabaseProvider = () => {
   const settings = loadSettings()

@@ -380,6 +380,38 @@ AGNO_TOOLS: list[dict[str, Any]] = [
         },
     },
     {
+        "id": "search_exa",
+        "name": "search_exa",
+        "category": "agno",
+        "description": "Search the web using Exa with optional category filtering.",
+        "parameters": {
+            "type": "object",
+            "required": ["query"],
+            "properties": {
+                "query": {"type": "string", "description": "Search query."},
+                "num_results": {
+                    "type": "integer",
+                    "description": "Number of search results to return (default 5).",
+                },
+                "category": {
+                    "type": "string",
+                    "enum": [
+                        "company",
+                        "research paper",
+                        "news",
+                        "pdf",
+                        "github",
+                        "tweet",
+                        "personal site",
+                        "linkedin profile",
+                        "financial report",
+                    ],
+                    "description": "Optional Exa category filter.",
+                },
+            },
+        },
+    },
+    {
         "id": "search_arxiv_and_return_articles",
         "name": "search_arxiv_and_return_articles",
         "category": "agno",

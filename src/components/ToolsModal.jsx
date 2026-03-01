@@ -23,8 +23,8 @@ import {
   updateUserTool,
   syncMcpTools,
 } from '../lib/userToolsService'
-import { getPublicEnv } from '../lib/publicEnv'
 import { fetchMcpToolsViaBackend } from '../lib/backendClient'
+import { getBackendUrl } from '../lib/settings'
 import clsx from 'clsx'
 import { useTranslation } from 'react-i18next'
 
@@ -202,17 +202,13 @@ const ToolsModal = ({ isOpen, onClose }) => {
 
     setMcpToolsLoading(true)
     try {
-      const settings = JSON.parse(localStorage.getItem('qurio-settings') || '{}')
-      const backendUrl =
-        getPublicEnv('PUBLIC_BACKEND_URL') || settings.backendUrl || 'http://127.0.0.1:3002'
-
       console.log('[MCP] Loading tools from:', {
         name: formData.serverName,
         url: formData.serverUrl,
         transport: formData.serverTransport,
       })
 
-      const response = await fetch(`${backendUrl}/api/mcp-tools/servers`, {
+      const response = await fetch(`${getBackendUrl()}/api/mcp-tools/servers`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -225,7 +221,14 @@ const ToolsModal = ({ isOpen, onClose }) => {
       })
 
       if (!response.ok) {
-        throw new Error(`${t('customTools.mcp.loadFailed')}: ${response.statusText}`)
+        let backendError = response.statusText
+        try {
+          const errorData = await response.json()
+          backendError = errorData?.error || backendError
+        } catch {
+          // ignore non-JSON error responses
+        }
+        throw new Error(`${t('customTools.mcp.loadFailed')}: ${backendError}`)
       }
 
       const data = await response.json()

@@ -4,7 +4,7 @@
  * Model config is read from global settings (defaultModelProvider / defaultModel)
  * and can be overridden by scrapbookProvider / scrapbookModel.
  */
-import { loadSettings } from './settings'
+import { getBackendUrl, loadSettings } from './settings'
 import { getPublicEnv } from './publicEnv'
 
 const ENV_VARS = {
@@ -19,11 +19,6 @@ const ENV_VARS = {
   nvidiaKey: getPublicEnv('PUBLIC_NVIDIA_API_KEY'),
   minimaxKey: getPublicEnv('PUBLIC_MINIMAX_API_KEY'),
   openAIBase: getPublicEnv('PUBLIC_OPENAI_API_BASE'),
-}
-
-const getBackendUrl = () => {
-  const settings = loadSettings()
-  return settings.backendUrl || 'http://127.0.0.1:3002'
 }
 
 const getSelectedDatabaseProvider = () => {

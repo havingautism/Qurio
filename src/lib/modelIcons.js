@@ -12,6 +12,7 @@ import ZhipuIcon from '../assets/zhipu-color.svg?url'
 import ModelScopeIcon from '../assets/modelscope-color.svg?url'
 import TavilyIcon from '../assets/tavily-color.svg?url'
 import SerpApiIcon from '../assets/search-icons/serp.png?url'
+import ExaIcon from '../assets/exa-color.svg?url'
 import NvidiaIcon from '../assets/nvidia-color.svg?url'
 import MinimaxIcon from '../assets/minimax-color.svg?url'
 import VolcengineIcon from '../assets/volcengine-color.svg?url'
@@ -42,6 +43,7 @@ export const PROVIDER_ICON_META = {
   },
   tavily: { src: TavilyIcon, alt: 'Tavily', bgClassName: DEFAULT_ICON_BG_CLASS },
   serpapi: { src: SerpApiIcon, alt: 'SerpApi', bgClassName: DEFAULT_ICON_BG_CLASS },
+  exa: { src: ExaIcon, alt: 'Exa', bgClassName: DEFAULT_ICON_BG_CLASS },
   nvidia: {
     src: NvidiaIcon,
     alt: 'NVIDIA',

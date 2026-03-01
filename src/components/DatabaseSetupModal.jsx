@@ -15,7 +15,7 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { clsx } from 'clsx'
-import { loadSettings, saveSettings } from '../lib/settings'
+import { getBackendUrl, loadSettings, saveSettings } from '../lib/settings'
 import { renderProviderIcon } from '../lib/modelIcons'
 import {
   Select,
@@ -24,11 +24,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-
-const getBackendUrl = () => {
-  const settings = loadSettings()
-  return settings.backendUrl || 'http://127.0.0.1:3002'
-}
 
 const isElectronRuntime = () =>
   typeof window !== 'undefined' &&

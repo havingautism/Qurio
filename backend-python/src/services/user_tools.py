@@ -6,7 +6,9 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import re
+from datetime import timedelta
 from typing import Any
 from urllib.parse import quote, urlencode, urlparse
 
@@ -25,6 +27,22 @@ except Exception:  # pragma: no cover - optional dependency
 
 _mcp_tools_cache: dict[str, Any] = {}
 _mcp_tools_lock = asyncio.Lock()
+_REMOTE_MCP_TIMEOUT_SECONDS = max(15, int(os.getenv("REMOTE_MCP_TIMEOUT_SECONDS", "45")))
+_REMOTE_MCP_SSE_READ_TIMEOUT_SECONDS = max(
+    _REMOTE_MCP_TIMEOUT_SECONDS,
+    int(os.getenv("REMOTE_MCP_SSE_READ_TIMEOUT_SECONDS", "300")),
+)
+
+
+def _normalize_mcp_transport(transport: str | None) -> str:
+    normalized = str(transport or "streamable-http").strip().lower()
+    if normalized in {"streamable_http", "streamablehttp", "http"}:
+        return "streamable-http"
+    if normalized == "sse":
+        return "sse"
+    if normalized == "stdio":
+        return "stdio"
+    return "streamable-http"
 
 
 def _replace_template(template: Any, args: dict[str, Any]) -> Any:
@@ -124,10 +142,12 @@ async def _get_mcp_tools(server_url: str, transport: str, headers: dict[str, Any
     if MCPTools is None:
         raise RuntimeError("`mcp` not installed. Please install using `pip install mcp`.")
 
+    normalized_transport = _normalize_mcp_transport(transport)
+
     key = json.dumps(
         {
             "url": server_url,
-            "transport": transport,
+            "transport": normalized_transport,
             "headers": headers,
         },
         sort_keys=True,
@@ -138,16 +158,35 @@ async def _get_mcp_tools(server_url: str, transport: str, headers: dict[str, Any
             return _mcp_tools_cache[key]
 
         server_params = None
-        if transport == "sse":
-            server_params = SSEClientParams(url=server_url, headers=headers) if SSEClientParams else None
+        if normalized_transport == "sse":
+            server_params = (
+                SSEClientParams(
+                    url=server_url,
+                    headers=headers,
+                    timeout=_REMOTE_MCP_TIMEOUT_SECONDS,
+                    sse_read_timeout=_REMOTE_MCP_SSE_READ_TIMEOUT_SECONDS,
+                )
+                if SSEClientParams
+                else None
+            )
         else:
             server_params = (
-                StreamableHTTPClientParams(url=server_url, headers=headers)
+                StreamableHTTPClientParams(
+                    url=server_url,
+                    headers=headers,
+                    timeout=timedelta(seconds=_REMOTE_MCP_TIMEOUT_SECONDS),
+                    sse_read_timeout=timedelta(seconds=_REMOTE_MCP_SSE_READ_TIMEOUT_SECONDS),
+                )
                 if StreamableHTTPClientParams
                 else None
             )
 
-        tools = MCPTools(url=server_url, transport=transport, server_params=server_params)
+        tools = MCPTools(
+            url=server_url,
+            transport=normalized_transport,
+            server_params=server_params,
+            timeout_seconds=_REMOTE_MCP_TIMEOUT_SECONDS,
+        )
         await tools.connect()
         _mcp_tools_cache[key] = tools
         return tools
@@ -161,7 +200,9 @@ async def _execute_mcp_tool(tool: dict[str, Any], args: dict[str, Any]) -> Any:
     server_url = config.get("serverUrl") or config.get("server_url") or config.get("url")
     if not server_url:
         raise ValueError("MCP tool missing serverUrl")
-    transport = config.get("transport") or config.get("serverTransport") or "streamable-http"
+    transport = _normalize_mcp_transport(
+        config.get("transport") or config.get("serverTransport") or "streamable-http"
+    )
     headers = dict(config.get("headers") or {})
     bearer = config.get("bearerToken") or config.get("authToken")
     if bearer and "Authorization" not in headers:

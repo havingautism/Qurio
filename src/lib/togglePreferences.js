@@ -3,6 +3,14 @@ export const THINKING_MODE_STORAGE_KEY = 'qurio:toggle:thinkingMode'
 export const SEARCH_TOGGLE_STORAGE_KEY = 'qurio:toggle:search'
 export const SEARCH_BACKEND_STORAGE_KEY = 'qurio:toggle:searchBackend'
 export const SEARCH_TOOLS_STORAGE_KEY = 'qurio:toggle:searchTools'
+const PERSISTED_EXA_SEARCH_TOOL_IDS = new Set([
+  'auto',
+  'company',
+  'research paper',
+  'news',
+  'pdf',
+  'github',
+])
 
 export const parseStoredBoolean = value => {
   if (value === 'true') return true
@@ -19,19 +27,27 @@ export const loadTogglePreferences = () => {
       ? thinkingModeRaw
       : null
   const searchBackend = localStorage.getItem(SEARCH_BACKEND_STORAGE_KEY)
-
-  // Academic search selections should NOT be persisted.
-  // Keep compatibility by clearing any legacy saved values.
-  if (localStorage.getItem(SEARCH_TOOLS_STORAGE_KEY) != null) {
-    localStorage.removeItem(SEARCH_TOOLS_STORAGE_KEY)
-  }
+  const storedSearchTools = (() => {
+    try {
+      const raw = localStorage.getItem(SEARCH_TOOLS_STORAGE_KEY)
+      if (!raw) return []
+      const parsed = JSON.parse(raw)
+      if (!Array.isArray(parsed)) return []
+      return parsed
+        .map(item => String(item || '').trim())
+        .filter(item => PERSISTED_EXA_SEARCH_TOOL_IDS.has(item))
+    } catch {
+      localStorage.removeItem(SEARCH_TOOLS_STORAGE_KEY)
+      return []
+    }
+  })()
 
   return {
     searchEnabled,
     thinkingEnabled,
     thinkingMode,
     searchBackend,
-    searchTools: [],
+    searchTools: storedSearchTools,
   }
 }
 
@@ -61,8 +77,14 @@ export const persistSearchBackendPreference = backend => {
 }
 
 export const persistSearchToolsPreference = tools => {
-  // Academic search selections should NOT be persisted.
-  // Always clear legacy storage instead of writing new values.
-  void tools
-  localStorage.removeItem(SEARCH_TOOLS_STORAGE_KEY)
+  const exaTools = Array.isArray(tools)
+    ? tools
+        .map(item => String(item || '').trim())
+        .filter(item => PERSISTED_EXA_SEARCH_TOOL_IDS.has(item))
+    : []
+  if (exaTools.length > 0) {
+    localStorage.setItem(SEARCH_TOOLS_STORAGE_KEY, JSON.stringify(exaTools))
+  } else {
+    localStorage.removeItem(SEARCH_TOOLS_STORAGE_KEY)
+  }
 }

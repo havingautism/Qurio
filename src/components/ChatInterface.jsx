@@ -22,13 +22,16 @@ import useAgentManagement from '../hooks/chat/useAgentManagement'
 import useChatHistory from '../hooks/chat/useChatHistory'
 import useSpaceManagement from '../hooks/chat/useSpaceManagement'
 import { useSidebarOffset } from '../hooks/useSidebarOffset'
-import { loadSettings } from '../lib/settings'
+import { isConfiguredApiSecret, loadSettings } from '../lib/settings'
 import { deleteMessageById } from '../lib/supabase'
 import ChatHeader from './chat/ChatHeader'
 import ChatInputBar from './chat/ChatInputBar'
 import { resolveEmbeddingConfig } from '../lib/embeddingService'
 import {
   ACADEMIC_SEARCH_TOOL_OPTIONS,
+  DEFAULT_EXA_SEARCH_TOOL_ID,
+  EXA_SEARCH_TOOL_IDS,
+  EXA_SEARCH_TOOL_OPTIONS,
   SEARCH_BACKEND_OPTIONS,
   getSearchToolOptions,
   setSearchToolRegistry,
@@ -286,6 +289,8 @@ const ChatInterface = ({
   )
   const hasAppliedInitialDocumentsRef = useRef(false)
   const previousSpaceIdRef = useRef(null)
+  const [settings, setSettings] = useState(loadSettings())
+  const isRelatedEnabled = Boolean(settings.enableRelatedQuestions)
 
   // New state for toggles and attachments
   const [isSearchActive, setIsSearchActive] = useState(false)
@@ -294,17 +299,25 @@ const ChatInterface = ({
   const [isExpertMode, setIsExpertMode] = useState(false)
   const previousExpertModeRef = useRef(false)
   const [searchBackend, setSearchBackend] = useState(null)
+  const [selectedExaSearchTools, setSelectedExaSearchTools] = useState([])
   const [selectedSearchTools, setSelectedSearchTools] = useState([])
   const [isSearchMenuOpen, setIsSearchMenuOpen] = useState(false)
   const togglePrefsHydratedRef = useRef(false)
   const togglePrefsHydrationTimerRef = useRef(null)
+  const hasExaApiKey = useMemo(
+    () =>
+      isConfiguredApiSecret(settings?.exaApiKey, ['your-exa-api-key', 'your_exa_api_key']),
+    [settings?.exaApiKey],
+  )
 
   const handleSelectSearchTool = useCallback(toolId => {
     if (!toolId) {
       setSelectedSearchTools([])
+      setSelectedExaSearchTools([])
       return
     }
     setSearchBackend(null)
+    setSelectedExaSearchTools([])
     setSelectedSearchTools(prev => {
       const normalized = String(toolId)
       return prev.includes(normalized)
@@ -313,17 +326,36 @@ const ChatInterface = ({
     })
   }, [])
 
+  const handleSelectExaSearchTool = useCallback(toolId => {
+    if (!toolId) {
+      setSelectedExaSearchTools([DEFAULT_EXA_SEARCH_TOOL_ID])
+      return
+    }
+    const normalized = String(toolId)
+    setSearchBackend('exa')
+    setSelectedExaSearchTools([normalized])
+  }, [])
+
   const handleSelectSearchBackend = useCallback(backendId => {
     if (!backendId) {
       setSearchBackend(null)
+      setSelectedExaSearchTools([])
       return
     }
     setSelectedSearchTools([])
-    setSearchBackend(String(backendId))
-  }, [])
+    const normalized = String(backendId)
+    if (normalized === 'exa' && !hasExaApiKey) return
+    setSearchBackend(normalized)
+    if (normalized === 'exa') {
+      setSelectedExaSearchTools(prev => (prev.length > 0 ? [prev[0]] : [DEFAULT_EXA_SEARCH_TOOL_ID]))
+    } else {
+      setSelectedExaSearchTools([])
+    }
+  }, [hasExaApiKey])
 
   const handleClearSearchSelection = useCallback(() => {
     setSearchBackend(null)
+    setSelectedExaSearchTools([])
     setSelectedSearchTools([])
     setIsSearchMenuOpen(false)
   }, [])
@@ -579,9 +611,6 @@ const ChatInterface = ({
   ])
 
   const initialAgentSelectionId = initialAgentSelection?.id || null
-
-  const [settings, setSettings] = useState(loadSettings())
-  const isRelatedEnabled = Boolean(settings.enableRelatedQuestions)
   const messageRefs = useRef({})
   const bottomRef = useRef(null)
   const inputAreaRef = useRef(null)
@@ -761,9 +790,31 @@ const ChatInterface = ({
     previousExpertModeRef.current = isExpertMode
   }, [isExpertMode, isThinkingLocked])
 
+  const resolvedSearchBackendOptions = useMemo(
+    () =>
+      SEARCH_BACKEND_OPTIONS.map(option =>
+        option.id === 'exa'
+          ? { ...option, disabled: !hasExaApiKey, titleKey: !hasExaApiKey ? 'searchBackends.exaRequiresKey' : null }
+          : option,
+      ),
+    [hasExaApiKey],
+  )
+
+  const resolvedExaSearchOptions = useMemo(
+    () =>
+      EXA_SEARCH_TOOL_OPTIONS.map(option => ({
+        ...option,
+        disabled: !hasExaApiKey,
+        titleKey: !hasExaApiKey ? 'searchBackends.exaRequiresKey' : null,
+      })),
+    [hasExaApiKey],
+  )
+
   const resolvedSearchToolIds = useMemo(() => {
     const ids = new Set()
-    if (searchBackend) {
+    if (searchBackend === 'exa') {
+      ids.add('search_exa')
+    } else if (searchBackend) {
       ids.add('web_search')
     }
     selectedSearchTools.forEach(id => ids.add(String(id)))
@@ -814,7 +865,16 @@ const ChatInterface = ({
       const hasStoredSearchSelection = Boolean(storedSearchBackend) || parsedSearchTools.length > 0
       if (storedSearchEnabled || hasStoredSearchSelection) {
         setSearchBackend(storedSearchBackend || 'auto')
-        setSelectedSearchTools(parsedSearchTools)
+        const exaIds = parsedSearchTools.filter(id => EXA_SEARCH_TOOL_IDS.has(String(id)))
+        const academicIds = parsedSearchTools.filter(id => !EXA_SEARCH_TOOL_IDS.has(String(id)))
+        setSelectedExaSearchTools(
+          storedSearchBackend === 'exa'
+            ? exaIds.length > 0
+              ? [String(exaIds[0])]
+              : [DEFAULT_EXA_SEARCH_TOOL_ID]
+            : [],
+        )
+        setSelectedSearchTools(academicIds)
       }
     } catch (error) {
       console.error('Failed to load toggle preferences from localStorage:', error)
@@ -858,8 +918,8 @@ const ChatInterface = ({
 
   useEffect(() => {
     if (!togglePrefsHydratedRef.current) return
-    persistSearchToolsPreference(selectedSearchTools)
-  }, [selectedSearchTools])
+    persistSearchToolsPreference([...selectedExaSearchTools, ...selectedSearchTools])
+  }, [selectedExaSearchTools, selectedSearchTools])
 
   // Effect to handle initial message from homepage
   const hasInitialized = useRef(false)
@@ -875,8 +935,13 @@ const ChatInterface = ({
       const nextProvider = effectiveAgent?.provider || defaultAgent?.provider
       if (!nextProvider || !providerSupportsSearch(nextProvider)) {
         setSearchBackend(null)
+        setSelectedExaSearchTools([])
         setSelectedSearchTools([])
         setIsSearchMenuOpen(false)
+      }
+      if (!nextSettings.exaApiKey && searchBackend === 'exa') {
+        setSearchBackend(null)
+        setSelectedExaSearchTools([])
       }
       void refreshSearchTools(Boolean(nextSettings.tavilyApiKey))
     }
@@ -885,7 +950,7 @@ const ChatInterface = ({
     return () => {
       window.removeEventListener('settings-changed', handleSettingsChange)
     }
-  }, [effectiveAgent?.provider, defaultAgent?.provider, refreshSearchTools])
+  }, [effectiveAgent?.provider, defaultAgent?.provider, refreshSearchTools, searchBackend])
 
   useEffect(() => {
     const processInitialMessage = async () => {
@@ -954,7 +1019,16 @@ const ChatInterface = ({
             ? [initialToggles.searchTool]
             : []
         const academicIds = new Set(ACADEMIC_SEARCH_TOOL_OPTIONS.map(option => option.id))
+        const exaIds = new Set(EXA_SEARCH_TOOL_OPTIONS.map(option => option.id))
         const initialAcademic = initialTools.filter(id => academicIds.has(String(id)))
+        const initialExa = initialTools.filter(id => exaIds.has(String(id)))
+        setSelectedExaSearchTools(
+          initialBackend === 'exa'
+            ? initialExa.length > 0
+              ? [String(initialExa[0])]
+              : [DEFAULT_EXA_SEARCH_TOOL_ID]
+            : [],
+        )
         setSelectedSearchTools(initialAcademic.map(id => String(id)))
       }
       if (initialToggles.thinkingMode) {
@@ -1011,9 +1085,17 @@ const ChatInterface = ({
   }, [refreshSearchTools])
 
   useEffect(() => {
-    const active = Boolean(searchBackend) || selectedSearchTools.length > 0
+    const active =
+      Boolean(searchBackend) || selectedExaSearchTools.length > 0 || selectedSearchTools.length > 0
     setIsSearchActive(active)
-  }, [searchBackend, selectedSearchTools])
+  }, [searchBackend, selectedExaSearchTools, selectedSearchTools])
+
+  useEffect(() => {
+    if (hasExaApiKey) return
+    if (searchBackend !== 'exa') return
+    setSearchBackend(null)
+    setSelectedExaSearchTools([])
+  }, [hasExaApiKey, searchBackend])
 
   // Load existing conversation messages when switching conversations
   useEffect(() => {
@@ -1574,6 +1656,11 @@ const ChatInterface = ({
       const expertModeActive = togglesOverride ? togglesOverride.expertMode : isExpertMode
       const searchTool = togglesOverride ? togglesOverride.searchTool : resolvedSearchToolIds
       const searchBackendValue = togglesOverride ? togglesOverride.searchBackend : searchBackend
+      const exaSearchCategoryValue =
+        togglesOverride?.exaSearchCategory ??
+        (searchBackendValue === 'exa'
+          ? selectedExaSearchTools[0] || DEFAULT_EXA_SEARCH_TOOL_ID
+          : null)
 
       if (!textToSend.trim() && attToSend.length === 0) return
       if (isLoading) return
@@ -1655,6 +1742,7 @@ const ChatInterface = ({
             search: searchActive,
             searchTool,
             searchBackend: searchBackendValue || null,
+            exaSearchCategory: exaSearchCategoryValue,
             thinking: thinkingActive,
             thinkingMode: thinkingModeValue,
             expertMode: expertModeActive,
@@ -1771,6 +1859,10 @@ const ChatInterface = ({
             search: isSearchActive,
             searchTool: resolvedSearchToolIds,
             searchBackend,
+            exaSearchCategory:
+              searchBackend === 'exa'
+                ? selectedExaSearchTools[0] || DEFAULT_EXA_SEARCH_TOOL_ID
+                : null,
             thinking: thinkingMode === 'deep',
             thinkingMode,
             expertMode: isExpertMode,
@@ -1789,6 +1881,7 @@ const ChatInterface = ({
       isSearchActive,
       resolvedSearchToolIds,
       searchBackend,
+      selectedExaSearchTools,
       thinkingMode,
       isExpertMode,
       isRelatedEnabled,
@@ -1886,6 +1979,8 @@ const ChatInterface = ({
           search: isSearchActive,
           searchTool: resolvedSearchToolIds,
           searchBackend,
+          exaSearchCategory:
+            searchBackend === 'exa' ? selectedExaSearchTools[0] || DEFAULT_EXA_SEARCH_TOOL_ID : null,
           thinking: thinkingMode === 'deep',
           thinkingMode,
           related: isRelatedEnabled,
@@ -1904,6 +1999,7 @@ const ChatInterface = ({
       isSearchActive,
       resolvedSearchToolIds,
       searchBackend,
+      selectedExaSearchTools,
       thinkingMode,
       isRelatedEnabled,
     ],
@@ -1946,6 +2042,8 @@ const ChatInterface = ({
           search: isSearchActive,
           searchTool: resolvedSearchToolIds,
           searchBackend,
+          exaSearchCategory:
+            searchBackend === 'exa' ? selectedExaSearchTools[0] || DEFAULT_EXA_SEARCH_TOOL_ID : null,
           thinking: thinkingMode === 'deep',
           thinkingMode,
           related: isRelatedEnabled,
@@ -1963,6 +2061,7 @@ const ChatInterface = ({
       isSearchActive,
       resolvedSearchToolIds,
       searchBackend,
+      selectedExaSearchTools,
       thinkingMode,
       isRelatedEnabled,
     ],
@@ -2413,11 +2512,14 @@ const ChatInterface = ({
               agentSelectorRef={agentSelectorRef}
               onToggleSearch={toggleSearchMenu}
               searchBackend={searchBackend}
-              searchBackendOptions={SEARCH_BACKEND_OPTIONS}
+              searchBackendOptions={resolvedSearchBackendOptions}
+              selectedExaSearchTools={selectedExaSearchTools}
+              exaSearchOptions={resolvedExaSearchOptions}
               selectedSearchTools={selectedSearchTools}
               searchOptions={ACADEMIC_SEARCH_TOOL_OPTIONS}
               isSearchMenuOpen={isSearchMenuOpen}
               onSearchToolSelect={handleSelectSearchTool}
+              onExaSearchToolSelect={handleSelectExaSearchTool}
               onSearchBackendChange={handleSelectSearchBackend}
               onSearchClear={handleClearSearchSelection}
               onSearchMenuClose={handleSearchMenuClose}

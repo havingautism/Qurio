@@ -15,17 +15,12 @@
  * modeled here. Credentials are read from settings (env/localStorage).
  */
 
-import { loadSettings } from './settings'
+import { getBackendUrl, loadSettings } from './settings'
 export { loadSettings, saveSettings } from './settings'
 
 const DEFAULT_USER_ID = 'default-user'
 
 let backendDbClient = null
-
-const getBackendUrl = () => {
-  const settings = loadSettings()
-  return settings.backendUrl || 'http://127.0.0.1:3002'
-}
 
 const getDbAccessKey = () => {
   const settings = loadSettings()

@@ -363,12 +363,17 @@ const useChatStore = create((set, get) => ({
       const searchProvider = settings.searchProvider || 'tavily'
       const tavilyApiKey = searchProvider === 'tavily' ? settings.tavilyApiKey : undefined
       const serpapiApiKey = settings.serpapiApiKey
+      const exaApiKey = settings.exaApiKey
       const searchBackends = Array.isArray(toggles?.searchBackends)
         ? toggles.searchBackends.map(item => String(item)).filter(Boolean)
         : typeof toggles?.searchBackend === 'string' && toggles.searchBackend
           ? [String(toggles.searchBackend)]
           : []
       const searchBackend = searchBackends[0] || null
+      const exaSearchCategory =
+        searchBackend === 'exa' && typeof toggles?.exaSearchCategory === 'string'
+          ? toggles.exaSearchCategory
+          : null
 
       const resolvedToolIds = (() => {
         if (Array.isArray(targetAgent?.toolIds) && targetAgent.toolIds.length > 0) {
@@ -580,6 +585,8 @@ const useChatStore = create((set, get) => ({
           searchProvider,
           tavilyApiKey,
           serpapiApiKey,
+          exaApiKey,
+          exaSearchCategory,
           searchBackend,
           memoryProvider: modelConfig.provider,
           memoryModel: modelConfig.model,
@@ -1666,6 +1673,11 @@ const useChatStore = create((set, get) => ({
             const searchProvider = settings.searchProvider || 'tavily'
             const tavilyApiKey = searchProvider === 'tavily' ? settings.tavilyApiKey : undefined
             const serpapiApiKey = settings.serpapiApiKey
+            const exaApiKey = settings.exaApiKey
+            const exaSearchCategory =
+              searchBackend === 'exa' && typeof resolvedToggles?.exaSearchCategory === 'string'
+                ? resolvedToggles.exaSearchCategory
+                : null
             const languageInstruction = getLanguageInstruction(agent, settings)
             const taskPrompt = assignedTask
               ? `You are assigned this sub-question only:\n${assignedTask}\n\nConstraints:\n- Answer only this sub-question.\n- Do not cover other agents' topics.\n- Return practical, implementation-ready guidance.`
@@ -1735,6 +1747,8 @@ const useChatStore = create((set, get) => ({
                   searchProvider,
                   tavilyApiKey,
                   serpapiApiKey,
+                  exaApiKey,
+                  exaSearchCategory,
                   memoryProvider: modelConfig.provider,
                   memoryModel: modelConfig.model,
                   memoryApiKey: credentials.apiKey,

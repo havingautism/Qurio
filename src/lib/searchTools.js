@@ -3,12 +3,14 @@ import GoogleIcon from '../assets/google-color.svg?url'
 import DuckDuckGoIcon from '../assets/search-icons/duckduckgo.svg?url'
 import BingIcon from '../assets/search-icons/bing.svg?url'
 import BraveIcon from '../assets/search-icons/brave.svg?url'
+import ExaIcon from '../assets/exa-color.svg?url'
 import YandexIcon from '../assets/search-icons/yandex.svg?url'
 import YahooIcon from '../assets/search-icons/yahoo.svg?url'
 import ArxivIcon from '../assets/search-icons/arxiv.svg?url'
 import WikipediaIcon from '../assets/search-icons/wikipedia.svg?url'
 
 export const DEFAULT_SEARCH_TOOL_ID = 'web_search'
+export const DEFAULT_EXA_SEARCH_TOOL_ID = 'auto'
 
 const FALLBACK_SEARCH_TOOL_OPTIONS = [
   { id: DEFAULT_SEARCH_TOOL_ID, labelKey: 'tools.ddgWebSearch' },
@@ -54,6 +56,7 @@ export const TAVILY_TOOL_IDS = new Set([
 
 export const SEARCH_BACKEND_OPTIONS = [
   { id: 'auto', labelKey: 'searchBackends.auto', iconUrl: null },
+  { id: 'exa', labelKey: 'searchBackends.exa', iconUrl: ExaIcon },
   { id: 'google', labelKey: 'searchBackends.google', iconUrl: GoogleIcon },
   { id: 'bing', labelKey: 'searchBackends.bing', iconUrl: BingIcon },
   { id: 'duckduckgo', labelKey: 'searchBackends.duckduckgo', iconUrl: DuckDuckGoIcon },
@@ -66,6 +69,17 @@ export const ACADEMIC_SEARCH_TOOL_OPTIONS = [
   { id: 'search_arxiv_and_return_articles', labelKey: 'tools.arxivSearch', iconUrl: ArxivIcon },
   { id: 'search_wikipedia', labelKey: 'tools.wikipediaSearch', iconUrl: WikipediaIcon },
 ]
+
+export const EXA_SEARCH_TOOL_OPTIONS = [
+  { id: 'auto', labelKey: 'searchBackends.auto', iconUrl: ExaIcon },
+  { id: 'company', labelKey: 'exaCategories.company', iconUrl: ExaIcon },
+  { id: 'research paper', labelKey: 'exaCategories.researchPaper', iconUrl: ExaIcon },
+  { id: 'news', labelKey: 'exaCategories.news', iconUrl: ExaIcon },
+  { id: 'pdf', labelKey: 'exaCategories.pdf', iconUrl: ExaIcon },
+  { id: 'github', labelKey: 'exaCategories.github', iconUrl: ExaIcon },
+]
+
+export const EXA_SEARCH_TOOL_IDS = new Set(EXA_SEARCH_TOOL_OPTIONS.map(option => option.id))
 
 export const setSearchToolRegistry = tools => {
   searchToolRegistry = new Map()

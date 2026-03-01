@@ -95,6 +95,8 @@ class StreamChatRequest(BaseModel):
     # Search configuration
     search_provider: Literal["tavily", "serpapi"] | None = Field(default=None, alias="searchProvider")
     tavily_api_key: str | None = Field(default=None, alias="tavilyApiKey")
+    exa_api_key: str | None = Field(default=None, alias="exaApiKey")
+    exa_search_category: str | None = Field(default=None, alias="exaSearchCategory")
     search_backend: str | None = Field(default=None, alias="searchBackend")
     serpapi_api_key: str | None = Field(default=None, alias="serpapiApiKey")
     concurrency_limit: int | None = Field(default=None, alias="concurrencyLimit")

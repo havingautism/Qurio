@@ -27,7 +27,7 @@ import {
   DEEP_RESEARCH_SPACE_LABEL,
 } from './lib/deepResearchDefaults'
 import i18n from './lib/i18n' // Initialize i18next
-import { loadSettings, updateMemorySettings } from './lib/settings'
+import { getBackendUrl, loadSettings, updateMemorySettings } from './lib/settings'
 import {
   createSpace,
   deleteSpace,
@@ -50,10 +50,9 @@ const isDeepResearchAgent = agent => agent?.isDeepResearch || agent?.is_deep_res
 const syncEmailMonitorProvider = async () => {
   try {
     const settings = loadSettings()
-    const backendUrl = settings.backendUrl || 'http://127.0.0.1:3002'
     const dbProvider = settings.databaseProviderId || settings.databaseProvider || ''
     if (!dbProvider) return
-    const url = new URL(`${backendUrl}/api/email/monitor/provider`)
+    const url = new URL(`${getBackendUrl()}/api/email/monitor/provider`)
     url.searchParams.set('dbProvider', dbProvider)
     await fetch(url.toString(), { method: 'POST' })
   } catch (error) {

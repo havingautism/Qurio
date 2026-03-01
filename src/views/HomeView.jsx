@@ -36,6 +36,9 @@ import useScrollLock from '../hooks/useScrollLock'
 import { getAgentDisplayName } from '../lib/agentDisplay'
 import {
   ACADEMIC_SEARCH_TOOL_OPTIONS,
+  DEFAULT_EXA_SEARCH_TOOL_ID,
+  EXA_SEARCH_TOOL_IDS,
+  EXA_SEARCH_TOOL_OPTIONS,
   SEARCH_BACKEND_OPTIONS,
   getSearchToolOptions,
   setSearchToolRegistry,
@@ -48,7 +51,7 @@ import {
   notifyConversationsChanged,
 } from '../lib/conversationsService'
 import { providerSupportsSearch, resolveThinkingToggleRule } from '../lib/providers'
-import { loadSettings } from '../lib/settings'
+import { isConfiguredApiSecret, loadSettings } from '../lib/settings'
 import { getSpaceDisplayLabel } from '../lib/spaceDisplay'
 import { listSpaceAgents } from '../lib/spacesService'
 import { listSpaceDocuments, setConversationDocuments } from '../lib/documentsService'
@@ -190,9 +193,19 @@ const HomeView = () => {
     if (prefs.searchEnabled) return 'auto'
     return null
   })
+  const [homeSelectedExaSearchTools, setHomeSelectedExaSearchTools] = useState(() => {
+    const prefs = getInitialTogglePreferences()
+    const parsedTools = Array.isArray(prefs.searchTools) ? prefs.searchTools : []
+    const exaIds = parsedTools.filter(id => EXA_SEARCH_TOOL_IDS.has(String(id)))
+    if (prefs.searchBackend === 'exa') {
+      return exaIds.length > 0 ? [String(exaIds[0])] : [DEFAULT_EXA_SEARCH_TOOL_ID]
+    }
+    return []
+  })
   const [homeSearchTools, setHomeSearchTools] = useState(() => {
     const prefs = getInitialTogglePreferences()
-    return Array.isArray(prefs.searchTools) ? prefs.searchTools : []
+    const parsedTools = Array.isArray(prefs.searchTools) ? prefs.searchTools : []
+    return parsedTools.filter(id => !EXA_SEARCH_TOOL_IDS.has(String(id)))
   })
   const [isHomeSearchMenuOpen, setIsHomeSearchMenuOpen] = useState(false)
   const [isHomeThinkingMenuOpen, setIsHomeThinkingMenuOpen] = useState(false)
@@ -232,6 +245,27 @@ const HomeView = () => {
   const homePreviousSpaceIdRef = useRef(null)
   const homeTextareaRef = useRef(null)
   const homeInputHighlightRef = useRef(null)
+  const hasHomeExaApiKey = useMemo(
+    () =>
+      isConfiguredApiSecret(settings?.exaApiKey, ['your-exa-api-key', 'your_exa_api_key']),
+    [settings?.exaApiKey],
+  )
+  const homeSearchBackendOptions = useMemo(
+    () =>
+      SEARCH_BACKEND_OPTIONS.filter(option => option.id !== 'exa').map(option => ({
+        ...option,
+      })),
+    [],
+  )
+  const homeExaSearchOptions = useMemo(
+    () =>
+      EXA_SEARCH_TOOL_OPTIONS.map(option => ({
+        ...option,
+        disabled: !hasHomeExaApiKey,
+        titleKey: !hasHomeExaApiKey ? 'searchBackends.exaRequiresKey' : null,
+      })),
+    [hasHomeExaApiKey],
+  )
 
   useScrollLock(
     (isHomeSpaceSelectorOpen && isHomeMobile) ||
@@ -318,8 +352,10 @@ const HomeView = () => {
   }, [homeSelectedSpace?.id])
 
   useEffect(() => {
-    setIsHomeSearchActive(Boolean(homeSearchBackend) || homeSearchTools.length > 0)
-  }, [homeSearchBackend, homeSearchTools])
+    setIsHomeSearchActive(
+      Boolean(homeSearchBackend) || homeSelectedExaSearchTools.length > 0 || homeSearchTools.length > 0,
+    )
+  }, [homeSearchBackend, homeSelectedExaSearchTools, homeSearchTools])
 
   useEffect(() => {
     persistThinkingPreference(homeThinkingMode === 'deep')
@@ -335,8 +371,15 @@ const HomeView = () => {
   }, [homeSearchBackend])
 
   useEffect(() => {
-    persistSearchToolsPreference(homeSearchTools)
-  }, [homeSearchTools])
+    persistSearchToolsPreference([...homeSelectedExaSearchTools, ...homeSearchTools])
+  }, [homeSelectedExaSearchTools, homeSearchTools])
+
+  useEffect(() => {
+    if (hasHomeExaApiKey) return
+    if (homeSearchBackend !== 'exa') return
+    setHomeSearchBackend(null)
+    setHomeSelectedExaSearchTools([])
+  }, [hasHomeExaApiKey, homeSearchBackend])
 
   const refreshHomeSearchTools = async tavilyEnabledOverride => {
     try {
@@ -500,9 +543,11 @@ const HomeView = () => {
   const handleSelectHomeSearchTool = toolId => {
     if (!toolId) {
       setHomeSearchTools([])
+      setHomeSelectedExaSearchTools([])
       return
     }
     setHomeSearchBackend(null)
+    setHomeSelectedExaSearchTools([])
     setHomeSearchTools(prev => {
       const normalized = String(toolId)
       return prev.includes(normalized)
@@ -511,17 +556,37 @@ const HomeView = () => {
     })
   }
 
+  const handleSelectHomeExaSearchTool = toolId => {
+    if (!hasHomeExaApiKey) return
+    const normalized = String(toolId || DEFAULT_EXA_SEARCH_TOOL_ID)
+    setHomeSearchTools([])
+    setHomeSearchBackend('exa')
+    setHomeSelectedExaSearchTools([normalized])
+  }
+
   const handleSelectHomeSearchBackend = backendId => {
     if (!backendId) {
       setHomeSearchBackend(null)
+      setHomeSelectedExaSearchTools([])
       return
     }
     setHomeSearchTools([])
-    setHomeSearchBackend(String(backendId))
+    const normalized = String(backendId)
+    if (normalized === 'exa') {
+      if (!hasHomeExaApiKey) return
+      setHomeSearchBackend('exa')
+      setHomeSelectedExaSearchTools(prev =>
+        prev.length > 0 ? [prev[0]] : [DEFAULT_EXA_SEARCH_TOOL_ID],
+      )
+      return
+    }
+    setHomeSelectedExaSearchTools([])
+    setHomeSearchBackend(normalized)
   }
 
   const handleClearHomeSearch = () => {
     setHomeSearchBackend(null)
+    setHomeSelectedExaSearchTools([])
     setHomeSearchTools([])
     setIsHomeSearchMenuOpen(false)
   }
@@ -714,7 +779,12 @@ const HomeView = () => {
       }
       // Prepare initial chat state to pass via router state
       const resolvedSearchTools = new Set()
-      if (homeSearchBackend) resolvedSearchTools.add('web_search')
+      if (homeSearchBackend === 'exa') {
+        resolvedSearchTools.add('search_exa')
+        resolvedSearchTools.add(homeSelectedExaSearchTools[0] || DEFAULT_EXA_SEARCH_TOOL_ID)
+      } else if (homeSearchBackend) {
+        resolvedSearchTools.add('web_search')
+      }
       homeSearchTools.forEach(id => resolvedSearchTools.add(String(id)))
       const chatState = {
         initialMessage: homeInput,
@@ -869,6 +939,13 @@ const HomeView = () => {
   const selectedHomeSearchBackendOption = useMemo(
     () => SEARCH_BACKEND_OPTIONS.find(option => option.id === homeSearchBackend) || null,
     [homeSearchBackend],
+  )
+  const selectedHomeExaSearchOption = useMemo(
+    () =>
+      homeExaSearchOptions.find(option => homeSelectedExaSearchTools.includes(option.id)) ||
+      homeExaSearchOptions[0] ||
+      null,
+    [homeExaSearchOptions, homeSelectedExaSearchTools],
   )
   const activeTheme = THEMES[settings.themeColor] || THEMES['violet']
   const homeWaveColors = useMemo(() => {
@@ -1479,7 +1556,7 @@ const HomeView = () => {
                                 {t('tools.webSearch')}
                               </div>
                               <div className="flex flex-col gap-1">
-                                {SEARCH_BACKEND_OPTIONS.map(option => {
+                                {homeSearchBackendOptions.map(option => {
                                   const isActive = homeSearchBackend === option.id
                                   return (
                                     <button
@@ -1491,6 +1568,51 @@ const HomeView = () => {
                                         isActive
                                           ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
                                           : 'text-gray-700 dark:text-gray-200',
+                                      )}
+                                    >
+                                      <span className="flex items-center gap-2">
+                                        {option.iconUrl ? (
+                                          <img
+                                            src={option.iconUrl}
+                                            alt=""
+                                            className="h-4 w-4 rounded-sm"
+                                          />
+                                        ) : (
+                                          <EmojiDisplay emoji={'✨'} size="1.1rem" />
+                                        )}
+                                        {t(option.labelKey)}
+                                      </span>
+                                      {isActive && <Check size={14} className="text-primary-500" />}
+                                    </button>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                            <div className="h-px bg-gray-200 dark:bg-zinc-800" />
+                            <div className="space-y-3">
+                              <div className="px-2 py-1 text-[10px] tracking-wide text-gray-500 uppercase dark:text-zinc-400">
+                                {t('searchBackends.exa')}
+                              </div>
+                              <div className="flex flex-col gap-1">
+                                {homeExaSearchOptions.map(option => {
+                                  const isActive =
+                                    homeSearchBackend === 'exa' &&
+                                    homeSelectedExaSearchTools.includes(option.id)
+                                  const isOptionDisabled = Boolean(option.disabled)
+                                  return (
+                                    <button
+                                      key={option.id}
+                                      type="button"
+                                      title={option.titleKey ? t(option.titleKey) : undefined}
+                                      disabled={isOptionDisabled}
+                                      onClick={() => handleSelectHomeExaSearchTool(option.id)}
+                                      className={clsx(
+                                        'flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800',
+                                        isActive
+                                          ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
+                                          : 'text-gray-700 dark:text-gray-200',
+                                        isOptionDisabled &&
+                                          'cursor-not-allowed opacity-50 hover:bg-transparent',
                                       )}
                                     >
                                       <span className="flex items-center gap-2">
@@ -1585,7 +1707,7 @@ const HomeView = () => {
                                 {t('tools.webSearch')}
                               </div>
                               <div className="flex flex-col gap-1">
-                                {SEARCH_BACKEND_OPTIONS.map(option => {
+                                {homeSearchBackendOptions.map(option => {
                                   const isActive = homeSearchBackend === option.id
                                   return (
                                     <button
@@ -1597,6 +1719,51 @@ const HomeView = () => {
                                         isActive
                                           ? 'border-primary-300/35 bg-white/82 text-primary-600 dark:border-primary-500/35 dark:bg-white/[0.12] dark:text-primary-300'
                                           : 'text-gray-700 dark:text-gray-200',
+                                      )}
+                                    >
+                                      <span className="flex items-center gap-2">
+                                        {option.iconUrl ? (
+                                          <img
+                                            src={option.iconUrl}
+                                            alt=""
+                                            className="h-4 w-4 rounded-sm"
+                                          />
+                                        ) : (
+                                          <EmojiDisplay emoji={'✨'} size="1.1rem" />
+                                        )}
+                                        {t(option.labelKey)}
+                                      </span>
+                                      {isActive && <Check size={14} className="text-primary-500" />}
+                                    </button>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                            <div className="h-px bg-white/12 dark:bg-white/[0.07]" />
+                            <div className="space-y-3">
+                              <div className="px-2 py-1 text-[10px] tracking-wide text-gray-500 uppercase dark:text-zinc-400">
+                                {t('searchBackends.exa')}
+                              </div>
+                              <div className="flex flex-col gap-1">
+                                {homeExaSearchOptions.map(option => {
+                                  const isActive =
+                                    homeSearchBackend === 'exa' &&
+                                    homeSelectedExaSearchTools.includes(option.id)
+                                  const isOptionDisabled = Boolean(option.disabled)
+                                  return (
+                                    <button
+                                      key={option.id}
+                                      type="button"
+                                      title={option.titleKey ? t(option.titleKey) : undefined}
+                                      disabled={isOptionDisabled}
+                                      onClick={() => handleSelectHomeExaSearchTool(option.id)}
+                                      className={clsx(
+                                        'glass-elite-soft flex w-full items-center justify-between rounded-[22px] px-4 py-3 text-left text-sm transition-colors hover:border-white/26 hover:bg-white/18 dark:hover:border-white/10 dark:hover:bg-white/[0.05]',
+                                        isActive
+                                          ? 'border-primary-300/35 bg-white/82 text-primary-600 dark:border-primary-500/35 dark:bg-white/[0.12] dark:text-primary-300'
+                                          : 'text-gray-700 dark:text-gray-200',
+                                        isOptionDisabled &&
+                                          'cursor-not-allowed opacity-50 hover:border-transparent hover:bg-transparent',
                                       )}
                                     >
                                       <span className="flex items-center gap-2">

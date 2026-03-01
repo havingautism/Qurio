@@ -23,18 +23,13 @@ import {
 } from '../lib/scrapbookService'
 import { createConversation, notifyConversationsChanged } from '../lib/conversationsService'
 import ColorBendsBackground from '../components/ui/ColorBendsBackground'
-import { Streamdown } from 'streamdown'
+import ConversationMarkdown from '../components/markdown/ConversationMarkdown'
 import {
   generateEmojiViaBackend,
   generateTitleViaBackend,
   streamChatViaBackend,
 } from '../lib/backendClient'
-import { loadSettings } from '../lib/settings'
-
-const getBackendUrl = () => {
-  const settings = loadSettings()
-  return settings.backendUrl || 'http://127.0.0.1:3002'
-}
+import { getBackendUrl, loadSettings } from '../lib/settings'
 
 const getSelectedDatabaseProvider = () => {
   const settings = loadSettings()
@@ -401,8 +396,8 @@ ${entry.content}`
     return (
       <div
         className={clsx(
-          'relative flex h-full w-full items-center justify-center bg-[var(--color-bg-primary)] transition-all duration-300',
-          isSidebarPinned ? 'ml-0 sm:ml-72' : 'ml-0 sm:ml-16',
+          'relative flex h-full w-full items-center justify-center bg-[var(--color-bg-primary)] transition-all duration-300 sm:px-4',
+          isSidebarPinned ? 'md:ml-78' : 'md:ml-16',
         )}
       >
         <div className="pointer-events-none absolute inset-0 z-0 opacity-40 dark:opacity-20">
@@ -417,8 +412,8 @@ ${entry.content}`
     return (
       <div
         className={clsx(
-          'relative flex h-full w-full flex-col items-center justify-center gap-4 bg-[var(--color-bg-primary)] transition-all duration-300',
-          isSidebarPinned ? 'ml-0 sm:ml-72' : 'ml-0 sm:ml-16',
+          'relative flex h-full w-full flex-col items-center justify-center gap-4 bg-[var(--color-bg-primary)] transition-all duration-300 sm:px-4',
+          isSidebarPinned ? 'md:ml-78' : 'md:ml-16',
         )}
       >
         <div className="pointer-events-none absolute inset-0 z-0 opacity-40 dark:opacity-20">
@@ -455,8 +450,8 @@ ${entry.content}`
   return (
     <div
       className={clsx(
-        'relative flex h-full w-full flex-col overflow-hidden bg-[var(--color-bg-primary)] transition-all duration-300',
-        isSidebarPinned ? 'ml-0 sm:ml-72' : 'ml-0 sm:ml-16',
+        'relative isolate flex h-full w-full flex-1 flex-col overflow-hidden bg-[var(--color-bg-primary)] transition-all duration-300 sm:px-4',
+        isSidebarPinned ? 'md:ml-78' : 'md:ml-16',
       )}
     >
       <div className="pointer-events-none absolute inset-0 z-0 opacity-40 dark:opacity-20">
@@ -464,7 +459,7 @@ ${entry.content}`
       </div>
 
       {/* Chat-like Header */}
-      <div className="pointer-events-none absolute top-0 right-0 left-0 z-40 flex w-full shrink-0 items-center justify-between gap-4 p-4">
+      <div className="pointer-events-none absolute top-0 right-0 left-0 z-40 flex w-full shrink-0 items-center justify-between gap-4 px-4 pt-4 md:px-10 xl:px-14">
         {/* Transparent header with glassy fade */}
         <div
           aria-hidden="true"
@@ -529,8 +524,8 @@ ${entry.content}`
         </div>
       </div>
 
-      <div className="relative z-10 flex h-full flex-col overflow-y-auto bg-white/40 pt-20 pb-20 backdrop-blur-3xl sm:pt-24 sm:pb-8 dark:bg-black/40">
-        <div className="mx-auto w-full max-w-4xl px-6 pt-8 sm:px-10 sm:pt-12">
+      <div className="relative z-10 flex h-full flex-col overflow-y-auto bg-white/40 pt-20 pb-20 backdrop-blur-3xl sm:px-2 sm:pt-24 sm:pb-8 dark:bg-black/40">
+        <div className="mx-auto w-full max-w-[44rem] px-2 pt-8 sm:px-5 sm:pt-12 lg:translate-x-4 xl:translate-x-6">
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-3">
               <span
@@ -590,11 +585,11 @@ ${entry.content}`
               </div>
             )}
 
-            <div className="prose prose-sm sm:prose-base dark:prose-invert max-w-none text-[var(--color-text-secondary)]">
+            <div>
               {entry.summary ? (
-                <Streamdown>{entry.summary}</Streamdown>
+                <ConversationMarkdown content={entry.summary} />
               ) : streamedSummary ? (
-                <Streamdown>{streamedSummary}</Streamdown>
+                <ConversationMarkdown content={streamedSummary} />
               ) : isGenerating ? (
                 <div className="flex items-center gap-2 text-[var(--color-text-tertiary)] italic">
                   <span className="animate-pulse">{t('messageBubble.statusThinking')}</span>

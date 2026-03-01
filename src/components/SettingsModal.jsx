@@ -41,7 +41,7 @@ import {
   SILICONFLOW_BASE_URL,
   VOLCENGINE_BASE_URL,
 } from '../lib/providerConstants'
-import { loadSettings, saveSettings } from '../lib/settings'
+import { getBackendUrl, isConfiguredApiSecret, loadSettings, saveSettings } from '../lib/settings'
 import { fetchRemoteSettings, saveRemoteSettings, testConnection } from '../lib/supabase'
 import { THEMES } from '../lib/themes'
 import Logo from './Logo'
@@ -68,19 +68,31 @@ const ENV_VARS = {
   kimiKey: getPublicEnv('PUBLIC_KIMI_API_KEY'),
   tavilyApiKey: getPublicEnv('PUBLIC_TAVILY_API_KEY'),
   serpapiApiKey: getPublicEnv('PUBLIC_SERPAPI_API_KEY'),
+  exaApiKey: getPublicEnv('PUBLIC_EXA_API_KEY'),
   backendUrl: getPublicEnv('PUBLIC_BACKEND_URL'),
-}
-
-const getBackendUrl = () => {
-  const settings = loadSettings()
-  return settings.backendUrl || 'http://127.0.0.1:3002'
 }
 
 const isElectronRuntime = () =>
   typeof window !== 'undefined' &&
   (window.location.protocol === 'file:' || navigator.userAgent.includes('Electron'))
 
-const TOOLS_API_PROVIDER_KEYS = ['tavily', 'serpapi']
+const TOOLS_API_PROVIDER_KEYS = ['tavily', 'serpapi', 'exa']
+
+const resolveToolsApiEditorProvider = ({
+  searchProvider,
+  tavilyApiKey,
+  serpapiApiKey,
+  exaApiKey,
+}) => {
+  const normalizedSearchProvider = String(searchProvider || '').trim().toLowerCase()
+  if (normalizedSearchProvider === 'tavily' || normalizedSearchProvider === 'serpapi') {
+    return normalizedSearchProvider
+  }
+  if (isConfiguredApiSecret(exaApiKey, ['your-exa-api-key', 'your_exa_api_key'])) return 'exa'
+  if (isConfiguredApiSecret(serpapiApiKey)) return 'serpapi'
+  if (isConfiguredApiSecret(tavilyApiKey)) return 'tavily'
+  return 'tavily'
+}
 
 const INTERFACE_LANGUAGE_KEYS = ['en', 'zh-CN']
 const DOCUMENT_CHUNK_SIZE = 1200
@@ -265,6 +277,9 @@ const getEnvManagedSettingKeys = () => {
   if (ENV_VARS.serpapiApiKey) {
     keys.push('serpapiApiKey')
   }
+  if (ENV_VARS.exaApiKey) {
+    keys.push('exaApiKey')
+  }
   if (ENV_VARS.backendUrl) {
     keys.push('backendUrl')
   }
@@ -299,9 +314,11 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
   const [apiProvider, setApiProvider] = useState('gemini')
   const [googleApiKey, setGoogleApiKey] = useState('')
   const [searchProvider, setSearchProvider] = useState('tavily')
+  const [toolsApiProvider, setToolsApiProvider] = useState('tavily')
 
   const [tavilyApiKey, setTavilyApiKey] = useState('')
   const [serpapiApiKey, setSerpapiApiKey] = useState('')
+  const [exaApiKey, setExaApiKey] = useState('')
   const [backendUrl, setBackendUrl] = useState(ENV_VARS.backendUrl || '')
   const [databaseProvider, setDatabaseProvider] = useState('')
   const [databaseProviderId, setDatabaseProviderId] = useState('')
@@ -517,10 +534,14 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
   )
   const toolsApiProviderConfiguredMap = useMemo(
     () => ({
-      tavily: Boolean((tavilyApiKey || '').trim() || ENV_VARS.tavilyApiKey),
-      serpapi: Boolean((serpapiApiKey || '').trim() || ENV_VARS.serpapiApiKey),
+      tavily: isConfiguredApiSecret(tavilyApiKey || ENV_VARS.tavilyApiKey),
+      serpapi: isConfiguredApiSecret(serpapiApiKey || ENV_VARS.serpapiApiKey),
+      exa: isConfiguredApiSecret(exaApiKey || ENV_VARS.exaApiKey, [
+        'your-exa-api-key',
+        'your_exa_api_key',
+      ]),
     }),
-    [tavilyApiKey, serpapiApiKey],
+    [tavilyApiKey, serpapiApiKey, exaApiKey],
   )
 
   // Interface language options with translated labels
@@ -590,6 +611,15 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       if (settings.searchProvider) setSearchProvider(settings.searchProvider)
       if (settings.tavilyApiKey) setTavilyApiKey(settings.tavilyApiKey)
       if (settings.serpapiApiKey) setSerpapiApiKey(settings.serpapiApiKey)
+      if (settings.exaApiKey) setExaApiKey(settings.exaApiKey)
+      setToolsApiProvider(
+        resolveToolsApiEditorProvider({
+          searchProvider: settings.searchProvider,
+          tavilyApiKey: settings.tavilyApiKey || ENV_VARS.tavilyApiKey,
+          serpapiApiKey: settings.serpapiApiKey || ENV_VARS.serpapiApiKey,
+          exaApiKey: settings.exaApiKey || ENV_VARS.exaApiKey,
+        }),
+      )
       if (settings.backendUrl && !ENV_VARS.backendUrl) setBackendUrl(settings.backendUrl)
       if (settings.contextTurns || settings.contextMessageLimit) {
         setContextTurns(Number(settings.contextTurns || settings.contextMessageLimit))
@@ -673,6 +703,16 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
             if (data.searchProvider) setSearchProvider(data.searchProvider)
             if (data.tavilyApiKey) setTavilyApiKey(data.tavilyApiKey)
             if (data.serpapiApiKey) setSerpapiApiKey(data.serpapiApiKey)
+            if (data.exaApiKey) setExaApiKey(data.exaApiKey)
+            setToolsApiProvider(
+              resolveToolsApiEditorProvider({
+                searchProvider: data.searchProvider || settings.searchProvider,
+                tavilyApiKey: data.tavilyApiKey || settings.tavilyApiKey || ENV_VARS.tavilyApiKey,
+                serpapiApiKey:
+                  data.serpapiApiKey || settings.serpapiApiKey || ENV_VARS.serpapiApiKey,
+                exaApiKey: data.exaApiKey || settings.exaApiKey || ENV_VARS.exaApiKey,
+              }),
+            )
             if (data.backendUrl && !ENV_VARS.backendUrl) setBackendUrl(data.backendUrl)
             if (data.embeddingProvider) setEmbeddingProvider(data.embeddingProvider)
             if (data.embeddingModelSource)
@@ -1860,8 +1900,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
   if (!isOpen) return null
 
   const resolveBackendUrlForHealthCheck = () => {
-    const settings = loadSettings()
-    return ENV_VARS.backendUrl || backendUrl || settings.backendUrl || 'http://127.0.0.1:3002'
+    return ENV_VARS.backendUrl || backendUrl || getBackendUrl()
   }
 
   const handleBackendHealthCheck = async () => {
@@ -1903,6 +1942,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
         searchProvider,
         tavilyApiKey,
         serpapiApiKey,
+        exaApiKey,
         backendUrl,
         // API Keys
         OpenAICompatibilityKey,
@@ -2101,6 +2141,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
               'googleApiKey',
               'tavilyApiKey',
               'serpapiApiKey',
+              'exaApiKey',
               'backendUrl',
               'NvidiaKey',
               'MinimaxKey',
@@ -2700,7 +2741,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                     {electronMode && (
                       <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700 dark:border-blue-900/40 dark:bg-blue-900/20 dark:text-blue-300">
                         {t('settings.backendDesktopManaged', {
-                          backendUrl: backendUrl || 'http://127.0.0.1:3002',
+                          backendUrl: getBackendUrl(),
                         })}
                       </div>
                     )}
@@ -2837,7 +2878,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                         {t('settings.toolsApiProvider')}
                       </label>
                       <div className="relative w-full">
-                        <Select value={searchProvider} onValueChange={setSearchProvider}>
+                        <Select value={toolsApiProvider} onValueChange={setToolsApiProvider}>
                           <SelectTrigger className="h-10 w-full pl-10">
                             <div className="absolute top-1/2 left-3 flex -translate-y-1/2 items-center">
                               <Search size={16} className="text-gray-400" />
@@ -2847,19 +2888,19 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                                 <span
                                   className={clsx(
                                     'h-2.5 w-2.5 rounded-full',
-                                    toolsApiProviderConfiguredMap[searchProvider]
+                                    toolsApiProviderConfiguredMap[toolsApiProvider]
                                       ? 'bg-emerald-500'
                                       : 'bg-gray-400 dark:bg-zinc-600',
                                   )}
                                 />
-                                {renderProviderIcon(searchProvider, {
+                                {renderProviderIcon(toolsApiProvider, {
                                   size: 16,
-                                  alt: t(`settings.toolsApiProviders.${searchProvider}`),
+                                  alt: t(`settings.toolsApiProviders.${toolsApiProvider}`),
                                 })}
                                 <span>
                                   {toolsApiProviderOptions.find(
-                                    option => option.value === searchProvider,
-                                  )?.label || searchProvider}
+                                    option => option.value === toolsApiProvider,
+                                  )?.label || toolsApiProvider}
                                 </span>
                               </div>
                             </SelectValue>
@@ -2889,7 +2930,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                       </div>
                     </div>
 
-                    {searchProvider === 'tavily' && (
+                    {toolsApiProvider === 'tavily' && (
                       <div className="animate-in fade-in slide-in-from-top-2 flex flex-col gap-2 duration-200">
                         <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
                           {t('settings.toolsApiKey')} (Tavily)
@@ -2917,7 +2958,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                         )}
                       </div>
                     )}
-                    {searchProvider === 'serpapi' && (
+                    {toolsApiProvider === 'serpapi' && (
                       <div className="animate-in fade-in slide-in-from-top-2 flex flex-col gap-2 duration-200">
                         <div className="flex items-center gap-2">
                           <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
@@ -2954,6 +2995,42 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                             defaultValue: 'Currently used for Image Search only.',
                           })}
                         </p>
+                      </div>
+                    )}
+                    {toolsApiProvider === 'exa' && (
+                      <div className="flex flex-col gap-2">
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                          {t('settings.toolsApiKey')} (Exa)
+                        </label>
+                        <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                          {t('settings.exaApiKeyHint')}
+                        </span>
+                      </div>
+                      <div className="relative">
+                        <div className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400">
+                          <Key size={16} />
+                        </div>
+                        <input
+                          type="password"
+                          value={exaApiKey}
+                          onChange={e => setExaApiKey(e.target.value)}
+                          placeholder={t('settings.toolsApiKeyPlaceholder')}
+                          disabled={Boolean(ENV_VARS.exaApiKey)}
+                          className={clsx(
+                            'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border border-gray-200 bg-white py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600',
+                            ENV_VARS.exaApiKey && 'cursor-not-allowed opacity-70',
+                          )}
+                        />
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {t('settings.exaApiKeyDescription')}
+                      </p>
+                      {ENV_VARS.exaApiKey && (
+                        <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                          {t('settings.loadedFromEnvironment')}
+                        </p>
+                      )}
                       </div>
                     )}
                   </div>

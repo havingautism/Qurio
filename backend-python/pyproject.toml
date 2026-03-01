@@ -38,6 +38,7 @@ dependencies = [
     "apscheduler>=3.11.2",
     "x-reader",
     "yt-dlp>=2026.2.21",
+    "exa-py>=2.6.1",
 ]
 
 

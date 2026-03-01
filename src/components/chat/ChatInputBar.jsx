@@ -94,6 +94,59 @@ const CapsuleUploadMenu = React.memo(
 )
 CapsuleUploadMenu.displayName = 'CapsuleUploadMenu'
 
+const ExaSearchCategoryList = React.memo(function ExaSearchCategoryList({
+  exaSearchOptions = [],
+  selectedExaSearchTools = [],
+  onExaSearchToolSelect,
+  t,
+  isDisabled = false,
+  titleClassName = '',
+  listClassName = '',
+  itemClassName = '',
+}) {
+  return (
+    <div className={clsx('space-y-2', titleClassName)}>
+      <div className="px-2 py-1 text-[10px] tracking-wide text-gray-500 uppercase dark:text-zinc-400">
+        {t('searchBackends.exa')}
+      </div>
+      <div className={clsx('flex flex-col gap-1', listClassName)}>
+        {exaSearchOptions.map(option => {
+          const isActive = selectedExaSearchTools.includes(option.id)
+          const isOptionDisabled = isDisabled || Boolean(option.disabled)
+          return (
+            <button
+              key={option.id}
+              type="button"
+              title={option.titleKey ? t(option.titleKey) : undefined}
+              disabled={isOptionDisabled}
+              onClick={() => onExaSearchToolSelect?.(option.id)}
+              className={clsx(
+                'flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800',
+                isActive
+                  ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
+                  : 'text-gray-700 dark:text-gray-200',
+                isOptionDisabled && 'cursor-not-allowed opacity-50 hover:bg-transparent',
+                itemClassName,
+              )}
+            >
+              <span className="flex items-center gap-2">
+                {option.iconUrl ? (
+                  <img src={option.iconUrl} alt="" className="h-4 w-4 rounded-sm" />
+                ) : (
+                  <Globe size={14} className="text-gray-400" />
+                )}
+                {t(option.labelKey)}
+              </span>
+              {isActive && <Check size={14} className="text-primary-500" />}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+})
+ExaSearchCategoryList.displayName = 'ExaSearchCategoryList'
+
 const CapsuleSettingsMenu = React.memo(
   ({
     agents,
@@ -110,12 +163,15 @@ const CapsuleSettingsMenu = React.memo(
     onToggleSearch,
     searchBackend,
     searchBackendOptions = [],
+    selectedExaSearchTools = [],
+    exaSearchOptions = [],
     selectedSearchTools = [],
     searchOptions = [],
     t,
     isSearchSupported,
     isSearchMenuOpen,
     onSearchToolSelect,
+    onExaSearchToolSelect,
     onSearchBackendChange,
     onSearchClear,
     searchMenuRef,
@@ -128,10 +184,26 @@ const CapsuleSettingsMenu = React.memo(
       () => (searchBackendOptions || []).find(item => item.id === searchBackend) || null,
       [searchBackend, searchBackendOptions],
     )
+    const webSearchBackendOptions = React.useMemo(
+      () => (searchBackendOptions || []).filter(item => item.id !== 'exa'),
+      [searchBackendOptions],
+    )
+    const selectedExaSearchOption = React.useMemo(
+      () =>
+        (exaSearchOptions || []).find(item => selectedExaSearchTools?.includes(item.id)) ||
+        exaSearchOptions?.[0] ||
+        null,
+      [exaSearchOptions, selectedExaSearchTools],
+    )
     const activeSearchLabel = React.useMemo(() => {
       if (!isSearchActive) return t('homeView.search')
+      const exaCount = selectedExaSearchTools?.length || 0
       const academicCount = selectedSearchTools?.length || 0
-      const activeCount = (searchBackend ? 1 : 0) + (academicCount > 0 ? 1 : 0)
+      if (searchBackend === 'exa' && exaCount > 0 && academicCount === 0) {
+        return `${t('searchBackends.exa')} · ${t(selectedExaSearchOption?.labelKey || 'searchBackends.auto')}`
+      }
+      const backendCount = searchBackend && searchBackend !== 'exa' ? 1 : 0
+      const activeCount = backendCount + (exaCount > 0 ? 1 : 0) + (academicCount > 0 ? 1 : 0)
       if (activeCount > 1) {
         return `${t('homeView.search')} (${activeCount})`
       }
@@ -151,11 +223,22 @@ const CapsuleSettingsMenu = React.memo(
           </span>
         )
       }
+      if (exaCount > 0) {
+        return `${t('searchBackends.exa')} · ${t(selectedExaSearchOption?.labelKey || 'searchBackends.auto')}`
+      }
       if (academicCount > 0) {
         return `${t('tools.academicSearch')} (${academicCount})`
       }
       return t('homeView.search')
-    }, [isSearchActive, selectedSearchTools, searchBackend, searchBackendOptions, t])
+    }, [
+      isSearchActive,
+      selectedExaSearchTools,
+      selectedExaSearchOption,
+      selectedSearchTools,
+      searchBackend,
+      searchBackendOptions,
+      t,
+    ])
     return (
       <div className="space-y-3">
         {/* Models List */}
@@ -309,42 +392,63 @@ const CapsuleSettingsMenu = React.memo(
                   id="capsule-search-options"
                   className="mt-1 space-y-1 rounded-xl bg-gray-50/80 p-1.5 dark:bg-zinc-900/50"
                 >
-                  <div className="space-y-3">
-                    <div className="px-4 py-1 text-[10px] tracking-wide text-gray-500 uppercase dark:text-zinc-400">
-                      {t('tools.webSearch')}
-                    </div>
-                    <div className="space-y-1">
-                      {searchBackendOptions.map(option => {
-                        const isActive = searchBackend === option.id
-                        return (
-                          <button
-                            key={option.id}
-                            type="button"
-                            disabled={isDisabled}
-                            onClick={() => onSearchBackendChange?.(option.id)}
-                            className={clsx(
-                              'flex w-full items-center justify-between rounded-lg px-4 py-2 text-left text-sm transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800',
-                              isActive
-                                ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
-                                : 'text-gray-700 dark:text-gray-200',
-                            )}
-                          >
-                            <span className="flex items-center gap-2">
-                              {option.iconUrl ? (
-                                <img src={option.iconUrl} alt="" className="h-4 w-4 rounded-sm" />
-                              ) : (
-                                <EmojiDisplay emoji={'✨'} size="1.1rem" />
-                              )}
-                              {t(option.labelKey)}
-                            </span>
-                            {isActive && <Check size={14} className="text-primary-500" />}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
-                  <div className="h-px bg-gray-200 dark:bg-zinc-800" />
-                  <div className="space-y-3">
+                      <div className="space-y-3">
+                        <div className="px-4 py-1 text-[10px] tracking-wide text-gray-500 uppercase dark:text-zinc-400">
+                          {t('tools.webSearch')}
+                        </div>
+                        <div className="space-y-1">
+                          {webSearchBackendOptions.map(option => {
+                            const isActive = searchBackend === option.id
+                            const isOptionDisabled = isDisabled || Boolean(option.disabled)
+                            return (
+                              <button
+                                key={option.id}
+                                type="button"
+                                title={option.titleKey ? t(option.titleKey) : undefined}
+                                disabled={isOptionDisabled}
+                                onClick={() => onSearchBackendChange?.(option.id)}
+                                className={clsx(
+                                  'flex w-full items-center justify-between rounded-lg px-4 py-2 text-left text-sm transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800',
+                                  isActive
+                                    ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
+                                    : 'text-gray-700 dark:text-gray-200',
+                                  isOptionDisabled &&
+                                    'cursor-not-allowed opacity-50 hover:bg-transparent',
+                                )}
+                              >
+                                <span className="flex items-center gap-2">
+                                  {option.iconUrl ? (
+                                    <img
+                                      src={option.iconUrl}
+                                      alt=""
+                                      className="h-4 w-4 rounded-sm"
+                                    />
+                                  ) : (
+                                    <EmojiDisplay emoji={'✨'} size="1.1rem" />
+                                  )}
+                                  <span>{t(option.labelKey)}</span>
+                                </span>
+                                {isActive && <Check size={14} className="text-primary-500" />}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                      <div className="h-px bg-gray-200 dark:bg-zinc-800" />
+                      <div className="space-y-3">
+                        <ExaSearchCategoryList
+                          exaSearchOptions={exaSearchOptions}
+                          selectedExaSearchTools={selectedExaSearchTools}
+                          onExaSearchToolSelect={onExaSearchToolSelect}
+                          t={t}
+                          isDisabled={isDisabled}
+                          titleClassName="space-y-3"
+                          listClassName="space-y-1"
+                          itemClassName="rounded-lg px-4"
+                        />
+                      </div>
+                      <div className="h-px bg-gray-200 dark:bg-zinc-800" />
+                      <div className="space-y-3">
                     <div className="px-4 py-1 text-[10px] tracking-wide text-gray-500 uppercase dark:text-zinc-400">
                       {t('tools.academicSearch')}
                     </div>
@@ -467,10 +571,13 @@ const ChatInputBar = React.memo(
     onToggleSearch,
     searchBackend,
     searchBackendOptions = [],
+    selectedExaSearchTools = [],
+    exaSearchOptions = [],
     selectedSearchTools = [],
     searchOptions = [],
     isSearchMenuOpen,
     onSearchToolSelect,
+    onExaSearchToolSelect,
     onSearchBackendChange,
     onSearchClear,
     onSearchMenuClose,
@@ -517,6 +624,10 @@ const ChatInputBar = React.memo(
       () => (searchBackendOptions || []).find(item => item.id === searchBackend) || null,
       [searchBackend, searchBackendOptions],
     )
+    const webSearchBackendOptions = useMemo(
+      () => (searchBackendOptions || []).filter(item => item.id !== 'exa'),
+      [searchBackendOptions],
+    )
     const thinkingModeOptions = useMemo(
       () => [
         {
@@ -539,10 +650,22 @@ const ChatInputBar = React.memo(
     )
     const selectedThinkingOption =
       thinkingModeOptions.find(item => item.id === thinkingMode) || thinkingModeOptions[0]
+    const selectedExaSearchOption = useMemo(
+      () =>
+        (exaSearchOptions || []).find(item => selectedExaSearchTools?.includes(item.id)) ||
+        exaSearchOptions?.[0] ||
+        null,
+      [exaSearchOptions, selectedExaSearchTools],
+    )
     const resolvedSearchLabel = useMemo(() => {
       if (!isSearchActive) return t('homeView.search')
+      const exaCount = selectedExaSearchTools?.length || 0
       const academicCount = selectedSearchTools?.length || 0
-      const activeCount = (searchBackend ? 1 : 0) + (academicCount > 0 ? 1 : 0)
+      if (searchBackend === 'exa' && exaCount > 0 && academicCount === 0) {
+        return `${t('searchBackends.exa')} · ${t(selectedExaSearchOption?.labelKey || 'searchBackends.auto')}`
+      }
+      const backendCount = searchBackend && searchBackend !== 'exa' ? 1 : 0
+      const activeCount = backendCount + (exaCount > 0 ? 1 : 0) + (academicCount > 0 ? 1 : 0)
       if (activeCount > 1) return `${t('homeView.search')} (${activeCount})`
       if (searchBackend) {
         const option = (searchBackendOptions || []).find(item => item.id === searchBackend)
@@ -560,9 +683,19 @@ const ChatInputBar = React.memo(
           </span>
         )
       }
+      if (exaCount > 0)
+        return `${t('searchBackends.exa')} · ${t(selectedExaSearchOption?.labelKey || 'searchBackends.auto')}`
       if (academicCount > 0) return `${t('tools.academicSearch')} (${academicCount})`
       return t('homeView.search')
-    }, [isSearchActive, selectedSearchTools, searchBackend, searchBackendOptions, t])
+    }, [
+      isSearchActive,
+      selectedExaSearchTools,
+      selectedExaSearchOption,
+      selectedSearchTools,
+      searchBackend,
+      searchBackendOptions,
+      t,
+    ])
     const selectedDocumentIdSet = useMemo(
       () => new Set((selectedDocumentIds || []).map(id => String(id))),
       [selectedDocumentIds],
@@ -810,12 +943,15 @@ const ChatInputBar = React.memo(
           onToggleSearch={onToggleSearch}
           searchBackend={searchBackend}
           searchBackendOptions={searchBackendOptions}
+          selectedExaSearchTools={selectedExaSearchTools}
+          exaSearchOptions={exaSearchOptions}
           selectedSearchTools={selectedSearchTools}
           searchOptions={searchOptions}
           t={t}
           isSearchSupported={isSearchSupported}
           isSearchMenuOpen={isSearchMenuOpen}
           onSearchToolSelect={onSearchToolSelect}
+          onExaSearchToolSelect={onExaSearchToolSelect}
           onSearchBackendChange={onSearchBackendChange}
           onSearchClear={onSearchClear}
           searchMenuRef={searchMenuRef}
@@ -1500,19 +1636,23 @@ const ChatInputBar = React.memo(
                           {t('tools.webSearch')}
                         </div>
                         <div className="flex flex-col gap-1">
-                          {searchBackendOptions.map(option => {
+                          {webSearchBackendOptions.map(option => {
                             const isActive = searchBackend === option.id
+                            const isOptionDisabled = isInteractionLocked || Boolean(option.disabled)
                             return (
                               <button
                                 key={option.id}
                                 type="button"
-                                disabled={isInteractionLocked}
+                                title={option.titleKey ? t(option.titleKey) : undefined}
+                                disabled={isOptionDisabled}
                                 onClick={() => onSearchBackendChange?.(option.id)}
                                 className={clsx(
                                   'flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800',
                                   isActive
                                     ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
                                     : 'text-gray-700 dark:text-gray-200',
+                                  isOptionDisabled &&
+                                    'cursor-not-allowed opacity-50 hover:bg-transparent',
                                 )}
                               >
                                 <span className="flex items-center gap-2">
@@ -1525,7 +1665,7 @@ const ChatInputBar = React.memo(
                                   ) : (
                                     <Globe size={14} className="text-gray-400" />
                                   )}
-                                  {t(option.labelKey)}
+                                  <span>{t(option.labelKey)}</span>
                                 </span>
                                 {isActive && <Check size={14} className="text-primary-500" />}
                               </button>
@@ -1533,6 +1673,16 @@ const ChatInputBar = React.memo(
                           })}
                         </div>
                       </div>
+                      <div className="h-px bg-gray-200 dark:bg-zinc-800" />
+                      <ExaSearchCategoryList
+                        exaSearchOptions={exaSearchOptions}
+                        selectedExaSearchTools={selectedExaSearchTools}
+                        onExaSearchToolSelect={onExaSearchToolSelect}
+                        t={t}
+                        isDisabled={isInteractionLocked}
+                        titleClassName="space-y-3"
+                        listClassName="gap-1"
+                      />
                       <div className="h-px bg-gray-200 dark:bg-zinc-800" />
                       <div className="space-y-3">
                         <div className="px-2 py-1 text-[10px] tracking-wide text-gray-500 uppercase dark:text-zinc-400">

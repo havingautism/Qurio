@@ -3,14 +3,8 @@
  * Handles communication with Qurio backend server
  */
 
-import { loadSettings } from './settings'
+import { getBackendUrl } from './settings'
 import { getSupabaseClient } from './supabase'
-
-// Backend URL - env > user settings
-const getBackendUrl = () => {
-  const settings = loadSettings()
-  return settings.backendUrl || 'http://127.0.0.1:3002'
-}
 
 const getBackendErrorMessage = (error, status) => {
   if (!error || typeof error !== 'object') {
@@ -732,6 +726,8 @@ export const generateRelatedQuestionsViaBackend = async (
  * @param {number} params.contextTurns - Optional context turn limit
  * @param {string} params.searchProvider - Optional search provider
  * @param {string} params.tavilyApiKey - Optional Tavily API key
+ * @param {string} params.exaApiKey - Optional Exa API key
+ * @param {string} params.exaSearchCategory - Optional Exa search category
  * @param {string} params.searchBackend - Optional web search backend
  * @param {Function} params.onChunk - Callback for each chunk (chunk) => void
  * @param {Function} params.onFinish - Callback when stream completes (result) => void
@@ -761,6 +757,8 @@ export const streamChatViaBackend = async params => {
     searchProvider,
     tavilyApiKey,
     serpapiApiKey,
+    exaApiKey,
+    exaSearchCategory,
     searchBackend,
     userTools,
     enableLongTermMemory,
@@ -824,6 +822,8 @@ export const streamChatViaBackend = async params => {
           searchProvider,
           tavilyApiKey,
           serpapiApiKey,
+          exaApiKey,
+          exaSearchCategory,
           searchBackend,
           userTools,
           userId,

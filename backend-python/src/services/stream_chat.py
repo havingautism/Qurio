@@ -2380,6 +2380,7 @@ class StreamChatService:
             "web_search_using_tavily",
             "web_search",
             "search_news",
+            "search_exa",
             "search_arxiv_and_return_articles",
             "search_wikipedia",
         }

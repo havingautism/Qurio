@@ -2,12 +2,7 @@
  * Environment Service
  * Handles checks and configuration for the backend environment (e.g. browser binaries).
  */
-import { loadSettings } from '../settings'
-
-const getBackendUrl = () => {
-  const settings = loadSettings()
-  return settings.backendUrl || 'http://127.0.0.1:3002'
-}
+import { getBackendUrl } from '../settings'
 
 /**
  * Check if the scraper engine (browser binaries) is installed.

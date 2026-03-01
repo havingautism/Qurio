@@ -1,5 +1,26 @@
 import { getPublicEnv } from './publicEnv'
 
+export const DEFAULT_BACKEND_URL = 'http://127.0.0.1:3002'
+
+const DEFAULT_SECRET_PLACEHOLDERS = new Set([
+  'your-api-key',
+  'your_api_key',
+  'your api key',
+  'your-secret',
+  'your_secret',
+  'changeme',
+  'replace-me',
+  'replace_me',
+])
+
+export const isConfiguredApiSecret = (value, placeholders = []) => {
+  const trimmed = String(value || '').trim()
+  if (!trimmed) return false
+  const normalized = trimmed.toLowerCase()
+  if (DEFAULT_SECRET_PLACEHOLDERS.has(normalized)) return false
+  return !placeholders.map(item => String(item || '').trim().toLowerCase()).includes(normalized)
+}
+
 const isElectronRuntime = () =>
   typeof window !== 'undefined' &&
   (window.location.protocol === 'file:' || navigator.userAgent.includes('Electron'))
@@ -166,6 +187,7 @@ const MEMORY_SETTINGS_KEYS = [
   'googleApiKey',
   'tavilyApiKey',
   'serpapiApiKey',
+  'exaApiKey',
   'NvidiaKey',
   'MinimaxKey',
   'searchProvider',
@@ -212,6 +234,7 @@ export const loadSettings = (overrides = {}) => {
   const envOpenAIKey = electronMode ? '' : getPublicEnv('PUBLIC_OPENAI_API_KEY')
   const envOpenAIBaseUrl = electronMode ? '' : getPublicEnv('PUBLIC_OPENAI_BASE_URL')
   const envTavilyApiKey = electronMode ? '' : getPublicEnv('PUBLIC_TAVILY_API_KEY')
+  const envExaApiKey = electronMode ? '' : getPublicEnv('PUBLIC_EXA_API_KEY')
 
   // LocalStorage - Only load non-sensitive or essential connection configs
   const localDatabaseProvider = localStorage.getItem('databaseProvider')
@@ -222,6 +245,9 @@ export const loadSettings = (overrides = {}) => {
   const localSupabaseKey = localStorage.getItem('supabaseKey')
   const localSearchProvider = localStorage.getItem('searchProvider')
   const localBackendUrl = localStorage.getItem('backendUrl')
+  const localTavilyApiKey = localStorage.getItem('tavilyApiKey')
+  const localSerpapiApiKey = localStorage.getItem('serpapiApiKey')
+  const localExaApiKey = localStorage.getItem('exaApiKey')
 
   // Model configuration
   const localSystemPrompt = localStorage.getItem('systemPrompt')
@@ -349,7 +375,7 @@ export const loadSettings = (overrides = {}) => {
       envBackendUrl ||
       localBackendUrl ||
       overrides.backendUrl ||
-      'http://127.0.0.1:3002',
+      DEFAULT_BACKEND_URL,
 
     // Search provider
     searchProvider: localSearchProvider || overrides.searchProvider || 'tavily',
@@ -432,9 +458,12 @@ export const loadSettings = (overrides = {}) => {
     mergedSettings.KimiKey = electronMode ? '' : getPublicEnv('PUBLIC_KIMI_API_KEY') || ''
   if (!mergedSettings.googleApiKey)
     mergedSettings.googleApiKey = electronMode ? '' : getPublicEnv('PUBLIC_GOOGLE_API_KEY') || ''
-  if (!mergedSettings.tavilyApiKey) mergedSettings.tavilyApiKey = envTavilyApiKey || ''
+  if (!mergedSettings.tavilyApiKey)
+    mergedSettings.tavilyApiKey = localTavilyApiKey || envTavilyApiKey || ''
+  if (!mergedSettings.exaApiKey) mergedSettings.exaApiKey = localExaApiKey || envExaApiKey || ''
   if (!mergedSettings.serpapiApiKey)
-    mergedSettings.serpapiApiKey = electronMode ? '' : getPublicEnv('PUBLIC_SERPAPI_API_KEY') || ''
+    mergedSettings.serpapiApiKey =
+      localSerpapiApiKey || (electronMode ? '' : getPublicEnv('PUBLIC_SERPAPI_API_KEY')) || ''
   if (!mergedSettings.NvidiaKey) mergedSettings.NvidiaKey = ''
   if (!mergedSettings.MinimaxKey)
     mergedSettings.MinimaxKey = electronMode ? '' : getPublicEnv('PUBLIC_MINIMAX_API_KEY') || ''
@@ -446,6 +475,12 @@ export const loadSettings = (overrides = {}) => {
     ...mergedSettings,
     responseStylePrompt: buildResponseStylePrompt(mergedSettings),
   }
+}
+
+export const getBackendUrl = (overrides = {}) => {
+  const settings = loadSettings(overrides)
+  const value = String(settings.backendUrl || '').trim()
+  return value ? value.replace(/\/+$/, '') : DEFAULT_BACKEND_URL
 }
 
 /**
@@ -496,6 +531,7 @@ export const saveSettings = async settings => {
     'KimiKey',
     'googleApiKey',
     'tavilyApiKey',
+    'exaApiKey',
     'NvidiaKey',
     'MinimaxKey',
   ]
@@ -535,10 +571,25 @@ export const saveSettings = async settings => {
     localStorage.setItem('backendUrl', settings.backendUrl)
   }
   if (settings.tavilyApiKey !== undefined) {
-    localStorage.setItem('tavilyApiKey', settings.tavilyApiKey)
+    if (String(settings.tavilyApiKey || '').trim()) {
+      localStorage.setItem('tavilyApiKey', settings.tavilyApiKey)
+    } else {
+      localStorage.removeItem('tavilyApiKey')
+    }
+  }
+  if (settings.exaApiKey !== undefined) {
+    if (String(settings.exaApiKey || '').trim()) {
+      localStorage.setItem('exaApiKey', settings.exaApiKey)
+    } else {
+      localStorage.removeItem('exaApiKey')
+    }
   }
   if (settings.serpapiApiKey !== undefined) {
-    localStorage.setItem('serpapiApiKey', settings.serpapiApiKey)
+    if (String(settings.serpapiApiKey || '').trim()) {
+      localStorage.setItem('serpapiApiKey', settings.serpapiApiKey)
+    } else {
+      localStorage.removeItem('serpapiApiKey')
+    }
   }
   if (settings.llmAnswerLanguage !== undefined) {
     localStorage.setItem('llmAnswerLanguage', settings.llmAnswerLanguage)

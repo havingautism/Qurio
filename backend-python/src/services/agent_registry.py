@@ -29,6 +29,28 @@ from .custom_tools import (
 from .tool_registry import AGNO_TOOLS, IMAGE_SEARCH_TOOLS, LOCAL_TOOLS, VIDEO_SEARCH_TOOLS, resolve_tool_name
 from .user_tools import build_user_tools_toolkit
 
+try:
+    from agno.tools.exa import ExaTools
+except Exception:
+    ExaTools = None
+
+EXA_SEARCH_TOOL_SET = {"search_exa"}
+EXA_ALLOWED_CATEGORIES = {
+    "company",
+    "research paper",
+    "news",
+    "pdf",
+    "github",
+    "tweet",
+    "personal site",
+    "linkedin profile",
+    "financial report",
+}
+EXA_TIMEOUT_SECONDS = max(
+    15,
+    int(os.getenv("EXA_TOOLS_TIMEOUT_SECONDS", os.getenv("EXA_MCP_TIMEOUT_SECONDS", "45"))),
+)
+
 DEFAULT_MODELS: dict[str, str] = {
     "openai": os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
     "openai_compatibility": os.getenv("OPENAI_COMPAT_MODEL", "gpt-4o-mini"),
@@ -299,14 +321,37 @@ def _build_agno_toolkits(request: Any, include_agno: list[str]) -> list[Any]:
 
     websearch_tools = {"web_search", "search_news"}
     if include_set.intersection(websearch_tools):
-        selected = [name for name in include_agno if name in websearch_tools]
         backend = getattr(request, "search_backend", None) or "auto"
-        toolkits.append(
-            DuckDuckGoWebSearchTools(
-                include_tools=selected,
-                backend=backend,
+        if backend == "exa":
+            exa_toolkit = _build_exa_toolkit(
+                getattr(request, "exa_api_key", None),
+                getattr(request, "exa_search_category", None),
             )
+            if exa_toolkit:
+                toolkits.append(exa_toolkit)
+            else:
+                logger.warning("Exa backend requested but ExaTools is unavailable or API key is missing.")
+        else:
+            selected = [name for name in include_agno if name in websearch_tools]
+            toolkits.append(
+                DuckDuckGoWebSearchTools(
+                    include_tools=selected,
+                    backend=backend,
+                )
+            )
+
+    if include_set.intersection(EXA_SEARCH_TOOL_SET) and not (
+        (getattr(request, "search_backend", None) or "auto") == "exa"
+        and include_set.intersection(websearch_tools)
+    ):
+        exa_toolkit = _build_exa_toolkit(
+            getattr(request, "exa_api_key", None),
+            getattr(request, "exa_search_category", None),
         )
+        if exa_toolkit:
+            toolkits.append(exa_toolkit)
+        else:
+            logger.warning("Exa tool requested but ExaTools is unavailable or API key is missing.")
 
     arxiv_tools = {"search_arxiv_and_return_articles", "read_arxiv_papers"}
     if include_set.intersection(arxiv_tools):
@@ -401,6 +446,30 @@ def _build_agno_toolkits(request: Any, include_agno: list[str]) -> list[Any]:
                 )
 
     return toolkits
+
+
+def _normalize_exa_category(category: str | None) -> str | None:
+    normalized = str(category or "").strip().lower()
+    if not normalized or normalized == "auto":
+        return None
+    return normalized if normalized in EXA_ALLOWED_CATEGORIES else None
+
+
+def _build_exa_toolkit(exa_api_key: str | None, category: str | None = None) -> Any | None:
+    if ExaTools is None:
+        return None
+    trimmed_key = str(exa_api_key or os.getenv("EXA_API_KEY") or "").strip()
+    if not trimmed_key:
+        return None
+    return ExaTools(
+        api_key=trimmed_key,
+        enable_search=True,
+        enable_get_contents=False,
+        enable_find_similar=False,
+        enable_answer=False,
+        timeout=EXA_TIMEOUT_SECONDS,
+        category=_normalize_exa_category(category),
+    )
 
 
 def get_summary_model(request: Any) -> Any | None:
@@ -510,6 +579,19 @@ def build_agent(request: Any = None, **kwargs: Any) -> Agent:
             "ALWAYS include video links in your response using markdown format with descriptive text. "
             "Provide context about why each video is relevant to the user's query."
         )
+
+    if getattr(request, "search_backend", None) == "exa" and (
+        "web_search" in enabled_names or bool(enabled_names.intersection(EXA_SEARCH_TOOL_SET))
+    ):
+        exa_category = _normalize_exa_category(getattr(request, "exa_search_category", None))
+        if exa_category:
+            instructions_list.append(
+                f"Exa search is available via search_exa and is constrained to the '{exa_category}' category."
+            )
+        else:
+            instructions_list.append(
+                "Exa search is available via search_exa. Use it for current web information, and choose a category when it helps."
+            )
 
     instructions = "\n\n".join(instructions_list) if instructions_list else None
 

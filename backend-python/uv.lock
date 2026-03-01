@@ -524,6 +524,24 @@ wheels = [
 ]
 
 [[package]]
+name = "exa-py"
+version = "2.6.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "httpcore" },
+    { name = "httpx" },
+    { name = "openai" },
+    { name = "pydantic" },
+    { name = "python-dotenv" },
+    { name = "requests" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/99/e6/2686edc471a24d85d6be3292e80eb18c473574a0918d569595045afc0ffc/exa_py-2.6.1.tar.gz", hash = "sha256:35cc24091ec181966763a17c452d756dfd169710a0faeab837bc5a7ae544702e", size = 49344, upload-time = "2026-02-27T18:57:46.946Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ae/20/390810631364cf8284359c851ddaa509a7fdaf72772eccbcbb14f72ede93/exa_py-2.6.1-py3-none-any.whl", hash = "sha256:8eb1b55fcb6c28bd5bf3943d5821fdf065024c7a71cb1ad9f4ae93e3ab78de94", size = 64234, upload-time = "2026-02-27T18:57:48.971Z" },
+]
+
+[[package]]
 name = "fake-useragent"
 version = "2.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1361,7 +1379,7 @@ name = "macholib"
 version = "1.16.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "altgraph" },
+    { name = "altgraph", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/10/2f/97589876ea967487978071c9042518d28b958d87b17dceb7cdc1d881f963/macholib-1.16.4.tar.gz", hash = "sha256:f408c93ab2e995cd2c46e34fe328b130404be143469e41bc366c807448979362", size = 59427, upload-time = "2025-11-22T08:28:38.373Z" }
 wheels = [
@@ -2626,6 +2644,7 @@ dependencies = [
     { name = "beautifulsoup4" },
     { name = "ddgs" },
     { name = "duckduckgo-search" },
+    { name = "exa-py" },
     { name = "fastapi" },
     { name = "google-api-python-client" },
     { name = "google-auth" },
@@ -2670,6 +2689,7 @@ requires-dist = [
     { name = "beautifulsoup4", specifier = ">=4.14.3" },
     { name = "ddgs", specifier = ">=9.10.0" },
     { name = "duckduckgo-search", specifier = ">=8.1.1" },
+    { name = "exa-py", specifier = ">=2.6.1" },
     { name = "fastapi", specifier = ">=0.134.0" },
     { name = "google-api-python-client", specifier = ">=2.190.0" },
     { name = "google-auth", specifier = ">=2.48.0" },

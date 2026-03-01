@@ -26,16 +26,11 @@ import {
 import { useCallback, useEffect, useState, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
-import { loadSettings } from '../lib/settings'
+import { getBackendUrl, loadSettings } from '../lib/settings'
 
 // ---------------------------------------------------------------------------
 // API helpers
 // ---------------------------------------------------------------------------
-
-const getBackendUrl = () => {
-  const settings = loadSettings()
-  return settings.backendUrl || 'http://127.0.0.1:3002'
-}
 
 const getDbProvider = () => {
   const settings = loadSettings()

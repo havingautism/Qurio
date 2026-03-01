@@ -812,12 +812,17 @@ export const callAIAPI = async (
     const searchProvider = settings.searchProvider || 'tavily'
     const tavilyApiKey = searchProvider === 'tavily' ? settings.tavilyApiKey : undefined
     const serpapiApiKey = settings.serpapiApiKey
+    const exaApiKey = settings.exaApiKey
     const searchBackends = Array.isArray(toggles?.searchBackends)
       ? toggles.searchBackends.map(item => String(item)).filter(Boolean)
       : typeof toggles?.searchBackend === 'string'
         ? [toggles.searchBackend]
         : []
     const searchBackend = searchBackends[0] || null
+    const exaSearchCategory =
+      searchBackend === 'exa' && typeof toggles?.exaSearchCategory === 'string'
+        ? toggles.exaSearchCategory
+        : null
 
     // Use Session Summary Model Config passed from chatStore
     const summaryProvider = getProvider(summaryModelConfig?.provider)
@@ -860,6 +865,8 @@ export const callAIAPI = async (
       searchProvider,
       tavilyApiKey,
       serpapiApiKey,
+      exaApiKey,
+      exaSearchCategory,
       searchBackend,
       // Pass session summary model config (resolved internaly)
       summaryProvider: summaryModelConfig?.provider,

@@ -37,7 +37,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import clsx from 'clsx'
 import { getModelsForProvider } from '../lib/models_api'
 import { useAppContext } from '../App'
-import { loadSettings } from '../lib/settings'
+import { loadSettings, getBackendUrl } from '../lib/settings'
 import {
   DEEP_RESEARCH_AGENT_DESCRIPTION,
   DEEP_RESEARCH_AGENT_NAME,
@@ -185,6 +185,11 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
   const searchToolIdSetRef = useRef(new Set())
   const [apiAvailability, setApiAvailability] = useState({})
 
+  // Skills Tab
+  const [availableSkills, setAvailableSkills] = useState([])
+  const [skillsLoading, setSkillsLoading] = useState(false)
+  const [selectedSkillIds, setSelectedSkillIds] = useState([])
+
   const refreshApiAvailability = () => {
     const settings = loadSettings()
     const next = {}
@@ -307,6 +312,24 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
       setAvailableTools([])
     } finally {
       setToolsLoading(false)
+    }
+  }
+
+  const loadSkillsList = async () => {
+    setSkillsLoading(true)
+    try {
+      const res = await fetch(`${getBackendUrl()}/api/skills`)
+      if (res.ok) {
+        const data = await res.json()
+        setAvailableSkills(data)
+      } else {
+        setAvailableSkills([])
+      }
+    } catch (err) {
+      console.error('Failed to load skills list:', err)
+      setAvailableSkills([])
+    } finally {
+      setSkillsLoading(false)
     }
   }
 
@@ -490,11 +513,14 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
         setPresencePenalty(null)
         setIsAdvancedOpen(false)
         setSelectedToolIds([])
+        setSelectedSkillIds([])
       }
       if (editingAgent) {
-        setSelectedToolIds(editingAgent?.toolIds || [])
+        setSelectedToolIds(editingAgent?.toolIds || editingAgent?.tool_ids || [])
+        setSelectedSkillIds(editingAgent?.skillIds || editingAgent?.skill_ids || [])
       }
       loadToolsList()
+      loadSkillsList()
       setActiveTab('general')
       setError('')
       setIsSaving(false)
@@ -510,8 +536,13 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
     if (!isOpen) return
     refreshApiAvailability()
     const handleSettingsChanged = () => refreshApiAvailability()
+    const handleSkillsChanged = () => loadSkillsList()
     window.addEventListener('settings-changed', handleSettingsChanged)
-    return () => window.removeEventListener('settings-changed', handleSettingsChanged)
+    window.addEventListener('skills-changed', handleSkillsChanged)
+    return () => {
+      window.removeEventListener('settings-changed', handleSettingsChanged)
+      window.removeEventListener('skills-changed', handleSkillsChanged)
+    }
   }, [isOpen])
 
   useEffect(() => {
@@ -615,6 +646,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
         frequencyPenalty,
         presencePenalty,
         toolIds: filteredToolIds,
+        skillIds: selectedSkillIds,
       })
       onClose()
     } catch (err) {
@@ -1339,6 +1371,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
               { id: 'model', icon: Box },
               { id: 'personalization', icon: User },
               { id: 'tools', icon: Wrench },
+              { id: 'skills', icon: GraduationCap },
             ].map(item => (
               <button
                 key={item.id}
@@ -2010,6 +2043,89 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                         )}
                       </div>
                     ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'skills' && (
+              <div className="space-y-6">
+                <div className="flex gap-3 rounded-lg bg-blue-50 p-4 text-sm text-blue-700 dark:bg-blue-900/10 dark:text-blue-300">
+                  <Info size={18} className="mt-0.5 shrink-0" />
+                  <div>
+                    <p className="font-medium">{t('agents.skills.title', 'Available Skills')}</p>
+                    <p className="opacity-90">
+                      {t(
+                        'agents.skills.description',
+                        'Skills are modular prompts and scripts that give this agent extra automated capabilities.',
+                      )}
+                    </p>
+                  </div>
+                </div>
+
+                {skillsLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <RefreshCw className="animate-spin text-gray-400" size={24} />
+                  </div>
+                ) : availableSkills.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-gray-200 p-8 text-center dark:border-zinc-800">
+                    <GraduationCap className="mx-auto mb-3 h-8 w-8 text-gray-400" />
+                    <p className="font-medium text-gray-900 dark:text-white">
+                      {t('agents.skills.empty', 'No Custom Skills Found')}
+                    </p>
+                    <p className="mt-1 text-sm text-gray-500">
+                      {t(
+                        'agents.skills.emptyHint',
+                        'Create skills in the Skills Workshop (Sidebar) before assigning them.',
+                      )}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    {availableSkills.map(skill => {
+                      const checked = selectedSkillIds.includes(skill.id)
+                      return (
+                        <label
+                          key={skill.id}
+                          className={clsx(
+                            'group/skill flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors',
+                            checked
+                              ? 'border-primary-400 bg-primary-50/40 dark:bg-primary-900/20'
+                              : 'border-gray-200 hover:bg-gray-50 dark:border-zinc-700 dark:hover:bg-zinc-800/40',
+                          )}
+                        >
+                          <Checkbox
+                            checked={checked}
+                            onCheckedChange={() => {
+                              setSelectedSkillIds(prev =>
+                                prev.includes(skill.id)
+                                  ? prev.filter(id => id !== skill.id)
+                                  : [...prev, skill.id],
+                              )
+                            }}
+                          />
+                          <div className="min-w-0 flex-1 space-y-1.5">
+                            <div className="flex min-w-0 items-center gap-2">
+                              <GraduationCap
+                                size={16}
+                                className="shrink-0 text-gray-500 dark:text-gray-400"
+                              />
+                              <div
+                                className="flex-1 truncate text-sm font-medium text-gray-800 dark:text-gray-100"
+                                title={skill.name}
+                              >
+                                {skill.name}
+                              </div>
+                            </div>
+                            {skill.description && (
+                              <div className="truncate-2-lines text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+                                {skill.description}
+                              </div>
+                            )}
+                          </div>
+                        </label>
+                      )
+                    })}
                   </div>
                 )}
               </div>

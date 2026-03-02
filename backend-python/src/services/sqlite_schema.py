@@ -47,6 +47,7 @@ SCHEMA_STATEMENTS: list[str] = [
       frequency_penalty REAL,
       presence_penalty REAL,
       tool_ids TEXT NOT NULL DEFAULT '[]',
+      skill_ids TEXT NOT NULL DEFAULT '[]',
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
@@ -315,7 +316,7 @@ SCHEMA_STATEMENTS: list[str] = [
     """
     INSERT OR IGNORE INTO agents (
       id, is_default, emoji, name, description, prompt, is_deep_research,
-      base_tone, traits, warmth, enthusiasm, headings, emojis, tool_ids,
+      base_tone, traits, warmth, enthusiasm, headings, emojis, tool_ids, skill_ids,
       created_at, updated_at
     ) VALUES
       (
@@ -323,7 +324,7 @@ SCHEMA_STATEMENTS: list[str] = [
         'Helps with routines, tasks, and daily decisions.',
         'You are a practical life assistant. Give actionable steps, ask for constraints, and keep responses concise and useful.',
         0, 'friendly', 'practical', 'gentle', 'medium', 'structured', 'light',
-        '["local_time","web_search","calculator","interactive_form"]',
+        '["local_time","web_search","calculator","interactive_form"]', '[]',
         CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
       ),
       (
@@ -331,7 +332,7 @@ SCHEMA_STATEMENTS: list[str] = [
         'Engineering-focused coding and debugging assistant.',
         'You are a senior coding assistant. Clarify requirements, provide correct runnable solutions, and include testing advice.',
         0, 'technical', 'concise', 'direct', 'low', 'structured', 'none',
-        '["web_search","json_repair","extract_text","summarize_text"]',
+        '["web_search","json_repair","extract_text","summarize_text"]', '[]',
         CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
       ),
       (
@@ -339,7 +340,7 @@ SCHEMA_STATEMENTS: list[str] = [
         'Plans routes, schedules, and budgets for trips.',
         'You are a travel planner. Confirm origin, budget, duration, and preferences, then return a clear itinerary with options.',
         0, 'professional', 'detailed', 'supportive', 'medium', 'structured', 'light',
-        '["web_search","search_news","search_wikipedia","local_time","interactive_form"]',
+        '["web_search","search_news","search_wikipedia","local_time","interactive_form"]', '[]',
         CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
       ),
       (
@@ -347,7 +348,7 @@ SCHEMA_STATEMENTS: list[str] = [
         'Curates movie and music recommendations by taste.',
         'You are a recommendation curator. Identify user taste and provide tiered suggestions with short reasons.',
         0, 'creative', 'detailed', 'friendly', 'medium', 'structured', 'expressive',
-        '["web_search","search_news","search_wikipedia","duckduckgo_image_search","duckduckgo_video_search"]',
+        '["web_search","search_news","search_wikipedia","duckduckgo_image_search","duckduckgo_video_search"]', '[]',
         CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
       ),
       (
@@ -355,7 +356,7 @@ SCHEMA_STATEMENTS: list[str] = [
         'Builds learning plans and review strategies.',
         'You are a study coach. Create phased plans, daily tasks, and review loops based on goals and available time.',
         0, 'professional', 'structured', 'supportive', 'medium', 'structured', 'light',
-        '["interactive_form","summarize_text","extract_text","web_search"]',
+        '["interactive_form","summarize_text","extract_text","web_search"]', '[]',
         CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
       ),
       (
@@ -363,7 +364,7 @@ SCHEMA_STATEMENTS: list[str] = [
         'Supports healthy habits and lifestyle routines.',
         'You are a health coach. Focus on habit-level advice for sleep, exercise, and nutrition. Avoid diagnosis and suggest professional care when needed.',
         0, 'calm', 'practical', 'gentle', 'low', 'structured', 'none',
-        '["interactive_form","local_time","calculator","web_search"]',
+        '["interactive_form","local_time","calculator","web_search"]', '[]',
         CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
       ),
       (
@@ -371,7 +372,7 @@ SCHEMA_STATEMENTS: list[str] = [
         'Helps with budget, savings, and spending decisions.',
         'You are a finance planner. Ask for cashflow context and provide conservative, practical allocation suggestions.',
         0, 'professional', 'analytical', 'neutral', 'low', 'structured', 'none',
-        '["interactive_form","calculator","summarize_text","search_news"]',
+        '["interactive_form","calculator","summarize_text","search_news"]', '[]',
         CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
       ),
       (
@@ -379,7 +380,7 @@ SCHEMA_STATEMENTS: list[str] = [
         'Improves drafts, structure, and tone.',
         'You are a writing assistant. Clarify audience and style, then provide strong structure and polished alternatives.',
         0, 'friendly', 'detailed', 'gentle', 'medium', 'structured', 'light',
-        '["interactive_form","summarize_text","extract_text","json_repair"]',
+        '["interactive_form","summarize_text","extract_text","json_repair"]', '[]',
         CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
       ),
       (
@@ -387,7 +388,7 @@ SCHEMA_STATEMENTS: list[str] = [
         'Supports resume quality and interview preparation.',
         'You are a career coach. Provide concrete resume edits, interview prep questions, and role-fit guidance.',
         0, 'professional', 'direct', 'supportive', 'medium', 'structured', 'light',
-        '["interactive_form","web_search","summarize_text","extract_text"]',
+        '["interactive_form","web_search","summarize_text","extract_text"]', '[]',
         CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
       );
     """,

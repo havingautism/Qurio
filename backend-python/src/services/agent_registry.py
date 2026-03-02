@@ -5,6 +5,7 @@ Agent registry built with Agno SDK (Agent + AgentOS).
 from __future__ import annotations
 
 import os
+import json
 from types import SimpleNamespace
 from typing import Any
 
@@ -602,8 +603,24 @@ def build_agent(request: Any = None, **kwargs: Any) -> Agent:
 
     skills = None
     if getattr(request, "enable_skills", False):
-        skills_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'skills')
-        skills = Skills(loaders=[LocalSkills(skills_dir)])
+        skills_dir = os.path.join(os.path.dirname(__file__), '..', '..', '.skills')
+        requested_skills = getattr(request, "skill_ids", [])
+        if isinstance(requested_skills, str):
+            try:
+                requested_skills = json.loads(requested_skills)
+            except (json.JSONDecodeError, TypeError):
+                requested_skills = []
+        
+        if requested_skills:
+            # We want to load only the specific requested skills
+            paths = []
+            for skill_id in requested_skills:
+                skill_path = os.path.join(skills_dir, skill_id)
+                if os.path.isdir(skill_path):
+                    paths.append(skill_path)
+            
+            if paths:
+                skills = Skills(loaders=[LocalSkills(path) for path in paths])
 
     return Agent(
         id=f"qurio-{request.provider}",

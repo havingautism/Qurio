@@ -68,6 +68,7 @@ class StreamChatRequest(BaseModel):
     tools: list[ToolDefinition] | None = None
     tool_choice: Any = Field(default=None, alias="toolChoice")
     tool_ids: list[str] = Field(default_factory=list, alias="toolIds")
+    skill_ids: list[str] = Field(default_factory=list, alias="skillIds")
     user_tools: list[UserTool] = Field(default_factory=list, alias="userTools")
     skip_default_tools: bool = Field(default=False, alias="skipDefaultTools")
 

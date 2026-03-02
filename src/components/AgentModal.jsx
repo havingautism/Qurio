@@ -8,6 +8,7 @@ import {
   RefreshCw,
   Search,
   GraduationCap,
+  Eye,
   Calculator,
   Clock,
   FileText,
@@ -1889,6 +1890,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                       ? {
                                           Search,
                                           GraduationCap,
+                                          Eye,
                                           Calculator,
                                           Clock,
                                           FileText,
@@ -1973,6 +1975,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                 ? {
                                     Search,
                                     GraduationCap,
+                                    Eye,
                                     Calculator,
                                     Clock,
                                     FileText,

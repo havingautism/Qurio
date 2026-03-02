@@ -77,7 +77,7 @@ const CapsuleUploadMenu = React.memo(
           {t('common.uploadImage')}
         </button>
         {hasDocuments && (
-          <div className="border-t border-gray-200/70 pt-3 dark:border-zinc-700/50">
+          <div className="border-t border-gray-200/60 pt-3 dark:border-zinc-800/50">
             <DocumentsSection
               documents={documents}
               documentsLoading={documentsLoading}
@@ -1156,7 +1156,7 @@ const ChatInputBar = React.memo(
                           {t('common.uploadImage')}
                         </button>
                         {hasDocuments && (
-                          <div className="border-t border-gray-200/70 pt-3 dark:border-zinc-700/50">
+                          <div className="border-t border-gray-200/60 pt-3 dark:border-zinc-800/50">
                             <DocumentsSection
                               documents={documents}
                               documentsLoading={documentsLoading}
@@ -1433,7 +1433,7 @@ const ChatInputBar = React.memo(
             />
           </div>
 
-          <div className="mt-3 flex items-center justify-between border-t border-gray-100 pt-2 dark:border-zinc-700/50">
+          <div className="mt-3 flex items-center justify-between border-t border-gray-200/60 pt-2 dark:border-zinc-800/50">
             <div className="flex gap-1.5">
               <input
                 type="file"
@@ -1787,7 +1787,7 @@ const ChatInputBar = React.memo(
                           isAgentAutoMode ? 'text-primary-500' : 'text-gray-700 dark:text-gray-200',
                         )}
                       >
-                        <div className="flex items-center divide-y divide-gray-200 dark:divide-zinc-800">
+                        <div className="flex items-center gap-2.5">
                           <span className="rounded-lg bg-gray-100 p-1 text-lg dark:bg-zinc-800">
                             ✨
                           </span>

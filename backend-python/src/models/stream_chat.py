@@ -68,6 +68,7 @@ class StreamChatRequest(BaseModel):
     tools: list[ToolDefinition] | None = None
     tool_choice: Any = Field(default=None, alias="toolChoice")
     tool_ids: list[str] = Field(default_factory=list, alias="toolIds")
+    skill_ids: list[str] = Field(default_factory=list, alias="skillIds")
     user_tools: list[UserTool] = Field(default_factory=list, alias="userTools")
     skip_default_tools: bool = Field(default=False, alias="skipDefaultTools")
 
@@ -130,6 +131,9 @@ class StreamChatRequest(BaseModel):
 
     # Internal use only: Structured Output schema (Agno v2)
     output_schema: Any | None = Field(default=None, exclude=True)
+
+    # Internal use only: Feature flags set by backend routes
+    enable_skills: bool = Field(default=False, exclude=True)
 
     # Context and Session
     conversation_id: str | None = Field(default=None, alias="conversationId", description="Unique identifier for the conversation")

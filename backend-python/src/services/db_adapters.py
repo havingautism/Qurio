@@ -25,7 +25,7 @@ def _utc_now_iso() -> str:
 
 
 JSON_COLUMNS: dict[str, set[str]] = {
-    "agents": {"tool_ids"},
+    "agents": {"tool_ids", "skill_ids"},
     "conversations": {"title_emojis", "session_summary"},
     "conversation_messages": {
         "content",
@@ -281,6 +281,11 @@ class SQLiteAdapter:
                 cursor.execute(
                     "ALTER TABLE agents "
                     "ADD COLUMN use_global_model_settings INTEGER NOT NULL DEFAULT 1"
+                )
+            if "skill_ids" not in agent_columns:
+                cursor.execute(
+                    "ALTER TABLE agents "
+                    "ADD COLUMN skill_ids TEXT NOT NULL DEFAULT '[]'"
                 )
             # Forward migration: ensure scrapbook table exists for pre-existing DBs.
             cursor.execute(

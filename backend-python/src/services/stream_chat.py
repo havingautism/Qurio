@@ -801,6 +801,8 @@ class StreamChatService:
             if not request.messages:
                 raise ValueError("Missing required field: messages")
 
+            # Enable skills for the definitive user-facing chat agent
+            request.enable_skills = True
             agent = get_agent_for_provider(request)
             sources_map: dict[str, Any] = {}
             full_content = ""
@@ -1488,6 +1490,8 @@ class StreamChatService:
                 yield ErrorEvent(error="Form session expired or not found").model_dump()
                 return
 
+            # Enable skills for the definitive user-facing chat agent
+            request.enable_skills = True
             # Get agent (same provider as original request)
             agent = get_agent_for_provider(request)
             _log_verbose_info(f"[HITL Continue] Agent instructions: {getattr(agent, 'instructions', None)}")

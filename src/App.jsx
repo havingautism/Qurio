@@ -6,6 +6,7 @@ import ConfirmationModal from './components/ConfirmationModal'
 import { GitHubPagesRedirectHandler } from './components/GitHubPagesRedirectHandler'
 const SettingsModal = React.lazy(() => import('./components/SettingsModal'))
 import ToolsModal from './components/ToolsModal'
+import SkillsWorkshopModal from './components/SkillsWorkshopModal'
 import Sidebar from './components/Sidebar'
 import SpaceModal from './components/SpaceModal'
 import DatabaseSetupModal from './components/DatabaseSetupModal'
@@ -84,6 +85,9 @@ function App() {
 
   // Tools Modal State
   const [isToolsModalOpen, setIsToolsModalOpen] = useState(false)
+
+  // Skills Workshop Modal State
+  const [isSkillsModalOpen, setIsSkillsModalOpen] = useState(false)
 
   // Knowledge Base Modal State
   const [isKnowledgeBaseModalOpen, setIsKnowledgeBaseModalOpen] = useState(false)
@@ -1017,6 +1021,7 @@ function App() {
                   onClose={() => setIsSidebarOpen(false)}
                   onOpenSettings={() => setIsSettingsOpen(true)}
                   onOpenTools={() => setIsToolsModalOpen(true)}
+                  onOpenSkills={() => setIsSkillsModalOpen(true)}
                   onOpenKnowledgeBase={() => setIsKnowledgeBaseModalOpen(true)}
                   onNavigate={handleNavigate}
                   onOpenExpertGuide={handleOpenExpertGuide}
@@ -1125,6 +1130,10 @@ function App() {
                   onClose={() => setIsDatabaseSetupOpen(false)}
                 />
                 <ToolsModal isOpen={isToolsModalOpen} onClose={() => setIsToolsModalOpen(false)} />
+                <SkillsWorkshopModal
+                  isOpen={isSkillsModalOpen}
+                  onClose={() => setIsSkillsModalOpen(false)}
+                />
                 <KnowledgeBaseModal
                   isOpen={isKnowledgeBaseModalOpen}
                   onClose={() => setIsKnowledgeBaseModalOpen(false)}

@@ -19,6 +19,7 @@ import {
   SquareStack,
   Sun,
   Trash2,
+  GraduationCap
 } from 'lucide-react'
 import React, { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from '@tanstack/react-router'
@@ -52,6 +53,7 @@ const Sidebar = ({
   onClose, // Mobile state
   onOpenSettings,
   onOpenTools,
+  onOpenSkills,
   onNavigate,
   onNavigateToSpace,
   onOpenExpertGuide,
@@ -1217,6 +1219,22 @@ const Sidebar = ({
 
             {/* Email Notification Center */}
             <NotificationCenter />
+
+            <button
+              onClick={onOpenSkills}
+              className={clsx(
+                'flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl transition-all duration-300 hover:scale-105 active:scale-95',
+                isScrapbookSidebarTheme
+                  ? glassTone(
+                      'border border-white/10 bg-white/5 text-white/75 hover:border-white/15 hover:bg-white/10 hover:text-white',
+                      'border border-white/75 bg-white/55 text-slate-600 hover:border-white hover:bg-white/75 hover:text-slate-900',
+                    )
+                  : 'bg-user-bubble text-gray-600 hover:bg-gray-100 dark:bg-zinc-800 dark:text-gray-300 dark:hover:bg-zinc-700',
+              )}
+              title={t('sidebar.skills', 'Skills Workshop')}
+            >
+              <GraduationCap size={20} />
+            </button>
 
             <button
               onClick={onOpenTools}

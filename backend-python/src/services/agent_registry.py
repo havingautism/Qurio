@@ -5,10 +5,12 @@ Agent registry built with Agno SDK (Agent + AgentOS).
 from __future__ import annotations
 
 import os
+import json
 from types import SimpleNamespace
 from typing import Any
 
 from agno.agent import Agent
+from agno.skills import Skills, LocalSkills
 
 # from agno.db.postgres import PostgresDb
 # from agno.memory import MemoryManager
@@ -599,6 +601,27 @@ def build_agent(request: Any = None, **kwargs: Any) -> Agent:
     # We do NOT inject 'db' or 'memory' here.
     # Session context (history + summary) is injected manually in stream_chat.py
 
+    skills = None
+    if getattr(request, "enable_skills", False):
+        skills_dir = os.path.join(os.path.dirname(__file__), '..', '..', '.skills')
+        requested_skills = getattr(request, "skill_ids", [])
+        if isinstance(requested_skills, str):
+            try:
+                requested_skills = json.loads(requested_skills)
+            except (json.JSONDecodeError, TypeError):
+                requested_skills = []
+        
+        if requested_skills:
+            # We want to load only the specific requested skills
+            paths = []
+            for skill_id in requested_skills:
+                skill_path = os.path.join(skills_dir, skill_id)
+                if os.path.isdir(skill_path):
+                    paths.append(skill_path)
+            
+            if paths:
+                skills = Skills(loaders=[LocalSkills(path) for path in paths])
+
     return Agent(
         id=f"qurio-{request.provider}",
         name=f"Qurio {request.provider} Agent",
@@ -607,6 +630,7 @@ def build_agent(request: Any = None, **kwargs: Any) -> Agent:
         markdown=True,
         tool_choice=tool_choice,
         instructions=instructions,
+        skills=skills,
     )
 
 
@@ -647,6 +671,7 @@ def build_memory_agent(
         enable_long_term_memory=True,
         database_provider="supabase",
         user_id=user_id,
+        enable_skills=False,  # Helper agent: keep skills disabled
     )
     return build_agent(memory_request)
 

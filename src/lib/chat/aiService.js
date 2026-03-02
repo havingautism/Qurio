@@ -667,10 +667,9 @@ export const callAIAPI = async (
       requestedThinkingMode === 'smart'
         ? normalizeThinkingMode(liteThinkingMode, false)
         : requestedThinkingMode
-    const thinkingActive =
-      thinkingRule.isLocked
-        ? thinkingRule.isThinkingActive
-        : !!toggles?.deepResearch || resolvedThinkingMode === 'deep'
+    const thinkingActive = thinkingRule.isLocked
+      ? thinkingRule.isThinkingActive
+      : !!toggles?.deepResearch || resolvedThinkingMode === 'deep'
     let planContent = ''
 
     const updateResearchPlan = content => {
@@ -809,6 +808,12 @@ export const callAIAPI = async (
       return []
     })()
 
+    const resolvedSkillIds = (() => {
+      if (resolvedAgent?.skillIds?.length) return resolvedAgent.skillIds
+      if (resolvedAgent?.skill_ids?.length) return resolvedAgent.skill_ids
+      return []
+    })()
+
     const searchProvider = settings.searchProvider || 'tavily'
     const tavilyApiKey = searchProvider === 'tavily' ? settings.tavilyApiKey : undefined
     const serpapiApiKey = settings.serpapiApiKey
@@ -919,6 +924,7 @@ export const callAIAPI = async (
         toggles.deepResearch ? false : settings.enableLongTermMemory,
       ),
       toolIds: resolvedToolIds,
+      skillIds: resolvedSkillIds,
       thinkingMode: modelThinkingModeParam,
       enableLongTermMemory: toggles.deepResearch ? false : Boolean(settings.enableLongTermMemory),
       databaseProvider: selectedDatabaseProvider,
@@ -1815,7 +1821,10 @@ export const finalizeMessage = async (
     const finalAnswerDurationMsForPersistence = (() => {
       const direct = result?.finalAnswerDurationMs
       if (Number.isFinite(direct) && Number(direct) >= 0) return Number(direct)
-      if (Number.isFinite(latestAi?.finalAnswerDurationMs) && Number(latestAi.finalAnswerDurationMs) >= 0) {
+      if (
+        Number.isFinite(latestAi?.finalAnswerDurationMs) &&
+        Number(latestAi.finalAnswerDurationMs) >= 0
+      ) {
         return Number(latestAi.finalAnswerDurationMs)
       }
       return null

@@ -19,6 +19,7 @@ import {
   X,
   Search,
   GraduationCap,
+  Eye,
   Calculator,
   Clock,
   FileText,
@@ -115,6 +116,30 @@ const PROVIDER_META = {
     fallback: 'N',
   },
 }
+
+const TOOL_ICON_COMPONENTS = {
+  Search,
+  GraduationCap,
+  Eye,
+  Calculator,
+  Clock,
+  FileText,
+  ScanText,
+  Wrench,
+  FormInput,
+  Globe,
+  Brain,
+  BrainCircuit,
+  ImageIcon,
+}
+
+const SKILL_TOOL_NAMES = new Set(['get_skill_instructions'])
+const isSkillToolName = name => SKILL_TOOL_NAMES.has(String(name || ''))
+const getToolIconComponent = toolName => {
+  const iconName = TOOL_ICONS[toolName]
+  return iconName ? TOOL_ICON_COMPONENTS[iconName] || null : null
+}
+
 const InTableContext = React.createContext(false)
 
 const InlineVideoEmbed = memo(({ embedUrl, title = 'Video' }) => {
@@ -644,6 +669,7 @@ const MessageBubble = ({
     },
     [t],
   )
+  const isSkillToolCall = useCallback(tool => isSkillToolName(tool?.name), [])
   const getSearchBackendForTool = useCallback(
     tool => {
       if (!tool) return null
@@ -2489,40 +2515,106 @@ const MessageBubble = ({
       )
       if (regularTools.length === 0) return null
 
-      // Extract unique localized tool names
-      const uniqueToolNames = Array.from(
-        new Set(
-          regularTools.map(t =>
-            typeof getToolDisplayName === 'function' ? getToolDisplayName(t) : t.name,
-          ),
-        ),
-      )
-
-      // Join the tool names based on the current locale's comma rule (fallback to '、' for CJK, ', ' otherwise)
       const isChinese = i18n.language && i18n.language.startsWith('zh')
-      const separator = isChinese ? '、' : ', '
-      const joinedNames = uniqueToolNames.join(separator)
-
-      const label = t('messageBubble.usedSpecificTools', {
-        tools: joinedNames,
-        defaultValue: `Used ${joinedNames}`,
-      })
+      const separator = isChinese ? '、' : ','
+      const uniqueTools = Array.from(
+        new Map(
+          regularTools.map(tool => [
+            `${tool.name}::${typeof getToolDisplayName === 'function' ? getToolDisplayName(tool) : tool.name}`,
+            tool,
+          ]),
+        ).values(),
+      )
+      const prefixLabel = t('messageBubble.workflowToolCalledPrefix', '已调用')
 
       return (
         <div key={`tools-inline-capsule-${idx}`} className="mb-4 flex items-center">
           <div
-            className="border-primary-200/35 dark:border-primary-700/20 inline-flex cursor-default items-center gap-2 rounded-lg border bg-white/65 px-2.5 py-2 text-xs text-gray-500 shadow-[0_1px_2px_rgba(0,0,0,0.02)] transition-colors hover:bg-white/80 dark:bg-zinc-800/40 dark:text-gray-400 dark:hover:bg-zinc-800/60"
-            title={regularTools
-              .map(t => (typeof getToolDisplayName === 'function' ? getToolDisplayName(t) : t.name))
+            className="border-primary-200/35 dark:border-primary-700/20 inline-flex max-w-full cursor-default items-center gap-2 rounded-full border bg-white/65 px-3 py-2 text-xs text-gray-500 shadow-[0_1px_2px_rgba(0,0,0,0.02)] transition-colors hover:bg-white/80 dark:bg-zinc-800/40 dark:text-gray-400 dark:hover:bg-zinc-800/60"
+            title={uniqueTools
+              .map(tool =>
+                typeof getToolDisplayName === 'function' ? getToolDisplayName(tool) : tool.name,
+              )
               .join(', ')}
           >
-            <Wrench size={14} className="opacity-70" />
-            <span className="font-medium text-gray-600 dark:text-gray-300">{label}</span>
+            <span className="shrink-0 font-medium text-gray-600 dark:text-gray-300">
+              {prefixLabel}
+            </span>
+            <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 font-medium text-gray-600 dark:text-gray-300">
+              {uniqueTools.map((tool, toolIndex) => {
+                const ToolIcon = getToolIconComponent(tool.name)
+                const toolName =
+                  typeof getToolDisplayName === 'function' ? getToolDisplayName(tool) : tool.name
+
+                return (
+                  <span
+                    key={`${tool.name}-${toolIndex}`}
+                    className="flex min-w-0 items-center gap-1.5"
+                  >
+                    {ToolIcon ? (
+                      <ToolIcon size={14} className="shrink-0 opacity-70" />
+                    ) : (
+                      <Wrench size={14} className="shrink-0 opacity-70" />
+                    )}
+                    <span className="truncate">{toolName}</span>
+                    {toolIndex < uniqueTools.length - 1 && (
+                      <span className="opacity-50">{separator}</span>
+                    )}
+                  </span>
+                )
+              })}
+            </span>
           </div>
         </div>
       )
     },
-    [t, getToolDisplayName, SEARCH_STEP_TOOLS],
+    [t, getToolDisplayName, i18n.language],
+  )
+  const renderWorkflowToolCapsule = useCallback(
+    item => {
+      if (!item) return null
+
+      const ToolIcon = getToolIconComponent(item.name)
+      const isError = item.status === 'error'
+      const isCalling = item.status === 'calling' || item.status === 'running'
+      const toolName = getToolDisplayName(item)
+      const statusLabel = isError
+        ? t('messageBubble.toolStatusError', '失败')
+        : isCalling
+          ? t('messageBubble.toolStatusCalling', '调用中')
+          : t('messageBubble.toolStatusDone', '已完成')
+      const workflowPrefix = isError
+        ? t('messageBubble.workflowToolFailedPrefix', '调用失败')
+        : isCalling
+          ? t('messageBubble.workflowToolCallingPrefix', '调用中')
+          : t('messageBubble.workflowToolCalledPrefix', '已调用')
+
+      return (
+        <div
+          className={clsx(
+            'inline-flex max-w-full items-center gap-2 rounded-full border px-3 py-2 text-xs! shadow-[0_1px_2px_rgba(0,0,0,0.02)]',
+            isError
+              ? 'border-red-200/70 bg-red-50/70 text-red-600 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300'
+              : 'border-primary-200/35 dark:border-primary-700/20 bg-white/65 text-gray-600 dark:bg-zinc-800/40 dark:text-gray-300',
+          )}
+        >
+          <span className="shrink-0 font-medium">{workflowPrefix}</span>
+          <span className="flex min-w-0 items-center gap-1.5 font-medium">
+            {isError ? (
+              <AlertTriangle size={14} className="shrink-0" />
+            ) : ToolIcon ? (
+              <ToolIcon size={14} className="shrink-0 opacity-70" />
+            ) : (
+              <Wrench size={14} className="shrink-0 opacity-70" />
+            )}
+            <span className="truncate">{toolName}</span>
+          </span>
+          {isCalling && <DotLoader size="sm" />}
+          <span className="sr-only">{statusLabel}</span>
+        </div>
+      )
+    },
+    [t, getToolDisplayName],
   )
   const expertPlanBlock = useMemo(
     () => workflowTextParts.find(part => typeof part?.content === 'string' && part.content.trim()),
@@ -2759,7 +2851,7 @@ const MessageBubble = ({
                 <div
                   className={clsx(
                     'relative w-fit max-w-full rounded-[28px] border px-3.5 py-2.5 text-base shadow-[0_18px_36px_-24px_rgba(59,130,246,0.55)] backdrop-blur-xl',
-                    'border-primary-300/30 bg-primary-500/88 text-white dark:border-primary-400/20 dark:bg-primary-900/58 dark:text-gray-100',
+                    'border-primary-300/30 bg-primary-500/88 dark:border-primary-400/20 dark:bg-primary-900/58 text-white dark:text-gray-100',
                   )}
                 >
                   {quoteToRender && (
@@ -3101,6 +3193,14 @@ const MessageBubble = ({
   const hasRelatedQuestions = resolvedRelatedQuestions.length > 0
   const isRelatedLoading = !!mergedMessage.relatedLoading
   const shouldShowRelated = !isDeepResearch && (hasRelatedQuestions || isRelatedLoading)
+  const isLatestAssistantMessage = useMemo(() => {
+    const isAssistantRole = role => role === 'ai' || role === 'assistant'
+    for (let idx = messages.length - 1; idx >= 0; idx -= 1) {
+      if (!isAssistantRole(messages[idx]?.role)) continue
+      return idx === messageIndex
+    }
+    return isLastRenderable
+  }, [messages, messageIndex, isLastRenderable])
   const workflowContainerRef = useRef(null)
   const allSources = useMemo(
     () => (Array.isArray(mergedMessage.sources) ? mergedMessage.sources : []),
@@ -3494,25 +3594,32 @@ const MessageBubble = ({
                       <div className="absolute top-0.75 -left-7 flex h-4 w-4 items-center justify-center text-gray-400 dark:text-gray-500">
                         <Wrench size={16} />
                       </div>
-                      <div className="space-y-1.5">
-                        {step.items.map(item => (
-                          <div
-                            key={item.id || `${item.name}-${item.arguments}`}
-                            className="flex items-center gap-2 text-base text-gray-600 dark:text-gray-300"
-                          >
-                            <span className="font-medium">{getToolDisplayName(item)}</span>
-                            <div className="min-w-0 flex-1">
-                              {renderToolQueryPreview(item, 'truncate opacity-80')}
+                      <div className="space-y-2">
+                        {step.items.map(item => {
+                          const hasDuration = typeof item.durationMs === 'number'
+                          return (
+                            <div
+                              key={item.id || `${item.name}-${item.arguments}`}
+                              className="space-y-1.5"
+                            >
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="min-w-0 flex-1">
+                                  {renderWorkflowToolCapsule(item)}
+                                </div>
+                                {hasDuration && (
+                                  <span className="shrink-0 text-xs! text-gray-500 dark:text-gray-400">
+                                    {t('messageBubble.toolDuration', {
+                                      duration: (item.durationMs / 1000).toFixed(2),
+                                    })}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="pl-1 text-base text-gray-600 dark:text-gray-300">
+                                {renderToolQueryPreview(item, 'truncate opacity-80')}
+                              </div>
                             </div>
-                            {typeof item.durationMs === 'number' && (
-                              <span className="shrink-0 text-xs! text-gray-500 dark:text-gray-400">
-                                {t('messageBubble.toolDuration', {
-                                  duration: (item.durationMs / 1000).toFixed(2),
-                                })}
-                              </span>
-                            )}
-                          </div>
-                        ))}
+                          )
+                        })}
                       </div>
                     </div>
                   )
@@ -3539,7 +3646,9 @@ const MessageBubble = ({
               )}
               {hasWorkflowFinalAnswerStep && (
                 <div className="relative">
-                  <span className="absolute top-1.5 -left-6 h-2.5 w-2.5 rounded-full border border-gray-400/80 bg-gray-50 dark:border-zinc-500 dark:bg-zinc-900" />
+                  <div className="absolute top-0.5 -left-7 flex h-4 w-4 items-center justify-center text-gray-400 dark:text-gray-500">
+                    {isStreaming ? <DotLoader size="6px" gap="3px" /> : <Check size={16} />}
+                  </div>
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2 text-base font-medium text-gray-600 dark:text-gray-300">
                       <span>
@@ -3547,7 +3656,6 @@ const MessageBubble = ({
                           ? t('messageBubble.statusGeneratingAnswer', '正文生成中')
                           : t('messageBubble.finalAnswerStep', '生成最终回答')}
                       </span>
-                      {isStreaming && <DotLoader size="sm" />}
                     </div>
                     {typeof finalAnswerDurationMsForDisplay === 'number' && (
                       <span className="shrink-0 text-xs! text-gray-500 dark:text-gray-400">
@@ -3561,7 +3669,9 @@ const MessageBubble = ({
               )}
               {shouldShowWorkflowFinalAnswer && !hasWorkflowFinalAnswerStep && (
                 <div className="relative">
-                  <span className="absolute top-1.5 -left-6 h-2.5 w-2.5 rounded-full border border-gray-400/80 bg-gray-50 dark:border-zinc-500 dark:bg-zinc-900" />
+                  <div className="absolute top-0.5 -left-7 flex h-4 w-4 items-center justify-center text-gray-400 dark:text-gray-500">
+                    <DotLoader size="6px" gap="3px" />
+                  </div>
                   <div className="text-base font-medium text-gray-600 dark:text-gray-300">
                     {t('messageBubble.finalAnswerStep')}
                   </div>
@@ -4034,23 +4144,7 @@ const MessageBubble = ({
                               </div> */}
                               <div className="space-y-1 overflow-hidden">
                                 {stepToolCalls.map(item => {
-                                  const iconName = TOOL_ICONS[item.name]
-                                  const IconComponent = iconName
-                                    ? {
-                                        Search,
-                                        GraduationCap,
-                                        Calculator,
-                                        Clock,
-                                        FileText,
-                                        ScanText,
-                                        Wrench,
-                                        FormInput,
-                                        Globe,
-                                        Brain,
-                                        BrainCircuit,
-                                        ImageIcon,
-                                      }[iconName]
-                                    : null
+                                  const IconComponent = getToolIconComponent(item.name)
                                   return (
                                     <div
                                       key={item.id || `${item.name}-${item.arguments}`}
@@ -4194,12 +4288,14 @@ const MessageBubble = ({
 
       {/* Related Questions */}
       {shouldShowRelated && (
-        <div className="border-t border-gray-200 pt-4 dark:border-zinc-800">
+        <div className="border-t border-gray-200/60 pt-4 dark:border-zinc-800/50">
           <RelatedQuestions
             t={t}
             questions={hasRelatedQuestions ? resolvedRelatedQuestions : []}
             isLoading={isRelatedLoading}
             onRelatedClick={onRelatedClick}
+            defaultExpanded={isLatestAssistantMessage}
+            resetKey={mergedMessage?.id || mergedMessage?.localId || messageIndex}
           />
         </div>
       )}

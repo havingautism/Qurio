@@ -1008,7 +1008,7 @@ export default function ScrapbookView() {
     <div
       className={clsx(
         'relative flex h-full flex-col overflow-hidden bg-[#f4f4f4] transition-all duration-300 dark:bg-black',
-        isSidebarPinned ? 'ml-0 sm:ml-72' : 'ml-0 sm:ml-16',
+        isSidebarPinned ? 'ml-0 sm:ml-[328px]' : 'ml-0 sm:ml-[72px]',
       )}
     >
       <div className="pointer-events-none absolute inset-0 z-0 opacity-40 dark:opacity-20">

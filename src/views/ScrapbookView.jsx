@@ -298,7 +298,7 @@ const ModelConfigPanel = ({ isOpen, onClose }) => {
             {/* Provider */}
             <div className="flex flex-col gap-2">
               <span className="text-xs font-semibold tracking-wide text-[var(--color-text-secondary)] uppercase">
-                {t('settings.email.provider', '鍘傚晢')}
+                {t('settings.email.provider')}
               </span>
               {availableProviders.length === 0 ? (
                 <p className="py-1 text-xs text-amber-600 dark:text-amber-400">
@@ -345,7 +345,7 @@ const ModelConfigPanel = ({ isOpen, onClose }) => {
               <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold tracking-wide text-[var(--color-text-secondary)] uppercase">
-                    {t('settings.email.model', '妯″瀷')}
+                    {t('settings.email.model')}
                   </span>
                   <button
                     onClick={() => setModelSource(s => (s === 'custom' ? 'list' : 'custom'))}
@@ -436,7 +436,7 @@ const ModelConfigPanel = ({ isOpen, onClose }) => {
             disabled={isLoadingModels}
             className="flex-1 rounded-xl bg-zinc-900 text-white shadow-md hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
           >
-            {t('sidebar.save', '淇濆瓨')}
+            {t('sidebar.save')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1138,7 +1138,7 @@ export default function ScrapbookView() {
         <div className="no-scrollbar sm:scrollbar-default relative min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
           <div className="mx-auto w-full max-w-[1400px] px-4 pb-4 sm:px-8 sm:pb-8">
             {/* Content Area */}
-            <div className="pb-32">
+            <div className="pt-2 pb-32">
               {isLoading ? (
                 <div className="flex h-64 items-center justify-center">
                   <Loader2 size={32} className="animate-spin text-gray-400" />

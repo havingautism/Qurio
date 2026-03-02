@@ -459,7 +459,7 @@ ${entry.content}`
       </div>
 
       {/* Chat-like Header */}
-      <div className="pointer-events-none absolute top-0 right-0 left-0 z-40 flex w-full shrink-0 items-center justify-between gap-4 px-4 pt-4 md:px-10 xl:px-14">
+      <div className="pointer-events-none absolute top-0 right-0 left-0 z-40 flex w-full shrink-0 items-center justify-between gap-4 p-4">
         {/* Transparent header with glassy fade */}
         <div
           aria-hidden="true"

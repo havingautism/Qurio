@@ -9,6 +9,7 @@ from types import SimpleNamespace
 from typing import Any
 
 from agno.agent import Agent
+from agno.skills import Skills, LocalSkills
 
 # from agno.db.postgres import PostgresDb
 # from agno.memory import MemoryManager
@@ -599,6 +600,11 @@ def build_agent(request: Any = None, **kwargs: Any) -> Agent:
     # We do NOT inject 'db' or 'memory' here.
     # Session context (history + summary) is injected manually in stream_chat.py
 
+    skills = None
+    if getattr(request, "enable_skills", False):
+        skills_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'skills')
+        skills = Skills(loaders=[LocalSkills(skills_dir)])
+
     return Agent(
         id=f"qurio-{request.provider}",
         name=f"Qurio {request.provider} Agent",
@@ -607,6 +613,7 @@ def build_agent(request: Any = None, **kwargs: Any) -> Agent:
         markdown=True,
         tool_choice=tool_choice,
         instructions=instructions,
+        skills=skills,
     )
 
 
@@ -647,6 +654,7 @@ def build_memory_agent(
         enable_long_term_memory=True,
         database_provider="supabase",
         user_id=user_id,
+        enable_skills=False,  # Helper agent: keep skills disabled
     )
     return build_agent(memory_request)
 

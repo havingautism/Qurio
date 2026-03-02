@@ -131,6 +131,9 @@ class StreamChatRequest(BaseModel):
     # Internal use only: Structured Output schema (Agno v2)
     output_schema: Any | None = Field(default=None, exclude=True)
 
+    # Internal use only: Feature flags set by backend routes
+    enable_skills: bool = Field(default=False, exclude=True)
+
     # Context and Session
     conversation_id: str | None = Field(default=None, alias="conversationId", description="Unique identifier for the conversation")
     model_config = {"populate_by_name": True}

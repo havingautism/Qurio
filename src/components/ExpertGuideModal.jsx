@@ -68,8 +68,8 @@ const ExpertGuideModal = ({ isOpen, onClose, spaces = [], onStart, loading = fal
             placeholder={t('homeView.expertQuestionPlaceholder')}
             autoFocus={!isMobile}
             className={clsx(
-              'focus:ring-primary-500/20 focus:border-primary-500 min-h-[120px] w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 placeholder-gray-400 transition-all outline-none focus:ring-2 dark:border-zinc-700/50 dark:bg-zinc-800/50 dark:placeholder-gray-500',
-              isMobile ? 'text-base' : 'text-sm',
+              'focus:ring-primary-500/30 focus:border-primary-500 min-h-[140px] w-full resize-none rounded-2xl border border-gray-200 bg-gray-50/50 px-4 py-3 text-sm transition-all focus:ring-4 focus:outline-none dark:border-zinc-700/50 dark:bg-zinc-800/50 dark:placeholder-gray-500',
+              isMobile ? 'text-base' : '',
             )}
           />
         </div>
@@ -113,14 +113,12 @@ const ExpertGuideModal = ({ isOpen, onClose, spaces = [], onStart, loading = fal
                   </div>
                   <div
                     className={clsx(
-                      'flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition-all',
+                      'mt-0.5 flex h-5 w-5 items-center justify-center rounded-full border-2 transition-all',
                       isSelected
-                        ? 'bg-primary-500 border-primary-500 text-white'
-                        : 'border-gray-300 text-transparent dark:border-zinc-600',
+                        ? 'border-primary-500 bg-primary-500'
+                        : 'border-slate-300 dark:border-zinc-600',
                     )}
-                  >
-                    <Check size={13} strokeWidth={3} />
-                  </div>
+                  />
                 </button>
               )
             })}
@@ -140,7 +138,7 @@ const ExpertGuideModal = ({ isOpen, onClose, spaces = [], onStart, loading = fal
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:border-zinc-700 dark:text-gray-300 dark:hover:bg-zinc-800"
+            className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:border-zinc-700 dark:text-gray-300 dark:hover:bg-zinc-800"
           >
             {t('common.cancel')}
           </button>

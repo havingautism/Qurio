@@ -69,7 +69,7 @@ const ConfirmationModal = ({
             </button>
             <button
               onClick={onClose}
-              className="flex flex-1 items-center justify-center rounded-2xl border border-gray-200 bg-white px-6 py-4 text-sm font-bold text-gray-600 transition-all hover:bg-gray-50 dark:border-zinc-800 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+              className="flex flex-1 items-center justify-center rounded-2xl border border-slate-300 bg-white px-6 py-4 text-sm font-bold text-gray-600 transition-all hover:bg-gray-50 dark:border-zinc-800 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
             >
               {cancelText || t('confirmation.cancel')}
             </button>

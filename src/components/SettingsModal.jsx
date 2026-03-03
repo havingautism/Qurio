@@ -2388,7 +2388,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                           placeholder={t('settings.googleApiKeyPlaceholder')}
                           disabled={Boolean(ENV_VARS.googleApiKey)}
                           className={clsx(
-                            'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border-none bg-black/5 py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:bg-white/5 dark:text-gray-100 dark:placeholder-zinc-600',
+                            'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border-none bg-black/5 py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-100/50 disabled:text-gray-500 dark:bg-white/5 dark:text-gray-100 dark:placeholder-zinc-600',
                             ENV_VARS.googleApiKey && 'cursor-not-allowed opacity-70',
                           )}
                         />
@@ -2446,7 +2446,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                             placeholder={t('settings.openaiApiKeyPlaceholder')}
                             disabled={Boolean(ENV_VARS.openAIKey)}
                             className={clsx(
-                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border-none bg-black/5 py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:bg-white/5 dark:text-gray-100 dark:placeholder-zinc-600',
+                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border-none bg-black/5 py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-100/50 disabled:text-gray-500 dark:bg-white/5 dark:text-gray-100 dark:placeholder-zinc-600',
                               ENV_VARS.openAIKey && 'cursor-not-allowed opacity-70',
                             )}
                           />
@@ -2468,7 +2468,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                             placeholder={t('settings.baseUrlPlaceholder')}
                             disabled={Boolean(ENV_VARS.openAIBaseUrl)}
                             className={clsx(
-                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border-none bg-black/5 py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:bg-white/5 dark:text-gray-100 dark:placeholder-zinc-600',
+                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border-none bg-black/5 py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-100/50 disabled:text-gray-500 dark:bg-white/5 dark:text-gray-100 dark:placeholder-zinc-600',
                               ENV_VARS.openAIBaseUrl && 'cursor-not-allowed opacity-70',
                             )}
                           />
@@ -2753,7 +2753,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                         disabled={backendHealthState.status === 'loading'}
                         className={clsx(
                           'flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50',
-                          'border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-zinc-700 dark:text-gray-300 dark:hover:bg-zinc-800',
+                          'border-slate-300 text-gray-700 hover:bg-gray-50 dark:border-zinc-700 dark:text-gray-300 dark:hover:bg-zinc-800',
                         )}
                       >
                         {backendHealthState.status === 'loading' && (
@@ -2823,7 +2823,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                         onClick={onOpenDatabaseSetup}
                         className={clsx(
                           'flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-colors',
-                          'border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-zinc-700 dark:text-gray-300 dark:hover:bg-zinc-800',
+                          'border-slate-300 text-gray-700 hover:bg-gray-50 dark:border-zinc-700 dark:text-gray-300 dark:hover:bg-zinc-800',
                         )}
                       >
                         <Settings size={12} />
@@ -2839,7 +2839,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                             disabled={retestingDb}
                             className={clsx(
                               'flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50',
-                              'border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-zinc-700 dark:text-gray-300 dark:hover:bg-zinc-800',
+                              'border-slate-300 text-gray-700 hover:bg-gray-50 dark:border-zinc-700 dark:text-gray-300 dark:hover:bg-zinc-800',
                             )}
                           >
                             {retestingDb ? (
@@ -3463,7 +3463,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                       type="button"
                       onClick={handleIntroSearchTest}
                       disabled={!canRunIntroSearch}
-                      className="flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:text-gray-200 dark:hover:bg-zinc-800"
+                      className="flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:text-gray-200 dark:hover:bg-zinc-800"
                     >
                       {introSearchState.status === 'loading' && (
                         <RefreshCw size={14} className="animate-spin" />
@@ -3612,7 +3612,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                       type="button"
                       onClick={handleDocumentSearch}
                       disabled={!canRunDocumentSearch}
-                      className="flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:text-gray-200 dark:hover:bg-zinc-800"
+                      className="flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:text-gray-200 dark:hover:bg-zinc-800"
                     >
                       {documentSearchState.status === 'loading'
                         ? t('settings.documentSearching')
@@ -3750,7 +3750,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                         'flex items-center justify-center rounded-lg border px-4 py-2.5 text-sm font-medium transition-all',
                         fontSize === size
                           ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
-                          : 'border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-400 dark:hover:bg-zinc-800',
+                          : 'border-slate-300 bg-gray-50 text-gray-600 hover:bg-gray-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-400 dark:hover:bg-zinc-800',
                       )}
                     >
                       {t(`settings.fontSize.${size}`)}

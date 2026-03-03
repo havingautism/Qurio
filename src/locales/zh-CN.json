@@ -1299,6 +1299,7 @@
     "spaceView": {
       "title": "空间",
       "searchPlaceholder": "在此空间中搜索...",
+      "descriptionFallback": "{{label}} 搜索记录",
       "noThreadsFound": "此空间中没有找到对话。",
       "removedFromSpace": "对话已从空间移除",
       "failedToRemove": "从空间移除对话失败",

@@ -1307,6 +1307,7 @@
     "spaceView": {
       "title": "Space",
       "searchPlaceholder": "Search in this space...",
+      "descriptionFallback": "{{label}} search records",
       "noThreadsFound": "No threads found in this space.",
       "removedFromSpace": "Conversation removed from space",
       "failedToRemove": "Failed to remove conversation from space",

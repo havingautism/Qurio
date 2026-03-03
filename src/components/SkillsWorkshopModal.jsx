@@ -65,7 +65,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
       }
     } catch (err) {
       console.error(err)
-      toast.error(t('skills.loadError', 'Failed to load skills'))
+      toast.error(t('agents.skills.loadError', 'Failed to load skills'))
     } finally {
       setIsLoading(false)
     }
@@ -113,7 +113,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
       }
     } catch (err) {
       console.error(err)
-      toast.error(t('skills.detailsError', 'Failed to load skill details'))
+      toast.error(t('agents.skills.detailsError', 'Failed to load skill details'))
     }
   }
 
@@ -174,7 +174,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
     if (activeFile === 'SKILL.md') return
 
     setStagedFiles(prev => ({ ...prev, [activeFile]: fileContent }))
-    toast.success(t('skills.fileStaged', 'Changes staged locally'))
+    toast.success(t('agents.skills.fileStaged', 'Changes staged locally'))
   }
 
   const handleCreateFile = async e => {
@@ -218,7 +218,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
       setIsCreatingFile(false)
       setCreatingFileType(null)
       setNewFileName('')
-      toast.success(t('skills.fileStaged', 'File created locally (Save Skill to commit)'))
+      toast.success(t('agents.skills.fileCreated', 'File created locally (Save Skill to commit)'))
     } catch (err) {
       console.error(err)
       toast.error(`Failed to create ${finalPath}`)
@@ -239,7 +239,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
           return next
         })
         if (activeFile === path) setActiveFile('SKILL.md')
-        toast.success(t('skills.fileDeleted', 'File removed'))
+        toast.success(t('agents.skills.fileDeleted', 'File removed'))
         return
       }
 
@@ -281,7 +281,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
           method: 'DELETE',
         })
         if (res.ok) {
-          toast.success(t('skills.deleteSuccess', 'Skill deleted successfully'))
+          toast.success(t('agents.skills.deleteSuccess', 'Skill deleted successfully'))
           window.dispatchEvent(new CustomEvent('skills-changed'))
           fetchSkills()
         } else {
@@ -289,14 +289,14 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
         }
       } catch (err) {
         console.error(err)
-        toast.error(t('skills.deleteError', 'Failed to delete skill'))
+        toast.error(t('agents.skills.deleteError', 'Failed to delete skill'))
       }
     }
 
     showConfirmation({
-      title: t('skills.deleteConfirmTitle', 'Delete Skill?'),
+      title: t('agents.skills.deleteConfirmTitle', 'Delete Skill?'),
       message: t(
-        'skills.deleteConfirmMessage',
+        'agents.skills.deleteConfirmMessage',
         'Are you sure you want to delete this skill? Default agents may break if relying on it.',
       ),
       confirmText: t('common.delete', 'Delete'),
@@ -311,22 +311,22 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
 
     // Mandatory Metadata Validation
     if (!formData.id.trim()) {
-      toast.error(t('skills.idRequired', 'Skill ID is required'))
+      toast.error(t('agents.skills.idRequired', 'Skill ID is required'))
       setIsSaving(false)
       return
     }
     if (!formData.name.trim()) {
-      toast.error(t('skills.nameRequired', 'Display Name is required'))
+      toast.error(t('agents.skills.nameRequired', 'Display Name is required'))
       setIsSaving(false)
       return
     }
     if (!formData.description.trim()) {
-      toast.error(t('skills.descriptionRequired', 'Short Description is required'))
+      toast.error(t('agents.skills.descriptionRequired', 'Short Description is required'))
       setIsSaving(false)
       return
     }
     if (!formData.instructions.trim() || formData.instructions.trim() === '# Instructions') {
-      toast.error(t('skills.instructionsRequired', 'System Instructions are required'))
+      toast.error(t('agents.skills.instructionsRequired', 'System Instructions are required'))
       setIsSaving(false)
       return
     }
@@ -335,7 +335,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
     if (!/^[a-z0-9-]+$/.test(cleanId) || cleanId.length > 64) {
       toast.error(
         t(
-          'skills.invalidId',
+          'agents.skills.invalidId',
           'Skill ID must be 1-64 characters, lowercase, alphanumeric, and hyphens only',
         ),
       )
@@ -344,7 +344,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
     }
 
     if (formData.description.length > 1024) {
-      toast.error(t('skills.descTooLong', 'Description must be 1024 characters or less'))
+      toast.error(t('agents.skills.descTooLong', 'Description must be 1024 characters or less'))
       setIsSaving(false)
       return
     }
@@ -375,7 +375,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
       })
 
       if (res.ok) {
-        toast.success(t('skills.saveSuccess', 'Skill saved successfully'))
+        toast.success(t('agents.skills.saveSuccess', 'Skill saved successfully'))
 
         // Dispatch global event to refresh other components
         window.dispatchEvent(new CustomEvent('skills-changed'))
@@ -408,7 +408,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
       }
     } catch (err) {
       console.error(err)
-      toast.error(err.message || t('skills.saveError', 'Failed to save skill'))
+      toast.error(err.message || t('agents.skills.saveError', 'Failed to save skill'))
     } finally {
       setIsSaving(false)
     }
@@ -440,25 +440,25 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
       />
 
       {/* Modal */}
-      <div className="relative z-10 flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="glass-elite-panel relative z-10 flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-[28px] border-none shadow-2xl">
         {/* Header */}
-        <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-zinc-800">
+        <div className="flex shrink-0 items-center justify-between border-b border-black/5 px-6 py-4 dark:border-white/5">
           <div>
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
               {isEditing
                 ? isNew
-                  ? t('skills.createNew', 'Create New Skill')
-                  : t('skills.editSkill', 'Edit Skill')
-                : t('sidebar.skills', 'Skills Workshop')}
+                  ? t('agents.skills.createNew', 'Create New Skill')
+                  : t('agents.skills.editSkill', 'Edit Skill')
+                : t('agents.tabs.skills', 'Skills Workshop')}
             </h2>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
               {isEditing
                 ? t(
-                    'skills.editDesc',
+                    'agents.skills.editDesc',
                     'Define the system instructions and capabilities for this skill',
                   )
                 : t(
-                    'skills.workshopDesc',
+                    'agents.skills.workshopDesc',
                     'Create macro-skills that can be attached to any Agent context',
                   )}
             </p>
@@ -472,11 +472,11 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
         </div>
 
         {/* Content Area */}
-        <div className="no-scrollbar flex-1 overflow-y-auto bg-gray-50/50 dark:bg-zinc-900/50">
+        <div className="no-scrollbar flex-1 overflow-y-auto bg-transparent">
           {isEditing ? (
             <div className="flex h-full min-h-[500px]">
               {/* Left Sidebar for Files */}
-              <div className="no-scrollbar flex w-64 shrink-0 flex-col overflow-y-auto border-r border-gray-200 bg-gray-50/50 p-4 dark:border-zinc-800 dark:bg-zinc-900/50">
+              <div className="no-scrollbar flex w-64 shrink-0 flex-col overflow-y-auto border-r border-black/5 bg-transparent p-4 dark:border-white/5">
                 {/* General Header (SKILL.md) */}
                 <div className="mb-6">
                   <button
@@ -502,7 +502,9 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                     <button
                       onClick={() => {
                         if (isNew && !formData.id.trim()) {
-                          toast.error(t('skills.idRequired', 'Please enter a Skill ID first'))
+                          toast.error(
+                            t('agents.skills.idRequired', 'Please enter a Skill ID first'),
+                          )
                           return
                         }
                         setIsCreatingFile(true)
@@ -516,7 +518,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
 
                   {isCreatingFile && creatingFileType === 'script' && (
                     <form onSubmit={handleCreateFile} className="mb-2 px-2">
-                      <div className="border-primary-300 dark:border-primary-900/50 flex items-center gap-1 rounded border bg-white p-1 dark:bg-zinc-800">
+                      <div className="flex items-center gap-1 rounded border-none bg-black/5 p-1 dark:bg-white/5">
                         <input
                           autoFocus
                           type="text"
@@ -547,8 +549,8 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                           className={clsx(
                             'flex w-full items-center gap-2 truncate rounded-md px-2 py-1.5 text-left text-sm transition-colors',
                             activeFile === file
-                              ? 'bg-primary-50 text-primary-600 dark:bg-primary-500/10 dark:text-primary-400 font-medium'
-                              : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-zinc-800',
+                              ? 'text-primary-600 dark:text-primary-400 bg-black/5 font-medium dark:bg-white/10'
+                              : 'text-gray-600 hover:bg-black/5 dark:text-gray-300 dark:hover:bg-white/5',
                           )}
                         >
                           <Code size={14} className="shrink-0 opacity-60" />
@@ -579,7 +581,9 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                     <button
                       onClick={() => {
                         if (isNew && !formData.id.trim()) {
-                          toast.error(t('skills.idRequired', 'Please enter a Skill ID first'))
+                          toast.error(
+                            t('agents.skills.idRequired', 'Please enter a Skill ID first'),
+                          )
                           return
                         }
                         setIsCreatingFile(true)
@@ -593,7 +597,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
 
                   {isCreatingFile && creatingFileType === 'reference' && (
                     <form onSubmit={handleCreateFile} className="mb-2 px-2">
-                      <div className="border-primary-300 dark:border-primary-900/50 flex items-center gap-1 rounded border bg-white p-1 dark:bg-zinc-800">
+                      <div className="flex items-center gap-1 rounded border-none bg-black/5 p-1 dark:bg-white/5">
                         <input
                           autoFocus
                           type="text"
@@ -624,8 +628,8 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                           className={clsx(
                             'flex w-full items-center gap-2 truncate rounded-md px-2 py-1.5 text-left text-sm transition-colors',
                             activeFile === file
-                              ? 'bg-primary-50 text-primary-600 dark:bg-primary-500/10 dark:text-primary-400 font-medium'
-                              : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-zinc-800',
+                              ? 'text-primary-600 dark:text-primary-400 bg-black/5 font-medium dark:bg-white/10'
+                              : 'text-gray-600 hover:bg-black/5 dark:text-gray-300 dark:hover:bg-white/5',
                           )}
                         >
                           <FileText size={14} className="shrink-0 opacity-60" />
@@ -659,7 +663,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                     <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                       <div className="space-y-2">
                         <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                          {t('skills.idLabel', 'Skill ID (Internal Name)')}
+                          {t('agents.skills.idLabel', 'Skill ID (Internal Name)')}
                         </label>
                         <input
                           type="text"
@@ -673,7 +677,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                             }
                           }}
                           placeholder="e.g. pirate-greeter"
-                          className="focus:border-primary-500 focus:ring-primary-500/20 w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 transition-all outline-none placeholder:text-gray-400 focus:ring-2 disabled:bg-gray-100 disabled:text-gray-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white dark:disabled:bg-zinc-800/50"
+                          className="focus:ring-primary-500/20 w-full rounded-xl border-none bg-black/5 px-4 py-2.5 text-sm transition-all outline-none placeholder:text-gray-400 focus:ring-2 disabled:bg-gray-50/10 disabled:opacity-50 dark:bg-white/5 dark:placeholder:text-zinc-600"
                         />
                         {isNew && (
                           <p className="text-[10px] text-gray-500">
@@ -684,7 +688,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
 
                       <div className="space-y-2">
                         <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                          {t('skills.nameLabel', 'Display Name')}
+                          {t('agents.skills.nameLabel', 'Display Name')}
                         </label>
                         <input
                           type="text"
@@ -692,14 +696,14 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                           value={formData.name}
                           onChange={e => setFormData({ ...formData, name: e.target.value })}
                           placeholder="e.g. Pirate Greeter"
-                          className="focus:border-primary-500 focus:ring-primary-500/20 w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 transition-all outline-none placeholder:text-gray-400 focus:ring-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+                          className="focus:ring-primary-500/20 w-full rounded-xl border-none bg-black/5 px-4 py-2.5 text-sm transition-all outline-none placeholder:text-gray-400 focus:ring-2 dark:bg-white/5"
                         />
                       </div>
                     </div>
 
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {t('skills.descLabel', 'Short Description')}
+                        {t('agents.skills.descLabel', 'Short Description')}
                       </label>
                       <input
                         type="text"
@@ -721,7 +725,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                     <div className="flex min-h-[300px] flex-1 flex-col space-y-2">
                       <div className="flex items-center justify-between">
                         <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                          {t('skills.instructionsLabel', 'System Instructions (Markdown)')}
+                          {t('agents.skills.instructionsLabel', 'System Instructions (Markdown)')}
                         </label>
                       </div>
                       <textarea
@@ -729,7 +733,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                         value={formData.instructions}
                         onChange={e => setFormData({ ...formData, instructions: e.target.value })}
                         placeholder="You are an expert at..."
-                        className="focus:border-primary-500 focus:ring-primary-500/20 min-h-[300px] w-full flex-1 resize-none rounded-xl border border-gray-200 bg-white p-4 font-mono text-sm text-gray-900 transition-all outline-none placeholder:text-gray-400 focus:ring-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+                        className="focus:ring-primary-500/20 min-h-[300px] w-full flex-1 resize-none rounded-xl border-none bg-black/5 p-4 font-mono text-sm transition-all outline-none placeholder:text-gray-400 focus:ring-2 dark:bg-white/5"
                       />
                     </div>
                   </form>
@@ -746,7 +750,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                       <textarea
                         value={fileContent}
                         onChange={e => setFileContent(e.target.value)}
-                        className="focus:border-primary-500 focus:ring-primary-500/20 w-full flex-1 resize-none rounded-xl border border-gray-200 bg-white p-4 font-mono text-sm text-gray-900 transition-all outline-none focus:ring-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+                        className="focus:ring-primary-500/20 w-full flex-1 resize-none rounded-xl border-none bg-black/5 p-4 font-mono text-sm transition-all outline-none focus:ring-2 dark:bg-white/5"
                       />
                     )}
                   </div>
@@ -762,7 +766,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                   className="bg-primary-500 hover:bg-primary-600 flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:shadow-md active:scale-95"
                 >
                   <Plus size={16} />
-                  {t('skills.createButton', 'Create Skill')}
+                  {t('agents.skills.createButton', 'Create Skill')}
                 </button>
               </div>
 
@@ -784,7 +788,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                   </p>
                   <button
                     onClick={handleCreateNew}
-                    className="flex items-center gap-2 rounded-xl bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100"
+                    className="flex items-center gap-2 rounded-xl bg-black/5 px-4 py-2 text-sm font-medium text-gray-900 transition-all hover:bg-black/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/20"
                   >
                     <Plus size={16} />
                     Create your first Skill
@@ -795,7 +799,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                   {skills.map(skill => (
                     <div
                       key={skill.id}
-                      className="group flex flex-col justify-between rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-all hover:border-gray-300 hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700"
+                      className="glass-elite-soft group flex flex-col justify-between rounded-2xl border-none p-5 shadow-sm transition-all hover:bg-black/5 hover:shadow-md active:scale-[0.99] dark:hover:bg-white/5"
                     >
                       <div>
                         <div className="mb-2 flex items-center justify-between">
@@ -837,7 +841,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
 
         {/* Footer Actions when Editing */}
         {isEditing && (
-          <div className="flex shrink-0 items-center justify-end gap-3 border-t border-gray-100 bg-white px-6 py-4 dark:border-zinc-800 dark:bg-zinc-900">
+          <div className="flex shrink-0 items-center justify-end gap-3 border-t border-black/5 bg-transparent px-6 py-4 dark:border-white/5">
             <button
               type="button"
               onClick={() => setIsEditing(false)}

@@ -918,6 +918,34 @@
     },
     "errors": {
       "saveFailed": "保存失败"
+    },
+    "skills": {
+      "loadError": "加载技能失败",
+      "detailsError": "加载技能详情失败",
+      "fileStaged": "更改已暂存至本地",
+      "fileCreated": "文件已在本地创建（请保存技能以提交更改）",
+      "fileDeleted": "文件已移除",
+      "deleteSuccess": "技能删除成功",
+      "deleteError": "删除技能失败",
+      "deleteConfirmTitle": "删除技能？",
+      "deleteConfirmMessage": "确定要删除此技能吗？依赖此技能的默认智能体可能会出现问题。",
+      "idRequired": "技能 ID 为必填项",
+      "nameRequired": "显示名称为必填项",
+      "descriptionRequired": "简短描述为必填项",
+      "instructionsRequired": "系统指令为必填项",
+      "invalidId": "技能 ID 必须为 1-64 个字符，只能包含小写字母、数字和连字符",
+      "descTooLong": "描述必须在 1024 个字符以内",
+      "saveSuccess": "技能保存成功",
+      "saveError": "保存技能失败",
+      "createNew": "创建新技能",
+      "editSkill": "编辑技能",
+      "editDesc": "定义此技能的系统指令和各项能力",
+      "workshopDesc": "创建可挂载到任何智能体上下文中的宏技能",
+      "idLabel": "技能 ID (内部名称)",
+      "nameLabel": "显示名称",
+      "descLabel": "简短描述",
+      "instructionsLabel": "系统指令 (Markdown)",
+      "createButton": "创建技能"
     }
   },
   "deepResearch": {

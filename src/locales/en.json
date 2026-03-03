@@ -935,6 +935,10 @@
       "saveFailed": "Failed to save agent"
     },
     "skills": {
+      "title": "Available Skills",
+      "description": "Skills are modular prompts and scripts that give this agent extra automated capabilities.",
+      "empty": "No Custom Skills Found",
+      "emptyHint": "Create skills in the Skills Workshop (Sidebar) before assigning them.",
       "loadError": "Failed to load skills",
       "detailsError": "Failed to load skill details",
       "fileStaged": "Changes staged locally",

@@ -2056,13 +2056,8 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                 <div className="flex gap-3 rounded-lg bg-blue-50 p-4 text-sm text-blue-700 dark:bg-blue-900/10 dark:text-blue-300">
                   <Info size={18} className="mt-0.5 shrink-0" />
                   <div>
-                    <p className="font-medium">{t('agents.skills.title', 'Available Skills')}</p>
-                    <p className="opacity-90">
-                      {t(
-                        'agents.skills.description',
-                        'Skills are modular prompts and scripts that give this agent extra automated capabilities.',
-                      )}
-                    </p>
+                    <p className="font-medium">{t('agents.skills.title')}</p>
+                    <p className="opacity-90">{t('agents.skills.description')}</p>
                   </div>
                 </div>
 
@@ -2074,14 +2069,9 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   <div className="rounded-xl border border-dashed border-gray-200 p-8 text-center dark:border-zinc-800">
                     <GraduationCap className="mx-auto mb-3 h-8 w-8 text-gray-400" />
                     <p className="font-medium text-gray-900 dark:text-white">
-                      {t('agents.skills.empty', 'No Custom Skills Found')}
+                      {t('agents.skills.empty')}
                     </p>
-                    <p className="mt-1 text-sm text-gray-500">
-                      {t(
-                        'agents.skills.emptyHint',
-                        'Create skills in the Skills Workshop (Sidebar) before assigning them.',
-                      )}
-                    </p>
+                    <p className="mt-1 text-sm text-gray-500">{t('agents.skills.emptyHint')}</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-2">

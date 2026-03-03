@@ -920,6 +920,10 @@
       "saveFailed": "保存失败"
     },
     "skills": {
+      "title": "可用技能",
+      "description": "技能是模块化的提示词和脚本，能为该智能体提供额外的自动化能力。",
+      "empty": "未找到自定义技能",
+      "emptyHint": "在分配技能之前，请先在技能中心（侧边栏）中创建技能。",
       "loadError": "加载技能失败",
       "detailsError": "加载技能详情失败",
       "fileStaged": "更改已暂存至本地",

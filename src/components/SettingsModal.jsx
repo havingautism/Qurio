@@ -84,7 +84,9 @@ const resolveToolsApiEditorProvider = ({
   serpapiApiKey,
   exaApiKey,
 }) => {
-  const normalizedSearchProvider = String(searchProvider || '').trim().toLowerCase()
+  const normalizedSearchProvider = String(searchProvider || '')
+    .trim()
+    .toLowerCase()
   if (normalizedSearchProvider === 'tavily' || normalizedSearchProvider === 'serpapi') {
     return normalizedSearchProvider
   }
@@ -1488,7 +1490,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                   className={clsx(
                     'rounded-md px-3 py-1 text-xs font-medium transition-all',
                     modelSource === 'list'
-                      ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-gray-100'
+                      ? 'bg-black/5 text-gray-900 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:bg-white/10 dark:text-gray-100'
                       : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300',
                   )}
                 >
@@ -1505,7 +1507,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                   className={clsx(
                     'rounded-md px-3 py-1 text-xs font-medium transition-all',
                     modelSource === 'custom'
-                      ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-gray-100'
+                      ? 'bg-black/5 text-gray-900 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:bg-white/10 dark:text-gray-100'
                       : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300',
                   )}
                 >
@@ -1540,7 +1542,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                 className={clsx(
                   'flex-1 rounded-md py-1.5 text-xs font-medium transition-all',
                   modelSource === 'list'
-                    ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-gray-100'
+                    ? 'bg-black/5 text-gray-900 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:bg-white/10 dark:text-gray-100'
                     : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300',
                 )}
               >
@@ -1557,7 +1559,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                 className={clsx(
                   'flex-1 rounded-md py-1.5 text-xs font-medium transition-all',
                   modelSource === 'custom'
-                    ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-gray-100'
+                    ? 'bg-black/5 text-gray-900 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:bg-white/10 dark:text-gray-100'
                     : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300',
                 )}
               >
@@ -1590,7 +1592,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
             {displayLabel}
           </span>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900">
+        <div className="rounded-lg border-none bg-black/5 p-3 dark:bg-white/5">
           <div className="flex flex-col gap-3">
             {!hideProviderSelector && (
               <div className="relative flex flex-col gap-2">
@@ -2188,9 +2190,9 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
 
   return (
     <div className="fixed inset-0 z-100 flex items-start justify-center overflow-y-auto bg-black/50 p-0 backdrop-blur-sm md:items-center md:overflow-hidden md:p-4">
-      <div className="relative flex h-dvh w-full flex-col overflow-hidden rounded-none border-0 border-gray-200 bg-white shadow-2xl md:h-[85vh] md:max-w-5xl md:flex-row md:rounded-2xl md:border dark:border-zinc-800 dark:bg-[#191a1a]">
+      <div className="glass-elite-panel relative flex h-dvh w-full flex-col overflow-hidden rounded-none border-0 md:h-[85vh] md:max-w-5xl md:flex-row md:rounded-3xl">
         {/* Mobile Header */}
-        <div className="flex h-14 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4 md:hidden dark:border-zinc-800 dark:bg-[#191a1a]">
+        <div className="flex h-14 shrink-0 items-center justify-between border-b border-black/5 bg-transparent px-4 md:hidden dark:border-white/5">
           <h2 className="text-base font-semibold text-gray-900 dark:text-white">
             {t('settings.title')}
           </h2>
@@ -2203,7 +2205,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
         </div>
 
         {/* Sidebar */}
-        <div className="bg-primary-50 dark:bg-background/70 no-scrollbar flex w-full shrink-0 flex-row gap-2 overflow-x-auto border-b border-gray-200 px-1 py-1 sm:px-4 sm:py-4 md:w-64 md:flex-col md:overflow-visible md:border-r md:border-b-0 dark:border-zinc-800">
+        <div className="no-scrollbar flex w-full shrink-0 flex-row gap-2 overflow-x-auto border-b border-black/5 bg-transparent px-1 py-1 sm:px-4 sm:py-4 md:w-64 md:flex-col md:overflow-visible md:border-r md:border-b-0 dark:border-white/5">
           <h2 className="mb-0 hidden px-2 text-xl font-bold text-gray-900 md:mb-6 md:block dark:text-white">
             {t('settings.title')}
           </h2>
@@ -2215,8 +2217,8 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                 className={clsx(
                   'flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-semibold whitespace-nowrap transition-colors sm:gap-3',
                   activeTab === item.id
-                    ? 'bg-primary-100 text-primary-600 dark:text-primary-400 dark:bg-zinc-800'
-                    : 'hover:bg-primary-100 text-gray-600 dark:text-gray-400 dark:hover:bg-zinc-800',
+                    ? 'text-primary-600 dark:text-primary-400 bg-black/5 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:bg-white/10'
+                    : 'text-gray-600 hover:bg-black/5 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-white',
                 )}
               >
                 <item.icon size={18} />
@@ -2227,7 +2229,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
         </div>
 
         {/* Content Area */}
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-[#f9f9f987] dark:bg-[#191a1a]">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-transparent">
           {/* Header */}
           {/* <div className="h-16 border-b border-gray-200 dark:border-zinc-800 hidden md:flex items-center justify-between px-6 sm:px-8">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white capitalize">
@@ -2386,7 +2388,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                           placeholder={t('settings.googleApiKeyPlaceholder')}
                           disabled={Boolean(ENV_VARS.googleApiKey)}
                           className={clsx(
-                            'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border border-gray-200 bg-white py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600',
+                            'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border-none bg-black/5 py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:bg-white/5 dark:text-gray-100 dark:placeholder-zinc-600',
                             ENV_VARS.googleApiKey && 'cursor-not-allowed opacity-70',
                           )}
                         />
@@ -2418,7 +2420,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                               defaultValue: 'Enter your MiniMax API Key',
                             })}
                             className={clsx(
-                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border border-gray-200 bg-white py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600',
+                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border-none bg-black/5 py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:bg-white/5 dark:text-gray-100 dark:placeholder-zinc-600',
                             )}
                           />
                         </div>
@@ -2444,7 +2446,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                             placeholder={t('settings.openaiApiKeyPlaceholder')}
                             disabled={Boolean(ENV_VARS.openAIKey)}
                             className={clsx(
-                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border border-gray-200 bg-white py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600',
+                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border-none bg-black/5 py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:bg-white/5 dark:text-gray-100 dark:placeholder-zinc-600',
                               ENV_VARS.openAIKey && 'cursor-not-allowed opacity-70',
                             )}
                           />
@@ -2466,7 +2468,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                             placeholder={t('settings.baseUrlPlaceholder')}
                             disabled={Boolean(ENV_VARS.openAIBaseUrl)}
                             className={clsx(
-                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border border-gray-200 bg-white py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600',
+                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border-none bg-black/5 py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:bg-white/5 dark:text-gray-100 dark:placeholder-zinc-600',
                               ENV_VARS.openAIBaseUrl && 'cursor-not-allowed opacity-70',
                             )}
                           />
@@ -2494,7 +2496,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                             placeholder={t('settings.siliconflowApiKeyPlaceholder')}
                             disabled={Boolean(ENV_VARS.siliconFlowKey)}
                             className={clsx(
-                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border border-gray-200 bg-white py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600',
+                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border-none bg-black/5 py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:bg-white/5 dark:text-gray-100 dark:placeholder-zinc-600',
                               ENV_VARS.siliconFlowKey && 'cursor-not-allowed opacity-70',
                             )}
                           />
@@ -2527,7 +2529,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                               defaultValue: 'Enter your NVIDIA API Key',
                             })}
                             className={clsx(
-                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border border-gray-200 bg-white py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600',
+                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border-none bg-black/5 py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:bg-white/5 dark:text-gray-100 dark:placeholder-zinc-600',
                             )}
                           />
                         </div>
@@ -2553,7 +2555,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                             placeholder={t('settings.glmApiKeyPlaceholder')}
                             disabled={Boolean(ENV_VARS.glmKey)}
                             className={clsx(
-                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border border-gray-200 bg-white py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600',
+                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border-none bg-black/5 py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:bg-white/5 dark:text-gray-100 dark:placeholder-zinc-600',
                               ENV_VARS.glmKey && 'cursor-not-allowed opacity-70',
                             )}
                           />
@@ -2585,7 +2587,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                             placeholder={t('settings.deepseekApiKeyPlaceholder')}
                             disabled={Boolean(ENV_VARS.deepseekKey)}
                             className={clsx(
-                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border border-gray-200 bg-white py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600',
+                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border-none bg-black/5 py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:bg-white/5 dark:text-gray-100 dark:placeholder-zinc-600',
                               ENV_VARS.deepseekKey && 'cursor-not-allowed opacity-70',
                             )}
                           />
@@ -2617,7 +2619,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                             placeholder={t('settings.volcengineApiKeyPlaceholder')}
                             disabled={Boolean(ENV_VARS.volcengineKey)}
                             className={clsx(
-                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border border-gray-200 bg-white py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600',
+                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border-none bg-black/5 py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:bg-white/5 dark:text-gray-100 dark:placeholder-zinc-600',
                               ENV_VARS.volcengineKey && 'cursor-not-allowed opacity-70',
                             )}
                           />
@@ -2649,7 +2651,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                             placeholder={t('settings.modelscopeApiKeyPlaceholder')}
                             disabled={Boolean(ENV_VARS.modelscopeKey)}
                             className={clsx(
-                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border border-gray-200 bg-white py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600',
+                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border-none bg-black/5 py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:bg-white/5 dark:text-gray-100 dark:placeholder-zinc-600',
                               ENV_VARS.modelscopeKey && 'cursor-not-allowed opacity-70',
                             )}
                           />
@@ -2681,7 +2683,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                             placeholder={t('settings.kimiApiKeyPlaceholder')}
                             disabled={Boolean(ENV_VARS.kimiKey)}
                             className={clsx(
-                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border border-gray-200 bg-white py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600',
+                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border-none bg-black/5 py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:bg-white/5 dark:text-gray-100 dark:placeholder-zinc-600',
                               ENV_VARS.kimiKey && 'cursor-not-allowed opacity-70',
                             )}
                           />
@@ -2730,7 +2732,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                             placeholder={t('settings.backendUrlPlaceholder')}
                             disabled={Boolean(ENV_VARS.backendUrl)}
                             className={clsx(
-                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border border-gray-200 bg-white py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600',
+                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border-none bg-black/5 py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:bg-white/5 dark:text-gray-100 dark:placeholder-zinc-600',
                               ENV_VARS.backendUrl && 'cursor-not-allowed opacity-70',
                             )}
                           />
@@ -2946,7 +2948,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                             placeholder={t('settings.toolsApiKeyPlaceholder')}
                             disabled={Boolean(ENV_VARS.tavilyApiKey)}
                             className={clsx(
-                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border border-gray-200 bg-white py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600',
+                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border-none bg-black/5 py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:bg-white/5 dark:text-gray-100 dark:placeholder-zinc-600',
                               ENV_VARS.tavilyApiKey && 'cursor-not-allowed opacity-70',
                             )}
                           />
@@ -2979,7 +2981,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                             placeholder={t('settings.serpApiKeyPlaceholder')}
                             disabled={Boolean(ENV_VARS.serpapiApiKey)}
                             className={clsx(
-                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border border-gray-200 bg-white py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600',
+                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border-none bg-black/5 py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:bg-white/5 dark:text-gray-100 dark:placeholder-zinc-600',
                               ENV_VARS.serpapiApiKey && 'cursor-not-allowed opacity-70',
                             )}
                           />
@@ -2999,38 +3001,38 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                     )}
                     {toolsApiProvider === 'exa' && (
                       <div className="flex flex-col gap-2">
-                      <div className="flex items-center gap-2">
-                        <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                          {t('settings.toolsApiKey')} (Exa)
-                        </label>
-                        <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
-                          {t('settings.exaApiKeyHint')}
-                        </span>
-                      </div>
-                      <div className="relative">
-                        <div className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400">
-                          <Key size={16} />
+                        <div className="flex items-center gap-2">
+                          <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                            {t('settings.toolsApiKey')} (Exa)
+                          </label>
+                          <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                            {t('settings.exaApiKeyHint')}
+                          </span>
                         </div>
-                        <input
-                          type="password"
-                          value={exaApiKey}
-                          onChange={e => setExaApiKey(e.target.value)}
-                          placeholder={t('settings.toolsApiKeyPlaceholder')}
-                          disabled={Boolean(ENV_VARS.exaApiKey)}
-                          className={clsx(
-                            'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border border-gray-200 bg-white py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600',
-                            ENV_VARS.exaApiKey && 'cursor-not-allowed opacity-70',
-                          )}
-                        />
-                      </div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {t('settings.exaApiKeyDescription')}
-                      </p>
-                      {ENV_VARS.exaApiKey && (
-                        <p className="text-xs text-emerald-600 dark:text-emerald-400">
-                          {t('settings.loadedFromEnvironment')}
+                        <div className="relative">
+                          <div className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400">
+                            <Key size={16} />
+                          </div>
+                          <input
+                            type="password"
+                            value={exaApiKey}
+                            onChange={e => setExaApiKey(e.target.value)}
+                            placeholder={t('settings.toolsApiKeyPlaceholder')}
+                            disabled={Boolean(ENV_VARS.exaApiKey)}
+                            className={clsx(
+                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border-none bg-black/5 py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:bg-white/5 dark:text-gray-100 dark:placeholder-zinc-600',
+                              ENV_VARS.exaApiKey && 'cursor-not-allowed opacity-70',
+                            )}
+                          />
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {t('settings.exaApiKeyDescription')}
                         </p>
-                      )}
+                        {ENV_VARS.exaApiKey && (
+                          <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                            {t('settings.loadedFromEnvironment')}
+                          </p>
+                        )}
                       </div>
                     )}
                   </div>
@@ -3184,7 +3186,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                                 className={clsx(
                                   'rounded-md px-3 py-1 text-xs font-medium transition-all',
                                   embeddingModelSource === 'list'
-                                    ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-gray-100'
+                                    ? 'bg-black/5 text-gray-900 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:bg-white/10 dark:text-gray-100'
                                     : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300',
                                 )}
                               >
@@ -3201,7 +3203,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                                 className={clsx(
                                   'rounded-md px-3 py-1 text-xs font-medium transition-all',
                                   embeddingModelSource === 'custom'
-                                    ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-gray-100'
+                                    ? 'bg-black/5 text-gray-900 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:bg-white/10 dark:text-gray-100'
                                     : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300',
                                 )}
                               >
@@ -3218,7 +3220,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                         </span>
                       </div>
 
-                      <div className="rounded-lg border border-gray-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900">
+                      <div className="rounded-lg border-none bg-black/5 p-3 dark:bg-white/5">
                         <div className="flex flex-col gap-3">
                           <div className="relative flex flex-col gap-2">
                             <span className="text-xs font-semibold tracking-wide text-gray-400 uppercase">
@@ -3319,7 +3321,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                                   setEmbeddingModel(nextValue)
                                 }}
                                 placeholder={t('settings.customModelIdPlaceholder')}
-                                className="focus:ring-primary-500/20 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-200"
+                                className="focus:ring-primary-500/20 w-full rounded-lg border-none bg-black/5 px-3 py-2 text-sm text-gray-700 focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:bg-white/5 dark:text-gray-200"
                               />
                             )}
                           </div>
@@ -3344,7 +3346,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900/50">
+                <div className="flex items-center justify-between rounded-lg border-none bg-black/5 p-4 dark:bg-white/5">
                   <div className="space-y-0.5">
                     <label className="text-sm font-semibold text-gray-900 dark:text-white">
                       {t('settings.enableLongTermMemory')}
@@ -3390,7 +3392,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                         onChange={e => setUserSelfIntro(e.target.value)}
                         placeholder={t('settings.userSelfIntroPlaceholder')}
                         rows={4}
-                        className="focus:ring-primary-500/20 focus:border-primary-500 w-full resize-none rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm placeholder-gray-400 transition-all focus:ring-2 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:placeholder-zinc-600"
+                        className="focus:ring-primary-500/20 focus:border-primary-500 w-full resize-none rounded-lg border-none bg-black/5 px-4 py-3 text-sm placeholder-gray-400 transition-all focus:ring-2 focus:outline-none dark:bg-white/5 dark:placeholder-zinc-600"
                       />
                     </div>
 
@@ -3439,7 +3441,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                       value={introQuery}
                       onChange={e => setIntroQuery(e.target.value)}
                       placeholder={t('settings.embeddingTestQueryPlaceholder')}
-                      className="focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600"
+                      className="focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border-none bg-black/5 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:bg-white/5 dark:text-gray-100 dark:placeholder-zinc-600"
                     />
                   </div>
 
@@ -3561,7 +3563,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                   )}
 
                   {documentParseState.status === 'success' && (
-                    <div className="space-y-1 rounded-lg border border-gray-200 bg-white p-3 text-xs text-gray-700 disabled:bg-gray-50/20 dark:border-zinc-800 dark:bg-zinc-900 dark:text-gray-300">
+                    <div className="space-y-1 rounded-lg border-none bg-black/5 p-3 text-xs text-gray-700 disabled:bg-gray-50/20 dark:bg-white/5 dark:text-gray-300">
                       <div>
                         {t('settings.documentFileLabel')}: {documentParseState.fileName}
                       </div>
@@ -3588,7 +3590,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                       value={documentQuery}
                       onChange={e => setDocumentQuery(e.target.value)}
                       placeholder={t('settings.documentQueryPlaceholder')}
-                      className="focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600"
+                      className="focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border-none bg-black/5 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:bg-white/5 dark:text-gray-100 dark:placeholder-zinc-600"
                     />
                   </div>
 
@@ -3693,7 +3695,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                         'group relative flex flex-col items-center gap-2 rounded-2xl border p-3 text-left transition-all duration-300',
                         themeColor === themeKey
                           ? 'border-primary-500 bg-primary-50/50 dark:bg-primary-900/20 scale-[1.02] shadow-md'
-                          : 'border-gray-200 bg-white hover:scale-[1.01] hover:bg-gray-50 hover:shadow-md dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800',
+                          : 'border-none bg-black/5 hover:scale-[1.01] hover:bg-black/10 hover:shadow-md dark:bg-white/5 dark:hover:bg-white/10',
                       )}
                     >
                       {/* Color preview with gradient */}
@@ -3905,7 +3907,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
           </div>
 
           {/* Footer */}
-          <div className="flex h-20 shrink-0 items-center justify-end gap-3 border-t border-gray-200 bg-white px-6 sm:px-8 dark:border-zinc-800 dark:bg-[#191a1a]">
+          <div className="flex h-20 shrink-0 items-center justify-end gap-3 border-t border-black/5 bg-transparent px-6 sm:px-8 dark:border-white/5">
             <button
               onClick={onClose}
               className="cursor-pointer rounded-lg px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-zinc-800"
@@ -3929,7 +3931,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setIsInitModalOpen(false)}
           />
-          <div className="relative w-full max-w-3xl space-y-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-2xl sm:p-6 dark:border-zinc-800 dark:bg-[#111]">
+          <div className="glass-elite-panel relative w-full max-w-3xl space-y-4 rounded-3xl border-0 p-5 sm:p-6">
             <div className="flex items-start justify-between gap-3">
               <div className="space-y-1">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">

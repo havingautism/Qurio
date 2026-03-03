@@ -185,7 +185,7 @@ const NoteWidget = () => {
                         e.stopPropagation()
                         openEditModal(note)
                       }}
-                      className="rounded-full bg-white/80 p-1.5 text-gray-700 shadow-lg backdrop-blur-sm transition-transform hover:scale-105 hover:bg-white"
+                      className="rounded-full bg-black/5 p-1.5 text-gray-700 shadow-lg backdrop-blur-sm transition-transform hover:scale-105 hover:bg-black/10 dark:bg-white/10 dark:text-gray-300 dark:hover:bg-white/20"
                       title={t('common.edit', 'Edit')}
                     >
                       <Pencil size={16} />

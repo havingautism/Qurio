@@ -95,14 +95,14 @@ const ConversationCard = ({
   return (
     <div
       onClick={handleCardClick}
-      className="group relative flex min-h-[140px] cursor-pointer flex-col rounded-[32px] border border-white/40 bg-white/70 p-5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] backdrop-blur-xl transition-all duration-300 hover:translate-y-[-4px] hover:scale-[1.01] hover:bg-white/90 hover:shadow-[0_8px_30px_rgba(0,0,0,0.06)] active:scale-[0.98] dark:border-zinc-800/50 dark:bg-zinc-900/40 dark:hover:bg-zinc-900/60"
+      className="glass-elite-panel group relative flex min-h-[140px] cursor-pointer flex-col rounded-[32px] border-none p-5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] backdrop-blur-xl transition-all duration-300 hover:translate-y-[-4px] hover:scale-[1.01] hover:bg-black/5 hover:shadow-[0_8px_30px_rgba(0,0,0,0.06)] active:scale-[0.98]"
     >
       {/* Action Buttons */}
       <div className="absolute top-5 right-5 z-30 flex gap-1.5 opacity-100 transition-all duration-200 md:opacity-0 md:group-hover:opacity-100">
         <button
           onClick={handleFavoriteClick}
           className={clsx(
-            'hover:bg-primary-50 hover:text-primary-500 dark:hover:bg-primary-900/20 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 shadow-sm backdrop-blur-md transition-all dark:bg-zinc-800/90',
+            'hover:text-primary-500 dark:hover:bg-primary-900/20 flex h-8 w-8 items-center justify-center rounded-full bg-black/5 shadow-sm backdrop-blur-md transition-all hover:bg-black/10 dark:bg-white/10',
             conversation.is_favorited ? 'text-primary-500 font-bold' : 'text-gray-400',
           )}
           title={conversation.is_favorited ? t('views.removeBookmark') : t('views.addBookmark')}
@@ -112,7 +112,7 @@ const ConversationCard = ({
         <button
           onClick={handleDeleteClick}
           disabled={isDeletingProp}
-          className="flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-gray-400 shadow-sm backdrop-blur-md transition-all hover:bg-red-50 hover:text-red-500 dark:bg-zinc-800/90 dark:hover:bg-red-900/30"
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-black/5 text-gray-400 shadow-sm backdrop-blur-md transition-all hover:bg-red-50 hover:text-red-500 dark:bg-white/10 dark:hover:bg-red-900/30"
           title={t('confirmation.delete')}
         >
           {isDeletingProp ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}

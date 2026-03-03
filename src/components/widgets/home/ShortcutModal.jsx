@@ -73,9 +73,9 @@ const ShortcutModal = ({ isOpen, onClose, shortcut, onSave, onDelete, currentPos
 
   const modalContent = (
     <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm transition-all duration-300 sm:p-6">
-      <div className="animate-in fade-in zoom-in-95 flex max-h-[85dvh] w-full flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl ring-1 ring-black/5 duration-200 sm:max-w-md dark:border-white/10 dark:bg-[#1C1C1E]">
+      <div className="glass-elite-panel animate-in fade-in zoom-in-95 flex max-h-[85dvh] w-full flex-col overflow-hidden rounded-3xl border-0 p-0 sm:max-w-md">
         {/* Header */}
-        <div className="flex h-14 items-center justify-between border-b border-gray-100 bg-white/50 px-5 backdrop-blur-md dark:border-white/5 dark:bg-white/5">
+        <div className="flex h-14 items-center justify-between border-b border-black/5 bg-transparent px-5 dark:border-white/5">
           <h3 className="text-base font-semibold text-gray-900 dark:text-white">
             {shortcut?.id ? t('views.widgets.editShortcut') : t('views.widgets.newShortcut')}
           </h3>
@@ -91,7 +91,7 @@ const ShortcutModal = ({ isOpen, onClose, shortcut, onSave, onDelete, currentPos
         <div className="max-h-[70vh] flex-1 space-y-6 overflow-y-auto p-5">
           {/* 1. Preview Section */}
           <div className="flex flex-col items-center justify-center py-2">
-            <div className="mb-3 flex h-20 w-20 items-center justify-center rounded-[20px] bg-white shadow-lg ring-1 ring-black/5 dark:ring-white/10">
+            <div className="mb-3 flex h-20 w-20 items-center justify-center rounded-[20px] bg-white/80 shadow-lg ring-1 ring-black/5 dark:bg-black/20 dark:ring-white/10">
               {iconType === 'favicon' && (
                 <div className="flex h-10 w-10 items-center justify-center">
                   {url ? (
@@ -147,7 +147,7 @@ const ShortcutModal = ({ isOpen, onClose, shortcut, onSave, onDelete, currentPos
                 value={title}
                 onChange={e => setTitle(e.target.value)}
                 placeholder={t('views.widgets.shortcutTitlePlaceholder')}
-                className="focus:ring-primary-500/50 focus:border-primary-500 w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 font-medium text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-white/10 dark:bg-white/5 dark:text-white"
+                className="focus:ring-primary-500/50 focus:border-primary-500 w-full rounded-xl border-none bg-black/5 px-4 py-2.5 font-medium text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:bg-white/5 dark:text-white"
                 autoFocus={!shortcut}
               />
               <input
@@ -155,7 +155,7 @@ const ShortcutModal = ({ isOpen, onClose, shortcut, onSave, onDelete, currentPos
                 value={url}
                 onChange={e => setUrl(e.target.value)}
                 placeholder={t('views.widgets.urlPlaceholder')}
-                className="focus:ring-primary-500/50 focus:border-primary-500 w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 font-mono text-sm font-medium text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-white/10 dark:bg-white/5 dark:text-white"
+                className="focus:ring-primary-500/50 focus:border-primary-500 w-full rounded-xl border-none bg-black/5 px-4 py-2.5 font-mono text-sm font-medium text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:bg-white/5 dark:text-white"
               />
             </div>
           </div>
@@ -167,7 +167,7 @@ const ShortcutModal = ({ isOpen, onClose, shortcut, onSave, onDelete, currentPos
             </label>
 
             {/* Segmented Control */}
-            <div className="flex rounded-xl bg-gray-100 p-1 dark:bg-white/5">
+            <div className="flex rounded-xl bg-black/5 p-1 dark:bg-white/5">
               {[
                 { id: 'favicon', label: t('views.icons.favicon') },
                 { id: 'emoji', label: t('views.icons.emoji') },
@@ -179,7 +179,7 @@ const ShortcutModal = ({ isOpen, onClose, shortcut, onSave, onDelete, currentPos
                   onClick={() => setIconType(type.id)}
                   className={`flex-1 rounded-lg py-1.5 text-sm font-medium transition-all ${
                     iconType === type.id
-                      ? 'bg-white text-gray-900 shadow-sm dark:bg-[#2C2C2E] dark:text-white'
+                      ? 'bg-black/5 text-gray-900 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:bg-white/10 dark:text-white'
                       : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
                   }`}
                 >
@@ -202,7 +202,7 @@ const ShortcutModal = ({ isOpen, onClose, shortcut, onSave, onDelete, currentPos
                       value={iconUrl}
                       onChange={e => setIconUrl(e.target.value)}
                       placeholder={t('views.widgets.iconUrlPlaceholder')}
-                      className="focus:ring-primary-500/50 focus:border-primary-500 w-full rounded-xl border border-gray-200 bg-white py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-white/10 dark:bg-white/5 dark:text-white"
+                      className="focus:ring-primary-500/50 focus:border-primary-500 w-full rounded-xl border-none bg-black/5 py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:bg-white/5 dark:text-white"
                     />
                   </div>
                   <p className="px-1 text-xs text-gray-500">{t('views.widgets.imageUrlHint')}</p>
@@ -215,7 +215,7 @@ const ShortcutModal = ({ isOpen, onClose, shortcut, onSave, onDelete, currentPos
                 />
               )}
               {iconType === 'favicon' && (
-                <div className="w-full rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-center text-sm text-gray-500 dark:border-white/10 dark:bg-white/5 dark:text-gray-400">
+                <div className="w-full rounded-xl border border-dashed border-black/10 bg-black/5 px-4 py-6 text-center text-sm text-gray-500 dark:border-white/10 dark:bg-white/5 dark:text-gray-400">
                   {t('views.widgets.faviconHint')}
                 </div>
               )}
@@ -224,7 +224,7 @@ const ShortcutModal = ({ isOpen, onClose, shortcut, onSave, onDelete, currentPos
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between gap-3 border-t border-gray-100 bg-gray-50/50 p-5 dark:border-white/5 dark:bg-white/5">
+        <div className="flex items-center justify-between gap-3 border-t border-black/5 bg-transparent p-5 dark:border-white/5">
           {shortcut?.id ? (
             <button
               onClick={handleDelete}

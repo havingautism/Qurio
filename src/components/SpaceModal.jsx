@@ -311,7 +311,7 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
                     onChange={e => setName(e.target.value)}
                     placeholder={t('spaceModal.namePlaceholder')}
                     disabled={isDeepResearchSpace}
-                    className="focus:ring-primary-500/20 focus:border-primary-500 h-12 flex-1 rounded-lg border border-gray-200 bg-white px-4 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50/20 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600"
+                    className="focus:ring-primary-500/20 focus:border-primary-500 h-12 flex-1 rounded-lg border-none bg-black/5 px-4 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50/20 disabled:opacity-50 dark:bg-white/5 dark:text-gray-100 dark:placeholder-zinc-600"
                   />
                 </div>
               </div>
@@ -330,7 +330,7 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
                   placeholder={t('spaceModal.descriptionPlaceholder')}
                   rows={2}
                   disabled={isDeepResearchSpace}
-                  className="focus:ring-primary-500/20 focus:border-primary-500 w-full resize-none rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50/20 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600"
+                  className="focus:ring-primary-500/20 focus:border-primary-500 w-full resize-none rounded-lg border-none bg-black/5 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50/20 disabled:opacity-50 dark:bg-white/5 dark:text-gray-100 dark:placeholder-zinc-600"
                 />
               </div>
 
@@ -338,7 +338,7 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   {t('spaceModal.agents')}
                 </label>
-                <div className="rounded-lg border border-gray-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900">
+                <div className="rounded-lg border-none bg-black/5 p-3 dark:bg-white/5">
                   {agentsLoading || isAgentsLoading ? (
                     <div className="text-sm text-gray-500 dark:text-gray-400">
                       {t('spaceModal.agentsLoading')}

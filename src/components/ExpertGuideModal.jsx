@@ -99,7 +99,7 @@ const ExpertGuideModal = ({ isOpen, onClose, spaces = [], onStart, loading = fal
                   className={clsx(
                     'glass-elite-soft relative flex items-center gap-3 rounded-[24px] p-4 text-left transition-all',
                     isSelected
-                      ? 'border-primary-300/35 bg-white/82 dark:border-primary-500/35 dark:bg-white/[0.12]'
+                      ? 'border-primary-300/35 dark:border-primary-500/35 bg-white/82 dark:bg-white/[0.12]'
                       : 'hover:border-white/26 hover:bg-white/18 dark:hover:border-white/10 dark:hover:bg-white/[0.05]',
                   )}
                 >
@@ -181,7 +181,7 @@ const ExpertGuideModal = ({ isOpen, onClose, spaces = [], onStart, loading = fal
 
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/55 px-4 backdrop-blur-sm">
-      <div className="w-full max-w-xl rounded-2xl border border-gray-200 bg-white p-5 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="glass-elite-panel w-full max-w-xl rounded-[28px] border-0 p-5 shadow-2xl">
         {content}
       </div>
     </div>

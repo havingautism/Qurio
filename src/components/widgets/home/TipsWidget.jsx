@@ -163,12 +163,12 @@ const TipsWidget = () => {
             <MoreHorizontal size={16} />
           </button>
           {isMenuOpen && (
-            <div className="animate-in fade-in zoom-in-95 absolute top-full right-0 z-50 mt-2 max-h-[60vh] w-56 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-xl transition-all duration-200 dark:border-zinc-700 dark:bg-[#1e1e1e]">
+            <div className="glass-elite-dropdown animate-in fade-in zoom-in-95 absolute top-full right-0 z-50 mt-2 max-h-[60vh] w-56 overflow-y-auto rounded-2xl border-none py-2 shadow-2xl transition-all duration-200">
               <div className="p-1">
                 <button
                   type="button"
                   onClick={handleRefresh}
-                  className="group flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-white/5"
+                  className="group flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-black/5 dark:text-gray-200 dark:hover:bg-white/5"
                 >
                   <RefreshCw
                     size={14}
@@ -178,7 +178,7 @@ const TipsWidget = () => {
                 </button>
               </div>
 
-              <div className="mx-1 my-0.5 h-px bg-gray-100 dark:bg-white/5" />
+              <div className="mx-1 my-0.5 h-px bg-black/5 dark:bg-white/5" />
 
               <div className="p-1">
                 <div className="mb-0.5 flex items-center gap-2 px-3 py-1.5 text-xs font-semibold tracking-wider text-gray-400 uppercase dark:text-gray-500">
@@ -195,7 +195,7 @@ const TipsWidget = () => {
                       className={`group flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors ${
                         isActive
                           ? 'bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400'
-                          : 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-white/5'
+                          : 'text-gray-700 hover:bg-black/5 dark:text-gray-200 dark:hover:bg-white/5'
                       }`}
                     >
                       <span className="font-medium">{category.label}</span>

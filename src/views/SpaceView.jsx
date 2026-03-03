@@ -121,7 +121,7 @@ const SpaceView = () => {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
   const [isDeletingId, setIsDeletingId] = useState(null)
-  const limit = 10
+  const limit = 12
 
   // State for collapsible actions
   const [expandedActionId, setExpandedActionId] = useState(null)

@@ -19,7 +19,7 @@ import {
   SquareStack,
   Sun,
   Trash2,
-  GraduationCap
+  GraduationCap,
 } from 'lucide-react'
 import React, { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from '@tanstack/react-router'
@@ -1147,7 +1147,7 @@ const Sidebar = ({
                   'group relative flex cursor-pointer flex-col items-center justify-center overflow-hidden rounded-xl px-0 py-2.5 transition-all duration-300',
                   activeTab === item.id
                     ? isScrapbookSidebarTheme
-                      ? glassTone('text-white', 'text-slate-800')
+                      ? glassTone('text-primary-400 font-bold', 'text-primary-600 font-bold')
                       : 'text-primary-500 dark:text-primary-400'
                     : isScrapbookSidebarTheme
                       ? glassTone(
@@ -1166,13 +1166,13 @@ const Sidebar = ({
                       ? isScrapbookSidebarTheme
                         ? glassTone(
                             'border border-white/10 bg-white/10 opacity-100 shadow-[0_0_0_1px_rgba(255,255,255,0.02),0_8px_24px_rgba(59,130,246,0.12)]',
-                            'border border-white/80 bg-white/65 opacity-100 shadow-[0_0_0_1px_rgba(255,255,255,0.55),0_8px_24px_rgba(59,130,246,0.08)]',
+                            'border border-white/95 bg-white opacity-100 shadow-[0_4px_16px_rgba(0,0,0,0.08),0_0_0_1px_rgba(255,255,255,0.9)]',
                           )
                         : 'bg-primary-500/10 dark:bg-primary-500/20'
                       : isScrapbookSidebarTheme
                         ? glassTone(
-                            'border border-transparent bg-white/[0.03] opacity-0 group-hover:border-white/8 group-hover:opacity-100',
-                            'border border-transparent bg-white/25 opacity-0 group-hover:border-white/70 group-hover:opacity-100',
+                            'border border-transparent bg-white/[0.03] opacity-0 group-hover:border-white/10 group-hover:opacity-100',
+                            'border border-slate-200 bg-white/40 opacity-0 group-hover:opacity-100',
                           )
                         : 'bg-gray-100 opacity-0 group-hover:opacity-100 dark:bg-zinc-800/50',
                   )}
@@ -2806,9 +2806,13 @@ const Sidebar = ({
                     <React.Fragment key={space.id || space.label}>
                       <div
                         className={clsx(
-                          'group relative mb-0.5 flex items-center rounded-xl',
-                          isScrapbookSidebarTheme &&
-                            'border border-transparent hover:border-white/8',
+                          'group relative mb-0.5 flex items-center rounded-xl transition-all duration-200',
+                          isScrapbookSidebarTheme
+                            ? glassTone(
+                                'border border-transparent hover:border-white/8 hover:bg-white/[0.04]',
+                                'border border-transparent hover:border-white/80 hover:bg-white/40 hover:shadow-sm',
+                              )
+                            : 'hover:bg-primary-50 dark:hover:bg-zinc-800/50',
                         )}
                       >
                         <button
@@ -2820,10 +2824,10 @@ const Sidebar = ({
                             'z-10 shrink-0 rounded-md p-1.5 transition-all',
                             isScrapbookSidebarTheme
                               ? glassTone(
-                                  'text-white/45 hover:bg-white/[0.05] hover:text-white',
-                                  'text-slate-400 hover:bg-white/60 hover:text-slate-800',
+                                  'text-white/45 hover:text-white',
+                                  'text-slate-400 hover:text-slate-800',
                                 )
-                              : 'hover:bg-primary-50 hover:text-primary-600 dark:hover:text-primary-400 text-gray-400 dark:hover:bg-zinc-800/50',
+                              : 'hover:text-primary-600 dark:hover:text-primary-400 text-gray-400',
                           )}
                         >
                           <ChevronDown
@@ -2837,12 +2841,7 @@ const Sidebar = ({
 
                         <div
                           onClick={() => onNavigateToSpace(space)}
-                          className={clsx(
-                            'group/content flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-lg p-1.5 transition-colors',
-                            isScrapbookSidebarTheme
-                              ? 'hover:bg-white/[0.04]'
-                              : 'hover:bg-primary-50 dark:hover:bg-zinc-800',
-                          )}
+                          className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-lg p-1.5"
                         >
                           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-transparent text-base">
                             <EmojiDisplay emoji={space.emoji} size="1.4em" />
@@ -2852,10 +2851,10 @@ const Sidebar = ({
                               'truncate text-sm font-medium transition-colors',
                               isScrapbookSidebarTheme
                                 ? glassTone(
-                                    'text-white/85 group-hover/content:text-white',
-                                    'text-slate-700 group-hover/content:text-slate-900',
+                                    'text-white/85 group-hover:text-white',
+                                    'text-slate-700 group-hover:text-slate-900',
                                   )
-                                : 'group-hover/content:text-primary-600 text-gray-700 dark:text-gray-300 dark:group-hover/content:text-gray-200',
+                                : 'group-hover:text-primary-600 text-gray-700 dark:text-gray-300 dark:group-hover:text-gray-200',
                             )}
                           >
                             {getSpaceDisplayLabel(space, t)}
@@ -2872,10 +2871,10 @@ const Sidebar = ({
                             'ml-1 shrink-0 rounded-md p-1.5 opacity-0 transition-all group-hover:opacity-100',
                             isScrapbookSidebarTheme
                               ? glassTone(
-                                  'text-white/45 hover:bg-white/[0.05] hover:text-white',
-                                  'text-slate-400 hover:bg-white/60 hover:text-slate-800',
+                                  'text-white/45 hover:text-white',
+                                  'text-slate-400 hover:text-slate-800',
                                 )
-                              : 'hover:bg-primary-50 hover:text-primary-600 dark:hover:text-primary-400 text-gray-400 dark:hover:bg-zinc-800',
+                              : 'hover:text-primary-600 dark:hover:text-primary-400 text-gray-400',
                           )}
                         >
                           <Settings size={14} />

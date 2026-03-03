@@ -102,8 +102,10 @@ const ConversationCard = ({
         <button
           onClick={handleFavoriteClick}
           className={clsx(
-            'hover:text-primary-500 dark:hover:bg-primary-900/20 flex h-8 w-8 items-center justify-center rounded-full bg-black/5 shadow-sm backdrop-blur-md transition-all hover:bg-black/10 dark:bg-white/10',
-            conversation.is_favorited ? 'text-primary-500 font-bold' : 'text-gray-400',
+            'flex h-8 w-8 items-center justify-center rounded-full border shadow-sm backdrop-blur-xl transition-all hover:scale-110 active:scale-95',
+            conversation.is_favorited
+              ? 'bg-primary-500 border-primary-400 dark:border-primary-600 text-white'
+              : 'hover:text-primary-500 dark:hover:text-primary-400 border-white/20 bg-white/90 text-gray-400 hover:bg-white dark:border-zinc-700/50 dark:bg-zinc-800/90 dark:text-zinc-500 dark:hover:bg-zinc-700',
           )}
           title={conversation.is_favorited ? t('views.removeBookmark') : t('views.addBookmark')}
         >
@@ -112,7 +114,7 @@ const ConversationCard = ({
         <button
           onClick={handleDeleteClick}
           disabled={isDeletingProp}
-          className="flex h-8 w-8 items-center justify-center rounded-full bg-black/5 text-gray-400 shadow-sm backdrop-blur-md transition-all hover:bg-red-50 hover:text-red-500 dark:bg-white/10 dark:hover:bg-red-900/30"
+          className="flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-white/90 text-gray-400 shadow-sm backdrop-blur-xl transition-all hover:scale-110 hover:bg-red-50 hover:text-red-500 active:scale-95 dark:border-zinc-700/50 dark:bg-zinc-800/90 dark:text-zinc-500 dark:hover:bg-red-900/30 dark:hover:text-red-400"
           title={t('confirmation.delete')}
         >
           {isDeletingProp ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}

@@ -715,7 +715,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                           }
                         }}
                         placeholder="Describes what this skill does briefly"
-                        className="focus:border-primary-500 focus:ring-primary-500/20 w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 transition-all outline-none placeholder:text-gray-400 focus:ring-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+                        className="focus:ring-primary-500/20 w-full rounded-xl border-none bg-black/5 px-4 py-2.5 text-sm transition-all outline-none placeholder:text-gray-400 focus:ring-2 dark:bg-white/5"
                       />
                       <p className="text-right text-[10px] text-gray-400">
                         {formData.description.length}/1024
@@ -847,7 +847,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
               onClick={() => setIsEditing(false)}
               className="rounded-xl px-4 py-2.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-zinc-800"
             >
-              Cancel
+              {t('agents.actions.cancel', 'Cancel')}
             </button>
             <button
               onClick={saveCombined}
@@ -857,12 +857,12 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
               {isSaving ? (
                 <>
                   <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white"></div>
-                  Saving...
+                  {t('agents.actions.saving', 'Saving...')}
                 </>
               ) : (
                 <>
                   <Check size={16} />
-                  Save Skill
+                  {t('agents.skills.saveButton', 'Save Skill')}
                 </>
               )}
             </button>

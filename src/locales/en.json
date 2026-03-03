@@ -960,7 +960,8 @@
       "nameLabel": "Display Name",
       "descLabel": "Short Description",
       "instructionsLabel": "System Instructions (Markdown)",
-      "createButton": "Create Skill"
+      "createButton": "Create Skill",
+      "saveButton": "Save Skill"
     }
   },
   "deepResearch": {

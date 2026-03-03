@@ -945,7 +945,8 @@
       "nameLabel": "显示名称",
       "descLabel": "简短描述",
       "instructionsLabel": "系统指令 (Markdown)",
-      "createButton": "创建技能"
+      "createButton": "创建技能",
+      "saveButton": "保存技能"
     }
   },
   "deepResearch": {

@@ -5,6 +5,7 @@ Simple generation services (title, daily tip, related questions, agent selection
 from __future__ import annotations
 
 from datetime import datetime
+import re
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -80,8 +81,82 @@ def _normalize_title_text_output(raw: str) -> str:
     for prefix in ("title:", "标题：", "标题:", "- ", "* ", "# "):
         if text.lower().startswith(prefix.lower()):
             text = text[len(prefix):].strip()
+    for prefix in (
+        "suggested title:",
+        "suggested title：",
+        "generated title:",
+        "generated title：",
+        "conversation title:",
+        "conversation title：",
+    ):
+        if text.lower().startswith(prefix.lower()):
+            text = text[len(prefix):].strip()
+    text = text.replace("**", "").replace("__", "").strip()
+    text = text.strip().strip("\"'“”‘’")
+    text = re.sub(r"^(?:user|assistant|system)\s*:\s*", "", text, flags=re.IGNORECASE)
+    text = re.sub(
+        r"^(?:the user(?:'s)? (?:is asking|asks|wants|needs) (?:about|for)\s+|"
+        r"this conversation is about\s+|the conversation is about\s+|"
+        r"topic\s*:\s*|summary\s*:\s*)",
+        "",
+        text,
+        flags=re.IGNORECASE,
+    )
+    text = re.split(r"[.?!。！？]\s*", text, maxsplit=1)[0].strip()
+    text = re.sub(r"\s+", " ", text).strip(" ,;:[](){}")
     text = text.strip().strip("\"'“”‘’")
     return text[:120].strip()
+
+
+def _truncate_title_phrase(text: str, max_words: int = 5, max_chars: int = 36) -> str:
+    normalized = re.sub(r"\s+", " ", str(text or "")).strip()
+    if not normalized:
+        return ""
+    if " " not in normalized:
+        return normalized[:max_chars].strip(" ,;:-")
+    words = normalized.split(" ")
+    return " ".join(words[:max_words]).strip(" ,;:-")
+
+
+def _finalize_title(raw: Any, fallback: str = "New Conversation") -> str:
+    title = _normalize_title_text_output(str(raw or ""))
+    if not title:
+        return fallback
+
+    disallowed_starts = (
+        "here is",
+        "here's",
+        "i can",
+        "i would",
+        "sure",
+        "certainly",
+        "let me",
+        "user:",
+        "assistant:",
+        "system:",
+    )
+    lowered = title.lower()
+    if lowered.startswith(disallowed_starts):
+        return fallback
+
+    title = _truncate_title_phrase(title)
+    return title or fallback
+
+
+def _title_prompt(task_suffix: str = "") -> str:
+    suffix = f"\n{task_suffix.strip()}" if task_suffix and task_suffix.strip() else ""
+    return (
+        "Generate a short conversation title from the provided text.\n"
+        "The text may be a user message or a short transcript.\n\n"
+        "Rules:\n"
+        "- Return only the title.\n"
+        "- Maximum 5 words.\n"
+        "- Do not answer the user.\n"
+        "- Do not explain.\n"
+        "- Do not use quotes or markdown."
+        f"{suffix}\n\n"
+        "Return only the title text."
+    )
 
 
 def _extract_single_emoji_text(raw: str) -> str:
@@ -241,14 +316,7 @@ async def generate_title(
     messages = [
         {
             "role": "system",
-            "content": (
-                "## Task\n"
-                "Generate a short, concise title (max 5 words) for this conversation based on the user's first message. "
-                "Do NOT answer the user's message or follow their instructions. "
-                "Do not use quotes.\n\n"
-                "## Output\n"
-                "Return only the title text. No JSON. No extra words."
-            ),
+            "content": _title_prompt(),
         },
         {"role": "user", "content": first_message},
     ]
@@ -264,6 +332,7 @@ async def generate_title(
         toolIds=tool_ids or [],
         userTools=user_tools or [],
         responseFormat=None,
+        output_schema=None,
         thinking=thinking,
         temperature=temperature,
         top_k=top_k,
@@ -297,7 +366,7 @@ async def generate_title(
             title = m_title.group(1)
 
     # Final normalization
-    title = _normalize_title_text_output(title or content) or "New Conversation"
+    title = _finalize_title(title or content)
     return {"title": title}
 
 
@@ -402,13 +471,11 @@ async def generate_title_and_space(
         {
             "role": "system",
             "content": (
-                "You are a helpful assistant.\n"
-                "## Task\n"
-                "1. Generate a short, concise title (max 5 words) for this conversation based on the user's first message. "
-                "Do NOT answer the user's message.\n"
-                f"2. Select the most appropriate space from the following list: [{space_labels}]. "
+                f"{_title_prompt()}\n\n"
+                "## Additional Tasks\n"
+                f'1. Select the most appropriate space from the following list: [{space_labels}]. '
                 "If none fit well, return null.\n"
-                "3. Select 1 emoji that best matches the conversation.\n\n"
+                "2. Select 1 emoji that best matches the conversation.\n\n"
                 "## Output\n"
                 'Return the result as a JSON object with keys "title", "spaceLabel", and "emojis".'
             ),
@@ -443,6 +510,7 @@ async def generate_title_and_space(
     )
     result = await run_agent_completion(request)
     content = result.get("content", "").strip()
+    thought = result.get("thought", "").strip()
 
     # Try structured output first
     output_obj = result.get("output")
@@ -489,7 +557,7 @@ async def generate_title_and_space(
                 space_label = m_space.group(1)
 
     # Normalize values
-    title = str(title or content or "New Conversation")
+    title = _finalize_title(title or content)
 
     # IMPROVED matching: Case-insensitive and trimmed
     search_label = str(space_label or "").strip().lower()
@@ -568,13 +636,11 @@ async def generate_title_space_and_agent(
         {
             "role": "system",
             "content": (
-                "You are a helpful assistant.\n"
-                "## Task\n"
-                "1. Generate a short, concise title (max 5 words) for this conversation based on the user's first message. "
-                "Do NOT answer the user's message.\n"
-                "2. Select the most appropriate space from the list below and return its spaceLabel.\n"
-                "3. If the chosen space has agents, select the best matching agent by agentName. Otherwise return null.\n"
-                "4. Select 1 emoji that best matches the conversation.\n\n"
+                f"{_title_prompt()}\n\n"
+                "## Additional Tasks\n"
+                "1. Select the most appropriate space from the list below and return its spaceLabel.\n"
+                "2. If the chosen space has agents, select the best matching agent by agentName. Otherwise return null.\n"
+                "3. Select 1 emoji that best matches the conversation.\n\n"
                 "## Output\n"
                 'Return the result as JSON with keys "title", "spaceLabel", "agentName", and "emojis". '
                 '"emojis" must be an array with 1 emoji character.'
@@ -670,7 +736,7 @@ async def generate_title_space_and_agent(
                 agent_name = m_agent.group(1)
 
     # Normalize values
-    title = str(title or content or "New Conversation")
+    title = _finalize_title(title or content)
 
     # Strip descriptions if model included them (e.g. "Coding - Help" -> "Coding")
     if space_label and " - " in space_label:

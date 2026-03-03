@@ -714,14 +714,14 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
     <div className="relative flex flex-col gap-2">
       <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</label>
       <Select value={value} onValueChange={onChange} disabled={disabled}>
-        <SelectTrigger className="h-10 w-full border border-gray-200 bg-white disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900">
+        <SelectTrigger className="h-10 w-full border-none bg-black/5 disabled:bg-gray-50/20 dark:bg-white/5">
           <SelectValue>
             {options.find(o => (o.value || o) === value)?.label ||
               options.find(o => (o.value || o) === value) ||
               value}
           </SelectValue>
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent className="glass-elite-dropdown border-none">
           {options.map(opt => {
             const optValue = opt.value || opt
             const optLabel = opt.label || opt
@@ -1003,7 +1003,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
               </label>
 
               {/* Desktop: Inline Segmented Control */}
-              <div className="hidden rounded-lg border border-gray-200 bg-gray-100 p-0.5 sm:flex dark:border-zinc-700 dark:bg-zinc-800">
+              <div className="hidden rounded-lg border-none bg-black/5 p-0.5 sm:flex dark:bg-white/5">
                 <button
                   type="button"
                   disabled={disabled}
@@ -1059,7 +1059,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
             </div>
 
             {/* Mobile: Full Width Segmented Control */}
-            <div className="flex w-full rounded-lg border border-gray-200 bg-gray-100 p-1 sm:hidden dark:border-zinc-700 dark:bg-zinc-800">
+            <div className="flex w-full rounded-lg border-none bg-black/5 p-1 sm:hidden dark:bg-white/5">
               <button
                 type="button"
                 disabled={disabled}
@@ -1126,7 +1126,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
         {hint && <p className="max-w-2xl text-xs text-gray-500 dark:text-gray-400">{hint}</p>}
         <div
           className={clsx(
-            'rounded-lg border border-gray-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900',
+            'rounded-lg border-none bg-black/5 p-3 dark:bg-white/5',
             disabled && 'pointer-events-none bg-gray-50/70 dark:bg-zinc-900/70',
           )}
         >
@@ -1161,7 +1161,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                       )}
                     </SelectValue>
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="glass-elite-dropdown border-none">
                     {providers.map(key => (
                       <SelectItem key={key} value={key}>
                         <div className="flex items-center gap-3">
@@ -1213,7 +1213,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                       </div>
                     </SelectValue>
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="glass-elite-dropdown border-none">
                     {allowEmpty && (
                       <SelectItem value="__none__">
                         <span className="text-gray-500">{t('agents.model.none')}</span>
@@ -1251,7 +1251,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     onChange(nextValue)
                   }}
                   placeholder={t('agents.model.customPlaceholder')}
-                  className="focus:ring-primary-500/20 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-200"
+                  className="focus:ring-primary-500/20 w-full rounded-lg border-none bg-black/5 px-3 py-2 text-sm text-gray-700 focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:bg-white/5 dark:text-gray-200"
                 />
               )}
             </div>
@@ -1280,7 +1280,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium text-gray-800 dark:text-gray-100">{label}</span>
-              <span className="rounded-md bg-gray-100 px-2 py-0.5 font-mono text-xs text-gray-500 dark:bg-zinc-800 dark:text-gray-400">
+              <span className="rounded-md bg-black/5 px-2 py-0.5 font-mono text-xs text-gray-500 dark:bg-white/10 dark:text-gray-400">
                 {param}
               </span>
             </div>
@@ -1325,7 +1325,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
             }}
             placeholder={t('agents.advanced.auto')}
             disabled={!isEnabled}
-            className="focus:ring-primary-500/20 focus:border-primary-500 h-10 w-20 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600"
+            className="focus:ring-primary-500/20 focus:border-primary-500 h-10 w-20 rounded-lg border-none bg-black/5 px-3 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 disabled:opacity-40 dark:bg-white/5 dark:text-gray-100 dark:placeholder-zinc-600"
           />
         </div>
       </div>
@@ -1347,22 +1347,22 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
 
   return (
     <div className="fixed inset-0 z-100 flex items-start justify-center overflow-y-auto bg-black/50 p-0 backdrop-blur-sm md:items-center md:overflow-hidden md:p-4">
-      <div className="flex h-dvh w-full flex-col overflow-hidden rounded-none border-0 border-gray-200 bg-white shadow-2xl md:h-[85vh] md:max-w-4xl md:flex-row md:rounded-2xl md:border dark:border-zinc-800 dark:bg-[#191a1a]">
+      <div className="glass-elite-panel flex h-dvh w-full flex-col overflow-hidden rounded-none border-0 md:h-[85vh] md:max-w-4xl md:flex-row md:rounded-3xl">
         {/* Mobile Header */}
-        <div className="flex h-14 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4 md:hidden dark:border-zinc-800 dark:bg-[#191a1a]">
+        <div className="flex h-14 shrink-0 items-center justify-between border-b border-black/5 bg-transparent px-4 md:hidden dark:border-white/5">
           <h3 className="text-base font-semibold text-gray-900 dark:text-white">
             {editingAgent ? t('agents.modal.edit') : t('agents.modal.create')}
           </h3>
           <button
             onClick={onClose}
-            className="rounded-full p-2 text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800"
+            className="rounded-full p-2 text-gray-500 transition-colors hover:bg-black/5 dark:hover:bg-white/10"
           >
             <X size={20} />
           </button>
         </div>
 
         {/* Sidebar / Tabs */}
-        <div className="bg-primary-50 dark:bg-background/70 no-scrollbar flex w-full shrink-0 flex-row gap-2 overflow-x-auto border-b border-gray-200 px-1 py-1 sm:px-4 sm:py-4 md:w-64 md:flex-col md:overflow-visible md:border-r md:border-b-0 dark:border-zinc-800">
+        <div className="no-scrollbar flex w-full shrink-0 flex-row gap-2 overflow-x-auto border-b border-black/5 bg-transparent px-1 py-1 sm:px-4 sm:py-4 md:w-64 md:flex-col md:overflow-visible md:border-r md:border-b-0 dark:border-white/5">
           <h2 className="mb-0 hidden px-2 text-xl font-bold text-gray-900 md:mb-6 md:block dark:text-white">
             {editingAgent ? t('agents.modal.edit') : t('agents.modal.create')}
           </h2>
@@ -1380,8 +1380,8 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                 className={clsx(
                   'flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-semibold whitespace-nowrap transition-colors sm:gap-3',
                   activeTab === item.id
-                    ? 'bg-primary-100 text-primary-600 dark:text-primary-400 dark:bg-zinc-800'
-                    : 'hover:bg-primary-100 text-gray-600 dark:text-gray-400 dark:hover:bg-zinc-800',
+                    ? 'text-primary-600 dark:text-primary-400 bg-black/5 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:bg-white/10'
+                    : 'text-gray-600 hover:bg-black/5 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-white',
                 )}
               >
                 <item.icon size={18} />
@@ -1392,7 +1392,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
         </div>
 
         {/* Content Area */}
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-[#f9f9f987] dark:bg-[#191a1a]">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-transparent">
           {/* Desktop Header */}
           {/* <div className="h-16 border-b border-gray-200 dark:border-zinc-800 hidden md:flex items-center justify-between px-6 sm:px-8">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white capitalize">
@@ -1426,7 +1426,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                           setShowEmojiPicker(!showEmojiPicker)
                         }}
                         disabled={isEmojiLocked}
-                        className="flex h-12 w-12 items-center justify-center rounded-xl border border-gray-200 bg-white text-2xl transition-colors hover:bg-gray-200 disabled:cursor-not-allowed disabled:bg-gray-50/20 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-700"
+                        className="flex h-12 w-12 items-center justify-center rounded-xl border border-black/10 bg-white/50 text-2xl transition-colors hover:bg-black/5 disabled:cursor-not-allowed disabled:bg-gray-50/20 disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
                       >
                         <EmojiDisplay emoji={emoji} />
                       </button>
@@ -1450,7 +1450,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                       onChange={e => setName(e.target.value)}
                       placeholder={t('agents.general.namePlaceholder')}
                       disabled={isGeneralLocked}
-                      className="focus:ring-primary-500/20 h-12 flex-1 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50/20 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900"
+                      className="focus:ring-primary-500/20 h-12 flex-1 rounded-lg border-none bg-black/5 px-4 py-2.5 text-sm focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50/20 disabled:opacity-50 dark:bg-white/5"
                     />
                   </div>
                 </div>
@@ -1465,7 +1465,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     placeholder={t('agents.general.descriptionPlaceholder')}
                     disabled={isGeneralLocked}
                     rows={2}
-                    className="focus:ring-primary-500/20 w-full resize-none rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50/20 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900"
+                    className="focus:ring-primary-500/20 w-full resize-none rounded-lg border-none bg-black/5 px-4 py-2 text-sm focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50/20 disabled:opacity-50 dark:bg-white/5"
                   />
                 </div>
 
@@ -1479,7 +1479,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     placeholder={t('agents.general.systemPromptPlaceholder')}
                     rows={6}
                     disabled={isDeepResearchAgent}
-                    className="focus:ring-primary-500/20 min-h-0 w-full flex-1 resize-none rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50/20 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900"
+                    className="focus:ring-primary-500/20 min-h-0 w-full flex-1 resize-none rounded-lg border-none bg-black/5 px-4 py-2 text-sm focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50/20 disabled:opacity-50 dark:bg-white/5"
                   />
                 </div>
               </div>
@@ -1720,11 +1720,11 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     onChange={e => setCustomInstruction(e.target.value)}
                     placeholder={t('settings.customInstructionPlaceholder')}
                     rows={3}
-                    className="focus:ring-primary-500/20 w-full resize-none rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900"
+                    className="focus:ring-primary-500/20 w-full resize-none rounded-lg border-none bg-black/5 px-4 py-2 text-sm focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:bg-white/5"
                   />
                 </div>
 
-                <div className="rounded-xl border border-gray-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
+                <div className="rounded-xl border border-black/5 bg-transparent p-1 dark:border-white/5">
                   <button
                     type="button"
                     onClick={() => {
@@ -1916,7 +1916,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                           !disabled && 'cursor-pointer',
                                           checked
                                             ? 'border-primary-400 bg-primary-50/40 dark:bg-primary-900/20'
-                                            : 'border-gray-200 hover:bg-gray-50 dark:border-zinc-700 dark:hover:bg-zinc-800/40',
+                                            : 'border-black/10 hover:bg-black/5 dark:border-zinc-700 dark:hover:bg-zinc-800/40',
                                         )}
                                       >
                                         <Checkbox
@@ -1998,7 +1998,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                     !disabled && 'cursor-pointer',
                                     checked
                                       ? 'border-primary-400 bg-primary-50/40 dark:bg-primary-900/20'
-                                      : 'border-gray-200 hover:bg-gray-50 dark:border-zinc-700 dark:hover:bg-zinc-800/40',
+                                      : 'border-black/10 hover:bg-black/5 dark:border-zinc-700 dark:hover:bg-zinc-800/40',
                                   )}
                                 >
                                   <Checkbox
@@ -2094,7 +2094,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                             'group/skill flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors',
                             checked
                               ? 'border-primary-400 bg-primary-50/40 dark:bg-primary-900/20'
-                              : 'border-gray-200 hover:bg-gray-50 dark:border-zinc-700 dark:hover:bg-zinc-800/40',
+                              : 'border-black/10 hover:bg-black/5 dark:border-zinc-700 dark:hover:bg-zinc-800/40',
                           )}
                         >
                           <Checkbox
@@ -2136,7 +2136,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
           </div>
 
           {/* Footer */}
-          <div className="flex h-16 shrink-0 items-center justify-between border-t border-gray-200 bg-white px-6 dark:border-zinc-800 dark:bg-[#191a1a]">
+          <div className="flex h-16 shrink-0 items-center justify-between border-t border-black/5 bg-transparent px-6 dark:border-white/5">
             {editingAgent && onDelete && !editingAgent.isDefault ? (
               <button
                 onClick={() => {
@@ -2161,7 +2161,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
             <div className="flex gap-3">
               <button
                 onClick={onClose}
-                className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-zinc-800"
+                className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-black/5 dark:text-gray-400 dark:hover:bg-white/10"
               >
                 {t('agents.actions.cancel')}
               </button>

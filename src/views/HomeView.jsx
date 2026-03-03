@@ -246,8 +246,7 @@ const HomeView = () => {
   const homeTextareaRef = useRef(null)
   const homeInputHighlightRef = useRef(null)
   const hasHomeExaApiKey = useMemo(
-    () =>
-      isConfiguredApiSecret(settings?.exaApiKey, ['your-exa-api-key', 'your_exa_api_key']),
+    () => isConfiguredApiSecret(settings?.exaApiKey, ['your-exa-api-key', 'your_exa_api_key']),
     [settings?.exaApiKey],
   )
   const homeSearchBackendOptions = useMemo(
@@ -353,7 +352,9 @@ const HomeView = () => {
 
   useEffect(() => {
     setIsHomeSearchActive(
-      Boolean(homeSearchBackend) || homeSelectedExaSearchTools.length > 0 || homeSearchTools.length > 0,
+      Boolean(homeSearchBackend) ||
+        homeSelectedExaSearchTools.length > 0 ||
+        homeSearchTools.length > 0,
     )
   }, [homeSearchBackend, homeSelectedExaSearchTools, homeSearchTools])
 
@@ -1164,7 +1165,8 @@ const HomeView = () => {
       {/* Aurora Background Effect */}
       <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden select-none">
         <ColorBendsBackground
-          className="h-full"
+        /* Default top-level background style (matching other views) */
+        /* className="h-full"
           colors={homeWaveColors}
           speed={0.2}
           rotation={0}
@@ -1176,7 +1178,7 @@ const HomeView = () => {
           parallax={0.5}
           noise={0.08}
           blur={isDarkMode ? 5.2 : 3.2}
-          transparent
+          transparent */
         />
         <div
           aria-hidden="true"
@@ -1479,7 +1481,7 @@ const HomeView = () => {
                                   className={clsx(
                                     'glass-elite-soft flex w-full items-start justify-between rounded-[22px] px-4 py-3 text-left text-sm transition-colors hover:border-white/26 hover:bg-white/18 dark:hover:border-white/10 dark:hover:bg-white/[0.05]',
                                     isActive
-                                      ? 'border-primary-300/35 bg-white/82 text-primary-600 dark:border-primary-500/35 dark:bg-white/[0.12] dark:text-primary-300'
+                                      ? 'border-primary-300/35 text-primary-600 dark:border-primary-500/35 dark:text-primary-300 bg-white/82 dark:bg-white/[0.12]'
                                       : 'text-gray-700 dark:text-gray-200',
                                   )}
                                 >
@@ -1717,7 +1719,7 @@ const HomeView = () => {
                                       className={clsx(
                                         'glass-elite-soft flex w-full items-center justify-between rounded-[22px] px-4 py-3 text-left text-sm transition-colors hover:border-white/26 hover:bg-white/18 dark:hover:border-white/10 dark:hover:bg-white/[0.05]',
                                         isActive
-                                          ? 'border-primary-300/35 bg-white/82 text-primary-600 dark:border-primary-500/35 dark:bg-white/[0.12] dark:text-primary-300'
+                                          ? 'border-primary-300/35 text-primary-600 dark:border-primary-500/35 dark:text-primary-300 bg-white/82 dark:bg-white/[0.12]'
                                           : 'text-gray-700 dark:text-gray-200',
                                       )}
                                     >
@@ -1760,7 +1762,7 @@ const HomeView = () => {
                                       className={clsx(
                                         'glass-elite-soft flex w-full items-center justify-between rounded-[22px] px-4 py-3 text-left text-sm transition-colors hover:border-white/26 hover:bg-white/18 dark:hover:border-white/10 dark:hover:bg-white/[0.05]',
                                         isActive
-                                          ? 'border-primary-300/35 bg-white/82 text-primary-600 dark:border-primary-500/35 dark:bg-white/[0.12] dark:text-primary-300'
+                                          ? 'border-primary-300/35 text-primary-600 dark:border-primary-500/35 dark:text-primary-300 bg-white/82 dark:bg-white/[0.12]'
                                           : 'text-gray-700 dark:text-gray-200',
                                         isOptionDisabled &&
                                           'cursor-not-allowed opacity-50 hover:border-transparent hover:bg-transparent',
@@ -1801,7 +1803,7 @@ const HomeView = () => {
                                       className={clsx(
                                         'glass-elite-soft flex w-full items-center justify-between rounded-[22px] px-4 py-3 text-left text-sm transition-colors hover:border-white/26 hover:bg-white/18 dark:hover:border-white/10 dark:hover:bg-white/[0.05]',
                                         isActive
-                                          ? 'border-primary-300/35 bg-white/82 text-primary-600 dark:border-primary-500/35 dark:bg-white/[0.12] dark:text-primary-300'
+                                          ? 'border-primary-300/35 text-primary-600 dark:border-primary-500/35 dark:text-primary-300 bg-white/82 dark:bg-white/[0.12]'
                                           : 'text-gray-700 dark:text-gray-200',
                                       )}
                                     >

@@ -227,25 +227,17 @@ export const DeepResearchGuideProvider = ({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:py-6">
-        <div className="mb-10 flex items-center gap-3">
+        <div className="mb-10 flex items-center gap-2">
           {[1, 2, 3].map(step => (
-            <div key={step} className="flex flex-1 flex-col gap-2">
+            <div key={step} className="flex-1">
               <div
                 className={clsx(
-                  'h-2 flex-1 rounded-full transition-all duration-500',
+                  'h-1.5 rounded-full transition-all duration-500',
                   step <= deepResearchStep
                     ? 'bg-primary-500 shadow-[0_0_12px_rgba(139,92,246,0.4)]'
                     : 'bg-gray-100 dark:bg-zinc-800',
                 )}
               />
-              <span
-                className={clsx(
-                  'text-center text-[10px] font-bold tracking-tighter uppercase transition-colors',
-                  step === deepResearchStep ? 'text-primary-500' : 'text-gray-400',
-                )}
-              >
-                Step {step}
-              </span>
             </div>
           ))}
         </div>

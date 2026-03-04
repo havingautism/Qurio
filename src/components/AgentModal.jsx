@@ -6,6 +6,8 @@ import {
   Check,
   ChevronDown,
   RefreshCw,
+  Upload,
+  Trash2,
   Search,
   GraduationCap,
   Eye,
@@ -32,7 +34,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import useScrollLock from '../hooks/useScrollLock'
-import EmojiDisplay from './EmojiDisplay'
+import AgentAvatar from './AgentAvatar'
+import AgentBannerSurface, { AGENT_BANNER_ASPECT_RATIO } from './AgentBannerSurface'
 import CustomEmojiPicker from './CustomEmojiPicker'
 import { Checkbox } from '@/components/ui/checkbox'
 import clsx from 'clsx'
@@ -55,6 +58,15 @@ import { listToolsViaBackend } from '../lib/backendClient'
 import { getUserTools } from '../lib/userToolsService'
 import { TOOL_TRANSLATION_KEYS, TOOL_ICONS, TOOL_INFO_KEYS } from '../lib/toolConstants'
 import { isQuickSearchTool } from '../lib/searchTools'
+import { compressImage } from '../lib/imageCompression'
+import {
+  AGENT_AVATAR_SHAPE_CIRCLE,
+  AGENT_AVATAR_SHAPE_ROUNDED,
+  AGENT_AVATAR_TYPE_EMOJI,
+  AGENT_AVATAR_TYPE_IMAGE,
+  AGENT_BANNER_MODE_MANUAL,
+  AGENT_BANNER_MODE_NONE,
+} from '../lib/agentAppearance'
 
 // Personalization Constants
 const LLM_ANSWER_LANGUAGE_KEYS = [
@@ -134,7 +146,26 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
   const [description, setDescription] = useState('')
   const [prompt, setPrompt] = useState('')
   const [emoji, setEmoji] = useState('🤖')
+  const [avatarType, setAvatarType] = useState(AGENT_AVATAR_TYPE_EMOJI)
+  const [avatarImage, setAvatarImage] = useState('')
+  const [avatarShape, setAvatarShape] = useState(AGENT_AVATAR_SHAPE_CIRCLE)
+  const [bannerMode, setBannerMode] = useState(AGENT_BANNER_MODE_NONE)
+  const [bannerImage, setBannerImage] = useState('')
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [avatarCropSource, setAvatarCropSource] = useState('')
+  const [avatarCropMeta, setAvatarCropMeta] = useState(null)
+  const [avatarCropZoom, setAvatarCropZoom] = useState(1)
+  const [avatarCropOffsetX, setAvatarCropOffsetX] = useState(0)
+  const [avatarCropOffsetY, setAvatarCropOffsetY] = useState(0)
+  const [isAvatarCropping, setIsAvatarCropping] = useState(false)
+  const [avatarDragState, setAvatarDragState] = useState(null)
+  const [bannerCropSource, setBannerCropSource] = useState('')
+  const [bannerCropMeta, setBannerCropMeta] = useState(null)
+  const [bannerCropZoom, setBannerCropZoom] = useState(1)
+  const [bannerCropOffsetX, setBannerCropOffsetX] = useState(0)
+  const [bannerCropOffsetY, setBannerCropOffsetY] = useState(0)
+  const [isBannerCropping, setIsBannerCropping] = useState(false)
+  const [bannerDragState, setBannerDragState] = useState(null)
 
   // Model Tab
   // Note: 'provider' is now derived from the selected defaultModel or explicitly stored if needed
@@ -213,6 +244,10 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
   // Refs for click outside
   const pickerRef = useRef(null)
   const buttonRef = useRef(null)
+  const avatarInputRef = useRef(null)
+  const bannerInputRef = useRef(null)
+  const avatarCropFrameRef = useRef(null)
+  const bannerCropFrameRef = useRef(null)
   const responseLanguageRef = useRef(null)
   const baseToneRef = useRef(null)
   const traitsRef = useRef(null)
@@ -226,6 +261,36 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
   // State for error and saving
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState('')
+
+  const cropViewportSize = 280
+  const bannerViewportWidth = 520
+  const bannerViewportHeight = 188
+  const avatarPreviewLayout = useMemo(() => {
+    const width = Number(avatarCropMeta?.width || 0)
+    const height = Number(avatarCropMeta?.height || 0)
+    if (!width || !height) return null
+    const scale = Math.max(cropViewportSize / width, cropViewportSize / height)
+    const baseWidth = width * scale
+    const baseHeight = height * scale
+    const renderedWidth = baseWidth * avatarCropZoom
+    const renderedHeight = baseHeight * avatarCropZoom
+    const maxOffsetX = Math.max(0, (renderedWidth - cropViewportSize) / 2)
+    const maxOffsetY = Math.max(0, (renderedHeight - cropViewportSize) / 2)
+    return { baseWidth, baseHeight, renderedWidth, renderedHeight, maxOffsetX, maxOffsetY }
+  }, [avatarCropMeta?.height, avatarCropMeta?.width, avatarCropZoom])
+  const bannerPreviewLayout = useMemo(() => {
+    const width = Number(bannerCropMeta?.width || 0)
+    const height = Number(bannerCropMeta?.height || 0)
+    if (!width || !height) return null
+    const scale = Math.max(bannerViewportWidth / width, bannerViewportHeight / height)
+    const baseWidth = width * scale
+    const baseHeight = height * scale
+    const renderedWidth = baseWidth * bannerCropZoom
+    const renderedHeight = baseHeight * bannerCropZoom
+    const maxOffsetX = Math.max(0, (renderedWidth - bannerViewportWidth) / 2)
+    const maxOffsetY = Math.max(0, (renderedHeight - bannerViewportHeight) / 2)
+    return { baseWidth, baseHeight, renderedWidth, renderedHeight, maxOffsetX, maxOffsetY }
+  }, [bannerCropMeta?.height, bannerCropMeta?.width, bannerCropZoom])
 
   const toolsByCategory = useMemo(() => {
     const groups = {}
@@ -437,6 +502,15 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
         setDescription(editingAgent.description)
         setPrompt(editingAgent.prompt)
         setEmoji(editingAgent.emoji)
+        setAvatarType(
+          editingAgent?.avatarType === AGENT_AVATAR_TYPE_IMAGE && editingAgent?.avatarImage
+            ? AGENT_AVATAR_TYPE_IMAGE
+            : AGENT_AVATAR_TYPE_EMOJI,
+        )
+        setAvatarImage(editingAgent?.avatarImage || '')
+        setAvatarShape(editingAgent?.avatarShape || AGENT_AVATAR_SHAPE_CIRCLE)
+        setBannerMode(editingAgent?.bannerMode || AGENT_BANNER_MODE_NONE)
+        setBannerImage(editingAgent?.bannerImage || '')
         setProvider(
           editingAgent.provider ||
             editingAgent?.defaultModelProvider ||
@@ -486,6 +560,11 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
           defaultAgent?.prompt || settings.systemPrompt || t('agents.defaults.systemPrompt'),
         )
         setEmoji('🤻')
+        setAvatarType(AGENT_AVATAR_TYPE_EMOJI)
+        setAvatarImage('')
+        setAvatarShape(AGENT_AVATAR_SHAPE_CIRCLE)
+        setBannerMode(AGENT_BANNER_MODE_NONE)
+        setBannerImage('')
         setProvider(defaultAgent?.provider || 'gemini')
         const nextLiteModel = defaultAgent?.liteModel || ''
         const nextDefaultModel = defaultAgent?.defaultModel || ''
@@ -524,6 +603,16 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
       loadSkillsList()
       setActiveTab('general')
       setError('')
+      setAvatarCropSource('')
+      setAvatarCropMeta(null)
+      setAvatarCropZoom(1)
+      setAvatarCropOffsetX(0)
+      setAvatarCropOffsetY(0)
+      setBannerCropSource('')
+      setBannerCropMeta(null)
+      setBannerCropZoom(1)
+      setBannerCropOffsetX(0)
+      setBannerCropOffsetY(0)
       setIsSaving(false)
       setDefaultTestState({ status: 'idle', message: '' })
       setLiteTestState({ status: 'idle', message: '' })
@@ -554,6 +643,217 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
     if (unavailableIds.size === 0) return
     setSelectedToolIds(prev => prev.filter(id => !unavailableIds.has(String(id))))
   }, [isOpen, availableTools, apiAvailability])
+
+  const loadImageMeta = source =>
+    new Promise((resolve, reject) => {
+      const image = new Image()
+      image.onload = () =>
+        resolve({
+          image,
+          width: image.naturalWidth || image.width,
+          height: image.naturalHeight || image.height,
+        })
+      image.onerror = () => reject(new Error('Failed to load image'))
+      image.src = source
+    })
+
+  const clampCropOffset = (value, maxOffset) => {
+    if (!Number.isFinite(value)) return 0
+    return Math.min(maxOffset, Math.max(-maxOffset, value))
+  }
+
+  const openAvatarCropper = async source => {
+    const meta = await loadImageMeta(source)
+    setAvatarCropSource(source)
+    setAvatarCropMeta(meta)
+    setAvatarCropZoom(1)
+    setAvatarCropOffsetX(0)
+    setAvatarCropOffsetY(0)
+  }
+
+  const openBannerCropper = async source => {
+    const meta = await loadImageMeta(source)
+    setBannerCropSource(source)
+    setBannerCropMeta(meta)
+    setBannerCropZoom(1)
+    setBannerCropOffsetX(0)
+    setBannerCropOffsetY(0)
+  }
+
+  const handleAvatarUpload = async event => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+
+    try {
+      const { dataUrl } = await compressImage(file, {
+        maxWidth: 1600,
+        maxHeight: 1600,
+        quality: 0.92,
+      })
+      await openAvatarCropper(dataUrl)
+    } catch (err) {
+      setError(err?.message || '头像图片处理失败')
+    }
+  }
+
+  const handleBannerUpload = async event => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+
+    try {
+      const { dataUrl } = await compressImage(file, {
+        maxWidth: 1800,
+        maxHeight: 900,
+        quality: 0.9,
+      })
+      await openBannerCropper(dataUrl)
+    } catch (err) {
+      setError(err?.message || 'Banner 图片处理失败')
+    }
+  }
+
+  const handleApplyAvatarCrop = async () => {
+    if (!avatarCropSource || !avatarPreviewLayout) return
+
+    try {
+      setIsAvatarCropping(true)
+      const { image } = avatarCropMeta
+      const outputSize = 512
+      const canvas = document.createElement('canvas')
+      canvas.width = outputSize
+      canvas.height = outputSize
+      const ctx = canvas.getContext('2d')
+      const scale = outputSize / cropViewportSize
+      const drawX =
+        ((cropViewportSize - avatarPreviewLayout.renderedWidth) / 2 + avatarCropOffsetX) * scale
+      const drawY =
+        ((cropViewportSize - avatarPreviewLayout.renderedHeight) / 2 + avatarCropOffsetY) * scale
+
+      ctx.clearRect(0, 0, outputSize, outputSize)
+      ctx.drawImage(
+        image,
+        drawX,
+        drawY,
+        avatarPreviewLayout.renderedWidth * scale,
+        avatarPreviewLayout.renderedHeight * scale,
+      )
+
+      setAvatarImage(canvas.toDataURL('image/jpeg', 0.92))
+      setAvatarType(AGENT_AVATAR_TYPE_IMAGE)
+      setAvatarCropSource('')
+      setAvatarCropMeta(null)
+    } catch (err) {
+      setError(err?.message || '头像裁剪失败')
+    } finally {
+      setIsAvatarCropping(false)
+    }
+  }
+
+  const handleApplyBannerCrop = async () => {
+    if (!bannerCropSource || !bannerPreviewLayout) return
+
+    try {
+      setIsBannerCropping(true)
+      const { image } = bannerCropMeta
+      const outputWidth = 1560
+      const outputHeight = 564
+      const canvas = document.createElement('canvas')
+      canvas.width = outputWidth
+      canvas.height = outputHeight
+      const ctx = canvas.getContext('2d')
+      const scaleX = outputWidth / bannerViewportWidth
+      const scaleY = outputHeight / bannerViewportHeight
+      const drawX =
+        ((bannerViewportWidth - bannerPreviewLayout.renderedWidth) / 2 + bannerCropOffsetX) * scaleX
+      const drawY =
+        ((bannerViewportHeight - bannerPreviewLayout.renderedHeight) / 2 + bannerCropOffsetY) *
+        scaleY
+
+      ctx.clearRect(0, 0, outputWidth, outputHeight)
+      ctx.drawImage(
+        image,
+        drawX,
+        drawY,
+        bannerPreviewLayout.renderedWidth * scaleX,
+        bannerPreviewLayout.renderedHeight * scaleY,
+      )
+
+      setBannerImage(canvas.toDataURL('image/jpeg', 0.92))
+      setBannerMode(AGENT_BANNER_MODE_MANUAL)
+      setBannerCropSource('')
+      setBannerCropMeta(null)
+    } catch (err) {
+      setError(err?.message || 'Banner 裁剪失败')
+    } finally {
+      setIsBannerCropping(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!avatarDragState || !avatarPreviewLayout) return undefined
+
+    const handlePointerMove = event => {
+      setAvatarCropOffsetX(
+        clampCropOffset(
+          avatarDragState.startOffsetX + (event.clientX - avatarDragState.startX),
+          avatarPreviewLayout.maxOffsetX,
+        ),
+      )
+      setAvatarCropOffsetY(
+        clampCropOffset(
+          avatarDragState.startOffsetY + (event.clientY - avatarDragState.startY),
+          avatarPreviewLayout.maxOffsetY,
+        ),
+      )
+    }
+
+    const handlePointerUp = () => {
+      setAvatarDragState(null)
+    }
+
+    window.addEventListener('pointermove', handlePointerMove)
+    window.addEventListener('pointerup', handlePointerUp)
+    window.addEventListener('pointercancel', handlePointerUp)
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove)
+      window.removeEventListener('pointerup', handlePointerUp)
+      window.removeEventListener('pointercancel', handlePointerUp)
+    }
+  }, [avatarDragState, avatarPreviewLayout])
+
+  useEffect(() => {
+    if (!bannerDragState || !bannerPreviewLayout) return undefined
+
+    const handlePointerMove = event => {
+      setBannerCropOffsetX(
+        clampCropOffset(
+          bannerDragState.startOffsetX + (event.clientX - bannerDragState.startX),
+          bannerPreviewLayout.maxOffsetX,
+        ),
+      )
+      setBannerCropOffsetY(
+        clampCropOffset(
+          bannerDragState.startOffsetY + (event.clientY - bannerDragState.startY),
+          bannerPreviewLayout.maxOffsetY,
+        ),
+      )
+    }
+
+    const handlePointerUp = () => {
+      setBannerDragState(null)
+    }
+
+    window.addEventListener('pointermove', handlePointerMove)
+    window.addEventListener('pointerup', handlePointerUp)
+    window.addEventListener('pointercancel', handlePointerUp)
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove)
+      window.removeEventListener('pointerup', handlePointerUp)
+      window.removeEventListener('pointercancel', handlePointerUp)
+    }
+  }, [bannerDragState, bannerPreviewLayout])
 
   const handleSaveWrapper = async () => {
     if (!editingAgent?.isDefault && !isDeepResearchAgent && !name.trim()) {
@@ -609,6 +909,16 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
           : description.trim()
       const resolvedPrompt = isDeepResearchAgent ? DEEP_RESEARCH_AGENT_PROMPT : prompt.trim()
       const resolvedEmoji = isDeepResearchAgent ? DEEP_RESEARCH_EMOJI : emoji
+      const resolvedAvatarType = isDeepResearchAgent
+        ? AGENT_AVATAR_TYPE_EMOJI
+        : avatarType === AGENT_AVATAR_TYPE_IMAGE && avatarImage
+          ? AGENT_AVATAR_TYPE_IMAGE
+          : AGENT_AVATAR_TYPE_EMOJI
+      const resolvedAvatarImage = isDeepResearchAgent ? '' : avatarImage
+      const resolvedAvatarShape = avatarShape
+      const resolvedBannerMode = isDeepResearchAgent ? AGENT_BANNER_MODE_NONE : bannerMode
+      const resolvedBannerImage =
+        !isDeepResearchAgent && resolvedBannerMode === AGENT_BANNER_MODE_MANUAL ? bannerImage : ''
       const resolvedBaseTone = isDeepResearchAgent ? DEEP_RESEARCH_PROFILE.baseTone : baseTone
       const resolvedTraits = isDeepResearchAgent ? DEEP_RESEARCH_PROFILE.traits : traits
       const resolvedWarmth = isDeepResearchAgent ? DEEP_RESEARCH_PROFILE.warmth : warmth
@@ -626,6 +936,11 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
         description: resolvedDescription,
         prompt: resolvedPrompt,
         emoji: resolvedEmoji,
+        avatarType: resolvedAvatarType,
+        avatarImage: resolvedAvatarImage,
+        avatarShape: resolvedAvatarShape,
+        bannerMode: resolvedBannerMode,
+        bannerImage: resolvedBannerImage,
         provider: derivedProvider,
         defaultModelProvider: resolvedDefaultProvider,
         liteModelProvider: resolvedLiteProvider,
@@ -1344,6 +1659,26 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
     : isDeepResearchAgent
       ? t('deepResearch.agentDescription')
       : description
+  const previewProviderId = provider || defaultModelProvider || 'gemini'
+  const previewProvider = getProvider(previewProviderId)
+  const previewProviderLabel = previewProvider?.name || previewProviderId || 'Provider'
+  const previewProviderFallback = previewProviderLabel
+  const previewModel = defaultModel || 'Default model'
+  const previewAgent = {
+    emoji,
+    avatarType,
+    avatarImage,
+    avatarShape,
+    name: displayName,
+  }
+  const compactSegmentGroupClassName =
+    'grid grid-cols-2 gap-1 rounded-lg bg-black/5 p-0.5 dark:bg-white/5'
+  const compactSegmentButtonClassName =
+    'rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors'
+  const compactActionButtonClassName =
+    'inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-black/10 bg-white/60 px-3.5 text-[13px] font-medium transition-colors hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-50 sm:justify-start dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10'
+  const compactDangerButtonClassName =
+    'inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3.5 text-[13px] font-medium text-red-600 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 sm:justify-start dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-900/30'
 
   return (
     <div className="fixed inset-0 z-100 flex items-start justify-center overflow-y-auto bg-black/50 p-0 backdrop-blur-sm md:items-center md:overflow-hidden md:p-4">
@@ -1412,46 +1747,203 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
             style={{ scrollbarGutter: 'stable' }}
           >
             {activeTab === 'general' && (
-              <div className="flex h-full flex-col gap-6">
+              <div className="flex flex-col gap-6">
                 <div className="flex flex-col gap-2">
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {t('agents.general.avatar')} & {t('agents.general.name')}
+                    头像设置
                   </label>
-                  <div className="flex items-center gap-3">
-                    <div className="relative inline-block w-fit">
-                      <button
-                        ref={buttonRef}
-                        onClick={() => {
-                          if (isEmojiLocked) return
-                          setShowEmojiPicker(!showEmojiPicker)
-                        }}
-                        disabled={isEmojiLocked}
-                        className="flex h-12 w-12 items-center justify-center rounded-xl border border-black/10 bg-white/50 text-2xl transition-colors hover:bg-black/5 disabled:cursor-not-allowed disabled:bg-gray-50/20 disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
-                      >
-                        <EmojiDisplay emoji={emoji} />
-                      </button>
-                      {showEmojiPicker && (
-                        <div
-                          ref={pickerRef}
-                          className="absolute top-full left-0 z-50 mt-2 overflow-hidden rounded-xl shadow-2xl"
-                        >
-                          <CustomEmojiPicker
-                            onEmojiSelect={e => {
-                              setEmoji(e?.native || e)
-                              setShowEmojiPicker(false)
-                            }}
-                            onClose={() => setShowEmojiPicker(false)}
+                  <div className="rounded-2xl border border-black/5 bg-black/[0.03] p-3 sm:p-4 dark:border-white/5 dark:bg-white/[0.03]">
+                    <div className="flex flex-col gap-4">
+                      <div className="flex items-start gap-3 sm:gap-4">
+                        <AgentAvatar
+                          agent={{ emoji, avatarType, avatarImage, avatarShape, name: displayName }}
+                          size="4rem"
+                          className="shrink-0 border border-black/8 bg-white/70 shadow-sm sm:h-[4.5rem] sm:w-[4.5rem] dark:border-white/10 dark:bg-white/5"
+                        />
+                        <div className="grid min-w-0 flex-1 gap-3">
+                          <div className="rounded-xl border border-black/5 bg-white/35 p-2 dark:border-white/5 dark:bg-white/[0.03]">
+                            <div className="mb-1.5 text-[11px] font-medium tracking-[0.12em] text-gray-500 uppercase dark:text-gray-400">
+                              头像类型
+                            </div>
+                            <div className={compactSegmentGroupClassName}>
+                              <button
+                                type="button"
+                                disabled={isEmojiLocked}
+                                onClick={() => setAvatarType(AGENT_AVATAR_TYPE_EMOJI)}
+                                className={clsx(
+                                  compactSegmentButtonClassName,
+                                  avatarType === AGENT_AVATAR_TYPE_EMOJI
+                                    ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-white'
+                                    : 'text-gray-500 dark:text-gray-400',
+                                  isEmojiLocked && 'cursor-not-allowed opacity-50',
+                                )}
+                              >
+                                Emoji
+                              </button>
+                              <button
+                                type="button"
+                                disabled={isEmojiLocked}
+                                onClick={() => setAvatarType(AGENT_AVATAR_TYPE_IMAGE)}
+                                className={clsx(
+                                  compactSegmentButtonClassName,
+                                  avatarType === AGENT_AVATAR_TYPE_IMAGE
+                                    ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-white'
+                                    : 'text-gray-500 dark:text-gray-400',
+                                  isEmojiLocked && 'cursor-not-allowed opacity-50',
+                                )}
+                              >
+                                图片
+                              </button>
+                            </div>
+                          </div>
+                          <div className="rounded-xl border border-black/5 bg-white/35 p-2 dark:border-white/5 dark:bg-white/[0.03]">
+                            <div className="mb-1.5 text-[11px] font-medium tracking-[0.12em] text-gray-500 uppercase dark:text-gray-400">
+                              外框形状
+                            </div>
+                            <div className={compactSegmentGroupClassName}>
+                              <button
+                                type="button"
+                                disabled={isEmojiLocked}
+                                onClick={() => setAvatarShape(AGENT_AVATAR_SHAPE_ROUNDED)}
+                                className={clsx(
+                                  compactSegmentButtonClassName,
+                                  avatarShape === AGENT_AVATAR_SHAPE_ROUNDED
+                                    ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-white'
+                                    : 'text-gray-500 dark:text-gray-400',
+                                  isEmojiLocked && 'cursor-not-allowed opacity-50',
+                                )}
+                              >
+                                圆角方形
+                              </button>
+                              <button
+                                type="button"
+                                disabled={isEmojiLocked}
+                                onClick={() => setAvatarShape(AGENT_AVATAR_SHAPE_CIRCLE)}
+                                className={clsx(
+                                  compactSegmentButtonClassName,
+                                  avatarShape === AGENT_AVATAR_SHAPE_CIRCLE
+                                    ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-white'
+                                    : 'text-gray-500 dark:text-gray-400',
+                                  isEmojiLocked && 'cursor-not-allowed opacity-50',
+                                )}
+                              >
+                                圆形
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] lg:items-start">
+                        <div className="flex flex-col gap-2">
+                          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            {t('agents.general.name')}
+                          </label>
+                          <input
+                            value={displayName}
+                            onChange={e => setName(e.target.value)}
+                            placeholder={t('agents.general.namePlaceholder')}
+                            disabled={isGeneralLocked}
+                            className="focus:ring-primary-500/20 h-11 flex-1 rounded-lg border-none bg-black/5 px-4 py-2 text-sm focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50/20 disabled:opacity-50 dark:bg-white/5"
                           />
                         </div>
-                      )}
+
+                        {avatarType === AGENT_AVATAR_TYPE_EMOJI ? (
+                          <div className="flex flex-col gap-2">
+                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                              Emoji 头像
+                            </label>
+                            <div className="relative inline-block w-full sm:w-fit">
+                              <button
+                                ref={buttonRef}
+                                type="button"
+                                onClick={() => {
+                                  if (isEmojiLocked) return
+                                  setShowEmojiPicker(!showEmojiPicker)
+                                }}
+                                disabled={isEmojiLocked}
+                                className={clsx(
+                                  compactActionButtonClassName,
+                                  'w-full disabled:bg-gray-50/20 sm:w-auto',
+                                )}
+                              >
+                                <AgentAvatar agent={{ emoji }} size="1.6rem" />
+                                <span>选择 Emoji</span>
+                              </button>
+                              {showEmojiPicker && (
+                                <div
+                                  ref={pickerRef}
+                                  className="absolute top-full left-0 z-50 mt-2 overflow-hidden rounded-xl shadow-2xl"
+                                >
+                                  <CustomEmojiPicker
+                                    onEmojiSelect={e => {
+                                      setEmoji(e?.native || e)
+                                      setShowEmojiPicker(false)
+                                    }}
+                                    onClose={() => setShowEmojiPicker(false)}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col gap-2">
+                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                              图片头像
+                            </label>
+                            <div className="grid gap-2 sm:flex sm:flex-wrap sm:items-center">
+                              <button
+                                type="button"
+                                disabled={isEmojiLocked}
+                                onClick={() => avatarInputRef.current?.click()}
+                                className={compactActionButtonClassName}
+                              >
+                                <Upload size={16} />
+                                上传图片
+                              </button>
+                              {avatarImage && (
+                                <>
+                                  <button
+                                    type="button"
+                                    disabled={isEmojiLocked}
+                                    onClick={() =>
+                                      openAvatarCropper(avatarImage).catch(err =>
+                                        setError(err.message),
+                                      )
+                                    }
+                                    className={compactActionButtonClassName}
+                                  >
+                                    重新裁剪
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={isEmojiLocked}
+                                    onClick={() => {
+                                      setAvatarImage('')
+                                      setAvatarType(AGENT_AVATAR_TYPE_EMOJI)
+                                    }}
+                                    className={compactDangerButtonClassName}
+                                  >
+                                    <Trash2 size={16} />
+                                    移除
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                            <input
+                              ref={avatarInputRef}
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={handleAvatarUpload}
+                            />
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              上传后可裁剪为 1:1 头像，并选择圆形或圆角方形外框。
+                            </p>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <input
-                      value={displayName}
-                      onChange={e => setName(e.target.value)}
-                      placeholder={t('agents.general.namePlaceholder')}
-                      disabled={isGeneralLocked}
-                      className="focus:ring-primary-500/20 h-12 flex-1 rounded-lg border-none bg-black/5 px-4 py-2.5 text-sm focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50/20 disabled:opacity-50 dark:bg-white/5"
-                    />
                   </div>
                 </div>
 
@@ -1469,7 +1961,113 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   />
                 </div>
 
-                <div className="flex min-h-0 flex-1 flex-col gap-2">
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    会话 Banner
+                  </label>
+                  <div className="rounded-2xl border border-black/5 bg-black/[0.03] p-3 sm:p-4 dark:border-white/5 dark:bg-white/[0.03]">
+                    <div className="grid gap-4 lg:grid-cols-[minmax(0,0.86fr)_minmax(0,1.14fr)] lg:items-start">
+                      <div className="space-y-3">
+                        <div className="rounded-xl border border-black/5 bg-white/35 p-2 dark:border-white/5 dark:bg-white/[0.03]">
+                          <div className="mb-1.5 text-[11px] font-medium tracking-[0.12em] text-gray-500 uppercase dark:text-gray-400">
+                            展示方式
+                          </div>
+                          <div className={compactSegmentGroupClassName}>
+                            {[
+                              { value: AGENT_BANNER_MODE_NONE, label: '关闭' },
+                              { value: AGENT_BANNER_MODE_MANUAL, label: '手动' },
+                            ].map(option => (
+                              <button
+                                key={option.value}
+                                type="button"
+                                disabled={isDeepResearchAgent}
+                                onClick={() => setBannerMode(option.value)}
+                                className={clsx(
+                                  compactSegmentButtonClassName,
+                                  bannerMode === option.value
+                                    ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-white'
+                                    : 'bg-black/5 text-gray-500 dark:bg-white/5 dark:text-gray-400',
+                                  isDeepResearchAgent && 'cursor-not-allowed opacity-50',
+                                )}
+                              >
+                                {option.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <p className="text-xs leading-5 text-gray-500 dark:text-gray-400">
+                          普通会话顶部按 Notion 风格展示。当前只支持手动上传 Banner。
+                        </p>
+                        {bannerMode === AGENT_BANNER_MODE_MANUAL && (
+                          <div className="grid gap-2 sm:flex sm:flex-wrap sm:items-center">
+                            <button
+                              type="button"
+                              disabled={isDeepResearchAgent}
+                              onClick={() => bannerInputRef.current?.click()}
+                              className={compactActionButtonClassName}
+                            >
+                              <Upload size={16} />
+                              选择 Banner
+                            </button>
+                            {bannerImage && (
+                              <>
+                                <button
+                                  type="button"
+                                  disabled={isDeepResearchAgent}
+                                  onClick={() =>
+                                    openBannerCropper(bannerImage).catch(err =>
+                                      setError(err.message),
+                                    )
+                                  }
+                                  className={compactActionButtonClassName}
+                                >
+                                  重新裁剪
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={isDeepResearchAgent}
+                                  onClick={() => setBannerImage('')}
+                                  className={compactDangerButtonClassName}
+                                >
+                                  <Trash2 size={16} />
+                                  移除 Banner
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        )}
+                        <input
+                          ref={bannerInputRef}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleBannerUpload}
+                        />
+                      </div>
+                      <div>
+                        {bannerImage ? (
+                          <AgentBannerSurface
+                            imageSrc={bannerImage}
+                            imageAlt="Banner preview"
+                            agent={previewAgent}
+                            displayName={displayName || 'Agent'}
+                            providerId={previewProviderId}
+                            providerLabel={previewProviderLabel}
+                            providerFallback={previewProviderFallback}
+                            model={previewModel}
+                            frameClassName="border-black/6 dark:border-white/8"
+                          />
+                        ) : (
+                          <div className="flex min-h-36 items-center justify-center rounded-[24px] border border-dashed border-black/10 bg-white/30 px-5 text-center text-sm text-gray-500 dark:border-white/10 dark:bg-white/[0.02] dark:text-gray-400">
+                            选择一张常驻显示的会话 Banner
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2">
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     {t('agents.general.systemPrompt')}
                   </label>
@@ -1479,7 +2077,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     placeholder={t('agents.general.systemPromptPlaceholder')}
                     rows={6}
                     disabled={isDeepResearchAgent}
-                    className="focus:ring-primary-500/20 min-h-0 w-full flex-1 resize-none rounded-lg border-none bg-black/5 px-4 py-2 text-sm focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50/20 disabled:opacity-50 dark:bg-white/5"
+                    className="focus:ring-primary-500/20 min-h-[10rem] w-full resize-y rounded-lg border-none bg-black/5 px-4 py-2 text-sm focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50/20 disabled:opacity-50 dark:bg-white/5"
                   />
                 </div>
               </div>
@@ -2170,6 +2768,307 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
           </div>
         </div>
       </div>
+      {avatarCropSource && avatarPreviewLayout && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-2xl rounded-[28px] border border-white/10 bg-white/95 p-5 shadow-2xl dark:bg-zinc-950/95">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h4 className="text-lg font-semibold text-gray-900 dark:text-white">裁剪头像</h4>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  调整缩放和位置，输出为 1:1 头像。
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setAvatarCropSource('')
+                  setAvatarCropMeta(null)
+                }}
+                className="rounded-full p-2 text-gray-500 transition-colors hover:bg-black/5 dark:hover:bg-white/10"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="mt-5 flex flex-col gap-6 lg:flex-row">
+              <div className="flex justify-center lg:flex-1">
+                <div
+                  ref={avatarCropFrameRef}
+                  className={clsx(
+                    'relative touch-none overflow-hidden border border-black/8 bg-gray-100 dark:border-white/10 dark:bg-zinc-900',
+                    avatarShape === AGENT_AVATAR_SHAPE_CIRCLE ? 'rounded-full' : 'rounded-[28px]',
+                    avatarDragState ? 'cursor-grabbing' : 'cursor-grab',
+                  )}
+                  style={{ width: cropViewportSize, height: cropViewportSize }}
+                  onPointerDown={event => {
+                    event.preventDefault()
+                    setAvatarDragState({
+                      startX: event.clientX,
+                      startY: event.clientY,
+                      startOffsetX: avatarCropOffsetX,
+                      startOffsetY: avatarCropOffsetY,
+                    })
+                  }}
+                >
+                  <img
+                    src={avatarCropSource}
+                    alt="Avatar crop source"
+                    className="pointer-events-none absolute max-w-none select-none"
+                    style={{
+                      width: avatarPreviewLayout.renderedWidth,
+                      height: avatarPreviewLayout.renderedHeight,
+                      left: '50%',
+                      top: '50%',
+                      transform: `translate(calc(-50% + ${avatarCropOffsetX}px), calc(-50% + ${avatarCropOffsetY}px))`,
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="flex min-w-0 flex-1 flex-col gap-4">
+                <label className="flex flex-col gap-2 text-sm text-gray-700 dark:text-gray-300">
+                  缩放
+                  <input
+                    type="range"
+                    min="1"
+                    max="3"
+                    step="0.01"
+                    value={avatarCropZoom}
+                    onChange={event => {
+                      const nextZoom = Number(event.target.value)
+                      setAvatarCropZoom(nextZoom)
+                      if (avatarPreviewLayout) {
+                        const ratio = nextZoom / avatarCropZoom
+                        const nextMaxX = Math.max(
+                          0,
+                          (avatarPreviewLayout.baseWidth * nextZoom - cropViewportSize) / 2,
+                        )
+                        const nextMaxY = Math.max(
+                          0,
+                          (avatarPreviewLayout.baseHeight * nextZoom - cropViewportSize) / 2,
+                        )
+                        setAvatarCropOffsetX(prev => clampCropOffset(prev * ratio, nextMaxX))
+                        setAvatarCropOffsetY(prev => clampCropOffset(prev * ratio, nextMaxY))
+                      }
+                    }}
+                  />
+                </label>
+                <label className="flex flex-col gap-2 text-sm text-gray-700 dark:text-gray-300">
+                  水平位置
+                  <input
+                    type="range"
+                    min={-avatarPreviewLayout.maxOffsetX}
+                    max={avatarPreviewLayout.maxOffsetX}
+                    step="1"
+                    value={avatarCropOffsetX}
+                    onChange={event =>
+                      setAvatarCropOffsetX(
+                        clampCropOffset(Number(event.target.value), avatarPreviewLayout.maxOffsetX),
+                      )
+                    }
+                  />
+                </label>
+                <label className="flex flex-col gap-2 text-sm text-gray-700 dark:text-gray-300">
+                  垂直位置
+                  <input
+                    type="range"
+                    min={-avatarPreviewLayout.maxOffsetY}
+                    max={avatarPreviewLayout.maxOffsetY}
+                    step="1"
+                    value={avatarCropOffsetY}
+                    onChange={event =>
+                      setAvatarCropOffsetY(
+                        clampCropOffset(Number(event.target.value), avatarPreviewLayout.maxOffsetY),
+                      )
+                    }
+                  />
+                </label>
+                <div className="rounded-2xl border border-black/5 bg-black/[0.03] px-4 py-3 text-xs text-gray-500 dark:border-white/5 dark:bg-white/[0.03] dark:text-gray-400">
+                  当前头像框：{avatarShape === AGENT_AVATAR_SHAPE_CIRCLE ? '圆形' : '圆角方形'}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setAvatarCropSource('')
+                  setAvatarCropMeta(null)
+                }}
+                className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-black/5 dark:text-gray-400 dark:hover:bg-white/10"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={handleApplyAvatarCrop}
+                disabled={isAvatarCropping}
+                className="bg-primary-500 hover:bg-primary-600 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors disabled:opacity-50"
+              >
+                {isAvatarCropping ? '处理中...' : '应用裁剪'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {bannerCropSource && bannerPreviewLayout && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-5xl rounded-[28px] border border-white/10 bg-white/95 p-5 shadow-2xl dark:bg-zinc-950/95">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h4 className="text-lg font-semibold text-gray-900 dark:text-white">裁剪 Banner</h4>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  调整横幅构图，预览中会显示信息卡遮挡后的最终效果。
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setBannerCropSource('')
+                  setBannerCropMeta(null)
+                }}
+                className="rounded-full p-2 text-gray-500 transition-colors hover:bg-black/5 dark:hover:bg-white/10"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="mt-5 flex flex-col gap-6 xl:flex-row">
+              <div className="flex justify-center xl:flex-1">
+                <div
+                  ref={bannerCropFrameRef}
+                  className={clsx(
+                    'touch-none',
+                    bannerDragState ? 'cursor-grabbing' : 'cursor-grab',
+                  )}
+                  style={{ width: bannerViewportWidth }}
+                  onPointerDown={event => {
+                    event.preventDefault()
+                    setBannerDragState({
+                      startX: event.clientX,
+                      startY: event.clientY,
+                      startOffsetX: bannerCropOffsetX,
+                      startOffsetY: bannerCropOffsetY,
+                    })
+                  }}
+                >
+                  <AgentBannerSurface
+                    imageAlt="Banner crop source"
+                    backgroundNode={
+                      <img
+                        src={bannerCropSource}
+                        alt="Banner crop source"
+                        className="pointer-events-none absolute max-w-none select-none"
+                        style={{
+                          width: bannerPreviewLayout.renderedWidth,
+                          height: bannerPreviewLayout.renderedHeight,
+                          left: '50%',
+                          top: '50%',
+                          transform: `translate(calc(-50% + ${bannerCropOffsetX}px), calc(-50% + ${bannerCropOffsetY}px))`,
+                        }}
+                      />
+                    }
+                    agent={previewAgent}
+                    displayName={displayName || 'Agent'}
+                    providerId={previewProviderId}
+                    providerLabel={previewProviderLabel}
+                    providerFallback={previewProviderFallback}
+                    model={previewModel}
+                    frameClassName="bg-gray-100 dark:bg-zinc-900"
+                    frameStyle={{ width: '100%', aspectRatio: String(AGENT_BANNER_ASPECT_RATIO) }}
+                  />
+                </div>
+              </div>
+
+              <div className="flex min-w-0 flex-1 flex-col gap-4">
+                <label className="flex flex-col gap-2 text-sm text-gray-700 dark:text-gray-300">
+                  缩放
+                  <input
+                    type="range"
+                    min="1"
+                    max="3"
+                    step="0.01"
+                    value={bannerCropZoom}
+                    onChange={event => {
+                      const nextZoom = Number(event.target.value)
+                      setBannerCropZoom(nextZoom)
+                      if (bannerPreviewLayout) {
+                        const ratio = nextZoom / bannerCropZoom
+                        const nextMaxX = Math.max(
+                          0,
+                          (bannerPreviewLayout.baseWidth * nextZoom - bannerViewportWidth) / 2,
+                        )
+                        const nextMaxY = Math.max(
+                          0,
+                          (bannerPreviewLayout.baseHeight * nextZoom - bannerViewportHeight) / 2,
+                        )
+                        setBannerCropOffsetX(prev => clampCropOffset(prev * ratio, nextMaxX))
+                        setBannerCropOffsetY(prev => clampCropOffset(prev * ratio, nextMaxY))
+                      }
+                    }}
+                  />
+                </label>
+                <label className="flex flex-col gap-2 text-sm text-gray-700 dark:text-gray-300">
+                  水平位置
+                  <input
+                    type="range"
+                    min={-bannerPreviewLayout.maxOffsetX}
+                    max={bannerPreviewLayout.maxOffsetX}
+                    step="1"
+                    value={bannerCropOffsetX}
+                    onChange={event =>
+                      setBannerCropOffsetX(
+                        clampCropOffset(Number(event.target.value), bannerPreviewLayout.maxOffsetX),
+                      )
+                    }
+                  />
+                </label>
+                <label className="flex flex-col gap-2 text-sm text-gray-700 dark:text-gray-300">
+                  垂直位置
+                  <input
+                    type="range"
+                    min={-bannerPreviewLayout.maxOffsetY}
+                    max={bannerPreviewLayout.maxOffsetY}
+                    step="1"
+                    value={bannerCropOffsetY}
+                    onChange={event =>
+                      setBannerCropOffsetY(
+                        clampCropOffset(Number(event.target.value), bannerPreviewLayout.maxOffsetY),
+                      )
+                    }
+                  />
+                </label>
+                <div className="rounded-2xl border border-black/5 bg-black/[0.03] px-4 py-3 text-xs text-gray-500 dark:border-white/5 dark:bg-white/[0.03] dark:text-gray-400">
+                  可以直接拖拽图片调整构图。横幅会按会话中的 Banner
+                  信息卡样式进行展示，左下角会保留信息区空间。
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setBannerCropSource('')
+                  setBannerCropMeta(null)
+                }}
+                className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-black/5 dark:text-gray-400 dark:hover:bg-white/10"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={handleApplyBannerCrop}
+                disabled={isBannerCropping}
+                className="bg-primary-500 hover:bg-primary-600 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors disabled:opacity-50"
+              >
+                {isBannerCropping ? '处理中...' : '应用裁剪'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

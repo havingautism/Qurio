@@ -378,7 +378,7 @@ export const getConversation = async id => {
   const { data, error } = await supabase
     .from(table)
     .select(
-      'id,title,title_emojis,created_at,updated_at,space_id,api_provider,is_favorited,last_agent_id,scrapbook_id',
+      'id,title,title_emojis,created_at,updated_at,space_id,api_provider,is_favorited,last_agent_id,agent_selection_mode,scrapbook_id',
     )
     .eq('id', id)
     .single()

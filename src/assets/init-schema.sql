@@ -35,6 +35,11 @@ CREATE TABLE IF NOT EXISTS public.agents (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   is_default BOOLEAN NOT NULL DEFAULT FALSE,
   emoji TEXT NOT NULL DEFAULT '',
+  avatar_type TEXT NOT NULL DEFAULT 'emoji',
+  avatar_image TEXT,
+  avatar_shape TEXT NOT NULL DEFAULT 'circle',
+  banner_mode TEXT NOT NULL DEFAULT 'none',
+  banner_image TEXT,
   name TEXT NOT NULL,
   description TEXT,
   prompt TEXT,
@@ -63,6 +68,12 @@ CREATE TABLE IF NOT EXISTS public.agents (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE public.agents ADD COLUMN IF NOT EXISTS avatar_type TEXT NOT NULL DEFAULT 'emoji';
+ALTER TABLE public.agents ADD COLUMN IF NOT EXISTS avatar_image TEXT;
+ALTER TABLE public.agents ADD COLUMN IF NOT EXISTS avatar_shape TEXT NOT NULL DEFAULT 'circle';
+ALTER TABLE public.agents ADD COLUMN IF NOT EXISTS banner_mode TEXT NOT NULL DEFAULT 'none';
+ALTER TABLE public.agents ADD COLUMN IF NOT EXISTS banner_image TEXT;
 
 CREATE TABLE IF NOT EXISTS public.conversations (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,

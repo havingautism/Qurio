@@ -965,7 +965,20 @@
       "descLabel": "Short Description",
       "instructionsLabel": "System Instructions (Markdown)",
       "createButton": "Create Skill",
-      "saveButton": "Save Skill"
+      "saveButton": "Save Skill",
+      "aiGenerate": "✨ AI Generate",
+      "aiGenerateTitle": "Generate Skill with AI",
+      "aiGeneratePromptLabel": "Describe the Skill you want",
+      "aiGeneratePromptPlaceholder": "e.g. Create a skill that makes the agent always give a 3-point summary at the start of every reply",
+      "aiGenerateBtn": "Generate",
+      "aiGenerating": "AI generating...",
+      "aiGenerateSuccess": "Skill generated!",
+      "aiGenerateFiles": "Files created",
+      "aiGenerateOpenEditor": "Open in Editor",
+      "aiGenerateError": "Generation failed, please try again",
+      "aiConfigNoKey": "No API key configured. Please add one in Settings first.",
+      "aiGenerateBack": "Back to list",
+      "aiGenerateSkillId": "Skill ID"
     }
   },
   "deepResearch": {

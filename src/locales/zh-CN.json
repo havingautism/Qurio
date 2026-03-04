@@ -950,7 +950,20 @@
       "descLabel": "简短描述",
       "instructionsLabel": "系统指令 (Markdown)",
       "createButton": "创建技能",
-      "saveButton": "保存技能"
+      "saveButton": "保存技能",
+      "aiGenerate": "✨ AI 生成",
+      "aiGenerateTitle": "使用 AI 生成 Skill",
+      "aiGeneratePromptLabel": "描述你想要的 Skill",
+      "aiGeneratePromptPlaceholder": "例如：帮我做一个让 Agent 每次回复时都先做三点总结的技能",
+      "aiGenerateBtn": "开始生成",
+      "aiGenerating": "AI 生成中...",
+      "aiGenerateSuccess": "Skill 已生成！",
+      "aiGenerateFiles": "已创建文件",
+      "aiGenerateOpenEditor": "在编辑器中查看",
+      "aiGenerateError": "生成失败，请重试",
+      "aiConfigNoKey": "未配置 API Key，请先在「设置」中配置。",
+      "aiGenerateBack": "返回列表",
+      "aiGenerateSkillId": "Skill ID"
     }
   },
   "deepResearch": {

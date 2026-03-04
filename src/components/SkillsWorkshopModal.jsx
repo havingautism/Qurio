@@ -9,12 +9,37 @@ import {
   GraduationCap,
   Code,
   FileText,
+  Sparkles,
+  FileCheck,
+  ArrowLeft,
+  Settings,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useTranslation } from 'react-i18next'
-import { getBackendUrl } from '../lib/settings'
+import { getBackendUrl, loadSettings } from '../lib/settings'
 import { useAppContext } from '../App'
 import { useToast } from '../contexts/ToastContext'
+import { getModelsForProvider } from '../lib/models_api'
+import { FALLBACK_MODEL_OPTIONS, PROVIDER_KEYS } from '../lib/modelConstants'
+import { getPublicEnv } from '../lib/publicEnv'
+import { SILICONFLOW_BASE_URL } from '../lib/providerConstants'
+import { getProvider } from '../lib/providers'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  SelectGroup,
+} from '@/components/ui/select'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from '@/components/ui/dialog'
 
 const SkillsWorkshopModal = ({ isOpen, onClose }) => {
   const { t } = useTranslation()
@@ -44,6 +69,231 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
   const [isCreatingFile, setIsCreatingFile] = useState(false)
   const [creatingFileType, setCreatingFileType] = useState(null) // 'script' | 'reference' | null
   const [stagedFiles, setStagedFiles] = useState({}) // path -> content cache for NEW skills
+
+  // AI Skill Creator State
+  const [isAIMode, setIsAIMode] = useState(false) // whether AI generator panel is visible
+  const [aiPrompt, setAiPrompt] = useState('') // user's natural language description
+  const [isGenerating, setIsGenerating] = useState(false) // generation in progress
+  const [aiResult, setAiResult] = useState(null) // { skill_id, files_created } on success
+
+  const [showAIConfig, setShowAIConfig] = useState(false)
+  const [availableProviders, setAvailableProviders] = useState([])
+  const [groupedModels, setGroupedModels] = useState({})
+  const [isLoadingModels, setIsLoadingModels] = useState(false)
+  const [aiProvider, setAiProvider] = useState('')
+  const [aiModel, setAiModel] = useState('')
+
+  useEffect(() => {
+    if (isAIMode && availableProviders.length === 0) {
+      loadKeysAndFetchModels()
+    }
+  }, [isAIMode])
+
+  const loadKeysAndFetchModels = async () => {
+    setIsLoadingModels(true)
+    const settings = loadSettings()
+
+    // Resolve the latest env vars
+    const ENV_VARS = {
+      openAIKey: getPublicEnv('PUBLIC_OPENAI_API_KEY'),
+      openAIBaseUrl: getPublicEnv('PUBLIC_OPENAI_BASE_URL'),
+      googleApiKey: getPublicEnv('PUBLIC_GOOGLE_API_KEY'),
+      siliconFlowKey: getPublicEnv('PUBLIC_SILICONFLOW_API_KEY'),
+      glmKey: getPublicEnv('PUBLIC_GLM_API_KEY'),
+      deepseekKey: getPublicEnv('PUBLIC_DEEPSEEK_API_KEY'),
+      volcengineKey: getPublicEnv('PUBLIC_VOLCENGINE_API_KEY'),
+      modelscopeKey: getPublicEnv('PUBLIC_MODELSCOPE_API_KEY'),
+      kimiKey: getPublicEnv('PUBLIC_KIMI_API_KEY'),
+    }
+
+    const keys = {
+      gemini: settings.googleApiKey,
+      openai_compatibility: settings.OpenAICompatibilityKey,
+      siliconflow: settings.SiliconFlowKey,
+      glm: settings.GlmKey,
+      deepseek: settings.DeepSeekKey,
+      volcengine: settings.VolcengineKey,
+      modelscope: settings.ModelScopeKey,
+      kimi: settings.KimiKey,
+      nvidia: settings.NvidiaKey,
+      minimax: settings.MinimaxKey,
+      // URLs for providers that need it
+      openai_compatibility_url: settings.OpenAICompatibilityUrl,
+    }
+
+    const enabledProviders = []
+    const promises = PROVIDER_KEYS.map(async key => {
+      let credentials = {}
+      if (key === 'gemini') credentials = { apiKey: keys.gemini }
+      else if (key === 'siliconflow')
+        credentials = { apiKey: keys.siliconflow, baseUrl: SILICONFLOW_BASE_URL }
+      else if (key === 'glm') credentials = { apiKey: keys.glm }
+      else if (key === 'deepseek')
+        credentials = {
+          apiKey: keys.deepseek,
+          baseUrl: getPublicEnv('PUBLIC_DEEPSEEK_BASE_URL') || 'https://api.deepseek.com/v1',
+        }
+      else if (key === 'volcengine')
+        credentials = {
+          apiKey: keys.volcengine,
+          baseUrl:
+            getPublicEnv('PUBLIC_VOLCENGINE_BASE_URL') ||
+            'https://ark.cn-beijing.volces.com/api/v3',
+        }
+      else if (key === 'modelscope') credentials = { apiKey: keys.modelscope }
+      else if (key === 'kimi') credentials = { apiKey: keys.kimi }
+      else if (key === 'nvidia')
+        credentials = { apiKey: keys.nvidia, baseUrl: 'https://integrate.api.nvidia.com/v1' }
+      else if (key === 'minimax')
+        credentials = { apiKey: keys.minimax, baseUrl: 'https://api.minimax.io/v1' }
+      else if (key === 'openai_compatibility')
+        credentials = { apiKey: keys.openai_compatibility, baseUrl: keys.openai_compatibility_url }
+
+      const hasApiKey =
+        credentials.apiKey ||
+        ENV_VARS[`${key}Key`] ||
+        ENV_VARS[`${key}ApiKey`] ||
+        (key === 'gemini' && ENV_VARS.googleApiKey) ||
+        (key === 'openai_compatibility' && ENV_VARS.openAIKey)
+
+      if (!hasApiKey && !credentials.apiKey) {
+        return null
+      }
+
+      try {
+        const models = await getModelsForProvider(key, credentials)
+        enabledProviders.push(key)
+        return { key, models: models?.length ? models : FALLBACK_MODEL_OPTIONS[key] || [] }
+      } catch (err) {
+        console.error(`Failed to fetch models for ${key}`, err)
+        enabledProviders.push(key)
+        return { key, models: FALLBACK_MODEL_OPTIONS[key] || [] }
+      }
+    })
+
+    const results = (await Promise.all(promises)).filter(Boolean)
+    const newGroupedModels = {}
+    let firstProvider = null
+    let firstModel = null
+
+    results.forEach(({ key, models }) => {
+      if (models && models.length > 0) {
+        newGroupedModels[key] = models
+        if (!firstProvider) {
+          firstProvider = key
+          firstModel = models[0].id
+        }
+      }
+    })
+
+    const uniqueProviders = Array.from(new Set(enabledProviders))
+    setAvailableProviders(uniqueProviders)
+    setGroupedModels(newGroupedModels)
+
+    // Set initial matching config from settings or fallback to first available
+    const initSettings = loadSettings()
+    const configuredProvider = initSettings.defaultModelProvider || 'openai'
+    const configuredModel = initSettings.defaultModel || null
+
+    if (uniqueProviders.includes(configuredProvider)) {
+      setAiProvider(configuredProvider)
+      setAiModel(configuredModel || (newGroupedModels[configuredProvider]?.[0]?.id ?? ''))
+    } else if (firstProvider) {
+      setAiProvider(firstProvider)
+      setAiModel(firstModel)
+    }
+
+    setIsLoadingModels(false)
+  }
+
+  // Handle provider change specifically: reset the model to the first available for the new provider
+  const handleAIProviderChange = val => {
+    setAiProvider(val)
+    const models = groupedModels[val] || []
+    if (models.length > 0) {
+      setAiModel(models[0].id)
+    } else {
+      setAiModel('')
+    }
+  }
+
+  /**
+   * Reads the selected provider + api_key from localStorage (set in Settings),
+
+   * calls POST /api/skills/generate, and on success refreshes the skill list.
+   */
+  const handleAIGenerate = async () => {
+    if (!aiPrompt.trim()) return
+
+    const provider = aiProvider
+    const model = aiModel
+
+    // Resolve API key using the exact same logic as loadKeysAndFetchModels
+    const settings = loadSettings()
+    const ENV_VARS = {
+      openAIKey: getPublicEnv('PUBLIC_OPENAI_API_KEY'),
+      googleApiKey: getPublicEnv('PUBLIC_GOOGLE_API_KEY'),
+      siliconflowKey: getPublicEnv('PUBLIC_SILICONFLOW_API_KEY'),
+      glmKey: getPublicEnv('PUBLIC_GLM_API_KEY'),
+      deepseekKey: getPublicEnv('PUBLIC_DEEPSEEK_API_KEY'),
+      volcengineKey: getPublicEnv('PUBLIC_VOLCENGINE_API_KEY'),
+      modelscopeKey: getPublicEnv('PUBLIC_MODELSCOPE_API_KEY'),
+      kimiKey: getPublicEnv('PUBLIC_KIMI_API_KEY'),
+      nvidiaKey: getPublicEnv('PUBLIC_NVIDIA_API_KEY'),
+      minimaxKey: getPublicEnv('PUBLIC_MINIMAX_API_KEY'),
+    }
+
+    const KEYS = {
+      openai: settings.openaiApiKey || ENV_VARS.openAIKey,
+      gemini: settings.googleApiKey || ENV_VARS.googleApiKey,
+      openai_compatibility: settings.OpenAICompatibilityKey || ENV_VARS.openAIKey,
+      siliconflow: settings.SiliconFlowKey || ENV_VARS.siliconflowKey,
+      glm: settings.GlmKey || ENV_VARS.glmKey,
+      deepseek: settings.DeepSeekKey || ENV_VARS.deepseekKey,
+      volcengine: settings.VolcengineKey || ENV_VARS.volcengineKey,
+      modelscope: settings.ModelScopeKey || ENV_VARS.modelscopeKey,
+      kimi: settings.KimiKey || ENV_VARS.kimiKey,
+      nvidia: settings.NvidiaKey || ENV_VARS.nvidiaKey,
+      minimax: settings.MinimaxKey || ENV_VARS.minimaxKey,
+    }
+
+    const apiKey = KEYS[provider] || ''
+
+    if (!apiKey) {
+      toast.error(
+        t('agents.skills.aiConfigNoKey', 'No API key found. Configure one in Settings first.'),
+      )
+      return
+    }
+
+    setIsGenerating(true)
+    setAiResult(null)
+    try {
+      const res = await fetch(`${getBackendUrl()}/api/skills/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: aiPrompt.trim(), provider, api_key: apiKey, model }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setAiResult(data)
+        toast.success(t('agents.skills.aiGenerateSuccess', 'Skill generated!'))
+        // Refresh global skills list so new skill is immediately visible
+        window.dispatchEvent(new CustomEvent('skills-changed'))
+        fetchSkills()
+      } else {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.detail || 'Generation failed')
+      }
+    } catch (err) {
+      console.error(err)
+      toast.error(
+        err.message || t('agents.skills.aiGenerateError', 'Generation failed, please try again'),
+      )
+    } finally {
+      setIsGenerating(false)
+    }
+  }
 
   // Categorized Files
   const { scripts, references } = React.useMemo(() => {
@@ -757,10 +1007,254 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                 )}
               </div>
             </div>
+          ) : isAIMode ? (
+            /* ── AI Skill Creator Panel ─────────────────────────────────────── */
+            <div className="flex flex-1 flex-col p-6">
+              {/* Panel Header */}
+              <div className="mb-6 flex items-center gap-3">
+                <button
+                  onClick={() => {
+                    setIsAIMode(false)
+                    setAiResult(null)
+                    setAiPrompt('')
+                  }}
+                  className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-zinc-800 dark:hover:text-gray-300"
+                >
+                  <ArrowLeft size={18} />
+                </button>
+                <div>
+                  <h3 className="font-semibold text-gray-900 dark:text-white">
+                    {t('agents.skills.aiGenerateTitle', 'Generate Skill with AI')}
+                  </h3>
+                  <p className="text-xs text-gray-400 dark:text-zinc-500">
+                    Powered by your configured AI provider
+                  </p>
+                </div>
+              </div>
+
+              {/* Settings Configuration Button */}
+              <div className="absolute top-6 right-6">
+                <button
+                  onClick={() => setShowAIConfig(true)}
+                  className="flex h-9 items-center gap-2 rounded-xl px-3 text-sm font-medium text-gray-600 transition-colors hover:bg-black/5 dark:text-gray-300 dark:hover:bg-white/5"
+                >
+                  <Settings size={16} />
+                  {getProvider(aiProvider)?.name || 'Provider'}
+                </button>
+              </div>
+
+              {/* AI Config Dialog */}
+              <Dialog open={showAIConfig} onOpenChange={open => !open && setShowAIConfig(false)}>
+                <DialogContent className="sm:max-w-[425px]">
+                  <DialogHeader>
+                    <DialogTitle>{t('settings.modelConfig', 'Model Configuration')}</DialogTitle>
+                    <DialogDescription>
+                      {t(
+                        'agents.skills.aiConfigDesc',
+                        'Select the AI model specifically for generating this skill. Provider list based on your API keys.',
+                      )}
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  <div className="py-2">
+                    {isLoadingModels ? (
+                      <div className="flex items-center justify-center p-4">
+                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--color-primary-500)] border-t-transparent" />
+                      </div>
+                    ) : availableProviders.length === 0 ? (
+                      <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-500/10 dark:text-red-400">
+                        {t(
+                          'agents.skills.aiConfigNoKey',
+                          'Configure an API key in Settings first.',
+                        )}
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="flex flex-col gap-2">
+                          <span className="text-xs font-semibold tracking-wide text-[var(--color-text-secondary)] uppercase">
+                            Provider
+                          </span>
+                          <Select value={aiProvider} onValueChange={handleAIProviderChange}>
+                            <SelectTrigger className="h-10 w-full rounded-xl border-none bg-black/5 focus-visible:ring-1 focus-visible:ring-black/10 dark:bg-white/5 dark:focus-visible:ring-white/10">
+                              <SelectValue placeholder="Select Provider">
+                                {aiProvider && (
+                                  <div className="flex items-center gap-2">
+                                    {getProvider(aiProvider)?.name || aiProvider}
+                                  </div>
+                                )}
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent className="z-[200]">
+                              {availableProviders.map(provKey => {
+                                const config = getProvider(provKey)
+                                return (
+                                  <SelectItem key={provKey} value={provKey}>
+                                    {config?.name || provKey}
+                                  </SelectItem>
+                                )
+                              })}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="flex flex-col gap-2">
+                          <span className="text-xs font-semibold tracking-wide text-[var(--color-text-secondary)] uppercase">
+                            Model
+                          </span>
+                          <Select value={aiModel} onValueChange={setAiModel}>
+                            <SelectTrigger className="h-10 w-full rounded-xl border-none bg-black/5 focus-visible:ring-1 focus-visible:ring-black/10 dark:bg-white/5 dark:focus-visible:ring-white/10">
+                              <SelectValue placeholder="Select Model">
+                                {aiModel && (
+                                  <div className="flex items-center gap-2 truncate">
+                                    <span className="truncate">
+                                      {(groupedModels[aiProvider] || []).find(m => m.id === aiModel)
+                                        ?.name || aiModel}
+                                    </span>
+                                  </div>
+                                )}
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent className="z-[200]">
+                              <SelectGroup>
+                                {(groupedModels[aiProvider] || []).map(m => (
+                                  <SelectItem key={m.id} value={m.id}>
+                                    {m.name || m.id}
+                                  </SelectItem>
+                                ))}
+                              </SelectGroup>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <DialogFooter className="mt-4 sm:justify-end">
+                    <button
+                      onClick={() => setShowAIConfig(false)}
+                      className="rounded-xl bg-black/5 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-black/10 dark:bg-white/5 dark:text-gray-300 dark:hover:bg-white/10"
+                    >
+                      {t('common.done', 'Done')}
+                    </button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+
+              {aiResult ? (
+                /* ── Success State ──────────────────────────────────────────── */
+                <div className="flex flex-1 flex-col items-center justify-center gap-6 text-center">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-green-50 dark:bg-green-500/10">
+                    <FileCheck size={32} className="text-green-500" />
+                  </div>
+                  <div>
+                    <h4 className="mb-1 text-lg font-semibold text-gray-900 dark:text-white">
+                      {t('agents.skills.aiGenerateSuccess', 'Skill generated!')}
+                    </h4>
+                    <p className="font-mono text-sm text-gray-400">{aiResult.skill_id}</p>
+                  </div>
+
+                  {/* Files Created List */}
+                  <div className="w-full max-w-sm rounded-xl bg-black/5 p-4 text-left dark:bg-white/5">
+                    <p className="mb-2 text-xs font-medium text-gray-500 dark:text-gray-400">
+                      {t('agents.skills.aiGenerateFiles', 'Files created')}
+                    </p>
+                    <ul className="space-y-1">
+                      {aiResult.files_created.map(f => (
+                        <li
+                          key={f}
+                          className="flex items-center gap-2 font-mono text-xs text-gray-700 dark:text-gray-300"
+                        >
+                          <FileText size={12} className="shrink-0 text-gray-400" />
+                          {f}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        setIsAIMode(false)
+                        setAiResult(null)
+                        setAiPrompt('')
+                      }}
+                      className="rounded-xl bg-black/5 px-4 py-2 text-sm font-medium text-gray-700 transition-all hover:bg-black/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+                    >
+                      {t('agents.skills.aiGenerateBack', 'Back to list')}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsAIMode(false)
+                        setAiResult(null)
+                        setAiPrompt('')
+                        handleEdit(aiResult.skill_id)
+                      }}
+                      className="bg-primary-500 hover:bg-primary-600 flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:shadow-md"
+                    >
+                      <Pencil size={14} />
+                      {t('agents.skills.aiGenerateOpenEditor', 'Open in Editor')}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* ── Input State ────────────────────────────────────────────── */
+                <div className="flex flex-1 flex-col gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {t('agents.skills.aiGeneratePromptLabel', 'Describe the Skill you want')}
+                    </label>
+                    <textarea
+                      value={aiPrompt}
+                      onChange={e => setAiPrompt(e.target.value)}
+                      placeholder={t(
+                        'agents.skills.aiGeneratePromptPlaceholder',
+                        'e.g. Create a skill that makes the agent always give a 3-point summary',
+                      )}
+                      rows={6}
+                      className="focus:ring-primary-500/20 w-full resize-none rounded-xl border-none bg-black/5 p-4 text-sm transition-all outline-none placeholder:text-gray-400 focus:ring-2 dark:bg-white/5 dark:text-white dark:placeholder:text-zinc-500"
+                    />
+                    <p className="text-xs text-gray-400 dark:text-zinc-500">
+                      The AI will generate SKILL.md and any necessary scripts / references
+                      automatically.
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={handleAIGenerate}
+                    disabled={isGenerating || !aiPrompt.trim()}
+                    className="bg-primary-500 hover:bg-primary-600 flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-medium text-white shadow-sm transition-all hover:shadow-md active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {isGenerating ? (
+                      <>
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                        {t('agents.skills.aiGenerating', 'AI generating...')}
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles size={16} />
+                        {t('agents.skills.aiGenerateBtn', 'Generate')}
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+            </div>
           ) : (
             <div className="p-6">
               {/* Header Action */}
-              <div className="mb-6 flex justify-end">
+              <div className="mb-6 flex justify-end gap-3">
+                <button
+                  onClick={() => {
+                    setIsAIMode(true)
+                    setAiResult(null)
+                    setAiPrompt('')
+                  }}
+                  className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:from-violet-600 hover:to-purple-700 hover:shadow-md active:scale-95"
+                >
+                  <Sparkles size={16} />
+                  {t('agents.skills.aiGenerate', '✨ AI Generate')}
+                </button>
                 <button
                   onClick={handleCreateNew}
                   className="bg-primary-500 hover:bg-primary-600 flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:shadow-md active:scale-95"

@@ -26,6 +26,7 @@ import { useAppContext } from '../App'
 import DeepResearchCard from '../components/DeepResearchCard'
 import ExpertModeCard from '../components/ExpertModeCard'
 import SpaceShortcutCard from '../components/SpaceShortcutCard'
+import AgentAvatar from '../components/AgentAvatar'
 import EmojiDisplay from '../components/EmojiDisplay'
 import Logo from '../components/Logo'
 import HomeWidgets from '../components/widgets/HomeWidgets'
@@ -1134,9 +1135,7 @@ const HomeView = () => {
                           className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800"
                         >
                           <div className="flex items-center gap-2">
-                            <span className="text-lg">
-                              <EmojiDisplay emoji={agent.emoji} size="1.125rem" />
-                            </span>
+                            <AgentAvatar agent={agent} size="2rem" />
                             <span className="truncate text-sm font-medium text-gray-700 dark:text-gray-200">
                               {getAgentDisplayName(agent, t)}
                             </span>

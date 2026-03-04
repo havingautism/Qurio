@@ -305,8 +305,7 @@ const ChatInterface = ({
   const togglePrefsHydratedRef = useRef(false)
   const togglePrefsHydrationTimerRef = useRef(null)
   const hasExaApiKey = useMemo(
-    () =>
-      isConfiguredApiSecret(settings?.exaApiKey, ['your-exa-api-key', 'your_exa_api_key']),
+    () => isConfiguredApiSecret(settings?.exaApiKey, ['your-exa-api-key', 'your_exa_api_key']),
     [settings?.exaApiKey],
   )
 
@@ -336,22 +335,27 @@ const ChatInterface = ({
     setSelectedExaSearchTools([normalized])
   }, [])
 
-  const handleSelectSearchBackend = useCallback(backendId => {
-    if (!backendId) {
-      setSearchBackend(null)
-      setSelectedExaSearchTools([])
-      return
-    }
-    setSelectedSearchTools([])
-    const normalized = String(backendId)
-    if (normalized === 'exa' && !hasExaApiKey) return
-    setSearchBackend(normalized)
-    if (normalized === 'exa') {
-      setSelectedExaSearchTools(prev => (prev.length > 0 ? [prev[0]] : [DEFAULT_EXA_SEARCH_TOOL_ID]))
-    } else {
-      setSelectedExaSearchTools([])
-    }
-  }, [hasExaApiKey])
+  const handleSelectSearchBackend = useCallback(
+    backendId => {
+      if (!backendId) {
+        setSearchBackend(null)
+        setSelectedExaSearchTools([])
+        return
+      }
+      setSelectedSearchTools([])
+      const normalized = String(backendId)
+      if (normalized === 'exa' && !hasExaApiKey) return
+      setSearchBackend(normalized)
+      if (normalized === 'exa') {
+        setSelectedExaSearchTools(prev =>
+          prev.length > 0 ? [prev[0]] : [DEFAULT_EXA_SEARCH_TOOL_ID],
+        )
+      } else {
+        setSelectedExaSearchTools([])
+      }
+    },
+    [hasExaApiKey],
+  )
 
   const handleClearSearchSelection = useCallback(() => {
     setSearchBackend(null)
@@ -728,7 +732,6 @@ const ChatInterface = ({
     () => selectedAgent || defaultAgent || null,
     [selectedAgent, defaultAgent],
   )
-
   const fallbackProvider = defaultAgent?.provider || ''
   const fallbackDefaultModel = defaultAgent?.defaultModel || ''
   const effectiveProvider = effectiveAgent?.provider || fallbackProvider
@@ -794,7 +797,11 @@ const ChatInterface = ({
     () =>
       SEARCH_BACKEND_OPTIONS.map(option =>
         option.id === 'exa'
-          ? { ...option, disabled: !hasExaApiKey, titleKey: !hasExaApiKey ? 'searchBackends.exaRequiresKey' : null }
+          ? {
+              ...option,
+              disabled: !hasExaApiKey,
+              titleKey: !hasExaApiKey ? 'searchBackends.exaRequiresKey' : null,
+            }
           : option,
       ),
     [hasExaApiKey],
@@ -1980,7 +1987,9 @@ const ChatInterface = ({
           searchTool: resolvedSearchToolIds,
           searchBackend,
           exaSearchCategory:
-            searchBackend === 'exa' ? selectedExaSearchTools[0] || DEFAULT_EXA_SEARCH_TOOL_ID : null,
+            searchBackend === 'exa'
+              ? selectedExaSearchTools[0] || DEFAULT_EXA_SEARCH_TOOL_ID
+              : null,
           thinking: thinkingMode === 'deep',
           thinkingMode,
           related: isRelatedEnabled,
@@ -2043,7 +2052,9 @@ const ChatInterface = ({
           searchTool: resolvedSearchToolIds,
           searchBackend,
           exaSearchCategory:
-            searchBackend === 'exa' ? selectedExaSearchTools[0] || DEFAULT_EXA_SEARCH_TOOL_ID : null,
+            searchBackend === 'exa'
+              ? selectedExaSearchTools[0] || DEFAULT_EXA_SEARCH_TOOL_ID
+              : null,
           thinking: thinkingMode === 'deep',
           thinkingMode,
           related: isRelatedEnabled,
@@ -2322,8 +2333,8 @@ const ChatInterface = ({
     >
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.22)_0%,rgba(255,255,255,0.06)_34%,rgba(255,255,255,0)_100%)] dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.05)_0%,rgba(255,255,255,0.018)_32%,rgba(255,255,255,0)_100%)]" />
-        <div className="bg-primary-500/10 absolute top-12 left-[8%] h-56 w-56 rounded-full blur-[110px] dark:bg-primary-500/12" />
-        <div className="bg-primary-400/8 absolute right-[8%] bottom-24 h-72 w-72 rounded-full blur-[140px] dark:bg-primary-400/10" />
+        <div className="bg-primary-500/10 dark:bg-primary-500/12 absolute top-12 left-[8%] h-56 w-56 rounded-full blur-[110px]" />
+        <div className="bg-primary-400/8 dark:bg-primary-400/10 absolute right-[8%] bottom-24 h-72 w-72 rounded-full blur-[140px]" />
       </div>
       <div className="relative flex min-h-0 w-full flex-1 flex-col">
         {/* Title Bar */}

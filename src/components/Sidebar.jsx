@@ -42,6 +42,7 @@ import { listScrapbookEntries } from '../lib/scrapbookService'
 import { deleteConversation } from '../lib/supabase'
 import DotLoader from './DotLoader'
 import EmojiDisplay from './EmojiDisplay'
+import AgentAvatar from './AgentAvatar'
 import Logo from './Logo'
 import NotificationCenter from './NotificationCenter'
 import { useDeepResearchGuide } from '../contexts/DeepResearchGuideContext'
@@ -3136,9 +3137,11 @@ const Sidebar = ({
                         )}
                       >
                         <div className="flex min-w-0 flex-1 items-center gap-3">
-                          <div
+                          <AgentAvatar
+                            agent={agent}
+                            size="2.25rem"
                             className={clsx(
-                              'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-base',
+                              'shrink-0 text-base',
                               isScrapbookSidebarTheme
                                 ? glassTone(
                                     'border border-white/8 bg-white/[0.03]',
@@ -3146,9 +3149,7 @@ const Sidebar = ({
                                   )
                                 : 'bg-primary-100 dark:bg-primary-900/30',
                             )}
-                          >
-                            <EmojiDisplay emoji={agent.emoji} size="1.4em" className="shrink-0" />
-                          </div>
+                          />
                           <div className="flex min-w-0 flex-col">
                             <span
                               className={clsx(

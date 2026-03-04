@@ -17,36 +17,41 @@ The UI is organized around spaces, chat sessions, and per-message controls (sear
 
 Stores reusable agent presets. These can be bound to multiple spaces later.
 
-| Column                   | Type        | Notes                                 |
-| ------------------------ | ----------- | ------------------------------------- |
-| `id`                     | uuid        | Primary key                           |
-| `is_default`             | boolean     | Non-deletable default agent           |
-| `emoji`                  | text        | Agent avatar emoji                    |
-| `name`                   | text        | Display name                          |
-| `description`            | text        | Optional summary                      |
-| `prompt`                 | text        | System prompt template                |
-| `provider`               | text        | Default provider for the agent        |
-| `default_model_provider` | text        | Provider for default model (explicit) |
-| `lite_model_provider`    | text        | Provider for lite model (explicit)    |
-| `default_model_source`   | text        | `list` or `custom`                    |
-| `lite_model_source`      | text        | `list` or `custom`                    |
-| `use_global_model_settings` | boolean  | If true, use global default/lite model |
-| `lite_model`             | text        | Optional lightweight model override   |
-| `default_model`          | text        | Default model id                      |
-| `response_language`      | text        | LLM answer language preset            |
-| `base_tone`              | text        | Style base tone                       |
-| `traits`                 | text        | Style traits                          |
-| `warmth`                 | text        | Style warmth                          |
-| `enthusiasm`             | text        | Style enthusiasm                      |
-| `headings`               | text        | Style headings                        |
-| `emojis`                 | text        | Style emoji usage                     |
-| `custom_instruction`     | text        | Additional guidance                   |
-| `temperature`            | float8      | Sampling temperature override         |
-| `top_p`                  | float8      | Top-p sampling override               |
-| `frequency_penalty`      | float8      | Repetition penalty                    |
-| `presence_penalty`       | float8      | Novelty penalty                       |
-| `created_at`             | timestamptz |                                       |
-| `updated_at`             | timestamptz |                                       |
+| Column                      | Type        | Notes                                  |
+| --------------------------- | ----------- | -------------------------------------- |
+| `id`                        | uuid        | Primary key                            |
+| `is_default`                | boolean     | Non-deletable default agent            |
+| `emoji`                     | text        | Agent avatar emoji                     |
+| `avatar_type`               | text        | `emoji` or `image`                     |
+| `avatar_image`              | text        | Uploaded avatar image data             |
+| `avatar_shape`              | text        | `rounded` or `circle`                  |
+| `banner_mode`               | text        | `none`, `auto`, or `manual`            |
+| `banner_image`              | text        | Uploaded manual conversation banner    |
+| `name`                      | text        | Display name                           |
+| `description`               | text        | Optional summary                       |
+| `prompt`                    | text        | System prompt template                 |
+| `provider`                  | text        | Default provider for the agent         |
+| `default_model_provider`    | text        | Provider for default model (explicit)  |
+| `lite_model_provider`       | text        | Provider for lite model (explicit)     |
+| `default_model_source`      | text        | `list` or `custom`                     |
+| `lite_model_source`         | text        | `list` or `custom`                     |
+| `use_global_model_settings` | boolean     | If true, use global default/lite model |
+| `lite_model`                | text        | Optional lightweight model override    |
+| `default_model`             | text        | Default model id                       |
+| `response_language`         | text        | LLM answer language preset             |
+| `base_tone`                 | text        | Style base tone                        |
+| `traits`                    | text        | Style traits                           |
+| `warmth`                    | text        | Style warmth                           |
+| `enthusiasm`                | text        | Style enthusiasm                       |
+| `headings`                  | text        | Style headings                         |
+| `emojis`                    | text        | Style emoji usage                      |
+| `custom_instruction`        | text        | Additional guidance                    |
+| `temperature`               | float8      | Sampling temperature override          |
+| `top_p`                     | float8      | Top-p sampling override                |
+| `frequency_penalty`         | float8      | Repetition penalty                     |
+| `presence_penalty`          | float8      | Novelty penalty                        |
+| `created_at`                | timestamptz |                                        |
+| `updated_at`                | timestamptz |                                        |
 
 ## 3. `conversations`
 

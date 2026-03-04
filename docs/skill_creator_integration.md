@@ -218,8 +218,34 @@ AI 生成面板（isAIMode === true）
 
 ---
 
-## 8. 技术依赖
+## 9. 近期优化总结 (2026-03-04)
 
-- `agno.tools.file.FileTools`（Agno 内置）
-- 复用 `agent_registry._build_model()` 构建模型实例
-- 复用 `GET /api/skills` 接口刷新列表
+### 9.1 指令泄露修复
+- **问题**：部分模型会将 System Prompt 中的元指令（如 "CRITICAL: DO NOT CREATE..."）错误拷贝进生成的 `SKILL.md`。
+- **修复**：重构了 `skills.py` 中的 `system_prompt`，将元指令移出 Markdown 示例块，并添加了显式的负向约束（Negative Constraints），引导模型生成业务内容而非指令本身。
+
+### 9.2 全量国际化 (i18n)
+- **UI 适配**：完成了 `SkillsWorkshopModal.jsx` 中所有硬编码字符串（标题、描述、重置按钮、Loading 状态等）的翻译替换。
+- **消息组件**：在 `MessageBubble.jsx` 中实现了 `get_skill_reference` 和 `get_skill_script` 工具名称的本地化，使其在 UI 上显示为“技能参考”和“技能脚本”。
+
+### 9.3 交互体验 (UX)
+- **样式加固**：修复了暗色模式下 Select 下拉菜单对比度不足、背景透明的问题。
+- **逻辑修正**：修复了“重置为全局配置”会意外关闭弹窗的 Bug，增加了模型加载时的 Spinner 动画。
+
+---
+
+## 10. 待优化 (Future Optimizations)
+
+### 10.1 依赖管理与环境控制 (集成 Agno ShellTools)
+
+- **核心背景**：
+    - **Local Skills 脚本 (封闭式/黑盒执行)**：Agent 通过 `get_skill_script` 调用的是**“写死的”**（Static/Pre-defined）脚本文件。Agent 只是一个触发者，它只知道“我要运行这个文件”，但不关心（也看不见）文件内部的具体命令行逻辑。
+    - **ShellTools (开放式/全感知控制)**：由 Agent 在对话过程中**“根据需求动态生成”**（Dynamic/On-the-fly）Shell 指令。每一行命令都是 Agent 的主动决策，因此它对指令意图有 100% 的感知，也能在执行前通过 HITL（人工审批）申请授权。
+
+- **需求场景**：目前若生成的脚本缺失依赖（如 `ModuleNotFoundError`），Agent 虽有“手”运行脚本，却无“手”修复环境。集成 ShellTools 能让 Agent 具备自愈能力（如自发安装缺失包）。
+- **优化方案**：集成 [Agno ShellTools](https://docs.agno.com/examples/tools/shell-tools#shell)。
+- **安全实施路径**：
+    - **隔离执行**：仅允许 AI 在 Skill 目录或指定虚拟环境下执行命令。
+    - **白名单包装**：不直接暴露 ShellTools，而是封装一个 `install_dependency(package_name)` 工具，内部严格校验包名格式（正则匹配 `^[a-zA-Z0-9\-]+$`）。
+    - **人工确认 (HITL)**：利用 Agno 的工具审批机制，在执行任何 Shell 命令前通过前端弹窗获取用户明确授权。
+    - **引导反馈**：AI 发现缺包时主动调用“申请工具”，前端展示“一键安装”按钮卡片。

@@ -4,6 +4,17 @@ import yaml
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from pathlib import Path
+from ..services.skill_runtime import (
+    ensure_skill_venv,
+    get_skill_environment_status,
+    get_skill_path,
+    get_skill_venv_path,
+    get_venv_python_path,
+    install_skill_dependency as install_skill_dependency_runtime,
+    run_subprocess,
+    should_skip_skill_dir,
+    validate_package_name,
+)
 
 router = APIRouter(prefix="/skills", tags=["skills"])
 
@@ -30,8 +41,49 @@ class SkillFileContent(BaseModel):
     path: str
     content: str
 
+
+class SkillEnvironmentStatus(BaseModel):
+    skill_id: str
+    venv_exists: bool
+    python_path: str | None = None
+    scripts_dir_exists: bool
+
+
+class SkillDependencyInstall(BaseModel):
+    package_name: str
+
 def _get_skills_dir() -> str:
     return os.path.join(os.path.dirname(__file__), "..", "..", ".skills")
+
+
+def _get_skill_path(skill_id: str) -> str:
+    try:
+        return get_skill_path(skill_id)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Skill not found")
+
+
+def _get_skill_venv_path(skill_path: str) -> str:
+    return get_skill_venv_path(skill_path)
+
+
+def _get_venv_python_path(venv_path: str) -> str:
+    return get_venv_python_path(venv_path)
+
+
+def _should_skip_skill_dir(dirname: str) -> bool:
+    return should_skip_skill_dir(dirname)
+
+
+async def _run_subprocess(cmd: list[str], cwd: str) -> tuple[int, str, str]:
+    return await run_subprocess(cmd, cwd)
+
+
+async def _ensure_skill_venv(skill_path: str) -> tuple[str, bool]:
+    try:
+        return await ensure_skill_venv(skill_path)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
 
 @router.get("", response_model=list[SkillInfo])
 async def list_skills():
@@ -152,15 +204,14 @@ async def get_skill(skill_id: str):
 @router.get("/{skill_id}/files")
 async def list_skill_files(skill_id: str):
     """List all files in a skill's directory (excluding SKILL.md)."""
-    skills_dir = _get_skills_dir()
-    skill_path = os.path.join(skills_dir, skill_id)
-    
-    if not os.path.exists(skill_path):
-        from fastapi import HTTPException
-        raise HTTPException(status_code=404, detail="Skill not found")
+    skill_path = _get_skill_path(skill_id)
         
     files = []
-    for root, _, filenames in os.walk(skill_path):
+    for root, dirnames, filenames in os.walk(skill_path):
+        dirnames[:] = [d for d in dirnames if not _should_skip_skill_dir(d)]
+        rel_root = os.path.relpath(root, skill_path)
+        if rel_root != "." and any(_should_skip_skill_dir(part) for part in rel_root.split(os.sep)):
+            continue
         for filename in filenames:
             if filename == "SKILL.md":
                 continue
@@ -173,8 +224,7 @@ async def list_skill_files(skill_id: str):
 @router.get("/{skill_id}/file")
 async def get_skill_file(skill_id: str, path: str):
     """Get content of a specific file in a skill."""
-    skills_dir = _get_skills_dir()
-    skill_path = os.path.join(skills_dir, skill_id)
+    skill_path = _get_skill_path(skill_id)
     file_path = os.path.abspath(os.path.join(skill_path, path))
     
     if not file_path.startswith(os.path.abspath(skill_path)):
@@ -193,8 +243,7 @@ async def get_skill_file(skill_id: str, path: str):
 @router.put("/{skill_id}/file")
 async def update_skill_file(skill_id: str, file_data: SkillFileContent):
     """Create or update a file in a skill."""
-    skills_dir = _get_skills_dir()
-    skill_path = os.path.join(skills_dir, skill_id)
+    skill_path = _get_skill_path(skill_id)
     file_path = os.path.abspath(os.path.join(skill_path, file_data.path))
     
     if not file_path.startswith(os.path.abspath(skill_path)):
@@ -210,8 +259,7 @@ async def update_skill_file(skill_id: str, file_data: SkillFileContent):
 @router.delete("/{skill_id}/file")
 async def delete_skill_file(skill_id: str, path: str):
     """Delete a file in a skill."""
-    skills_dir = _get_skills_dir()
-    skill_path = os.path.join(skills_dir, skill_id)
+    skill_path = _get_skill_path(skill_id)
     file_path = os.path.abspath(os.path.join(skill_path, path))
     
     if not file_path.startswith(os.path.abspath(skill_path)):
@@ -228,13 +276,8 @@ async def delete_skill_file(skill_id: str, path: str):
 @router.put("/{skill_id}", response_model=SkillInfo)
 async def update_skill(skill_id: str, update: SkillUpdate):
     """Update an existing skill."""
-    skills_dir = _get_skills_dir()
-    skill_path = os.path.join(skills_dir, skill_id)
+    skill_path = _get_skill_path(skill_id)
     md_path = os.path.join(skill_path, "SKILL.md")
-    
-    if not os.path.exists(md_path):
-        from fastapi import HTTPException
-        raise HTTPException(status_code=404, detail="Skill not found")
         
     with open(md_path, "r", encoding="utf-8") as f:
         content = f.read()
@@ -268,15 +311,45 @@ async def update_skill(skill_id: str, update: SkillUpdate):
 async def delete_skill(skill_id: str):
     """Delete a skill."""
     import shutil
-    skills_dir = _get_skills_dir()
-    skill_path = os.path.join(skills_dir, skill_id)
-    
-    if not os.path.exists(skill_path):
-        from fastapi import HTTPException
-        raise HTTPException(status_code=404, detail="Skill not found")
+    skill_path = _get_skill_path(skill_id)
         
     shutil.rmtree(skill_path)
     return {"success": True}
+
+
+@router.get("/{skill_id}/environment", response_model=SkillEnvironmentStatus)
+async def get_skill_environment(skill_id: str):
+    """Return isolated runtime status for a skill."""
+    try:
+        status = get_skill_environment_status(skill_id)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Skill not found")
+    return SkillEnvironmentStatus(**status)
+
+
+@router.post("/{skill_id}/dependencies/install")
+async def install_skill_dependency(skill_id: str, req: SkillDependencyInstall):
+    """
+    Install a single dependency into a skill-scoped virtual environment.
+
+    This is intentionally narrower than exposing a raw shell tool:
+    only one package is accepted, the package name is validated, and
+    installation is restricted to `.skills/<skill_id>/.venv`.
+    """
+    try:
+        validate_package_name(req.package_name)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    try:
+        return await install_skill_dependency_runtime(skill_id, req.package_name)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Skill not found")
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail={"message": f"Failed to install dependency '{req.package_name}'", "stderr": str(exc)},
+        )
 
 
 # ─────────────────────────────────────────────
@@ -380,6 +453,7 @@ description: <trigger phrase + purpose; max 200 chars; be explicit about WHEN to
 <Provide explicit instructions here teaching the operating Agent WHEN and HOW to use the files you generated in `references/` or `scripts/`.>
 <Example: "Before proceeding, YOU MUST read `references/guidelines.md`" or "Execute `scripts/voice_enhancer.py` when asked to enhance voice.">
 <If you didn't create any scripts/references, explain how the base skill itself should be operated.>
+<If your scripts depend on third-party Python packages, explicitly instruct the operating Agent to ask the user for approval via interactive_form before installing any missing dependency.>
 
 ## <Other Actionable Instructions...>
 <Add detailed character prompt, tasks, rules, or references here>
@@ -473,7 +547,11 @@ USER'S SKILL REQUEST:
         print(f"Warning: could not parse/rename generated skill: {e}")
 
     files_created: list[str] = []
-    for root, _, filenames in os.walk(skill_path):
+    for root, dirnames, filenames in os.walk(skill_path):
+        dirnames[:] = [d for d in dirnames if not _should_skip_skill_dir(d)]
+        rel_root = os.path.relpath(root, skill_path)
+        if rel_root != "." and any(_should_skip_skill_dir(part) for part in rel_root.split(os.sep)):
+            continue
         for fname in filenames:
             abs_path = os.path.join(root, fname)
             rel_path = os.path.relpath(abs_path, skill_path)

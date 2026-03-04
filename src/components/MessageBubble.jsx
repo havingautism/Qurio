@@ -677,7 +677,35 @@ const MessageBubble = ({
       const baseName = TOOL_TRANSLATION_KEYS[tool.name]
         ? t(TOOL_TRANSLATION_KEYS[tool.name])
         : tool.name
-      return baseName
+      const parseArguments = rawArguments => {
+        if (!rawArguments) return null
+        if (typeof rawArguments === 'object') return rawArguments
+        if (typeof rawArguments !== 'string') return null
+        try {
+          const parsed = JSON.parse(rawArguments)
+          return parsed && typeof parsed === 'object' ? parsed : null
+        } catch {
+          return null
+        }
+      }
+      const getFileName = filePath => {
+        if (!filePath || typeof filePath !== 'string') return ''
+        const normalized = filePath.replace(/\\/g, '/')
+        const segments = normalized.split('/').filter(Boolean)
+        return segments[segments.length - 1] || filePath
+      }
+
+      const parsedArguments = parseArguments(tool.arguments)
+      let detail = ''
+
+      if (tool.name === 'execute_skill_script' || tool.name === 'get_skill_script') {
+        detail = getFileName(parsedArguments?.script_path)
+      } else if (tool.name === 'install_skill_dependency') {
+        detail =
+          typeof parsedArguments?.package_name === 'string' ? parsedArguments.package_name.trim() : ''
+      }
+
+      return detail ? `${baseName} (${detail})` : baseName
     },
     [t],
   )

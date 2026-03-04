@@ -14,6 +14,10 @@ from typing import Any
 import httpx
 
 from .academic_domains import ACADEMIC_DOMAINS
+from .skill_runtime import (
+    execute_skill_script as execute_skill_script_runtime,
+    install_skill_dependency as install_skill_dependency_runtime,
+)
 from .tool_registry import (
     AGENT_TOOLS as REGISTRY_AGENT_TOOLS,
 )
@@ -100,6 +104,10 @@ async def execute_local_tool(
             return await _execute_json_repair(args)
         case "interactive_form":
             return await _execute_interactive_form(args)
+        case "install_skill_dependency":
+            return await _execute_install_skill_dependency(args)
+        case "execute_skill_script":
+            return await _execute_execute_skill_script(args)
         case "memory_update":
             return await _execute_memory_update(args)
         case "webpage_reader":
@@ -175,6 +183,57 @@ async def _execute_interactive_form(args: dict[str, Any]) -> dict[str, Any]:
         "fields": args.get("fields", []),
         "status": "pending_user_input",
     }
+
+
+async def _execute_install_skill_dependency(args: dict[str, Any]) -> dict[str, Any]:
+    skill_id = str(args.get("skill_id") or "").strip()
+    package_name = str(args.get("package_name") or "").strip()
+    if not skill_id or not package_name:
+        return {
+            "success": False,
+            "error": "skill_id and package_name are required",
+            "skill_id": skill_id or None,
+            "package_name": package_name or None,
+        }
+    try:
+        return await install_skill_dependency_runtime(skill_id, package_name)
+    except (FileNotFoundError, ValueError, RuntimeError) as exc:
+        return {
+            "success": False,
+            "error": str(exc),
+            "skill_id": skill_id,
+            "package_name": package_name,
+        }
+
+
+async def _execute_execute_skill_script(args: dict[str, Any]) -> dict[str, Any]:
+    skill_id = str(args.get("skill_id") or "").strip()
+    script_path = str(args.get("script_path") or "").strip()
+    raw_args = args.get("args") or []
+    timeout_seconds = args.get("timeout_seconds") or 60.0
+    if not skill_id or not script_path:
+        return {
+            "success": False,
+            "error": "skill_id and script_path are required",
+            "skill_id": skill_id or None,
+            "script_path": script_path or None,
+        }
+    if not isinstance(raw_args, list):
+        raw_args = [str(raw_args)]
+    try:
+        return await execute_skill_script_runtime(
+            skill_id=skill_id,
+            script_path=script_path,
+            args=[str(item) for item in raw_args],
+            timeout_seconds=float(timeout_seconds),
+        )
+    except (FileNotFoundError, ValueError, RuntimeError) as exc:
+        return {
+            "success": False,
+            "error": str(exc),
+            "skill_id": skill_id,
+            "script_path": script_path,
+        }
 
 
 async def _execute_memory_update(args: dict[str, Any]) -> dict[str, Any]:

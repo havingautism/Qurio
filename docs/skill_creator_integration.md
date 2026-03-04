@@ -249,3 +249,93 @@ AI 生成面板（isAIMode === true）
     - **白名单包装**：不直接暴露 ShellTools，而是封装一个 `install_dependency(package_name)` 工具，内部严格校验包名格式（正则匹配 `^[a-zA-Z0-9\-]+$`）。
     - **人工确认 (HITL)**：利用 Agno 的工具审批机制，在执行任何 Shell 命令前通过前端弹窗获取用户明确授权。
     - **引导反馈**：AI 发现缺包时主动调用“申请工具”，前端展示“一键安装”按钮卡片。
+
+#### 当前推荐落地方式
+
+- 不直接将裸 `ShellTools` 暴露给 Skill Creator Agent。
+- 第一阶段先提供**受限后端接口**：
+  - `GET /api/skills/{skill_id}/environment`：查询该 Skill 是否已有隔离虚拟环境。
+  - `POST /api/skills/{skill_id}/dependencies/install`：仅允许安装单个白名单格式包名到 `.skills/<skill_id>/.venv`。
+- 运行时 Agent 侧采用“两步式审批”：
+  - 先通过 `interactive_form` 征求用户明确同意，并收集 `skill_id` / `package_name` / 是否批准。
+  - 用户批准后，再调用受限工具 `install_skill_dependency` 自动执行安装。
+- 这样可以先解决“Skill 脚本缺依赖无法自愈”的核心问题，同时保持现有 `FileTools + LocalSkills` 生成链路不变。
+- 整体仍不直接暴露裸 `ShellTools`，而是将能力收敛在 Skill 隔离环境和白名单包名内。
+
+#### 当前实现状态
+
+- **后端接口已落地**：
+  - `GET /api/skills/{skill_id}/environment`
+  - `POST /api/skills/{skill_id}/dependencies/install`
+- **隔离环境实现**：
+  - 每个 Skill 的依赖安装都限定在 `backend-python/.skills/<skill_id>/.venv`
+  - 包名仅允许字母、数字、连字符，避免任意 shell 注入
+- **Agent 工具已落地**：
+  - 新增本地工具 `install_skill_dependency`
+  - 新增本地工具 `execute_skill_script`
+  - 仅在 `enable_skills=true` 且已启用 `interactive_form` 时自动加入 Agent 可用工具集
+- **运行时约束已落地**：
+  - Agent 遇到 skill 脚本的 `ModuleNotFoundError` / `ImportError` 时，必须先通过 `interactive_form` 请求批准
+  - 用户批准后才允许调用 `install_skill_dependency`
+  - 用户拒绝时必须停止安装，并明确说明已跳过
+- **Skill Creator Prompt 已更新**：
+  - 生成带 `scripts/` 的 Skill 时，会提示模型在 `SKILL.md` 中写明“缺依赖时先征求同意，再安装”
+
+#### 测试 Skill
+
+为验证上述链路，已新增测试 Skill：
+
+- Skill 路径：`backend-python/.skills/skill-dependency-smoke/`
+- Skill 文件：`backend-python/.skills/skill-dependency-smoke/SKILL.md`
+- 测试脚本：`backend-python/.skills/skill-dependency-smoke/scripts/banner_with_pyfiglet.py`
+
+该脚本故意依赖第三方包 `pyfiglet`：
+
+- 未安装时：运行脚本会报 `ModuleNotFoundError: No module named 'pyfiglet'`
+- 执行方式：Agent 应通过 `execute_skill_script` 调用 Skill 内的脚本
+- 获批后：Agent 应执行 `scripts/install_pyfiglet.py`
+- 安装成功后：`scripts/banner_with_pyfiglet.py` 会输出多行 ASCII banner，作为通过信号
+
+#### 测试前准备
+
+确保用于测试的 Agent 同时满足以下条件：
+
+1. 已启用 `interactive_form`
+2. 已挂载 Skill `skill-dependency-smoke`
+3. 已开启 Skills 能力（`enable_skills=true`）
+
+#### 手工验证步骤
+
+1. 在聊天中要求 Agent 执行测试，例如：
+   - `请运行 skill-dependency-smoke 的 smoke test`
+   - `请验证 skill-dependency-smoke 的缺依赖安装流程`
+2. 观察 Agent 是否先尝试运行脚本。
+3. 观察脚本失败后，Agent 是否明确指出缺少 `pyfiglet`。
+4. 观察 Agent 是否调用 `interactive_form` 征求安装批准。
+5. 当前推荐的审批表单应尽量最小化：
+   - 标题直接写明待安装包名，例如 `Install dependency: pyfiglet`
+   - 表单只保留一个必填字段，例如 `approve_install`
+   - 不要求用户重新输入 `skill_id` 或 `package_name`
+6. 在表单中选择“批准安装”。
+7. 观察 Agent 是否通过 `execute_skill_script` 执行 `scripts/install_pyfiglet.py` 进行安装。
+8. 安装完成后，观察 Agent 是否再次通过 `execute_skill_script` 运行 `scripts/banner_with_pyfiglet.py`。
+9. 最终确认返回结果中出现 ASCII banner，而不是仅返回“安装成功”字样。
+
+#### 通过标准
+
+- **审批前置**：安装动作发生前，必须先出现 `interactive_form`
+- **安装可执行**：获批后必须执行 Skill 自带的安装脚本，而不是只停留在文字说明
+- **脚本真实执行**：Agent 必须调用 `execute_skill_script`，而不是只读取或复述脚本内容
+- **执行闭环**：安装完成后必须自动重试脚本
+- **结果可见**：成功结果必须展示脚本输出的 banner
+
+#### 反向测试
+
+建议再额外验证两次：
+
+1. **拒绝安装**
+   - 在表单中拒绝批准
+   - 预期：Agent 不调用 `install_skill_dependency`，并明确说明测试因拒绝安装而终止
+2. **重复执行**
+   - 在成功安装后再次运行同一测试
+   - 预期：脚本直接成功，不再触发缺依赖审批流程

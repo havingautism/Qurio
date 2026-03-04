@@ -22,7 +22,6 @@ import { useToast } from '../contexts/ToastContext'
 import { getModelsForProvider } from '../lib/models_api'
 import { FALLBACK_MODEL_OPTIONS, PROVIDER_KEYS } from '../lib/modelConstants'
 import { getPublicEnv } from '../lib/publicEnv'
-import { SILICONFLOW_BASE_URL } from '../lib/providerConstants'
 import { getProvider } from '../lib/providers'
 import { getModelIcon, getModelIconClassName, renderProviderIcon } from '../lib/modelIcons'
 import {
@@ -70,6 +69,10 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
   const [isCreatingFile, setIsCreatingFile] = useState(false)
   const [creatingFileType, setCreatingFileType] = useState(null) // 'script' | 'reference' | null
   const [stagedFiles, setStagedFiles] = useState({}) // path -> content cache for NEW skills
+  const [skillEnvironment, setSkillEnvironment] = useState(null)
+  const [isLoadingEnvironment, setIsLoadingEnvironment] = useState(false)
+  const [dependencyName, setDependencyName] = useState('')
+  const [isInstallingDependency, setIsInstallingDependency] = useState(false)
 
   // AI Skill Creator State
   const [isAIMode, setIsAIMode] = useState(false) // whether AI generator panel is visible
@@ -383,6 +386,8 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
     setActiveFile('SKILL.md')
     setSkillFiles([])
     setStagedFiles({})
+    setSkillEnvironment(null)
+    setDependencyName('')
   }
 
   const handleEdit = async skillId => {
@@ -400,7 +405,9 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
         setIsEditing(true)
         setActiveFile('SKILL.md')
         setStagedFiles({}) // Clear any stale staged changes
+        setDependencyName('')
         fetchSkillFiles(skillId)
+        fetchSkillEnvironment(skillId)
       } else {
         throw new Error('Failed to fetch skill details')
       }
@@ -420,6 +427,102 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
     } catch (err) {
       console.error('Failed to fetch skill files', err)
     }
+  }
+
+  const fetchSkillEnvironment = async skillId => {
+    if (!skillId) {
+      setSkillEnvironment(null)
+      return
+    }
+    setIsLoadingEnvironment(true)
+    try {
+      const res = await fetch(`${getBackendUrl()}/api/skills/${skillId}/environment`)
+      if (res.ok) {
+        const data = await res.json()
+        setSkillEnvironment(data)
+      } else {
+        throw new Error('Failed to fetch skill environment')
+      }
+    } catch (err) {
+      console.error('Failed to fetch skill environment', err)
+      setSkillEnvironment(null)
+    } finally {
+      setIsLoadingEnvironment(false)
+    }
+  }
+
+  const handleInstallDependency = async () => {
+    const skillId = formData.id?.trim()
+    const packageName = dependencyName.trim()
+    if (!skillId) {
+      toast.error(t('agents.skills.idRequired', 'Please enter a Skill ID first'))
+      return
+    }
+    if (isNew) {
+      toast.error(
+        t(
+          'agents.skills.installDependencySaveFirst',
+          'Save the skill first before installing dependencies.',
+        ),
+      )
+      return
+    }
+    if (!/^[A-Za-z0-9-]+$/.test(packageName)) {
+      toast.error(
+        t(
+          'agents.skills.installDependencyInvalid',
+          'Package name may only contain letters, numbers, and hyphens.',
+        ),
+      )
+      return
+    }
+
+    showConfirmation({
+      title: t('agents.skills.installDependencyConfirmTitle', 'Install dependency?'),
+      message: t(
+        'agents.skills.installDependencyConfirmMessage',
+        'This will create or reuse an isolated virtual environment for the skill and install the requested package.',
+      ),
+      confirmText: t('agents.skills.installDependencyBtn', 'Install'),
+      onConfirm: async () => {
+        setIsInstallingDependency(true)
+        try {
+          const res = await fetch(`${getBackendUrl()}/api/skills/${skillId}/dependencies/install`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ package_name: packageName }),
+          })
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}))
+            const detail = err?.detail
+            const message =
+              typeof detail === 'string'
+                ? detail
+                : detail?.message || 'Failed to install dependency'
+            throw new Error(message)
+          }
+          const data = await res.json()
+          toast.success(
+            data.venv_created
+              ? t(
+                  'agents.skills.installDependencyCreated',
+                  'Dependency installed and isolated environment created.',
+                )
+              : t('agents.skills.installDependencySuccess', 'Dependency installed successfully.'),
+          )
+          setDependencyName('')
+          fetchSkillEnvironment(skillId)
+        } catch (err) {
+          console.error(err)
+          toast.error(
+            err.message ||
+              t('agents.skills.installDependencyError', 'Failed to install dependency'),
+          )
+        } finally {
+          setIsInstallingDependency(false)
+        }
+      },
+    })
   }
 
   const loadFileContent = async (skillId, path) => {
@@ -694,6 +797,9 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
         }
 
         fetchSkills()
+        if (cleanId) {
+          fetchSkillEnvironment(cleanId)
+        }
         if (shouldClose) onClose()
       } else {
         const errData = await res.json()
@@ -992,6 +1098,107 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                           className="focus:ring-primary-500/20 w-full rounded-xl border-none bg-black/5 px-4 py-2.5 text-sm transition-all outline-none placeholder:text-gray-400 focus:ring-2 dark:bg-white/5"
                         />
                       </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-black/5 bg-black/5 p-4 dark:border-white/5 dark:bg-white/5">
+                      <div className="mb-3 flex items-start justify-between gap-4">
+                        <div>
+                          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                            {t('agents.skills.environmentTitle', 'Runtime Environment')}
+                          </h3>
+                          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                            {t(
+                              'agents.skills.environmentDesc',
+                              'Manage an isolated virtual environment for scripts generated by this skill.',
+                            )}
+                          </p>
+                        </div>
+                        {!isNew && formData.id && (
+                          <button
+                            type="button"
+                            onClick={() => fetchSkillEnvironment(formData.id)}
+                            disabled={isLoadingEnvironment}
+                            className="rounded-lg border border-black/5 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-black/5 disabled:opacity-50 dark:border-white/5 dark:text-gray-300 dark:hover:bg-white/5"
+                          >
+                            {isLoadingEnvironment
+                              ? t('common.loading', 'Loading...')
+                              : t('common.refresh', 'Refresh')}
+                          </button>
+                        )}
+                      </div>
+
+                      {isNew ? (
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {t(
+                            'agents.skills.environmentSaveFirst',
+                            'Save the skill first to create or inspect its isolated environment.',
+                          )}
+                        </p>
+                      ) : (
+                        <div className="space-y-3">
+                          <div className="flex flex-wrap items-center gap-2 text-xs">
+                            <span
+                              className={clsx(
+                                'rounded-full px-2.5 py-1 font-medium',
+                                skillEnvironment?.venv_exists
+                                  ? 'bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-400'
+                                  : 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300',
+                              )}
+                            >
+                              {skillEnvironment?.venv_exists
+                                ? t('agents.skills.environmentReady', 'Environment ready')
+                                : t('agents.skills.environmentMissing', 'Environment not created')}
+                            </span>
+                            {skillEnvironment?.scripts_dir_exists && (
+                              <span className="rounded-full bg-blue-50 px-2.5 py-1 font-medium text-blue-700 dark:bg-blue-500/10 dark:text-blue-300">
+                                {t('agents.skills.environmentScriptsPresent', 'Scripts folder found')}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="rounded-xl bg-white/70 px-3 py-2 text-xs text-gray-600 dark:bg-black/10 dark:text-gray-300">
+                            <span className="font-medium text-gray-700 dark:text-gray-200">
+                              {t('agents.skills.environmentPython', 'Python path')}
+                              {': '}
+                            </span>
+                            <span className="font-mono break-all">
+                              {skillEnvironment?.python_path ||
+                                t('agents.skills.environmentPythonPending', 'Will be created on first install')}
+                            </span>
+                          </div>
+
+                          <div className="flex flex-col gap-3 sm:flex-row">
+                            <input
+                              type="text"
+                              value={dependencyName}
+                              onChange={e => setDependencyName(e.target.value)}
+                              placeholder={t(
+                                'agents.skills.installDependencyPlaceholder',
+                                'e.g. requests',
+                              )}
+                              className="focus:ring-primary-500/20 h-10 flex-1 rounded-xl border-none bg-white/80 px-4 text-sm outline-none placeholder:text-gray-400 focus:ring-2 dark:bg-black/10 dark:text-white dark:placeholder:text-zinc-500"
+                            />
+                            <button
+                              type="button"
+                              onClick={handleInstallDependency}
+                              disabled={isInstallingDependency || !dependencyName.trim()}
+                              className="bg-primary-500 hover:bg-primary-600 flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-sm font-medium text-white shadow-sm transition-all hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {isInstallingDependency ? (
+                                <>
+                                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                                  {t('agents.skills.installDependencyInstalling', 'Installing...')}
+                                </>
+                              ) : (
+                                <>
+                                  <Settings size={14} />
+                                  {t('agents.skills.installDependencyBtn', 'Install Dependency')}
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     <div className="space-y-2">

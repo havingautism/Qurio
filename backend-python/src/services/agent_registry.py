@@ -248,12 +248,20 @@ def _collect_enabled_tool_names(request: Any) -> list[str]:
 
 def _build_tools(request: Any) -> list[Any]:
     enabled_names = set(_collect_enabled_tool_names(request))
-    if not enabled_names and not request.user_tools:
+    if (
+        not enabled_names
+        and not request.user_tools
+        and not getattr(request, "enable_skills", False)
+    ):
         return []
     serpapi_api_key = getattr(request, "serpapi_api_key", None)
 
     local_tool_names = {tool["name"] for tool in LOCAL_TOOLS}
     include_local = sorted([name for name in enabled_names if name in local_tool_names])
+    if getattr(request, "enable_skills", False):
+        include_local = sorted(set(include_local) | {"execute_skill_script"})
+        if "interactive_form" in enabled_names:
+            include_local = sorted(set(include_local) | {"install_skill_dependency"})
     tools: list[Any] = []
 
     if include_local:
@@ -565,6 +573,22 @@ def build_agent(request: Any = None, **kwargs: Any) -> Agent:
             "Do not proceed with incomplete information. "
             "However, limit to 2-3 forms maximum per conversation to respect user time."
         )
+        if getattr(request, "enable_skills", False):
+            instructions_list.append(
+                "When a skill tells you to run a bundled script, do not merely summarize or restate the script. "
+                "Use execute_skill_script to actually run the file and rely on its stdout/stderr."
+            )
+            instructions_list.append(
+                "When a skill script fails because of a missing Python dependency "
+                "(for example ModuleNotFoundError or ImportError), do not pretend it succeeded. "
+                "First explain the missing package briefly, then use interactive_form to ask for explicit approval "
+                "before installing anything. Do NOT ask for approval in plain text if interactive_form is available. "
+                "For dependency approval, keep the form minimal: include the package name in the form title or description, "
+                "and ask only for an approval choice when skill_id and package_name are already known from context. "
+                "Do NOT ask the user to retype known values like skill_id or package_name. "
+                "Only after the user approves may you call install_skill_dependency. "
+                "If the user declines, stop and report that installation was skipped."
+            )
 
     if "duckduckgo_image_search" in enabled_names or "google_image_search" in enabled_names:
         instructions_list.append(

@@ -203,6 +203,61 @@ AGENT_TOOLS: list[dict[str, Any]] = [
         },
     },
     {
+        "id": "install_skill_dependency",
+        "name": "install_skill_dependency",
+        "category": "skills",
+        "description": (
+            "Install a Python dependency into a skill-scoped virtual environment. "
+            "Use only after the user explicitly approves installation."
+        ),
+        "parameters": {
+            "type": "object",
+            "required": ["skill_id", "package_name"],
+            "properties": {
+                "skill_id": {
+                    "type": "string",
+                    "description": "Existing local skill id whose isolated environment should receive the package.",
+                },
+                "package_name": {
+                    "type": "string",
+                    "description": "Single Python package name. Letters, numbers, and hyphens only.",
+                },
+            },
+        },
+    },
+    {
+        "id": "execute_skill_script",
+        "name": "execute_skill_script",
+        "category": "skills",
+        "description": (
+            "Execute a script from a skill's scripts directory. "
+            "Supports Python and Bash scripts and returns stdout/stderr."
+        ),
+        "parameters": {
+            "type": "object",
+            "required": ["skill_id", "script_path"],
+            "properties": {
+                "skill_id": {
+                    "type": "string",
+                    "description": "Existing local skill id containing the target script.",
+                },
+                "script_path": {
+                    "type": "string",
+                    "description": "Relative path under scripts/, e.g. scripts/run_task.py or scripts/setup.sh.",
+                },
+                "args": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Optional positional arguments passed to the script.",
+                },
+                "timeout_seconds": {
+                    "type": "number",
+                    "description": "Optional timeout in seconds. Default 60.",
+                },
+            },
+        },
+    },
+    {
         "id": "memory_retrieve",
         "name": "memory_retrieve",
         "category": "memory",

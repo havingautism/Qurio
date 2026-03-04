@@ -24,6 +24,7 @@ import { FALLBACK_MODEL_OPTIONS, PROVIDER_KEYS } from '../lib/modelConstants'
 import { getPublicEnv } from '../lib/publicEnv'
 import { SILICONFLOW_BASE_URL } from '../lib/providerConstants'
 import { getProvider } from '../lib/providers'
+import { getModelIcon, getModelIconClassName, renderProviderIcon } from '../lib/modelIcons'
 import {
   Select,
   SelectContent,
@@ -82,6 +83,8 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
   const [isLoadingModels, setIsLoadingModels] = useState(false)
   const [aiProvider, setAiProvider] = useState('')
   const [aiModel, setAiModel] = useState('')
+  const [aiModelSource, setAiModelSource] = useState('list') // 'list' | 'custom'
+  const [aiCustomModel, setAiCustomModel] = useState('')
 
   useEffect(() => {
     if (isAIMode && availableProviders.length === 0) {
@@ -96,14 +99,15 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
     // Resolve the latest env vars
     const ENV_VARS = {
       openAIKey: getPublicEnv('PUBLIC_OPENAI_API_KEY'),
-      openAIBaseUrl: getPublicEnv('PUBLIC_OPENAI_BASE_URL'),
       googleApiKey: getPublicEnv('PUBLIC_GOOGLE_API_KEY'),
-      siliconFlowKey: getPublicEnv('PUBLIC_SILICONFLOW_API_KEY'),
+      siliconflowKey: getPublicEnv('PUBLIC_SILICONFLOW_API_KEY'),
       glmKey: getPublicEnv('PUBLIC_GLM_API_KEY'),
       deepseekKey: getPublicEnv('PUBLIC_DEEPSEEK_API_KEY'),
       volcengineKey: getPublicEnv('PUBLIC_VOLCENGINE_API_KEY'),
       modelscopeKey: getPublicEnv('PUBLIC_MODELSCOPE_API_KEY'),
       kimiKey: getPublicEnv('PUBLIC_KIMI_API_KEY'),
+      nvidiaKey: getPublicEnv('PUBLIC_NVIDIA_API_KEY'),
+      minimaxKey: getPublicEnv('PUBLIC_MINIMAX_API_KEY'),
     }
 
     const keys = {
@@ -117,104 +121,111 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
       kimi: settings.KimiKey,
       nvidia: settings.NvidiaKey,
       minimax: settings.MinimaxKey,
-      // URLs for providers that need it
-      openai_compatibility_url: settings.OpenAICompatibilityUrl,
     }
 
-    const enabledProviders = []
-    const promises = PROVIDER_KEYS.map(async key => {
-      let credentials = {}
-      if (key === 'gemini') credentials = { apiKey: keys.gemini }
-      else if (key === 'siliconflow')
-        credentials = { apiKey: keys.siliconflow, baseUrl: SILICONFLOW_BASE_URL }
-      else if (key === 'glm') credentials = { apiKey: keys.glm }
-      else if (key === 'deepseek')
-        credentials = {
-          apiKey: keys.deepseek,
-          baseUrl: getPublicEnv('PUBLIC_DEEPSEEK_BASE_URL') || 'https://api.deepseek.com/v1',
-        }
-      else if (key === 'volcengine')
-        credentials = {
-          apiKey: keys.volcengine,
-          baseUrl:
-            getPublicEnv('PUBLIC_VOLCENGINE_BASE_URL') ||
-            'https://ark.cn-beijing.volces.com/api/v3',
-        }
-      else if (key === 'modelscope') credentials = { apiKey: keys.modelscope }
-      else if (key === 'kimi') credentials = { apiKey: keys.kimi }
-      else if (key === 'nvidia')
-        credentials = { apiKey: keys.nvidia, baseUrl: 'https://integrate.api.nvidia.com/v1' }
-      else if (key === 'minimax')
-        credentials = { apiKey: keys.minimax, baseUrl: 'https://api.minimax.io/v1' }
-      else if (key === 'openai_compatibility')
-        credentials = { apiKey: keys.openai_compatibility, baseUrl: keys.openai_compatibility_url }
-
+    const enabledProviders = PROVIDER_KEYS.filter(key => {
       const hasApiKey =
-        credentials.apiKey ||
+        keys[key] ||
         ENV_VARS[`${key}Key`] ||
         ENV_VARS[`${key}ApiKey`] ||
         (key === 'gemini' && ENV_VARS.googleApiKey) ||
-        (key === 'openai_compatibility' && ENV_VARS.openAIKey)
-
-      if (!hasApiKey && !credentials.apiKey) {
-        return null
-      }
-
-      try {
-        const models = await getModelsForProvider(key, credentials)
-        enabledProviders.push(key)
-        return { key, models: models?.length ? models : FALLBACK_MODEL_OPTIONS[key] || [] }
-      } catch (err) {
-        console.error(`Failed to fetch models for ${key}`, err)
-        enabledProviders.push(key)
-        return { key, models: FALLBACK_MODEL_OPTIONS[key] || [] }
-      }
+        (key === 'openai_compatibility' && (ENV_VARS.openAIKey || ENV_VARS.openaiKey))
+      return hasApiKey
     })
+    setAvailableProviders(enabledProviders)
 
-    const results = (await Promise.all(promises)).filter(Boolean)
-    const newGroupedModels = {}
-    let firstProvider = null
-    let firstModel = null
+    // Global Inheritance Logic
+    const currentProvider = settings.skillGenProvider || settings.defaultModelProvider || ''
+    const currentModel = settings.skillGenModel || settings.defaultModel || ''
+    setAiProvider(currentProvider)
+    setAiModel(currentModel)
+    setAiModelSource(settings.skillGenModelSource || 'list')
+    setAiCustomModel(settings.skillGenModelSource === 'custom' ? settings.skillGenModel || '' : '')
 
-    results.forEach(({ key, models }) => {
-      if (models && models.length > 0) {
-        newGroupedModels[key] = models
-        if (!firstProvider) {
-          firstProvider = key
-          firstModel = models[0].id
-        }
-      }
-    })
-
-    const uniqueProviders = Array.from(new Set(enabledProviders))
-    setAvailableProviders(uniqueProviders)
-    setGroupedModels(newGroupedModels)
-
-    // Set initial matching config from settings or fallback to first available
-    const initSettings = loadSettings()
-    const configuredProvider = initSettings.defaultModelProvider || 'openai'
-    const configuredModel = initSettings.defaultModel || null
-
-    if (uniqueProviders.includes(configuredProvider)) {
-      setAiProvider(configuredProvider)
-      setAiModel(configuredModel || (newGroupedModels[configuredProvider]?.[0]?.id ?? ''))
-    } else if (firstProvider) {
-      setAiProvider(firstProvider)
-      setAiModel(firstModel)
+    if (currentProvider && currentProvider !== '__none__') {
+      fetchModelsForProvider(currentProvider)
     }
-
     setIsLoadingModels(false)
   }
 
-  // Handle provider change specifically: reset the model to the first available for the new provider
-  const handleAIProviderChange = val => {
-    setAiProvider(val)
-    const models = groupedModels[val] || []
-    if (models.length > 0) {
-      setAiModel(models[0].id)
-    } else {
-      setAiModel('')
+  const fetchModelsForProvider = async p => {
+    if (!p || p === '__none__') return
+    const settings = loadSettings()
+    const providerCreds = {
+      gemini: { apiKey: settings.googleApiKey },
+      openai_compatibility: {
+        apiKey: settings.OpenAICompatibilityKey,
+        baseUrl: settings.OpenAICompatibilityUrl,
+      },
+      siliconflow: { apiKey: settings.SiliconFlowKey, baseUrl: 'https://api.siliconflow.cn/v1' },
+      glm: { apiKey: settings.GlmKey },
+      deepseek: {
+        apiKey: settings.DeepSeekKey,
+        baseUrl: getPublicEnv('PUBLIC_DEEPSEEK_BASE_URL') || 'https://api.deepseek.com/v1',
+      },
+      volcengine: {
+        apiKey: settings.VolcengineKey,
+        baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
+      },
+      modelscope: { apiKey: settings.ModelScopeKey },
+      kimi: { apiKey: settings.KimiKey },
+      nvidia: { apiKey: settings.NvidiaKey, baseUrl: 'https://integrate.api.nvidia.com/v1' },
+      minimax: { apiKey: settings.MinimaxKey, baseUrl: 'https://api.minimax.io/v1' },
     }
+
+    try {
+      const models = await getModelsForProvider(p, providerCreds[p] || {})
+      setGroupedModels(prev => ({
+        ...prev,
+        [p]: models?.length ? models : FALLBACK_MODEL_OPTIONS[p] || [],
+      }))
+    } catch (e) {
+      setGroupedModels(prev => ({
+        ...prev,
+        [p]: FALLBACK_MODEL_OPTIONS[p] || [],
+      }))
+    }
+  }
+
+  const handleAIProviderChange = val => {
+    const p = val === '__none__' ? '' : val
+    setAiProvider(p)
+    setAiModel('')
+    setAiCustomModel('')
+    setAiModelSource('list')
+    if (p) {
+      fetchModelsForProvider(p)
+    }
+  }
+
+  const handleSaveAIConfig = () => {
+    const finalModel = aiModelSource === 'custom' ? aiCustomModel : aiModel
+    const newSettings = {
+      skillGenProvider: aiProvider,
+      skillGenModel: finalModel,
+      skillGenModelSource: aiModelSource,
+    }
+    const current = loadSettings()
+    const updated = { ...current, ...newSettings }
+    localStorage.setItem('app_settings', JSON.stringify(updated))
+    setShowAIConfig(false)
+    toast.success('AI Configuration saved')
+  }
+
+  const handleResetAIConfig = () => {
+    const current = loadSettings()
+    const updated = {
+      ...current,
+      skillGenProvider: '',
+      skillGenModel: '',
+      skillGenModelSource: 'list',
+    }
+    localStorage.setItem('app_settings', JSON.stringify(updated))
+    setAiProvider(current.defaultModelProvider || '')
+    setAiModel(current.defaultModel || '')
+    setAiModelSource('list')
+    setAiCustomModel('')
+    toast.success('Reset to global defaults')
   }
 
   /**
@@ -225,11 +236,8 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
   const handleAIGenerate = async () => {
     if (!aiPrompt.trim()) return
 
-    const provider = aiProvider
-    const model = aiModel
-
-    // Resolve API key using the exact same logic as loadKeysAndFetchModels
     const settings = loadSettings()
+    // Resolve the latest env vars
     const ENV_VARS = {
       openAIKey: getPublicEnv('PUBLIC_OPENAI_API_KEY'),
       googleApiKey: getPublicEnv('PUBLIC_GOOGLE_API_KEY'),
@@ -243,21 +251,50 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
       minimaxKey: getPublicEnv('PUBLIC_MINIMAX_API_KEY'),
     }
 
-    const KEYS = {
-      openai: settings.openaiApiKey || ENV_VARS.openAIKey,
-      gemini: settings.googleApiKey || ENV_VARS.googleApiKey,
-      openai_compatibility: settings.OpenAICompatibilityKey || ENV_VARS.openAIKey,
-      siliconflow: settings.SiliconFlowKey || ENV_VARS.siliconflowKey,
-      glm: settings.GlmKey || ENV_VARS.glmKey,
-      deepseek: settings.DeepSeekKey || ENV_VARS.deepseekKey,
-      volcengine: settings.VolcengineKey || ENV_VARS.volcengineKey,
-      modelscope: settings.ModelScopeKey || ENV_VARS.modelscopeKey,
-      kimi: settings.KimiKey || ENV_VARS.kimiKey,
-      nvidia: settings.NvidiaKey || ENV_VARS.nvidiaKey,
-      minimax: settings.MinimaxKey || ENV_VARS.minimaxKey,
+    const provider = aiProvider || settings.defaultModelProvider || ''
+    const model =
+      aiModelSource === 'custom' ? aiCustomModel : aiModel || settings.defaultModel || ''
+
+    if (!provider) {
+      toast.error('Please select a provider or configure global default.')
+      return
     }
 
-    const apiKey = KEYS[provider] || ''
+    // Resolve credentials
+    const credentials = {
+      openai: { apiKey: settings.openaiApiKey || ENV_VARS.openAIKey },
+      gemini: { apiKey: settings.googleApiKey || ENV_VARS.googleApiKey },
+      openai_compatibility: {
+        apiKey: settings.OpenAICompatibilityKey || ENV_VARS.openAIKey || ENV_VARS.openaiKey,
+        baseUrl: settings.OpenAICompatibilityUrl,
+      },
+      siliconflow: {
+        apiKey: settings.SiliconFlowKey || ENV_VARS.siliconflowKey,
+        baseUrl: 'https://api.siliconflow.cn/v1',
+      },
+      glm: { apiKey: settings.GlmKey || ENV_VARS.glmKey },
+      deepseek: {
+        apiKey: settings.DeepSeekKey || ENV_VARS.deepseekKey,
+        baseUrl: getPublicEnv('PUBLIC_DEEPSEEK_BASE_URL') || 'https://api.deepseek.com/v1',
+      },
+      volcengine: {
+        apiKey: settings.VolcengineKey || ENV_VARS.volcengineKey,
+        baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
+      },
+      modelscope: { apiKey: settings.ModelScopeKey || ENV_VARS.modelscopeKey },
+      kimi: { apiKey: settings.KimiKey || ENV_VARS.kimiKey },
+      nvidia: {
+        apiKey: settings.NvidiaKey || ENV_VARS.nvidiaKey,
+        baseUrl: 'https://integrate.api.nvidia.com/v1',
+      },
+      minimax: {
+        apiKey: settings.MinimaxKey || ENV_VARS.minimaxKey,
+        baseUrl: 'https://api.minimax.io/v1',
+      },
+    }
+
+    const creds = credentials[provider] || {}
+    const apiKey = creds.apiKey
 
     if (!apiKey) {
       toast.error(
@@ -272,7 +309,13 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
       const res = await fetch(`${getBackendUrl()}/api/skills/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: aiPrompt.trim(), provider, api_key: apiKey, model }),
+        body: JSON.stringify({
+          prompt: aiPrompt.trim(),
+          provider,
+          api_key: apiKey,
+          base_url: creds.baseUrl,
+          model,
+        }),
       })
       if (res.ok) {
         const data = await res.json()
@@ -1011,35 +1054,38 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
             /* ── AI Skill Creator Panel ─────────────────────────────────────── */
             <div className="flex flex-1 flex-col p-6">
               {/* Panel Header */}
-              <div className="mb-6 flex items-center gap-3">
-                <button
-                  onClick={() => {
-                    setIsAIMode(false)
-                    setAiResult(null)
-                    setAiPrompt('')
-                  }}
-                  className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-zinc-800 dark:hover:text-gray-300"
-                >
-                  <ArrowLeft size={18} />
-                </button>
-                <div>
-                  <h3 className="font-semibold text-gray-900 dark:text-white">
-                    {t('agents.skills.aiGenerateTitle', 'Generate Skill with AI')}
-                  </h3>
-                  <p className="text-xs text-gray-400 dark:text-zinc-500">
-                    Powered by your configured AI provider
-                  </p>
+              <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => {
+                      setIsAIMode(false)
+                      setAiResult(null)
+                      setAiPrompt('')
+                    }}
+                    className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-zinc-800 dark:hover:text-gray-300"
+                  >
+                    <ArrowLeft size={18} />
+                  </button>
+                  <div>
+                    <h3 className="font-semibold text-gray-900 dark:text-white">
+                      {t('agents.skills.aiGenerateTitle', 'Generate Skill with AI')}
+                    </h3>
+                    <p className="text-xs text-gray-400 dark:text-zinc-500">
+                      {t(
+                        'agents.skills.aiGenerateSubtitle',
+                        'Powered by your configured AI provider',
+                      )}
+                    </p>
+                  </div>
                 </div>
-              </div>
 
-              {/* Settings Configuration Button */}
-              <div className="absolute top-6 right-6">
+                {/* Settings Configuration Button */}
                 <button
                   onClick={() => setShowAIConfig(true)}
-                  className="flex h-9 items-center gap-2 rounded-xl px-3 text-sm font-medium text-gray-600 transition-colors hover:bg-black/5 dark:text-gray-300 dark:hover:bg-white/5"
+                  className="flex h-9 items-center gap-2 rounded-xl border border-black/5 px-3 text-sm font-medium text-gray-600 transition-colors hover:bg-black/5 dark:border-white/5 dark:text-gray-300 dark:hover:bg-white/5"
                 >
                   <Settings size={16} />
-                  {getProvider(aiProvider)?.name || 'Provider'}
+                  {getProvider(aiProvider)?.name || t('settings.email.provider', 'Provider')}
                 </button>
               </div>
 
@@ -1047,8 +1093,10 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
               <Dialog open={showAIConfig} onOpenChange={open => !open && setShowAIConfig(false)}>
                 <DialogContent className="sm:max-w-[425px]">
                   <DialogHeader>
-                    <DialogTitle>{t('settings.modelConfig', 'Model Configuration')}</DialogTitle>
-                    <DialogDescription>
+                    <DialogTitle className="text-gray-900 dark:text-gray-100">
+                      {t('settings.modelConfig', 'Model Configuration')}
+                    </DialogTitle>
+                    <DialogDescription className="text-gray-500 dark:text-gray-400">
                       {t(
                         'agents.skills.aiConfigDesc',
                         'Select the AI model specifically for generating this skill. Provider list based on your API keys.',
@@ -1071,25 +1119,38 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                     ) : (
                       <div className="space-y-4">
                         <div className="flex flex-col gap-2">
-                          <span className="text-xs font-semibold tracking-wide text-[var(--color-text-secondary)] uppercase">
-                            Provider
+                          <span className="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400">
+                            {t('settings.email.provider', 'Provider')}
                           </span>
-                          <Select value={aiProvider} onValueChange={handleAIProviderChange}>
+                          <Select
+                            value={aiProvider || '__none__'}
+                            onValueChange={handleAIProviderChange}
+                          >
                             <SelectTrigger className="h-10 w-full rounded-xl border-none bg-black/5 focus-visible:ring-1 focus-visible:ring-black/10 dark:bg-white/5 dark:focus-visible:ring-white/10">
-                              <SelectValue placeholder="Select Provider">
-                                {aiProvider && (
+                              <SelectValue
+                                placeholder={t('settings.inheritGlobal', 'Inherit Global')}
+                              >
+                                {aiProvider ? (
                                   <div className="flex items-center gap-2">
-                                    {getProvider(aiProvider)?.name || aiProvider}
+                                    {renderProviderIcon(aiProvider, { size: 16 })}
+                                    <span>{getProvider(aiProvider)?.name || aiProvider}</span>
                                   </div>
+                                ) : (
+                                  <span className="text-gray-400">
+                                    {t('settings.inheritGlobal', 'Inherit Global')}
+                                  </span>
                                 )}
                               </SelectValue>
                             </SelectTrigger>
-                            <SelectContent className="z-[200]">
+                            <SelectContent className="z-[300] min-w-[200px] overflow-hidden rounded-xl border border-black/10 bg-white p-1 shadow-2xl dark:border-white/10 dark:bg-zinc-900">
                               {availableProviders.map(provKey => {
                                 const config = getProvider(provKey)
                                 return (
                                   <SelectItem key={provKey} value={provKey}>
-                                    {config?.name || provKey}
+                                    <div className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
+                                      {renderProviderIcon(provKey, { size: 16 })}
+                                      <span>{config?.name || provKey}</span>
+                                    </div>
                                   </SelectItem>
                                 )
                               })}
@@ -1098,43 +1159,126 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                         </div>
 
                         <div className="flex flex-col gap-2">
-                          <span className="text-xs font-semibold tracking-wide text-[var(--color-text-secondary)] uppercase">
-                            Model
-                          </span>
-                          <Select value={aiModel} onValueChange={setAiModel}>
-                            <SelectTrigger className="h-10 w-full rounded-xl border-none bg-black/5 focus-visible:ring-1 focus-visible:ring-black/10 dark:bg-white/5 dark:focus-visible:ring-white/10">
-                              <SelectValue placeholder="Select Model">
-                                {aiModel && (
-                                  <div className="flex items-center gap-2 truncate">
-                                    <span className="truncate">
-                                      {(groupedModels[aiProvider] || []).find(m => m.id === aiModel)
-                                        ?.name || aiModel}
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400">
+                              {t('settings.email.model', 'Model')}
+                            </span>
+                            {aiProvider && (
+                              <button
+                                onClick={() =>
+                                  setAiModelSource(s => (s === 'custom' ? 'list' : 'custom'))
+                                }
+                                className="text-xs text-[var(--color-primary-500)] hover:underline"
+                              >
+                                {aiModelSource === 'custom'
+                                  ? t('settings.selectFromList', 'Select from List')
+                                  : t('settings.manualInput', 'Manual Input')}
+                              </button>
+                            )}
+                          </div>
+
+                          {aiModelSource === 'custom' ? (
+                            <input
+                              value={aiCustomModel}
+                              onChange={e => setAiCustomModel(e.target.value)}
+                              placeholder={t('settings.inputModelName', 'Input model name...')}
+                              className="h-10 w-full rounded-xl border-none bg-black/5 px-4 text-sm outline-none focus-visible:ring-1 focus-visible:ring-black/10 dark:bg-white/5 dark:focus-visible:ring-white/10"
+                            />
+                          ) : (
+                            <Select value={aiModel} onValueChange={val => setAiModel(val)}>
+                              <SelectTrigger className="h-10 w-full rounded-xl border-none bg-black/5 focus-visible:ring-1 focus-visible:ring-black/10 dark:bg-white/5 dark:focus-visible:ring-white/10">
+                                <SelectValue
+                                  placeholder={t('settings.selectModel', 'Select Model')}
+                                >
+                                  {isLoadingModels ? (
+                                    <div className="flex items-center gap-2">
+                                      <div className="h-3 w-3 animate-spin rounded-full border-2 border-[var(--color-primary-500)] border-t-transparent" />
+                                      <span className="text-gray-400">
+                                        {t('settings.loadingModels', 'Loading models...')}
+                                      </span>
+                                    </div>
+                                  ) : aiModel ? (
+                                    <div className="flex items-center gap-2 truncate">
+                                      {getModelIcon(aiModel) && (
+                                        <img
+                                          src={getModelIcon(aiModel)}
+                                          alt=""
+                                          className={clsx(
+                                            'h-4 w-4 shrink-0',
+                                            getModelIconClassName(aiModel),
+                                          )}
+                                        />
+                                      )}
+                                      <span className="truncate text-gray-900 dark:text-gray-100">
+                                        {(
+                                          groupedModels[aiProvider] ||
+                                          FALLBACK_MODEL_OPTIONS[aiProvider] ||
+                                          []
+                                        ).find(m => (m.id || m.value) === aiModel)?.name ||
+                                          (
+                                            groupedModels[aiProvider] ||
+                                            FALLBACK_MODEL_OPTIONS[aiProvider] ||
+                                            []
+                                          ).find(m => (m.id || m.value) === aiModel)?.label ||
+                                          aiModel}
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <span className="text-gray-400">
+                                      {t('settings.selectModel', 'Select Model')}
                                     </span>
-                                  </div>
-                                )}
-                              </SelectValue>
-                            </SelectTrigger>
-                            <SelectContent className="z-[200]">
-                              <SelectGroup>
-                                {(groupedModels[aiProvider] || []).map(m => (
-                                  <SelectItem key={m.id} value={m.id}>
-                                    {m.name || m.id}
-                                  </SelectItem>
-                                ))}
-                              </SelectGroup>
-                            </SelectContent>
-                          </Select>
+                                  )}
+                                </SelectValue>
+                              </SelectTrigger>
+                              <SelectContent className="z-[300] min-w-[200px] overflow-hidden rounded-xl border border-black/10 bg-white p-1 shadow-2xl dark:border-white/10 dark:bg-zinc-900">
+                                <SelectGroup>
+                                  {(
+                                    groupedModels[aiProvider] ||
+                                    FALLBACK_MODEL_OPTIONS[aiProvider] ||
+                                    []
+                                  ).map(m => {
+                                    const mId = m.id || m.value
+                                    const mName = m.name || m.label
+                                    return (
+                                      <SelectItem key={mId} value={mId}>
+                                        <div className="flex items-center gap-2 truncate text-gray-900 dark:text-gray-100">
+                                          {getModelIcon(mId) && (
+                                            <img
+                                              src={getModelIcon(mId)}
+                                              alt=""
+                                              className={clsx(
+                                                'h-4 w-4 shrink-0',
+                                                getModelIconClassName(mId),
+                                              )}
+                                            />
+                                          )}
+                                          <span className="truncate">{mName || mId}</span>
+                                        </div>
+                                      </SelectItem>
+                                    )
+                                  })}
+                                </SelectGroup>
+                              </SelectContent>
+                            </Select>
+                          )}
                         </div>
                       </div>
                     )}
                   </div>
 
-                  <DialogFooter className="mt-4 sm:justify-end">
+                  <DialogFooter className="mt-4 flex w-full items-center gap-2 sm:justify-between">
                     <button
-                      onClick={() => setShowAIConfig(false)}
-                      className="rounded-xl bg-black/5 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-black/10 dark:bg-white/5 dark:text-gray-300 dark:hover:bg-white/10"
+                      onClick={handleResetAIConfig}
+                      className="h-10 flex-1 rounded-xl border border-black/5 text-sm font-medium text-gray-600 transition-colors hover:bg-black/5 dark:border-white/5 dark:text-gray-300 dark:hover:bg-white/5"
                     >
-                      {t('common.done', 'Done')}
+                      {t('settings.resetToGlobal', 'Reset to Global')}
+                    </button>
+                    <button
+                      onClick={handleSaveAIConfig}
+                      disabled={isLoadingModels}
+                      className="h-10 flex-1 rounded-xl bg-zinc-900 text-sm font-medium text-white shadow-md transition-colors hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+                    >
+                      {t('common.save', 'Save')}
                     </button>
                   </DialogFooter>
                 </DialogContent>
@@ -1215,8 +1359,10 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                       className="focus:ring-primary-500/20 w-full resize-none rounded-xl border-none bg-black/5 p-4 text-sm transition-all outline-none placeholder:text-gray-400 focus:ring-2 dark:bg-white/5 dark:text-white dark:placeholder:text-zinc-500"
                     />
                     <p className="text-xs text-gray-400 dark:text-zinc-500">
-                      The AI will generate SKILL.md and any necessary scripts / references
-                      automatically.
+                      {t(
+                        'agents.skills.aiGenerateNote',
+                        'The AI will generate SKILL.md and any necessary scripts / references automatically.',
+                      )}
                     </p>
                   </div>
 

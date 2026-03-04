@@ -100,6 +100,10 @@
     "memoryUpdateInfo": "Automatically save important information from conversations into long-term memory.",
     "getSkillInstructions": "Skill Instructions",
     "getSkillInstructionsInfo": "Load a skill's instructions so the agent can apply the selected capability.",
+    "getSkillReference": "Skill Reference",
+    "getSkillReferenceInfo": "Read supplementary documentation or knowledge bases associated with a skill.",
+    "getSkillScript": "Skill Script",
+    "getSkillScriptInfo": "Execute automated scripts bundled with a skill to perform specific tasks.",
     "imageSearch": "Image Search",
     "imageSearchInfo": "Search for relevant images on the internet.",
     "videoSearch": "Video Search",
@@ -976,8 +980,11 @@
       "aiGenerateFiles": "Files created",
       "aiGenerateOpenEditor": "Open in Editor",
       "aiGenerateError": "Generation failed, please try again",
+      "aiConfigDesc": "Select the AI model specifically for generating this skill. Provider list based on your API keys.",
       "aiConfigNoKey": "No API key configured. Please add one in Settings first.",
       "aiGenerateBack": "Back to list",
+      "aiGenerateSubtitle": "Powered by your configured AI provider",
+      "aiGenerateNote": "The AI will generate SKILL.md and any necessary scripts or references automatically.",
       "aiGenerateSkillId": "Skill ID"
     }
   },

@@ -100,6 +100,10 @@
     "memoryUpdateInfo": "自动将对话中的重要信息存入长期记忆。",
     "getSkillInstructions": "技能说明",
     "getSkillInstructionsInfo": "加载技能指令，让智能体应用当前挂载的技能能力。",
+    "getSkillReference": "技能参考",
+    "getSkillReferenceInfo": "读取技能关联的参考文档或知识库。",
+    "getSkillScript": "技能脚本",
+    "getSkillScriptInfo": "执行技能包含的自动化脚本以完成特定任务。",
     "imageSearch": "图片搜索",
     "imageSearchInfo": "在互联网上搜索相关图片。",
     "videoSearch": "视频搜索",
@@ -961,8 +965,11 @@
       "aiGenerateFiles": "已创建文件",
       "aiGenerateOpenEditor": "在编辑器中查看",
       "aiGenerateError": "生成失败，请重试",
+      "aiConfigDesc": "选择专门用于生成此技能的 AI 模型。厂商列表基于您的 API 密钥配置。",
       "aiConfigNoKey": "未配置 API Key，请先在「设置」中配置。",
       "aiGenerateBack": "返回列表",
+      "aiGenerateSubtitle": "基于您配置的 AI 提供商",
+      "aiGenerateNote": "AI 将自动生成 SKILL.md 以及任何必要的脚本或引用文件。",
       "aiGenerateSkillId": "Skill ID"
     }
   },

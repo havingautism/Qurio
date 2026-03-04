@@ -357,7 +357,8 @@ You have FileTools available. Your working directory is the skill root folder.
 DO NOT create a new subdirectory for the skill. Write all files strictly to the current directory (`.`).
 ONLY write files at these paths:
   - SKILL.md  (REQUIRED)
-  - scripts/<filename>.py  (optional — only if executable code genuinely helps)
+  - scripts/<filename>.py  (optional — MUST include `#!/usr/bin/env python3` at the top)
+  - scripts/<filename>.sh  (optional — MUST include `#!/bin/bash` at the top)
   - references/<filename>.md  (optional — only if supplementary docs add value)
 
 CRITICAL WORKFLOW - YOU MUST FOLLOW THESE EXACT STEPS IN ORDER:
@@ -365,7 +366,7 @@ CRITICAL WORKFLOW - YOU MUST FOLLOW THESE EXACT STEPS IN ORDER:
 2. SECOND, write ANY required files in `scripts/` and `references/`.
 3. THIRD, if you created ANY scripts or references in step 2, you MUST read and rewrite `SKILL.md` to add explicit usage instructions for those new files in the "## Setup & Usage Instructions" section.
 
-Your `SKILL.md` MUST strictly follow this exact markdown structure:
+Your `SKILL.md` MUST strictly follow this exact markdown structure (Frontmatter followed by content):
 
 ```markdown
 ---
@@ -376,14 +377,19 @@ description: <trigger phrase + purpose; max 200 chars; be explicit about WHEN to
 # <Skill Title>
 
 ## Setup & Usage Instructions
-**CRITICAL**: DO NOT CREATE a separate usage guide in `references/`. Make sure the actual instructions are physically written HERE inside `SKILL.md`.
-You MUST replace this text with explicit instructions teaching the operating Agent WHEN and HOW to use the files you generated in `references/` or `scripts/`.
-Example: "Before proceeding, YOU MUST read `references/guidelines.md`" or "Execute `scripts/voice_enhancer.py` when asked to enhance voice."
-If you didn't create any scripts/references, explain how the base skill itself should be operated.
+<Provide explicit instructions here teaching the operating Agent WHEN and HOW to use the files you generated in `references/` or `scripts/`.>
+<Example: "Before proceeding, YOU MUST read `references/guidelines.md`" or "Execute `scripts/voice_enhancer.py` when asked to enhance voice.">
+<If you didn't create any scripts/references, explain how the base skill itself should be operated.>
 
 ## <Other Actionable Instructions...>
 <Add detailed character prompt, tasks, rules, or references here>
 ```
+
+**CRITICAL DIRECTIVES**:
+1. DO NOT CREATE a separate usage guide in `references/`. Make sure the actual instructions are physically written INSIDE the `SKILL.md` file itself.
+2. DO NOT literally copy the word "CRITICAL" or any instructions from this system prompt into the final output. Replace the placeholder segments with your ACTUAL content.
+3. Replace `<Describe the Skill...>` or any placeholders with specific, actionable instructions for the Agent.
+
 
 After creating all files, call list_files to confirm, then stop.
 Do NOT create assets/ or any other directories except scripts/ and references/ inside the current root.

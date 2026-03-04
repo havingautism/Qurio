@@ -133,7 +133,11 @@ const TOOL_ICON_COMPONENTS = {
   ImageIcon,
 }
 
-const SKILL_TOOL_NAMES = new Set(['get_skill_instructions'])
+const SKILL_TOOL_NAMES = new Set([
+  'get_skill_instructions',
+  'get_skill_reference',
+  'get_skill_script',
+])
 const isSkillToolName = name => SKILL_TOOL_NAMES.has(String(name || ''))
 const getToolIconComponent = toolName => {
   const iconName = TOOL_ICONS[toolName]

@@ -1808,12 +1808,23 @@ const MessageBubble = ({
   const searchLiveStartRef = useRef(null)
   const [searchLiveElapsedSec, setSearchLiveElapsedSec] = useState(0)
 
+  const [expandedToolsSteps, setExpandedToolsSteps] = useState(new Set())
+  const toggleToolsStep = useCallback(idx => {
+    setExpandedToolsSteps(prev => {
+      const next = new Set(prev)
+      if (next.has(idx)) next.delete(idx)
+      else next.add(idx)
+      return next
+    })
+  }, [])
+
   useEffect(() => {
     wallClockStartRef.current = null
     searchLiveStartRef.current = null
     setWallClockElapsedSec(0)
     setWallClockFinalSec(null)
     setSearchLiveElapsedSec(0)
+    setExpandedToolsSteps(new Set())
   }, [mergedMessage?.id, mergedMessage?.localId, messageIndex])
 
   useEffect(() => {
@@ -2567,50 +2578,85 @@ const MessageBubble = ({
           ]),
         ).values(),
       )
+
+      const expandedKey = `inline-${idx}`
+      const isExpanded = expandedToolsSteps.has(expandedKey)
+      const displayTools = isExpanded ? uniqueTools : uniqueTools.slice(0, 2)
+      const hasMore = uniqueTools.length > 2
+
       const prefixLabel = t('messageBubble.workflowToolCalledPrefix', '已调用')
 
       return (
-        <div key={`tools-inline-capsule-${idx}`} className="mb-4 flex items-center">
-          <div
-            className="border-primary-200/35 dark:border-primary-700/20 inline-flex max-w-full cursor-default items-center gap-2 rounded-full border bg-white/65 px-3 py-2 text-xs text-gray-500 shadow-[0_1px_2px_rgba(0,0,0,0.02)] transition-colors hover:bg-white/80 dark:bg-zinc-800/40 dark:text-gray-400 dark:hover:bg-zinc-800/60"
-            title={uniqueTools
-              .map(tool =>
-                typeof getToolDisplayName === 'function' ? getToolDisplayName(tool) : tool.name,
-              )
-              .join(', ')}
-          >
-            <span className="shrink-0 font-medium text-gray-600 dark:text-gray-300">
-              {prefixLabel}
-            </span>
-            <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 font-medium text-gray-600 dark:text-gray-300">
-              {uniqueTools.map((tool, toolIndex) => {
-                const ToolIcon = getToolIconComponent(tool.name)
-                const toolName =
-                  typeof getToolDisplayName === 'function' ? getToolDisplayName(tool) : tool.name
-
-                return (
-                  <span
-                    key={`${tool.name}-${toolIndex}`}
-                    className="flex min-w-0 items-center gap-1.5"
-                  >
-                    {ToolIcon ? (
-                      <ToolIcon size={14} className="shrink-0 opacity-70" />
-                    ) : (
-                      <Wrench size={14} className="shrink-0 opacity-70" />
-                    )}
-                    <span className="truncate">{toolName}</span>
-                    {toolIndex < uniqueTools.length - 1 && (
-                      <span className="opacity-50">{separator}</span>
-                    )}
-                  </span>
-                )
-              })}
-            </span>
+        <div
+          key={`tools-inline-row-${idx}`}
+          className="group/toolrow mb-4 flex w-full items-start gap-3"
+        >
+          {/* Label Section */}
+          <div className="mt-1.5 shrink-0 text-[11px] font-bold tracking-wider text-gray-400 uppercase select-none dark:text-zinc-500">
+            {prefixLabel}
           </div>
+
+          {/* Tools Flow Section */}
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+            {displayTools.map((tool, toolIndex) => {
+              const ToolIcon = getToolIconComponent(tool.name)
+              const toolName =
+                typeof getToolDisplayName === 'function' ? getToolDisplayName(tool) : tool.name
+
+              return (
+                <div
+                  key={`${tool.name}-${toolIndex}`}
+                  className="group/toolitem flex items-center gap-1.5 rounded-lg border border-gray-200/60 bg-white/50 px-2.5 py-1.5 transition-all hover:border-blue-200 hover:bg-white hover:shadow-sm dark:border-zinc-700/50 dark:bg-zinc-800/30 dark:hover:border-blue-900/50 dark:hover:bg-zinc-800/80"
+                >
+                  {ToolIcon ? (
+                    <ToolIcon
+                      size={13}
+                      className="shrink-0 text-gray-400 transition-colors group-hover/toolitem:text-blue-500"
+                    />
+                  ) : (
+                    <Wrench
+                      size={13}
+                      className="shrink-0 text-gray-400 transition-colors group-hover/toolitem:text-blue-500"
+                    />
+                  )}
+                  <span className="truncate text-xs font-medium text-gray-600 transition-colors group-hover/toolitem:text-gray-900 dark:text-zinc-400 dark:group-hover/toolitem:text-zinc-200">
+                    {toolName}
+                  </span>
+                </div>
+              )
+            })}
+            {!isExpanded && hasMore && (
+              <div className="flex h-7 items-center px-1 text-gray-300 dark:text-zinc-700">
+                <span className="text-sm tracking-widest">...</span>
+              </div>
+            )}
+          </div>
+
+          {/* Action Section */}
+          {hasMore && (
+            <div
+              onClick={() => toggleToolsStep(expandedKey)}
+              className="hover:text-primary-600 dark:hover:text-primary-400 mt-1 flex h-7 w-7 cursor-pointer items-center justify-center rounded-full text-gray-400 transition-all hover:bg-gray-100 dark:text-zinc-500 dark:hover:bg-zinc-800"
+              title={
+                isExpanded
+                  ? t('common.collapse', '收起')
+                  : t('common.expand', `展开剩余 ${uniqueTools.length - 2} 项`)
+              }
+            >
+              <div
+                className={clsx(
+                  'transition-transform duration-300',
+                  isExpanded ? 'rotate-180' : 'rotate-0',
+                )}
+              >
+                <ChevronDown size={16} />
+              </div>
+            </div>
+          )}
         </div>
       )
     },
-    [t, getToolDisplayName, i18n.language],
+    [t, getToolDisplayName, i18n.language, expandedToolsSteps, toggleToolsStep],
   )
   const renderWorkflowToolCapsule = useCallback(
     item => {
@@ -2640,7 +2686,6 @@ const MessageBubble = ({
               : 'border-primary-200/35 dark:border-primary-700/20 bg-white/65 text-gray-600 dark:bg-zinc-800/40 dark:text-gray-300',
           )}
         >
-          <span className="shrink-0 font-medium">{workflowPrefix}</span>
           <span className="flex min-w-0 items-center gap-1.5 font-medium">
             {isError ? (
               <AlertTriangle size={14} className="shrink-0" />
@@ -3683,6 +3728,10 @@ const MessageBubble = ({
 
                 if (step.kind === 'tools') {
                   if (!step.items || step.items.length === 0) return null
+                  const isExpanded = expandedToolsSteps.has(idx)
+                  const displayItems = isExpanded ? step.items : step.items.slice(0, 2)
+                  const hasMoreItems = step.items.length > 2
+
                   return (
                     <div key={`tools-${idx}`} className="relative mb-4">
                       {isNotLast && (
@@ -3691,32 +3740,101 @@ const MessageBubble = ({
                       <div className="absolute top-0.75 -left-7 flex h-4 w-4 items-center justify-center text-gray-400 dark:text-gray-500">
                         <Wrench size={16} />
                       </div>
-                      <div className="space-y-2">
-                        {step.items.map(item => {
-                          const hasDuration = typeof item.durationMs === 'number'
-                          return (
-                            <div
-                              key={item.id || `${item.name}-${item.arguments}`}
-                              className="space-y-1.5"
-                            >
-                              <div className="flex items-center justify-between gap-3">
-                                <div className="min-w-0 flex-1">
-                                  {renderWorkflowToolCapsule(item)}
+
+                      <div className="flex w-full flex-col gap-3 md:flex-row md:items-start md:gap-4">
+                        {/* Label Section */}
+                        <div className="shrink-0 text-[11px] font-bold tracking-wider text-gray-400 uppercase select-none md:mt-1.5 dark:text-zinc-500">
+                          {t('messageBubble.workflowToolCalledPrefix', '已调用')}
+                        </div>
+
+                        {/* Vertical Tools List Section */}
+                        <div className="flex min-w-0 flex-1 flex-col gap-2">
+                          <div className="space-y-2">
+                            {displayItems.map((item, itemIdx) => {
+                              const hasDuration = typeof item.durationMs === 'number'
+                              const isLastItem = itemIdx === displayItems.length - 1
+                              return (
+                                <div
+                                  key={item.id || `${item.name}-${item.arguments}`}
+                                  className="group/workflowitem space-y-1.5"
+                                >
+                                  <div className="flex items-center gap-3 overflow-x-hidden">
+                                    <div className="min-w-0">{renderWorkflowToolCapsule(item)}</div>
+
+                                    {/* PC Desktop: Action items inline with the last item */}
+                                    {isLastItem && hasMoreItems && (
+                                      <div className="hidden items-center gap-2 md:flex">
+                                        {!isExpanded && (
+                                          <span className="ml-1 text-sm tracking-widest text-gray-300 dark:text-zinc-700">
+                                            ...
+                                          </span>
+                                        )}
+                                        <div
+                                          onClick={() => toggleToolsStep(idx)}
+                                          className="group/tooltoggle flex h-6 w-6 cursor-pointer items-center justify-center rounded-full text-gray-400 transition-all hover:bg-gray-100 dark:text-zinc-500 dark:hover:bg-zinc-800"
+                                          title={
+                                            isExpanded
+                                              ? t('common.collapse', '收起')
+                                              : t(
+                                                  'common.expand',
+                                                  `展开剩余 ${step.items.length - 2} 项`,
+                                                )
+                                          }
+                                        >
+                                          <div
+                                            className={clsx(
+                                              'transition-transform duration-300',
+                                              isExpanded ? 'rotate-180' : 'rotate-0',
+                                              'group-hover/tooltoggle:text-primary-600 dark:group-hover/tooltoggle:text-primary-400',
+                                            )}
+                                          >
+                                            <ChevronDown size={14} />
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {hasDuration && (
+                                      <span className="ml-auto shrink-0 text-xs! whitespace-nowrap text-gray-500 dark:text-gray-400">
+                                        {t('messageBubble.toolDuration', {
+                                          duration: (item.durationMs / 1000).toFixed(2),
+                                        })}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="pl-1 text-base text-gray-600 transition-colors group-hover/workflowitem:text-gray-900 dark:text-gray-300 dark:group-hover/workflowitem:text-zinc-200">
+                                    {renderToolQueryPreview(item, 'truncate opacity-80')}
+                                  </div>
                                 </div>
-                                {hasDuration && (
-                                  <span className="shrink-0 text-xs! text-gray-500 dark:text-gray-400">
-                                    {t('messageBubble.toolDuration', {
-                                      duration: (item.durationMs / 1000).toFixed(2),
-                                    })}
-                                  </span>
-                                )}
-                              </div>
-                              <div className="pl-1 text-base text-gray-600 dark:text-gray-300">
-                                {renderToolQueryPreview(item, 'truncate opacity-80')}
+                              )
+                            })}
+                          </div>
+
+                          {/* Mobile Only: Action items at the bottom inline */}
+                          {hasMoreItems && (
+                            <div className="flex items-center gap-2 pt-1 md:hidden">
+                              {!isExpanded && (
+                                <span className="text-sm tracking-widest text-gray-300 dark:text-zinc-700">
+                                  ...
+                                </span>
+                              )}
+                              <div
+                                onClick={() => toggleToolsStep(idx)}
+                                className="group/tooltoggle flex h-6 w-6 cursor-pointer items-center justify-center rounded-full text-gray-400 transition-all hover:bg-gray-100 dark:text-zinc-500 dark:hover:bg-zinc-800"
+                              >
+                                <div
+                                  className={clsx(
+                                    'transition-transform duration-300',
+                                    isExpanded ? 'rotate-180' : 'rotate-0',
+                                    'group-hover/tooltoggle:text-primary-600 dark:group-hover/tooltoggle:text-primary-400',
+                                  )}
+                                >
+                                  <ChevronDown size={14} />
+                                </div>
                               </div>
                             </div>
-                          )
-                        })}
+                          )}
+                        </div>
                       </div>
                     </div>
                   )

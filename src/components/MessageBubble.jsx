@@ -702,7 +702,9 @@ const MessageBubble = ({
         detail = getFileName(parsedArguments?.script_path)
       } else if (tool.name === 'install_skill_dependency') {
         detail =
-          typeof parsedArguments?.package_name === 'string' ? parsedArguments.package_name.trim() : ''
+          typeof parsedArguments?.package_name === 'string'
+            ? parsedArguments.package_name.trim()
+            : ''
       }
 
       return detail ? `${baseName} (${detail})` : baseName
@@ -3282,17 +3284,43 @@ const MessageBubble = ({
     )
     if (!shouldShowAnswerStep) return base
 
-    const answerDurationSec =
-      typeof wallClockFinalSec === 'number'
-        ? wallClockFinalSec
-        : typeof wallClockElapsedSec === 'number'
-          ? wallClockElapsedSec
-          : 0
+    let finalMs = 0
+    if (
+      !isStreaming &&
+      Number.isFinite(persistedFinalAnswerDurationMs) &&
+      persistedFinalAnswerDurationMs > 0
+    ) {
+      finalMs = persistedFinalAnswerDurationMs
+    } else {
+      const answerDurationSec =
+        typeof wallClockFinalSec === 'number'
+          ? wallClockFinalSec
+          : typeof wallClockElapsedSec === 'number'
+            ? wallClockElapsedSec
+            : 0
+      finalMs = answerDurationSec > 0 ? Math.max(0, Number(answerDurationSec) * 1000) : 0
+    }
+
+    const sumOfBaseMs = base.reduce((sum, step) => {
+      if (typeof step.durationMs === 'number') return sum + step.durationMs
+      if (step.kind === 'tools' && Array.isArray(step.items)) {
+        return (
+          sum +
+          step.items.reduce(
+            (s, it) => s + (typeof it.durationMs === 'number' ? it.durationMs : 0),
+            0,
+          )
+        )
+      }
+      return sum
+    }, 0)
+
+    const cumulativeMs = sumOfBaseMs + finalMs
 
     base.push({
       kind: 'final_answer',
       status: isStreaming ? 'running' : 'done',
-      durationMs: answerDurationSec > 0 ? Math.max(0, Number(answerDurationSec) * 1000) : null,
+      durationMs: cumulativeMs > 0 ? cumulativeMs : null,
     })
     return base
   }, [
@@ -3302,6 +3330,7 @@ const MessageBubble = ({
     hasMainText,
     wallClockElapsedSec,
     isDeepResearch,
+    persistedFinalAnswerDurationMs,
   ])
   const hasWorkflowFinalAnswerStep = useMemo(
     () => workflowProcessSteps.some(step => step?.kind === 'final_answer'),
@@ -3356,35 +3385,36 @@ const MessageBubble = ({
   }, [workflowThoughtStep?.durationMs, workflowSearchDurationMs, workflowToolItems])
   const processDurationSec = Math.max(0, Math.round(processDurationMs / 1000))
   const completedDurationSec = useMemo(() => {
+    let finalMs = 0
     if (
       !isStreaming &&
       Number.isFinite(persistedFinalAnswerDurationMs) &&
       persistedFinalAnswerDurationMs > 0
     ) {
-      return Math.round(persistedFinalAnswerDurationMs / 1000)
+      finalMs = persistedFinalAnswerDurationMs
+    } else if (typeof wallClockFinalSec === 'number') {
+      finalMs = wallClockFinalSec * 1000
+    } else if (typeof wallClockElapsedSec === 'number' && wallClockElapsedSec > 0) {
+      finalMs = wallClockElapsedSec * 1000
     }
-    if (typeof wallClockFinalSec === 'number') return wallClockFinalSec
-    if (typeof wallClockElapsedSec === 'number' && wallClockElapsedSec > 0)
-      return wallClockElapsedSec
-    return processDurationSec
+
+    const totalMs = processDurationMs + finalMs
+    return totalMs > 0 ? Math.max(0, Math.round(totalMs / 1000)) : null
   }, [
     isStreaming,
     persistedFinalAnswerDurationMs,
-    processDurationSec,
+    processDurationMs,
     wallClockElapsedSec,
     wallClockFinalSec,
   ])
   const finalAnswerDurationMsForDisplay = useMemo(() => {
-    if (Number.isFinite(persistedFinalAnswerDurationMs) && persistedFinalAnswerDurationMs > 0) {
-      return persistedFinalAnswerDurationMs
-    }
-    const directMs =
-      typeof finalAnswerWorkflowStep?.durationMs === 'number'
-        ? finalAnswerWorkflowStep.durationMs
-        : null
-    if (typeof directMs === 'number' && directMs > 0) return directMs
+    // Return cumulative duration for 'final_answer' step display
     if (typeof completedDurationSec === 'number' && completedDurationSec > 0) {
       return completedDurationSec * 1000
+    }
+    // Fallback if completedDuration doesn't evaluate
+    if (Number.isFinite(persistedFinalAnswerDurationMs) && persistedFinalAnswerDurationMs > 0) {
+      return persistedFinalAnswerDurationMs + processDurationMs
     }
     return null
   }, [persistedFinalAnswerDurationMs, finalAnswerWorkflowStep?.durationMs, completedDurationSec])

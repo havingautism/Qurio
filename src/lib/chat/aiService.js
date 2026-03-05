@@ -464,18 +464,15 @@ export const callAIAPI = async (
     const localElapsed =
       Number.isFinite(startedAtMs) && startedAtMs > 0 ? Math.max(0, Date.now() - startedAtMs) : null
 
-    if (backendDuration == null) {
-      if (localElapsed != null) return localElapsed
-      return Number.isFinite(existingDurationMs) ? Number(existingDurationMs) : null
+    if (backendDuration != null) {
+      return Math.max(0, backendDuration)
     }
 
-    // Some providers return cumulative run duration on tool_result.
-    // If backend duration is clearly larger than local per-tool elapsed, prefer local elapsed.
-    if (localElapsed != null && backendDuration > localElapsed + 1500) {
+    if (localElapsed != null) {
       return localElapsed
     }
 
-    return backendDuration
+    return Number.isFinite(existingDurationMs) ? Math.max(0, Number(existingDurationMs)) : null
   }
 
   // Create AbortController for this request

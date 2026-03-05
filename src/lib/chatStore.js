@@ -751,9 +751,9 @@ const useChatStore = create((set, get) => ({
                         : toolCallHistory[targetIndex].output,
                     durationMs:
                       typeof chunk.duration_ms === 'number'
-                        ? chunk.duration_ms
+                        ? Math.max(0, chunk.duration_ms)
                         : typeof startedAt === 'number'
-                          ? Date.now() - startedAt
+                          ? Math.max(0, Date.now() - startedAt) // guard against clock skew
                           : null,
                   }
                 }
@@ -1172,10 +1172,13 @@ const useChatStore = create((set, get) => ({
           const emojis = Array.isArray(titleResult?.emojis) ? titleResult.emojis : []
           set({ conversationTitle: title, conversationTitleEmojis: emojis })
           try {
-            const { data: updatedConversation, error: updateError } = await updateConversation(convId, {
-              title,
-              title_emojis: emojis,
-            })
+            const { data: updatedConversation, error: updateError } = await updateConversation(
+              convId,
+              {
+                title,
+                title_emojis: emojis,
+              },
+            )
             if (updateError) throw updateError
             notifyConversationPatched(
               updatedConversation || {
@@ -2341,12 +2344,15 @@ const useChatStore = create((set, get) => ({
 
           if (convId) {
             try {
-              const { data: updatedConversation, error: updateError } = await updateConversation(convId, {
-                space_id: resolvedSpaceInfo?.selectedSpace?.id || null,
-                api_provider: resolvedAgent?.provider || fallbackAgent?.provider || '',
-                last_agent_id: resolvedAgent?.id || null,
-                agent_selection_mode: isAgentAutoMode ? 'auto' : 'manual',
-              })
+              const { data: updatedConversation, error: updateError } = await updateConversation(
+                convId,
+                {
+                  space_id: resolvedSpaceInfo?.selectedSpace?.id || null,
+                  api_provider: resolvedAgent?.provider || fallbackAgent?.provider || '',
+                  last_agent_id: resolvedAgent?.id || null,
+                  agent_selection_mode: isAgentAutoMode ? 'auto' : 'manual',
+                },
+              )
               if (updateError) throw updateError
               notifyConversationPatched(
                 updatedConversation || {

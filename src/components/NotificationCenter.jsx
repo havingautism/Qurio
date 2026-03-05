@@ -70,6 +70,11 @@ const deleteNotification = async id => {
   if (!res.ok) throw new Error(`Failed to delete notification: ${res.status}`)
 }
 
+const triggerPoll = async () => {
+  const res = await fetch(buildUrl('/api/email/poll'), { method: 'POST' })
+  if (!res.ok) throw new Error(`Failed to trigger poll: ${res.status}`)
+}
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -172,43 +177,23 @@ const NotificationCenter = ({ buttonClassName = '' }) => {
     return notifications.filter(n => n.config_id === activeTab)
   }, [notifications, activeTab])
 
-  // Load on mount
-  useEffect(() => {
-    load()
-  }, [load])
-
-  // Refresh when modal opens and auto-refresh every 5 minutes while open
+  // Pull only when user opens the panel.
   useEffect(() => {
     if (!isOpen) return undefined
-    load() // Refresh when modal opens
-    const interval = setInterval(load, 5 * 60 * 1000)
-    return () => clearInterval(interval)
-  }, [isOpen, load])
-
-  // SSE: Listen for real-time notification updates
-  useEffect(() => {
-    if (!isOpen) return undefined
-    const sseUrl = buildUrl('/api/email/notifications/stream')
-    const eventSource = new EventSource(sseUrl)
-
-    eventSource.onmessage = event => {
+    let cancelled = false
+    const pullOnOpen = async () => {
       try {
-        const data = JSON.parse(event.data)
-        if (data.type === 'notifications_updated') {
-          // Refresh notifications when backend polls new emails
-          load()
-        }
+        await triggerPoll()
       } catch {
-        // Ignore parse errors
+        // Keep UI usable even if IMAP poll fails.
+      }
+      if (!cancelled) {
+        await load()
       }
     }
-
-    eventSource.onerror = () => {
-      // Auto-reconnect is handled by EventSource
-    }
-
+    pullOnOpen()
     return () => {
-      eventSource.close()
+      cancelled = true
     }
   }, [isOpen, load])
 

@@ -246,6 +246,15 @@ def _collect_enabled_tool_names(request: Any) -> list[str]:
     return names
 
 
+def _has_selected_skills(request: Any) -> bool:
+    raw_skill_ids = getattr(request, "skill_ids", None)
+    if isinstance(raw_skill_ids, list):
+        return any(str(item or "").strip() for item in raw_skill_ids)
+    if isinstance(raw_skill_ids, str):
+        return bool(raw_skill_ids.strip())
+    return False
+
+
 def _build_tools(request: Any) -> list[Any]:
     enabled_names = set(_collect_enabled_tool_names(request))
     if (
@@ -258,10 +267,10 @@ def _build_tools(request: Any) -> list[Any]:
 
     local_tool_names = {tool["name"] for tool in LOCAL_TOOLS}
     include_local = sorted([name for name in enabled_names if name in local_tool_names])
-    if getattr(request, "enable_skills", False):
-        include_local = sorted(set(include_local) | {"execute_skill_script"})
-        if "interactive_form" in enabled_names:
-            include_local = sorted(set(include_local) | {"install_skill_dependency"})
+    if getattr(request, "enable_skills", False) and _has_selected_skills(request):
+        include_local = sorted(
+            set(include_local) | {"execute_skill_script", "install_skill_dependency"}
+        )
     tools: list[Any] = []
 
     if include_local:
@@ -573,7 +582,7 @@ def build_agent(request: Any = None, **kwargs: Any) -> Agent:
             "Do not proceed with incomplete information. "
             "However, limit to 2-3 forms maximum per conversation to respect user time."
         )
-        if getattr(request, "enable_skills", False):
+        if getattr(request, "enable_skills", False) and _has_selected_skills(request):
             instructions_list.append(
                 "When a skill tells you to run a bundled script, do not merely summarize or restate the script. "
                 "Use execute_skill_script to actually run the file and rely on its stdout/stderr."

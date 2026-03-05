@@ -57,7 +57,6 @@ import { getPublicEnv } from '../lib/publicEnv'
 import { listToolsViaBackend } from '../lib/backendClient'
 import { getUserTools } from '../lib/userToolsService'
 import { TOOL_TRANSLATION_KEYS, TOOL_ICONS, TOOL_INFO_KEYS } from '../lib/toolConstants'
-import { isQuickSearchTool } from '../lib/searchTools'
 import { compressImage } from '../lib/imageCompression'
 import {
   AGENT_AVATAR_SHAPE_CIRCLE,
@@ -124,11 +123,15 @@ const TOOL_API_REQUIREMENTS = {
   search_youtube: { key: 'serpapiApiKey', providerLabel: 'SerpApi' },
 }
 
-const HIDDEN_QUICK_SEARCH_TOOL_IDS = new Set([
+const HIDDEN_AGENT_TOOL_IDS = new Set([
   'web_search',
   'search_news',
   'search_arxiv_and_return_articles',
   'search_wikipedia',
+  'memory_retrieve',
+  'memory_update',
+  'execute_skill_script',
+  'install_skill_dependency',
 ])
 
 const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) => {
@@ -359,13 +362,11 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
             }))
         : []
 
-      const hiddenQuickSearchTools = validSystemTools.filter(tool => {
-        if (!isQuickSearchTool(tool)) return false
-        const toolId = String(tool.id || tool.name)
-        return HIDDEN_QUICK_SEARCH_TOOL_IDS.has(toolId)
-      })
+      const hiddenAgentTools = validSystemTools.filter(tool =>
+        HIDDEN_AGENT_TOOL_IDS.has(String(tool.id || tool.name)),
+      )
       searchToolIdSetRef.current = new Set(
-        hiddenQuickSearchTools.map(tool => String(tool.id || tool.name)),
+        hiddenAgentTools.map(tool => String(tool.id || tool.name)),
       )
       const filteredSystemTools = validSystemTools.filter(tool => {
         const toolId = String(tool.id || tool.name)
@@ -597,7 +598,10 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
         setSelectedSkillIds([])
       }
       if (editingAgent) {
-        setSelectedToolIds(editingAgent?.toolIds || editingAgent?.tool_ids || [])
+        const incomingToolIds = editingAgent?.toolIds || editingAgent?.tool_ids || []
+        setSelectedToolIds(
+          incomingToolIds.filter(id => !HIDDEN_AGENT_TOOL_IDS.has(String(id))),
+        )
         setSelectedSkillIds(editingAgent?.skillIds || editingAgent?.skill_ids || [])
       }
       loadToolsList()

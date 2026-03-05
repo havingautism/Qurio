@@ -374,6 +374,19 @@
   box-shadow: inset 0 0 0 1px rgba(82, 82, 91, 0.42);
 }
 
+/* Chat input should remain borderless even when disabled (streaming state). */
+.glass-elite-panel textarea.chat-input-textarea:disabled {
+  background-color: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.dark .glass-elite-panel textarea.chat-input-textarea:disabled {
+  background-color: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
 .glass-elite-panel button:disabled {
   background-color: rgba(226, 232, 240, 0.92);
   border-color: rgba(203, 213, 225, 0.92);

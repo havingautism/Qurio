@@ -78,4 +78,15 @@ venv.bak/
 backend-python/src/data/*
 backend-python/data/
 # Ignored dynamic agent skills
-backend-python/.skills/
+backend-python/.skills/*
+
+# Track agent-memory skill definition/runtime files
+!backend-python/.skills/agent-memory/
+!backend-python/.skills/agent-memory/SKILL.md
+!backend-python/.skills/agent-memory/scripts/
+!backend-python/.skills/agent-memory/scripts/**
+
+# Keep memory content local
+backend-python/.skills/agent-memory/memories/**
+!backend-python/.skills/agent-memory/memories/
+!backend-python/.skills/agent-memory/memories/.gitkeep

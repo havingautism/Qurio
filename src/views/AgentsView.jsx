@@ -1,8 +1,9 @@
 import clsx from 'clsx'
-import { Plus, Smile, Sparkles, Menu } from 'lucide-react'
+import { Plus, Sparkles, Menu } from 'lucide-react'
+import { Robot as RobotIcon } from '@phosphor-icons/react'
 import { useTranslation } from 'react-i18next'
 import { useAppContext } from '../App'
-import EmojiDisplay from '../components/EmojiDisplay'
+import AgentAvatar from '../components/AgentAvatar'
 import { getAgentDisplayDescription, getAgentDisplayName } from '../lib/agentDisplay'
 import ColorBendsBackground from '../components/ui/ColorBendsBackground'
 
@@ -35,7 +36,7 @@ const AgentsView = () => {
                 <Menu size={20} strokeWidth={2} />
               </button>
               <div className="flex items-center gap-3">
-                <Smile size={32} className="text-primary-500" />
+                <RobotIcon size={32} weight="duotone" className="text-primary-500" />
                 <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
                   {t('agentsView.title')}
                 </h1>
@@ -86,9 +87,11 @@ const AgentsView = () => {
                           'cursor-pointer',
                         )}
                       >
-                        <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-gray-200/50 text-xl dark:bg-white/10">
-                          <EmojiDisplay emoji={agent.emoji} />
-                        </div>
+                        <AgentAvatar
+                          agent={agent}
+                          size="2.5rem"
+                          className="mb-4 bg-gray-200/50 text-xl dark:bg-white/10"
+                        />
                         <div>
                           <h3 className="mb-1 truncate text-lg font-semibold">
                             {getAgentDisplayName(agent, t)}

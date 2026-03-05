@@ -562,7 +562,7 @@ const ShortcutsWidget = () => {
                                     window.open(shortcut.url, '_blank', 'noopener,noreferrer')
                                   }
                                 }}
-                                className={`flex h-14 w-14 cursor-pointer items-center justify-center rounded-2xl bg-white shadow-sm transition-all duration-300 dark:bg-zinc-300 ${!isEditMode && 'hover:scale-105 hover:bg-gray-50 dark:hover:bg-zinc-700'} ${isEditMode && 'group cursor-grab'} `}
+                                className={`flex h-14 w-14 cursor-pointer items-center justify-center rounded-[22px] bg-black/5 shadow-sm transition-all duration-300 dark:bg-white/10 ${!isEditMode && 'hover:scale-105 hover:bg-black/10 dark:hover:bg-white/20'} ${isEditMode && 'group cursor-grab'} `}
                               >
                                 <ShortcutIcon shortcut={shortcut} size={28} />
 
@@ -637,7 +637,7 @@ const ShortcutsWidget = () => {
             }}
             className="flex items-center justify-center p-0"
           >
-            <div className="ring-primary-500 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-2xl ring-2 dark:bg-zinc-800">
+            <div className="ring-primary-500/50 flex h-14 w-14 items-center justify-center rounded-[22px] bg-black/5 shadow-2xl ring-2 dark:bg-white/10">
               <ShortcutIcon shortcut={dragState.item} size={28} />
             </div>
           </div>,

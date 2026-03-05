@@ -23,7 +23,6 @@ import {
   Video,
   Image as ImageIcon,
   Menu,
-  PencilLine,
   RefreshCw,
   FileText,
   ChevronLeft,
@@ -38,6 +37,7 @@ import {
   Info,
   AlertCircle,
 } from 'lucide-react'
+import { Notebook as NotebookIcon } from '@phosphor-icons/react'
 import clsx from 'clsx'
 import {
   createScrapbookEntry,
@@ -1047,7 +1047,7 @@ export default function ScrapbookView() {
                 >
                   <Menu size={20} strokeWidth={2} />
                 </button>
-                <PencilLine size={32} className="text-primary-500" />
+                <NotebookIcon size={32} weight="duotone" className="text-primary-500" />
                 <h1 className="text-2xl font-medium sm:text-3xl">{t('scrapbook.title')}</h1>
               </div>
               {/* Right Box: Search, Settings etc. */}

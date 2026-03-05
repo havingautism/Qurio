@@ -51,7 +51,7 @@ const ExpertAgentSwitcher = ({ responses = [], activeAgentId = '', onSelectAgent
                     className={clsx(
                       'flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm font-semibold transition-all duration-200',
                       isActive
-                        ? 'bg-white text-gray-900 shadow-sm ring-1 ring-black/5 dark:bg-zinc-700 dark:text-gray-100 dark:ring-white/10'
+                        ? 'bg-black/5 text-gray-900 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:bg-white/10 dark:text-gray-100'
                         : 'text-gray-500 hover:bg-gray-200/70 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-zinc-700/60 dark:hover:text-gray-300',
                     )}
                   >
@@ -88,7 +88,7 @@ const ExpertAgentSwitcher = ({ responses = [], activeAgentId = '', onSelectAgent
                 className={clsx(
                   'flex min-w-0 flex-none items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200',
                   isActive
-                    ? 'bg-white text-gray-900 shadow-sm ring-1 ring-black/5 dark:bg-zinc-700 dark:text-gray-100 dark:ring-white/10'
+                    ? 'bg-black/5 text-gray-900 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:bg-white/10 dark:text-gray-100'
                     : 'text-gray-500 hover:bg-gray-200/70 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-zinc-700/60 dark:hover:text-gray-300',
                 )}
               >

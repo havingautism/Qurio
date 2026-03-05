@@ -22,6 +22,7 @@ import { getAgentDisplayName } from '../../lib/agentDisplay'
 import { providerSupportsSearch } from '../../lib/providers'
 import { splitTextWithUrls } from '../../lib/urlHighlight'
 import EmojiDisplay from '../EmojiDisplay'
+import AgentAvatar from '../AgentAvatar'
 import useIsMobile from '../../hooks/useIsMobile'
 import MobileDrawer from '../MobileDrawer'
 import UploadPopover from '../UploadPopover'
@@ -283,7 +284,11 @@ const CapsuleSettingsMenu = React.memo(
                   )}
                 >
                   <div className="flex items-center gap-2.5">
-                    <EmojiDisplay emoji={agent.emoji} size="1.1em" />
+                    <AgentAvatar
+                      agent={agent}
+                      size="1.9rem"
+                      className="bg-gray-100 dark:bg-zinc-800"
+                    />
                     <span className="truncate">{getAgentDisplayName(agent, t)}</span>
                     {isDefault && (
                       <span className="bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 rounded-md px-1.5 py-0.5 text-[10px] font-medium">
@@ -392,63 +397,59 @@ const CapsuleSettingsMenu = React.memo(
                   id="capsule-search-options"
                   className="mt-1 space-y-1 rounded-xl bg-gray-50/80 p-1.5 dark:bg-zinc-900/50"
                 >
-                      <div className="space-y-3">
-                        <div className="px-4 py-1 text-[10px] tracking-wide text-gray-500 uppercase dark:text-zinc-400">
-                          {t('tools.webSearch')}
-                        </div>
-                        <div className="space-y-1">
-                          {webSearchBackendOptions.map(option => {
-                            const isActive = searchBackend === option.id
-                            const isOptionDisabled = isDisabled || Boolean(option.disabled)
-                            return (
-                              <button
-                                key={option.id}
-                                type="button"
-                                title={option.titleKey ? t(option.titleKey) : undefined}
-                                disabled={isOptionDisabled}
-                                onClick={() => onSearchBackendChange?.(option.id)}
-                                className={clsx(
-                                  'flex w-full items-center justify-between rounded-lg px-4 py-2 text-left text-sm transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800',
-                                  isActive
-                                    ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
-                                    : 'text-gray-700 dark:text-gray-200',
-                                  isOptionDisabled &&
-                                    'cursor-not-allowed opacity-50 hover:bg-transparent',
-                                )}
-                              >
-                                <span className="flex items-center gap-2">
-                                  {option.iconUrl ? (
-                                    <img
-                                      src={option.iconUrl}
-                                      alt=""
-                                      className="h-4 w-4 rounded-sm"
-                                    />
-                                  ) : (
-                                    <EmojiDisplay emoji={'✨'} size="1.1rem" />
-                                  )}
-                                  <span>{t(option.labelKey)}</span>
-                                </span>
-                                {isActive && <Check size={14} className="text-primary-500" />}
-                              </button>
-                            )
-                          })}
-                        </div>
-                      </div>
-                      <div className="h-px bg-gray-200 dark:bg-zinc-800" />
-                      <div className="space-y-3">
-                        <ExaSearchCategoryList
-                          exaSearchOptions={exaSearchOptions}
-                          selectedExaSearchTools={selectedExaSearchTools}
-                          onExaSearchToolSelect={onExaSearchToolSelect}
-                          t={t}
-                          isDisabled={isDisabled}
-                          titleClassName="space-y-3"
-                          listClassName="space-y-1"
-                          itemClassName="rounded-lg px-4"
-                        />
-                      </div>
-                      <div className="h-px bg-gray-200 dark:bg-zinc-800" />
-                      <div className="space-y-3">
+                  <div className="space-y-3">
+                    <div className="px-4 py-1 text-[10px] tracking-wide text-gray-500 uppercase dark:text-zinc-400">
+                      {t('tools.webSearch')}
+                    </div>
+                    <div className="space-y-1">
+                      {webSearchBackendOptions.map(option => {
+                        const isActive = searchBackend === option.id
+                        const isOptionDisabled = isDisabled || Boolean(option.disabled)
+                        return (
+                          <button
+                            key={option.id}
+                            type="button"
+                            title={option.titleKey ? t(option.titleKey) : undefined}
+                            disabled={isOptionDisabled}
+                            onClick={() => onSearchBackendChange?.(option.id)}
+                            className={clsx(
+                              'flex w-full items-center justify-between rounded-lg px-4 py-2 text-left text-sm transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800',
+                              isActive
+                                ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
+                                : 'text-gray-700 dark:text-gray-200',
+                              isOptionDisabled &&
+                                'cursor-not-allowed opacity-50 hover:bg-transparent',
+                            )}
+                          >
+                            <span className="flex items-center gap-2">
+                              {option.iconUrl ? (
+                                <img src={option.iconUrl} alt="" className="h-4 w-4 rounded-sm" />
+                              ) : (
+                                <EmojiDisplay emoji={'✨'} size="1.1rem" />
+                              )}
+                              <span>{t(option.labelKey)}</span>
+                            </span>
+                            {isActive && <Check size={14} className="text-primary-500" />}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                  <div className="h-px bg-gray-200 dark:bg-zinc-800" />
+                  <div className="space-y-3">
+                    <ExaSearchCategoryList
+                      exaSearchOptions={exaSearchOptions}
+                      selectedExaSearchTools={selectedExaSearchTools}
+                      onExaSearchToolSelect={onExaSearchToolSelect}
+                      t={t}
+                      isDisabled={isDisabled}
+                      titleClassName="space-y-3"
+                      listClassName="space-y-1"
+                      itemClassName="rounded-lg px-4"
+                    />
+                  </div>
+                  <div className="h-px bg-gray-200 dark:bg-zinc-800" />
+                  <div className="space-y-3">
                     <div className="px-4 py-1 text-[10px] tracking-wide text-gray-500 uppercase dark:text-zinc-400">
                       {t('tools.academicSearch')}
                     </div>
@@ -1208,10 +1209,10 @@ const ChatInputBar = React.memo(
                   <button
                     onClick={() => setIsCapsuleMenuOpen(!isCapsuleMenuOpen)}
                     disabled={isInteractionLocked}
-                  className={clsx(
+                    className={clsx(
                       'glass-elite-chip rounded-full p-1.5 transition-colors sm:p-2',
                       thinkingMode !== 'fast' || isSearchActive || isCapsuleMenuOpen
-                        ? 'border-primary-400/45 bg-white/84 text-primary-600 dark:border-primary-500/35 dark:bg-white/[0.12]'
+                        ? 'border-primary-400/45 text-primary-600 dark:border-primary-500/35 bg-white/84 dark:bg-white/[0.12]'
                         : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100',
                     )}
                     title="Model & Settings"
@@ -1311,7 +1312,7 @@ const ChatInputBar = React.memo(
                     isLoading
                       ? 'bg-white/88 text-gray-900 hover:bg-white dark:bg-white/[0.14] dark:text-white'
                       : inputValue.trim() || attachments.length > 0
-                        ? 'border-primary-300/45 bg-white/82 text-primary-600 hover:scale-105 dark:border-primary-500/35 dark:bg-white/[0.14] dark:text-white'
+                        ? 'border-primary-300/45 text-primary-600 dark:border-primary-500/35 bg-white/82 hover:scale-105 dark:bg-white/[0.14] dark:text-white'
                         : 'cursor-not-allowed bg-white/60 text-gray-400 dark:bg-white/[0.06] dark:text-zinc-600',
                   )}
                 >
@@ -1500,7 +1501,7 @@ const ChatInputBar = React.memo(
                   className={clsx(
                     'glass-elite-chip flex items-center gap-2 rounded-xl p-2.5 text-sm font-medium transition-all duration-200',
                     thinkingMode !== 'fast'
-                      ? 'border-primary-400/45 bg-white/84 text-primary-500 dark:border-primary-500/35 dark:bg-white/[0.12]'
+                      ? 'border-primary-400/45 text-primary-500 dark:border-primary-500/35 bg-white/84 dark:bg-white/[0.12]'
                       : 'text-gray-500 dark:text-gray-400',
                     isThinkingLocked && 'cursor-not-allowed opacity-60',
                     !isThinkingLocked && '',
@@ -1599,7 +1600,7 @@ const ChatInputBar = React.memo(
                   className={clsx(
                     'glass-elite-chip flex items-center gap-2 rounded-xl p-2.5 text-sm font-medium transition-all duration-200',
                     isSearchActive
-                      ? 'border-primary-400/45 bg-white/84 text-primary-500 dark:border-primary-500/35 dark:bg-white/[0.12]'
+                      ? 'border-primary-400/45 text-primary-500 dark:border-primary-500/35 bg-white/84 dark:bg-white/[0.12]'
                       : 'text-gray-500 dark:text-gray-400',
                   )}
                 >
@@ -1747,7 +1748,7 @@ const ChatInputBar = React.memo(
                   className={clsx(
                     'glass-elite-chip flex items-center gap-2 rounded-xl p-2.5 text-sm font-medium transition-all duration-200',
                     selectedAgent || isAgentAutoMode
-                      ? 'border-primary-400/45 bg-white/84 text-primary-500 dark:border-primary-500/35 dark:bg-white/[0.12]'
+                      ? 'border-primary-400/45 text-primary-500 dark:border-primary-500/35 bg-white/84 dark:bg-white/[0.12]'
                       : 'text-gray-500 dark:text-gray-400',
                   )}
                   disabled={isInteractionLocked || agentsLoading}
@@ -1758,7 +1759,7 @@ const ChatInputBar = React.memo(
                   {isAgentAutoMode || !selectedAgent ? (
                     <Smile size={18} strokeWidth={2} />
                   ) : (
-                    <EmojiDisplay emoji={selectedAgent.emoji} size="1.125rem" />
+                    <AgentAvatar agent={selectedAgent} size="1.125rem" />
                   )}
                   {agentsLoading && (
                     <span className="inline-flex animate-pulse text-[10px] leading-none opacity-70">
@@ -1816,9 +1817,11 @@ const ChatInputBar = React.memo(
                               className="flex w-full items-center justify-between rounded-xl px-4 py-2.5 text-left transition-colors hover:bg-gray-100 dark:hover:bg-zinc-700/50"
                             >
                               <div className="flex items-center gap-3">
-                                <span className="rounded-lg bg-gray-100 p-1 text-lg dark:bg-zinc-800">
-                                  <EmojiDisplay emoji={agent.emoji} size="1.125rem" />
-                                </span>
+                                <AgentAvatar
+                                  agent={agent}
+                                  size="2rem"
+                                  className="text-lg dark:bg-zinc-800"
+                                />
                                 <span className="truncate text-sm font-medium text-gray-700 dark:text-gray-200">
                                   {getAgentDisplayName(agent, t)}
                                 </span>

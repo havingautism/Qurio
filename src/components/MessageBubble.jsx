@@ -50,6 +50,8 @@ import DesktopSourcesSection from './DesktopSourcesSection'
 import DesktopSourcesSheet from './DesktopSourcesSheet'
 import DotLoader from './DotLoader'
 import EmojiDisplay from './EmojiDisplay'
+import AgentAvatar from './AgentAvatar'
+import AgentBannerSurface from './AgentBannerSurface'
 import InteractiveForm from './InteractiveForm'
 import DeepResearchGoalCard from './message/DeepResearchGoalCard'
 import MessageActionBar from './message/MessageActionBar'
@@ -68,6 +70,12 @@ import YoutubeLogo from '../assets/youtube.svg?url'
 import BilibiliLogo from '../assets/bilibili.png?url'
 import useSettings from '../hooks/useSettings'
 import ScrapbookContextBanner from './ScrapbookContextBanner'
+import {
+  AGENT_AVATAR_SHAPE_CIRCLE,
+  getAgentAvatarShape,
+  getAgentBannerImage,
+  hasManualAgentBanner,
+} from '../lib/agentAppearance'
 
 const PROVIDER_META = {
   gemini: {
@@ -133,7 +141,11 @@ const TOOL_ICON_COMPONENTS = {
   ImageIcon,
 }
 
-const SKILL_TOOL_NAMES = new Set(['get_skill_instructions'])
+const SKILL_TOOL_NAMES = new Set([
+  'get_skill_instructions',
+  'get_skill_reference',
+  'get_skill_script',
+])
 const isSkillToolName = name => SKILL_TOOL_NAMES.has(String(name || ''))
 const getToolIconComponent = toolName => {
   const iconName = TOOL_ICONS[toolName]
@@ -665,7 +677,37 @@ const MessageBubble = ({
       const baseName = TOOL_TRANSLATION_KEYS[tool.name]
         ? t(TOOL_TRANSLATION_KEYS[tool.name])
         : tool.name
-      return baseName
+      const parseArguments = rawArguments => {
+        if (!rawArguments) return null
+        if (typeof rawArguments === 'object') return rawArguments
+        if (typeof rawArguments !== 'string') return null
+        try {
+          const parsed = JSON.parse(rawArguments)
+          return parsed && typeof parsed === 'object' ? parsed : null
+        } catch {
+          return null
+        }
+      }
+      const getFileName = filePath => {
+        if (!filePath || typeof filePath !== 'string') return ''
+        const normalized = filePath.replace(/\\/g, '/')
+        const segments = normalized.split('/').filter(Boolean)
+        return segments[segments.length - 1] || filePath
+      }
+
+      const parsedArguments = parseArguments(tool.arguments)
+      let detail = ''
+
+      if (tool.name === 'execute_skill_script' || tool.name === 'get_skill_script') {
+        detail = getFileName(parsedArguments?.script_path)
+      } else if (tool.name === 'install_skill_dependency') {
+        detail =
+          typeof parsedArguments?.package_name === 'string'
+            ? parsedArguments.package_name.trim()
+            : ''
+      }
+
+      return detail ? `${baseName} (${detail})` : baseName
     },
     [t],
   )
@@ -1766,12 +1808,23 @@ const MessageBubble = ({
   const searchLiveStartRef = useRef(null)
   const [searchLiveElapsedSec, setSearchLiveElapsedSec] = useState(0)
 
+  const [expandedToolsSteps, setExpandedToolsSteps] = useState(new Set())
+  const toggleToolsStep = useCallback(idx => {
+    setExpandedToolsSteps(prev => {
+      const next = new Set(prev)
+      if (next.has(idx)) next.delete(idx)
+      else next.add(idx)
+      return next
+    })
+  }, [])
+
   useEffect(() => {
     wallClockStartRef.current = null
     searchLiveStartRef.current = null
     setWallClockElapsedSec(0)
     setWallClockFinalSec(null)
     setSearchLiveElapsedSec(0)
+    setExpandedToolsSteps(new Set())
   }, [mergedMessage?.id, mergedMessage?.localId, messageIndex])
 
   useEffect(() => {
@@ -2525,50 +2578,85 @@ const MessageBubble = ({
           ]),
         ).values(),
       )
+
+      const expandedKey = `inline-${idx}`
+      const isExpanded = expandedToolsSteps.has(expandedKey)
+      const displayTools = isExpanded ? uniqueTools : uniqueTools.slice(0, 2)
+      const hasMore = uniqueTools.length > 2
+
       const prefixLabel = t('messageBubble.workflowToolCalledPrefix', '已调用')
 
       return (
-        <div key={`tools-inline-capsule-${idx}`} className="mb-4 flex items-center">
-          <div
-            className="border-primary-200/35 dark:border-primary-700/20 inline-flex max-w-full cursor-default items-center gap-2 rounded-full border bg-white/65 px-3 py-2 text-xs text-gray-500 shadow-[0_1px_2px_rgba(0,0,0,0.02)] transition-colors hover:bg-white/80 dark:bg-zinc-800/40 dark:text-gray-400 dark:hover:bg-zinc-800/60"
-            title={uniqueTools
-              .map(tool =>
-                typeof getToolDisplayName === 'function' ? getToolDisplayName(tool) : tool.name,
-              )
-              .join(', ')}
-          >
-            <span className="shrink-0 font-medium text-gray-600 dark:text-gray-300">
-              {prefixLabel}
-            </span>
-            <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 font-medium text-gray-600 dark:text-gray-300">
-              {uniqueTools.map((tool, toolIndex) => {
-                const ToolIcon = getToolIconComponent(tool.name)
-                const toolName =
-                  typeof getToolDisplayName === 'function' ? getToolDisplayName(tool) : tool.name
-
-                return (
-                  <span
-                    key={`${tool.name}-${toolIndex}`}
-                    className="flex min-w-0 items-center gap-1.5"
-                  >
-                    {ToolIcon ? (
-                      <ToolIcon size={14} className="shrink-0 opacity-70" />
-                    ) : (
-                      <Wrench size={14} className="shrink-0 opacity-70" />
-                    )}
-                    <span className="truncate">{toolName}</span>
-                    {toolIndex < uniqueTools.length - 1 && (
-                      <span className="opacity-50">{separator}</span>
-                    )}
-                  </span>
-                )
-              })}
-            </span>
+        <div
+          key={`tools-inline-row-${idx}`}
+          className="group/toolrow mb-4 flex w-full items-start gap-3"
+        >
+          {/* Label Section */}
+          <div className="mt-1.5 shrink-0 text-[11px] font-bold tracking-wider text-gray-400 uppercase select-none dark:text-zinc-500">
+            {prefixLabel}
           </div>
+
+          {/* Tools Flow Section */}
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+            {displayTools.map((tool, toolIndex) => {
+              const ToolIcon = getToolIconComponent(tool.name)
+              const toolName =
+                typeof getToolDisplayName === 'function' ? getToolDisplayName(tool) : tool.name
+
+              return (
+                <div
+                  key={`${tool.name}-${toolIndex}`}
+                  className="group/toolitem flex items-center gap-1.5 rounded-lg border border-gray-200/60 bg-white/50 px-2.5 py-1.5 transition-all hover:border-blue-200 hover:bg-white hover:shadow-sm dark:border-zinc-700/50 dark:bg-zinc-800/30 dark:hover:border-blue-900/50 dark:hover:bg-zinc-800/80"
+                >
+                  {ToolIcon ? (
+                    <ToolIcon
+                      size={13}
+                      className="shrink-0 text-gray-400 transition-colors group-hover/toolitem:text-blue-500"
+                    />
+                  ) : (
+                    <Wrench
+                      size={13}
+                      className="shrink-0 text-gray-400 transition-colors group-hover/toolitem:text-blue-500"
+                    />
+                  )}
+                  <span className="truncate text-xs font-medium text-gray-600 transition-colors group-hover/toolitem:text-gray-900 dark:text-zinc-400 dark:group-hover/toolitem:text-zinc-200">
+                    {toolName}
+                  </span>
+                </div>
+              )
+            })}
+            {!isExpanded && hasMore && (
+              <div className="flex h-7 items-center px-1 text-gray-300 dark:text-zinc-700">
+                <span className="text-sm tracking-widest">...</span>
+              </div>
+            )}
+          </div>
+
+          {/* Action Section */}
+          {hasMore && (
+            <div
+              onClick={() => toggleToolsStep(expandedKey)}
+              className="hover:text-primary-600 dark:hover:text-primary-400 mt-1 flex h-7 w-7 cursor-pointer items-center justify-center rounded-full text-gray-400 transition-all hover:bg-gray-100 dark:text-zinc-500 dark:hover:bg-zinc-800"
+              title={
+                isExpanded
+                  ? t('common.collapse', '收起')
+                  : t('common.expand', `展开剩余 ${uniqueTools.length - 2} 项`)
+              }
+            >
+              <div
+                className={clsx(
+                  'transition-transform duration-300',
+                  isExpanded ? 'rotate-180' : 'rotate-0',
+                )}
+              >
+                <ChevronDown size={16} />
+              </div>
+            </div>
+          )}
         </div>
       )
     },
-    [t, getToolDisplayName, i18n.language],
+    [t, getToolDisplayName, i18n.language, expandedToolsSteps, toggleToolsStep],
   )
   const renderWorkflowToolCapsule = useCallback(
     item => {
@@ -2598,7 +2686,6 @@ const MessageBubble = ({
               : 'border-primary-200/35 dark:border-primary-700/20 bg-white/65 text-gray-600 dark:bg-zinc-800/40 dark:text-gray-300',
           )}
         >
-          <span className="shrink-0 font-medium">{workflowPrefix}</span>
           <span className="flex min-w-0 items-center gap-1.5 font-medium">
             {isError ? (
               <AlertTriangle size={14} className="shrink-0" />
@@ -2828,7 +2915,7 @@ const MessageBubble = ({
         {/* Message Row Wrapper */}
         <div
           className={clsx(
-            'flex w-full items-center gap-2',
+            'mb-4 flex w-full items-center gap-2',
             isDeepResearchContext ? 'justify-center' : 'justify-end',
           )}
         >
@@ -3006,10 +3093,14 @@ const MessageBubble = ({
   // Dynamic Agent Info Logic
   const expertAgentName = isExpertMessage ? activeExpertResponse?.agentName : null
   const expertAgentEmoji = isExpertMessage ? activeExpertResponse?.agentEmoji : null
+  const expertAgent = isExpertMessage
+    ? agents.find(a => String(a.id) === String(activeExpertResponse?.agentId || ''))
+    : null
 
   const resolvedModel = displayModel || message.model || defaultModel || 'default model'
   const agentName = expertAgentName || message.agentName || message.agent_name || null
   const agentEmoji = expertAgentEmoji || message.agentEmoji || message.agent_emoji || ''
+  const displayAgent = expertAgent || targetAgent || null
   const agentIsDefault =
     !isExpertMessage && (message.agentIsDefault ?? message.agent_is_default ?? false)
   const agentIsDeepResearch =
@@ -3022,6 +3113,9 @@ const MessageBubble = ({
     : agentIsDeepResearch
       ? t('deepResearch.agentName')
       : agentName
+  const displayAgentShape = getAgentAvatarShape(displayAgent)
+  const agentBannerImage = getAgentBannerImage(displayAgent)
+  const hasAgentBanner = hasManualAgentBanner(displayAgent)
 
   const renderExpertTabs = () => {
     if (!isExpertMessage) return null
@@ -3039,7 +3133,11 @@ const MessageBubble = ({
             className="flex h-12 w-full items-center justify-between gap-2 rounded-full bg-white/90 py-2 pr-3 pl-3 text-sm font-medium text-gray-700 shadow-sm backdrop-blur-xl transition-all dark:bg-zinc-900/90 dark:text-gray-200"
           >
             <span className="flex min-w-0 items-center gap-2.5">
-              <EmojiDisplay emoji={activeExpertResponse?.agentEmoji} size="1.15rem" />
+              <AgentAvatar
+                agent={expertAgent || { emoji: activeExpertResponse?.agentEmoji }}
+                emoji={activeExpertResponse?.agentEmoji}
+                size="1.15rem"
+              />
               <span className="truncate text-left text-sm font-semibold">
                 {activeExpertResponse?.agentName || activeExpertResponse?.agentId}
               </span>
@@ -3078,7 +3176,15 @@ const MessageBubble = ({
                     )}
                   >
                     <span className="flex min-w-0 items-center gap-2.5">
-                      <EmojiDisplay emoji={item.agentEmoji} size="1.15rem" />
+                      <AgentAvatar
+                        agent={
+                          agents.find(a => String(a.id) === String(item.agentId)) || {
+                            emoji: item.agentEmoji,
+                          }
+                        }
+                        emoji={item.agentEmoji}
+                        size="1.15rem"
+                      />
                       <span className="text-sm font-medium">{item.agentName || item.agentId}</span>
                     </span>
                     <span className="flex shrink-0 items-center gap-1.5">
@@ -3121,7 +3227,15 @@ const MessageBubble = ({
                   : 'text-gray-500 hover:bg-gray-200/70 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-zinc-700/60 dark:hover:text-gray-300',
               )}
             >
-              <EmojiDisplay emoji={item.agentEmoji} size="1.05em" />
+              <AgentAvatar
+                agent={
+                  agents.find(a => String(a.id) === String(item.agentId)) || {
+                    emoji: item.agentEmoji,
+                  }
+                }
+                emoji={item.agentEmoji}
+                size="1.05em"
+              />
               <span className="min-w-0 truncate">{item.agentName || item.agentId}</span>
               {/* Status Dot */}
               {item.status !== 'done' && (
@@ -3215,17 +3329,43 @@ const MessageBubble = ({
     )
     if (!shouldShowAnswerStep) return base
 
-    const answerDurationSec =
-      typeof wallClockFinalSec === 'number'
-        ? wallClockFinalSec
-        : typeof wallClockElapsedSec === 'number'
-          ? wallClockElapsedSec
-          : 0
+    let finalMs = 0
+    if (
+      !isStreaming &&
+      Number.isFinite(persistedFinalAnswerDurationMs) &&
+      persistedFinalAnswerDurationMs > 0
+    ) {
+      finalMs = persistedFinalAnswerDurationMs
+    } else {
+      const answerDurationSec =
+        typeof wallClockFinalSec === 'number'
+          ? wallClockFinalSec
+          : typeof wallClockElapsedSec === 'number'
+            ? wallClockElapsedSec
+            : 0
+      finalMs = answerDurationSec > 0 ? Math.max(0, Number(answerDurationSec) * 1000) : 0
+    }
+
+    const sumOfBaseMs = base.reduce((sum, step) => {
+      if (typeof step.durationMs === 'number') return sum + step.durationMs
+      if (step.kind === 'tools' && Array.isArray(step.items)) {
+        return (
+          sum +
+          step.items.reduce(
+            (s, it) => s + (typeof it.durationMs === 'number' ? it.durationMs : 0),
+            0,
+          )
+        )
+      }
+      return sum
+    }, 0)
+
+    const cumulativeMs = sumOfBaseMs + finalMs
 
     base.push({
       kind: 'final_answer',
       status: isStreaming ? 'running' : 'done',
-      durationMs: answerDurationSec > 0 ? Math.max(0, Number(answerDurationSec) * 1000) : null,
+      durationMs: cumulativeMs > 0 ? cumulativeMs : null,
     })
     return base
   }, [
@@ -3235,6 +3375,7 @@ const MessageBubble = ({
     hasMainText,
     wallClockElapsedSec,
     isDeepResearch,
+    persistedFinalAnswerDurationMs,
   ])
   const hasWorkflowFinalAnswerStep = useMemo(
     () => workflowProcessSteps.some(step => step?.kind === 'final_answer'),
@@ -3289,35 +3430,36 @@ const MessageBubble = ({
   }, [workflowThoughtStep?.durationMs, workflowSearchDurationMs, workflowToolItems])
   const processDurationSec = Math.max(0, Math.round(processDurationMs / 1000))
   const completedDurationSec = useMemo(() => {
+    let finalMs = 0
     if (
       !isStreaming &&
       Number.isFinite(persistedFinalAnswerDurationMs) &&
       persistedFinalAnswerDurationMs > 0
     ) {
-      return Math.round(persistedFinalAnswerDurationMs / 1000)
+      finalMs = persistedFinalAnswerDurationMs
+    } else if (typeof wallClockFinalSec === 'number') {
+      finalMs = wallClockFinalSec * 1000
+    } else if (typeof wallClockElapsedSec === 'number' && wallClockElapsedSec > 0) {
+      finalMs = wallClockElapsedSec * 1000
     }
-    if (typeof wallClockFinalSec === 'number') return wallClockFinalSec
-    if (typeof wallClockElapsedSec === 'number' && wallClockElapsedSec > 0)
-      return wallClockElapsedSec
-    return processDurationSec
+
+    const totalMs = processDurationMs + finalMs
+    return totalMs > 0 ? Math.max(0, Math.round(totalMs / 1000)) : null
   }, [
     isStreaming,
     persistedFinalAnswerDurationMs,
-    processDurationSec,
+    processDurationMs,
     wallClockElapsedSec,
     wallClockFinalSec,
   ])
   const finalAnswerDurationMsForDisplay = useMemo(() => {
-    if (Number.isFinite(persistedFinalAnswerDurationMs) && persistedFinalAnswerDurationMs > 0) {
-      return persistedFinalAnswerDurationMs
-    }
-    const directMs =
-      typeof finalAnswerWorkflowStep?.durationMs === 'number'
-        ? finalAnswerWorkflowStep.durationMs
-        : null
-    if (typeof directMs === 'number' && directMs > 0) return directMs
+    // Return cumulative duration for 'final_answer' step display
     if (typeof completedDurationSec === 'number' && completedDurationSec > 0) {
       return completedDurationSec * 1000
+    }
+    // Fallback if completedDuration doesn't evaluate
+    if (Number.isFinite(persistedFinalAnswerDurationMs) && persistedFinalAnswerDurationMs > 0) {
+      return persistedFinalAnswerDurationMs + processDurationMs
     }
     return null
   }, [persistedFinalAnswerDurationMs, finalAnswerWorkflowStep?.durationMs, completedDurationSec])
@@ -3586,6 +3728,10 @@ const MessageBubble = ({
 
                 if (step.kind === 'tools') {
                   if (!step.items || step.items.length === 0) return null
+                  const isExpanded = expandedToolsSteps.has(idx)
+                  const displayItems = isExpanded ? step.items : step.items.slice(0, 2)
+                  const hasMoreItems = step.items.length > 2
+
                   return (
                     <div key={`tools-${idx}`} className="relative mb-4">
                       {isNotLast && (
@@ -3594,32 +3740,101 @@ const MessageBubble = ({
                       <div className="absolute top-0.75 -left-7 flex h-4 w-4 items-center justify-center text-gray-400 dark:text-gray-500">
                         <Wrench size={16} />
                       </div>
-                      <div className="space-y-2">
-                        {step.items.map(item => {
-                          const hasDuration = typeof item.durationMs === 'number'
-                          return (
-                            <div
-                              key={item.id || `${item.name}-${item.arguments}`}
-                              className="space-y-1.5"
-                            >
-                              <div className="flex items-center justify-between gap-3">
-                                <div className="min-w-0 flex-1">
-                                  {renderWorkflowToolCapsule(item)}
+
+                      <div className="flex w-full flex-col gap-3 md:flex-row md:items-start md:gap-4">
+                        {/* Label Section */}
+                        <div className="shrink-0 text-[11px] font-bold tracking-wider text-gray-400 uppercase select-none md:mt-1.5 dark:text-zinc-500">
+                          {t('messageBubble.workflowToolCalledPrefix', '已调用')}
+                        </div>
+
+                        {/* Vertical Tools List Section */}
+                        <div className="flex min-w-0 flex-1 flex-col gap-2">
+                          <div className="space-y-2">
+                            {displayItems.map((item, itemIdx) => {
+                              const hasDuration = typeof item.durationMs === 'number'
+                              const isLastItem = itemIdx === displayItems.length - 1
+                              return (
+                                <div
+                                  key={item.id || `${item.name}-${item.arguments}`}
+                                  className="group/workflowitem space-y-1.5"
+                                >
+                                  <div className="flex items-center gap-3 overflow-x-hidden">
+                                    <div className="min-w-0">{renderWorkflowToolCapsule(item)}</div>
+
+                                    {/* PC Desktop: Action items inline with the last item */}
+                                    {isLastItem && hasMoreItems && (
+                                      <div className="hidden items-center gap-2 md:flex">
+                                        {!isExpanded && (
+                                          <span className="ml-1 text-sm tracking-widest text-gray-300 dark:text-zinc-700">
+                                            ...
+                                          </span>
+                                        )}
+                                        <div
+                                          onClick={() => toggleToolsStep(idx)}
+                                          className="group/tooltoggle flex h-6 w-6 cursor-pointer items-center justify-center rounded-full text-gray-400 transition-all hover:bg-gray-100 dark:text-zinc-500 dark:hover:bg-zinc-800"
+                                          title={
+                                            isExpanded
+                                              ? t('common.collapse', '收起')
+                                              : t(
+                                                  'common.expand',
+                                                  `展开剩余 ${step.items.length - 2} 项`,
+                                                )
+                                          }
+                                        >
+                                          <div
+                                            className={clsx(
+                                              'transition-transform duration-300',
+                                              isExpanded ? 'rotate-180' : 'rotate-0',
+                                              'group-hover/tooltoggle:text-primary-600 dark:group-hover/tooltoggle:text-primary-400',
+                                            )}
+                                          >
+                                            <ChevronDown size={14} />
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {hasDuration && (
+                                      <span className="ml-auto shrink-0 text-xs! whitespace-nowrap text-gray-500 dark:text-gray-400">
+                                        {t('messageBubble.toolDuration', {
+                                          duration: (item.durationMs / 1000).toFixed(2),
+                                        })}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="pl-1 text-base text-gray-600 transition-colors group-hover/workflowitem:text-gray-900 dark:text-gray-300 dark:group-hover/workflowitem:text-zinc-200">
+                                    {renderToolQueryPreview(item, 'truncate opacity-80')}
+                                  </div>
                                 </div>
-                                {hasDuration && (
-                                  <span className="shrink-0 text-xs! text-gray-500 dark:text-gray-400">
-                                    {t('messageBubble.toolDuration', {
-                                      duration: (item.durationMs / 1000).toFixed(2),
-                                    })}
-                                  </span>
-                                )}
-                              </div>
-                              <div className="pl-1 text-base text-gray-600 dark:text-gray-300">
-                                {renderToolQueryPreview(item, 'truncate opacity-80')}
+                              )
+                            })}
+                          </div>
+
+                          {/* Mobile Only: Action items at the bottom inline */}
+                          {hasMoreItems && (
+                            <div className="flex items-center gap-2 pt-1 md:hidden">
+                              {!isExpanded && (
+                                <span className="text-sm tracking-widest text-gray-300 dark:text-zinc-700">
+                                  ...
+                                </span>
+                              )}
+                              <div
+                                onClick={() => toggleToolsStep(idx)}
+                                className="group/tooltoggle flex h-6 w-6 cursor-pointer items-center justify-center rounded-full text-gray-400 transition-all hover:bg-gray-100 dark:text-zinc-500 dark:hover:bg-zinc-800"
+                              >
+                                <div
+                                  className={clsx(
+                                    'transition-transform duration-300',
+                                    isExpanded ? 'rotate-180' : 'rotate-0',
+                                    'group-hover/tooltoggle:text-primary-600 dark:group-hover/tooltoggle:text-primary-400',
+                                  )}
+                                >
+                                  <ChevronDown size={14} />
+                                </div>
                               </div>
                             </div>
-                          )
-                        })}
+                          )}
+                        </div>
                       </div>
                     </div>
                   )
@@ -3806,96 +4021,161 @@ const MessageBubble = ({
         {renderExpertTabs()}
 
         {/* Avatar and Info Row */}
-        <div className="flex items-center gap-3 text-gray-900 dark:text-gray-100">
-          {agentName ? (
-            <>
-              <div
-                onClick={handleAgentClick}
-                className={clsx(
-                  'flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-gray-300 bg-white shadow-inner transition hover:scale-105 dark:border-gray-600 dark:bg-zinc-800',
-                  targetAgent && 'cursor-pointer transition-opacity hover:opacity-80',
-                )}
-              >
-                <EmojiDisplay emoji={agentEmoji} size="1.5rem" />
-              </div>
-              <div className="flex grow flex-col leading-tight">
-                <div className="flex w-full items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-sm font-semibold">{displayAgentName}</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
-                  {renderProviderIcon(providerMeta.id, {
-                    size: 12,
-                    alt: providerMeta.label,
-                    compact: true,
-                    wrapperClassName: 'w-3 h-3',
-                    imgClassName: 'w-full h-full object-contain',
-                  }) || (
-                    <span className="text-[10px] font-semibold">
-                      {providerMeta.fallback?.slice(0, 2).toUpperCase()}
-                    </span>
-                  )}
-                  <span className="truncate">{providerMeta.label}</span>
-                  {getModelIcon(resolvedModel) && (
-                    <img
-                      src={getModelIcon(resolvedModel)}
-                      alt=""
-                      width={12}
-                      height={12}
-                      className={clsx(
-                        'h-3 w-3 object-contain',
-                        getModelIconClassName(resolvedModel),
-                      )}
-                      loading="lazy"
-                    />
-                  )}
-                  <span className="truncate">{resolvedModel}</span>
-                </div>
-              </div>
-            </>
+        <div className="text-gray-900 dark:text-gray-100">
+          {hasAgentBanner ? (
+            <AgentBannerSurface
+              imageSrc={agentBannerImage}
+              imageAlt={displayAgentName || 'Agent banner'}
+              agent={displayAgent || { emoji: agentEmoji, name: displayAgentName }}
+              displayName={displayAgentName}
+              providerId={providerMeta.id}
+              providerLabel={providerMeta.label}
+              providerFallback={providerMeta.fallback}
+              model={resolvedModel}
+              onAvatarClick={handleAgentClick}
+              isAvatarClickable={Boolean(targetAgent)}
+            />
           ) : (
-            <>
-              <div
-                onClick={handleAgentClick}
-                className={clsx(
-                  'flex items-center justify-center overflow-hidden rounded-full shadow-inner',
-                  targetAgent && 'cursor-pointer transition-opacity hover:opacity-80',
-                )}
-              >
-                {renderProviderIcon(providerMeta.id, {
-                  size: 30,
-                  alt: providerMeta.label,
-                  wrapperClassName: 'p-0 w-10 h-10',
-                  imgClassName: 'w-full h-full object-contain',
-                }) || (
-                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-                    {providerMeta.fallback?.slice(0, 2).toUpperCase()}
-                  </span>
-                )}
-              </div>
-              <div className="flex grow flex-col leading-tight">
-                <div className="flex w-full items-center justify-between">
-                  <span className="text-sm font-semibold">{providerMeta.label}</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  {getModelIcon(resolvedModel) && (
-                    <img
-                      src={getModelIcon(resolvedModel)}
-                      alt=""
-                      width={14}
-                      height={14}
+            <div className="relative flex items-center gap-3">
+              {agentName ? (
+                <>
+                  <div
+                    className={clsx(
+                      'inline-flex max-w-[min(88%,34rem)] items-center gap-3',
+                      hasAgentBanner &&
+                        'self-end rounded-[28px] border border-black/8 bg-white/32 px-3 py-2 shadow-[0_14px_30px_-18px_rgba(0,0,0,0.35)] backdrop-blur-md dark:border-white/12 dark:bg-black/22 dark:shadow-[0_14px_30px_-18px_rgba(0,0,0,0.9)]',
+                    )}
+                  >
+                    <div
+                      onClick={handleAgentClick}
                       className={clsx(
-                        'h-3.5 w-3.5 object-contain',
-                        getModelIconClassName(resolvedModel),
+                        targetAgent && 'cursor-pointer transition-opacity hover:opacity-80',
                       )}
-                      loading="lazy"
-                    />
-                  )}
-                  <span className="text-xs text-gray-500 dark:text-gray-400">{resolvedModel}</span>
-                </div>
-              </div>
-            </>
+                    >
+                      <AgentAvatar
+                        agent={displayAgent || { emoji: agentEmoji, name: displayAgentName }}
+                        emoji={agentEmoji}
+                        size="2.5rem"
+                        className={clsx(
+                          'shadow-inner transition hover:scale-105',
+                          hasAgentBanner
+                            ? 'border-black/10 bg-white/24 dark:border-white/20 dark:bg-white/10'
+                            : 'border-gray-300 bg-white dark:border-gray-600 dark:bg-zinc-800',
+                          displayAgentShape === AGENT_AVATAR_SHAPE_CIRCLE
+                            ? 'rounded-full'
+                            : 'rounded-[22%]',
+                        )}
+                      />
+                    </div>
+                    <div className="flex min-w-0 flex-col leading-tight">
+                      <div className="flex w-full items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className={clsx(
+                              'text-sm font-semibold',
+                              hasAgentBanner &&
+                                'text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.3)] dark:drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)]',
+                            )}
+                          >
+                            {displayAgentName}
+                          </span>
+                        </div>
+                      </div>
+                      <div
+                        className={clsx(
+                          'flex w-fit max-w-full items-center gap-1.5 rounded-full text-xs',
+                          hasAgentBanner
+                            ? 'bg-black/18 px-2.5 py-1 text-white/96 ring-1 ring-white/22 dark:bg-black/30 dark:text-white/92 dark:ring-white/10'
+                            : 'text-gray-500 dark:text-gray-400',
+                        )}
+                      >
+                        {renderProviderIcon(providerMeta.id, {
+                          size: 12,
+                          alt: providerMeta.label,
+                          compact: true,
+                          wrapperClassName: 'w-3 h-3',
+                          imgClassName: 'w-full h-full object-contain',
+                        }) || (
+                          <span className="text-[10px] font-semibold">
+                            {providerMeta.fallback?.slice(0, 2).toUpperCase()}
+                          </span>
+                        )}
+                        <span className="truncate">{providerMeta.label}</span>
+                        {getModelIcon(resolvedModel) && (
+                          <img
+                            src={getModelIcon(resolvedModel)}
+                            alt=""
+                            width={12}
+                            height={12}
+                            className={clsx(
+                              'h-3 w-3 object-contain',
+                              getModelIconClassName(resolvedModel),
+                            )}
+                            loading="lazy"
+                          />
+                        )}
+                        <span className="truncate">{resolvedModel}</span>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div
+                    onClick={handleAgentClick}
+                    className={clsx(
+                      'flex items-center justify-center overflow-hidden rounded-full shadow-inner',
+                      hasAgentBanner ? 'bg-white/14' : '',
+                      targetAgent && 'cursor-pointer transition-opacity hover:opacity-80',
+                    )}
+                  >
+                    {renderProviderIcon(providerMeta.id, {
+                      size: 30,
+                      alt: providerMeta.label,
+                      wrapperClassName: 'p-0 w-10 h-10',
+                      imgClassName: 'w-full h-full object-contain',
+                    }) || (
+                      <span
+                        className={clsx(
+                          'text-sm font-semibold',
+                          hasAgentBanner ? 'text-white' : 'text-gray-700 dark:text-gray-200',
+                        )}
+                      >
+                        {providerMeta.fallback?.slice(0, 2).toUpperCase()}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex grow flex-col leading-tight">
+                    <div className="flex w-full items-center justify-between">
+                      <span className="text-sm font-semibold">{providerMeta.label}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      {getModelIcon(resolvedModel) && (
+                        <img
+                          src={getModelIcon(resolvedModel)}
+                          alt=""
+                          width={14}
+                          height={14}
+                          className={clsx(
+                            'h-3.5 w-3.5 object-contain',
+                            getModelIconClassName(resolvedModel),
+                          )}
+                          loading="lazy"
+                        />
+                      )}
+                      <span
+                        className={clsx(
+                          'text-xs',
+                          hasAgentBanner ? 'text-white/82' : 'text-gray-500 dark:text-gray-400',
+                        )}
+                      >
+                        {resolvedModel}
+                      </span>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
           )}
         </div>
       </div>

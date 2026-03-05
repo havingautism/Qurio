@@ -607,7 +607,7 @@ const ToolsModal = ({ isOpen, onClose }) => {
 
   return (
     <div className="animate-in fade-in fixed inset-0 z-100 flex items-center justify-center bg-black/60 backdrop-blur-sm duration-200 md:p-4">
-      <div className="relative flex h-dvh w-full flex-col overflow-hidden border-gray-200 bg-white shadow-2xl md:h-[85vh] md:max-w-5xl md:flex-row md:rounded-2xl md:border dark:border-zinc-800 dark:bg-[#191a1a]">
+      <div className="glass-elite-panel relative flex h-dvh w-full flex-col overflow-hidden border-0 md:h-[85vh] md:max-w-5xl md:flex-row md:rounded-3xl">
         <button
           onClick={onClose}
           className="absolute top-4 right-4 z-30 rounded-full bg-gray-100/50 p-2 text-gray-500 backdrop-blur-sm transition-colors hover:bg-gray-200 dark:bg-zinc-800/50 dark:hover:bg-zinc-700"
@@ -638,7 +638,7 @@ const ToolsModal = ({ isOpen, onClose }) => {
                 placeholder={t('customTools.searchPlaceholder')}
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="focus:ring-primary-500/20 focus:border-primary-500/50 w-full rounded-xl border border-gray-200 bg-white py-2 pr-4 pl-9 text-sm transition-all focus:ring-2 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900"
+                className="focus:ring-primary-500/20 focus:border-primary-500/50 w-full rounded-xl border-none bg-black/5 py-2 pr-4 pl-9 text-sm transition-all focus:ring-2 focus:outline-none dark:bg-white/5"
               />
             </div>
             <button
@@ -719,7 +719,7 @@ const ToolsModal = ({ isOpen, onClose }) => {
                               'group flex cursor-pointer items-center justify-between rounded-xl border p-1.5 transition-all select-none',
                               editingTool?.id === tool.id
                                 ? 'bg-primary-100 border-primary-500/30 shadow-sm dark:bg-zinc-800'
-                                : 'hover:bg-primary-50 border-transparent bg-white hover:border-gray-200 hover:shadow-sm dark:bg-zinc-900 dark:hover:border-zinc-700 dark:hover:bg-zinc-800/50',
+                                : 'border-transparent bg-transparent hover:border-black/5 hover:bg-black/5 hover:shadow-sm dark:bg-transparent dark:hover:border-white/5 dark:hover:bg-white/5',
                               isDisabled && 'opacity-60',
                             )}
                           >
@@ -783,11 +783,11 @@ const ToolsModal = ({ isOpen, onClose }) => {
         {/* RIGHT PANE: Detail/Form */}
         <div
           className={clsx(
-            'flex h-full w-full flex-1 flex-col overflow-hidden bg-white dark:bg-[#191a1a]',
+            'flex h-full w-full flex-1 flex-col overflow-hidden bg-transparent',
             !showForm && 'hidden md:flex',
           )}
         >
-          <div className="z-10 flex h-16 shrink-0 items-center justify-between border-b border-gray-200 bg-white/50 px-4 backdrop-blur-sm sm:px-8 dark:border-zinc-800 dark:bg-[#191a1a]/50">
+          <div className="z-10 flex h-16 shrink-0 items-center justify-between border-b border-black/5 bg-transparent px-4 sm:px-8 dark:border-white/5">
             <div className="flex items-center gap-3">
               {showForm && (
                 <button
@@ -911,7 +911,7 @@ const ToolsModal = ({ isOpen, onClose }) => {
                                         setNewServerHeaders(next)
                                       }}
                                       placeholder={t('customTools.mcp.headerNamePlaceholder')}
-                                      className="focus:ring-primary-500/20 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs focus:ring-2 focus:outline-none dark:border-zinc-800 dark:bg-zinc-900/50"
+                                      className="focus:ring-primary-500/20 w-full rounded-lg border-none bg-black/5 px-3 py-2 text-xs focus:ring-2 focus:outline-none dark:bg-white/5"
                                     />
                                   </div>
                                   <div className="col-span-2">
@@ -924,7 +924,7 @@ const ToolsModal = ({ isOpen, onClose }) => {
                                         setNewServerHeaders(next)
                                       }}
                                       placeholder={t('customTools.mcp.headerValuePlaceholder')}
-                                      className="focus:ring-primary-500/20 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs focus:ring-2 focus:outline-none dark:border-zinc-800 dark:bg-zinc-900/50"
+                                      className="focus:ring-primary-500/20 w-full rounded-lg border-none bg-black/5 px-3 py-2 text-xs focus:ring-2 focus:outline-none dark:bg-white/5"
                                     />
                                   </div>
                                   <button
@@ -979,7 +979,7 @@ const ToolsModal = ({ isOpen, onClose }) => {
                               {mcpGroupTools.map(tool => (
                                 <label
                                   key={tool.id}
-                                  className="flex items-center justify-between gap-2 rounded-lg border border-gray-200/70 bg-white/50 px-3 py-2 text-xs text-gray-600 dark:border-zinc-700/60 dark:bg-zinc-900/40 dark:text-gray-300"
+                                  className="flex items-center justify-between gap-2 rounded-lg border-none bg-black/5 px-3 py-2 text-xs text-gray-600 dark:bg-white/5 dark:text-gray-300"
                                 >
                                   <div className="min-w-0">
                                     <div className="truncate font-medium">{tool.name}</div>
@@ -1035,7 +1035,7 @@ const ToolsModal = ({ isOpen, onClose }) => {
                               className={clsx(
                                 'flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200',
                                 formData.toolType === 'mcp'
-                                  ? 'text-primary-600 dark:text-primary-400 border border-gray-200 bg-white shadow-sm dark:border-zinc-600 dark:bg-zinc-700'
+                                  ? 'text-primary-600 dark:text-primary-400 border-none bg-black/5 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:bg-white/10'
                                   : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300',
                               )}
                             >
@@ -1048,7 +1048,7 @@ const ToolsModal = ({ isOpen, onClose }) => {
                               className={clsx(
                                 'flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200',
                                 formData.toolType === 'http'
-                                  ? 'text-primary-600 dark:text-primary-400 border border-gray-200 bg-white shadow-sm dark:border-zinc-600 dark:bg-zinc-700'
+                                  ? 'text-primary-600 dark:text-primary-400 border-none bg-black/5 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:bg-white/10'
                                   : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300',
                               )}
                             >
@@ -1201,7 +1201,7 @@ const ToolsModal = ({ isOpen, onClose }) => {
                                               setFormData({ ...formData, serverHeaders: next })
                                             }}
                                             placeholder={t('customTools.mcp.headerNamePlaceholder')}
-                                            className="focus:ring-primary-500/20 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs focus:ring-2 focus:outline-none dark:border-zinc-800 dark:bg-zinc-900/50"
+                                            className="focus:ring-primary-500/20 w-full rounded-lg border-none bg-black/5 px-3 py-2 text-xs focus:ring-2 focus:outline-none dark:bg-white/5"
                                           />
                                         </div>
                                         <div className="col-span-2">
@@ -1219,7 +1219,7 @@ const ToolsModal = ({ isOpen, onClose }) => {
                                             placeholder={t(
                                               'customTools.mcp.headerValuePlaceholder',
                                             )}
-                                            className="focus:ring-primary-500/20 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs focus:ring-2 focus:outline-none dark:border-zinc-800 dark:bg-zinc-900/50"
+                                            className="focus:ring-primary-500/20 w-full rounded-lg border-none bg-black/5 px-3 py-2 text-xs focus:ring-2 focus:outline-none dark:bg-white/5"
                                           />
                                         </div>
                                         <button
@@ -1293,7 +1293,7 @@ const ToolsModal = ({ isOpen, onClose }) => {
                                         'group/item cursor-pointer rounded-xl border p-4 transition-all duration-200',
                                         selectedMcpTools.has(tool.id)
                                           ? 'border-primary-500 bg-primary-50/50 dark:bg-primary-900/10 shadow-sm'
-                                          : 'border-gray-100 bg-white hover:border-gray-200 hover:bg-gray-50/50 dark:border-zinc-800 dark:bg-zinc-900/50 dark:hover:border-zinc-700 dark:hover:bg-zinc-800/50',
+                                          : 'border-transparent bg-transparent hover:bg-black/5 dark:hover:bg-white/5',
                                       )}
                                     >
                                       <div className="flex items-start gap-3">
@@ -1389,7 +1389,7 @@ const ToolsModal = ({ isOpen, onClose }) => {
                                 onChange={e => setFormData({ ...formData, params: e.target.value })}
                                 placeholder={t('customTools.form.paramsPlaceholder')}
                                 rows={5}
-                                className="w-full rounded-lg border border-blue-200 bg-white px-3 py-2 font-mono text-sm focus:ring-2 focus:ring-blue-500/20 focus:outline-none dark:border-blue-800 dark:bg-zinc-900"
+                                className="w-full rounded-lg border-none bg-black/5 px-3 py-2 font-mono text-sm focus:ring-2 focus:ring-blue-500/20 focus:outline-none dark:bg-white/5"
                               />
                               <p className="mt-2 flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
                                 <AlertCircle size={12} />
@@ -1431,7 +1431,7 @@ const ToolsModal = ({ isOpen, onClose }) => {
               {/* Fixed Footer */}
               <div
                 className={clsx(
-                  'z-10 flex h-20 shrink-0 items-center gap-3 border-t border-gray-200 bg-white px-6 sm:px-8 dark:border-zinc-800 dark:bg-[#191a1a]',
+                  'z-10 flex h-20 shrink-0 items-center gap-3 border-t border-black/5 bg-transparent px-6 sm:px-8 dark:border-white/5',
                   isEditingServerUrl ? 'justify-between' : 'justify-end',
                 )}
               >
@@ -1531,7 +1531,7 @@ const CustomSelect = ({ value, onChange, options, renderLabel }) => {
       {isOpen && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
-          <div className="animate-in fade-in zoom-in-95 absolute top-full right-0 left-0 z-20 mt-1 overflow-hidden rounded-lg border border-gray-200 bg-white py-1 shadow-lg duration-100 dark:border-zinc-700 dark:bg-zinc-800">
+          <div className="glass-elite-dropdown animate-in fade-in zoom-in-95 absolute top-full right-0 left-0 z-20 mt-1 overflow-hidden rounded-[22px] border border-gray-200 py-1 shadow-[0_20px_52px_-28px_rgba(15,23,42,0.58)] duration-100 dark:border-zinc-700">
             {options.map(option => (
               <button
                 key={option}
@@ -1574,7 +1574,7 @@ const FormInput = ({ label, value, onChange, placeholder, type = 'text', icon, r
           placeholder={placeholder}
           rows={rows || 3}
           className={clsx(
-            'w-full resize-none rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm transition-all disabled:bg-gray-50/10 dark:border-zinc-800 dark:bg-zinc-900/50',
+            'w-full resize-none rounded-xl border-none bg-black/5 px-4 py-2.5 text-sm transition-all disabled:bg-gray-50/10 dark:bg-white/5',
             'focus:ring-primary-500/20 focus:border-primary-500/50 focus:ring-2 focus:outline-none',
             'placeholder:text-gray-400 dark:placeholder:text-zinc-600',
             icon && 'pl-11',
@@ -1587,7 +1587,7 @@ const FormInput = ({ label, value, onChange, placeholder, type = 'text', icon, r
           onChange={e => onChange(e.target.value)}
           placeholder={placeholder}
           className={clsx(
-            'w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm transition-all disabled:bg-gray-50/10 dark:border-zinc-800 dark:bg-zinc-900/50',
+            'w-full rounded-xl border-none bg-black/5 px-4 py-2.5 text-sm transition-all disabled:bg-gray-50/10 dark:bg-white/5',
             'focus:ring-primary-500/20 focus:border-primary-500/50 focus:ring-2 focus:outline-none',
             'placeholder:text-gray-400 dark:placeholder:text-zinc-600',
             icon && 'pl-11',

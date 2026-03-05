@@ -129,7 +129,7 @@ const EmailSettingsPanel = ({ backendUrl }) => {
   const [emailAddr, setEmailAddr] = useState('')
   const [appPassword, setAppPassword] = useState('')
   const [addSummaryProvider, setAddSummaryProvider] = useState(
-    globalSettings.liteModelProvider || 'openai_compatibility'
+    globalSettings.liteModelProvider || 'openai_compatibility',
   )
   const [addSummaryModel, setAddSummaryModel] = useState(globalSettings.liteModel || 'gpt-4o-mini')
   const [addModelSource, setAddModelSource] = useState('list')
@@ -215,7 +215,8 @@ const EmailSettingsPanel = ({ backendUrl }) => {
         const models = await getModelsForProvider(editSummaryProvider, { apiKey })
         if (active) {
           // Use fallback if models are empty
-          const finalModels = models?.length > 0 ? models : (FALLBACK_MODEL_OPTIONS[editSummaryProvider] || [])
+          const finalModels =
+            models?.length > 0 ? models : FALLBACK_MODEL_OPTIONS[editSummaryProvider] || []
           setAvailableModels(finalModels)
         }
       } catch (err) {
@@ -245,7 +246,8 @@ const EmailSettingsPanel = ({ backendUrl }) => {
         const models = await getModelsForProvider(addSummaryProvider, { apiKey })
         if (active) {
           // Use fallback if models are empty
-          const finalModels = models?.length > 0 ? models : (FALLBACK_MODEL_OPTIONS[addSummaryProvider] || [])
+          const finalModels =
+            models?.length > 0 ? models : FALLBACK_MODEL_OPTIONS[addSummaryProvider] || []
           setAddAvailableModels(finalModels)
         }
       } catch (err) {
@@ -285,16 +287,14 @@ const EmailSettingsPanel = ({ backendUrl }) => {
   // Validate add form
   const isAddFormValid = useMemo(() => {
     const hasBasicFields = emailAddr.trim() && appPassword.trim() && addSummaryProvider
-    const hasModel =
-      addModelSource === 'list' ? !!addSummaryModel : !!addCustomModel.trim()
+    const hasModel = addModelSource === 'list' ? !!addSummaryModel : !!addCustomModel.trim()
     return hasBasicFields && hasModel
   }, [emailAddr, appPassword, addSummaryProvider, addModelSource, addSummaryModel, addCustomModel])
 
   // Validate edit form
   const isEditFormValid = useMemo(() => {
     const hasProvider = !!editSummaryProvider
-    const hasModel =
-      editModelSource === 'list' ? !!editSummaryModel : !!editCustomModel.trim()
+    const hasModel = editModelSource === 'list' ? !!editSummaryModel : !!editCustomModel.trim()
     return hasProvider && hasModel
   }, [editSummaryProvider, editModelSource, editSummaryModel, editCustomModel])
 
@@ -466,7 +466,7 @@ const EmailSettingsPanel = ({ backendUrl }) => {
             <button
               onClick={handlePoll}
               disabled={polling}
-              className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50 dark:border-zinc-700 dark:text-gray-300 dark:hover:bg-zinc-800"
+              className="flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50 dark:border-zinc-700 dark:text-gray-300 dark:hover:bg-zinc-800"
             >
               {polling ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
               {polling ? t('settings.email.syncing') : t('settings.email.syncNow')}
@@ -476,7 +476,7 @@ const EmailSettingsPanel = ({ backendUrl }) => {
           {configs.map(config => (
             <div
               key={config.id}
-              className="rounded-xl border border-gray-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900"
+              className="glass-elite-panel dark:glass-elite-panel flex flex-col gap-6 rounded-2xl border border-gray-200/50 bg-white/30 p-6 shadow-sm backdrop-blur-xl dark:border-zinc-800 dark:bg-zinc-900/30"
             >
               {/* Config header */}
               <div className="flex items-center justify-between gap-4">
@@ -509,7 +509,7 @@ const EmailSettingsPanel = ({ backendUrl }) => {
                       <button
                         onClick={() => startEdit(config)}
                         disabled={savingId === config.id || deletingId === config.id}
-                        className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50 dark:border-zinc-700 dark:text-gray-300 dark:hover:bg-zinc-800"
+                        className="flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50 dark:border-zinc-700 dark:text-gray-300 dark:hover:bg-zinc-800"
                       >
                         <Settings size={13} />
                         {t('settings.email.settings')}
@@ -562,19 +562,21 @@ const EmailSettingsPanel = ({ backendUrl }) => {
                       <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
                         {t('settings.email.summaryModel')}
                       </label>
-                      <div className="flex rounded-lg border border-gray-200 bg-gray-100 p-0.5 dark:border-zinc-700 dark:bg-zinc-800">
+                      <div className="flex rounded-lg border border-gray-200 bg-gray-100/30 p-0.5 backdrop-blur-md dark:border-zinc-700 dark:bg-zinc-800/50">
                         <button
                           type="button"
                           onClick={() => {
                             setEditModelSource('list')
-                            const existsInList = availableModels.some(m => m.value === editSummaryModel)
+                            const existsInList = availableModels.some(
+                              m => m.value === editSummaryModel,
+                            )
                             if (!existsInList) setEditSummaryModel('')
                           }}
                           className={clsx(
                             'rounded-md px-2 py-0.5 text-xs font-medium transition-all',
                             editModelSource === 'list'
                               ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-gray-100'
-                              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300',
                           )}
                         >
                           {t('agents.model.sourceList')}
@@ -591,7 +593,7 @@ const EmailSettingsPanel = ({ backendUrl }) => {
                             'rounded-md px-2 py-0.5 text-xs font-medium transition-all',
                             editModelSource === 'custom'
                               ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-gray-100'
-                              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300',
                           )}
                         >
                           {t('agents.model.sourceCustom')}
@@ -599,11 +601,11 @@ const EmailSettingsPanel = ({ backendUrl }) => {
                       </div>
                     </div>
 
-                    <div className="rounded-lg border border-gray-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900">
+                    <div className="rounded-lg border border-gray-200/50 bg-white/20 p-3 backdrop-blur-md dark:border-zinc-700 dark:bg-zinc-900/30">
                       <div className="flex flex-col gap-3">
                         {/* Provider selector */}
                         <div className="flex flex-col gap-1.5">
-                          <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                          <span className="text-xs font-semibold tracking-wide text-gray-400 uppercase">
                             {t('agents.model.providers')}
                           </span>
                           <Select
@@ -620,7 +622,9 @@ const EmailSettingsPanel = ({ backendUrl }) => {
                               <SelectValue>
                                 <div className="flex items-center gap-2">
                                   {renderProviderIcon(editSummaryProvider, 'h-4 w-4')}
-                                  <span className="capitalize">{editSummaryProvider.replace('_', ' ')}</span>
+                                  <span className="capitalize">
+                                    {editSummaryProvider.replace('_', ' ')}
+                                  </span>
                                 </div>
                               </SelectValue>
                             </SelectTrigger>
@@ -639,7 +643,7 @@ const EmailSettingsPanel = ({ backendUrl }) => {
 
                         {/* Model selector */}
                         <div className="flex flex-col gap-1.5">
-                          <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                          <span className="text-xs font-semibold tracking-wide text-gray-400 uppercase">
                             {t('agents.model.models')}
                           </span>
                           {editModelSource === 'list' ? (
@@ -661,13 +665,20 @@ const EmailSettingsPanel = ({ backendUrl }) => {
                               <SelectContent className="dark:border-zinc-700 dark:bg-zinc-900">
                                 {availableModels.length > 0 ? (
                                   availableModels.map(m => (
-                                    <SelectItem key={m.value} value={m.value} className="dark:hover:bg-zinc-800">
+                                    <SelectItem
+                                      key={m.value}
+                                      value={m.value}
+                                      className="dark:hover:bg-zinc-800"
+                                    >
                                       <div className="flex items-center gap-2">
                                         {getModelIcon(m.value) && (
                                           <img
                                             src={getModelIcon(m.value)}
                                             alt=""
-                                            className={clsx('h-4 w-4 shrink-0', getModelIconClassName(m.value))}
+                                            className={clsx(
+                                              'h-4 w-4 shrink-0',
+                                              getModelIconClassName(m.value),
+                                            )}
                                           />
                                         )}
                                         <span>{m.label}</span>
@@ -702,7 +713,7 @@ const EmailSettingsPanel = ({ backendUrl }) => {
                   <div className="flex justify-end gap-2">
                     <button
                       onClick={cancelEdit}
-                      className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-zinc-700 dark:text-gray-300 dark:hover:bg-zinc-800"
+                      className="glass-elite-panel dark:glass-elite-panel relative flex items-center gap-4 overflow-hidden rounded-2xl border border-gray-200/50 bg-white/30 p-4 backdrop-blur-xl transition-all hover:bg-white/40 dark:border-zinc-800 dark:bg-zinc-900/30 dark:hover:bg-zinc-900/50"
                     >
                       <X size={13} />
                       {t('common.cancel')}
@@ -831,7 +842,7 @@ const EmailSettingsPanel = ({ backendUrl }) => {
                     'rounded-md px-2 py-0.5 text-xs font-medium transition-all',
                     addModelSource === 'list'
                       ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-gray-100'
-                      : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                      : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300',
                   )}
                 >
                   {t('agents.model.sourceList')}
@@ -848,7 +859,7 @@ const EmailSettingsPanel = ({ backendUrl }) => {
                     'rounded-md px-2 py-0.5 text-xs font-medium transition-all',
                     addModelSource === 'custom'
                       ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-gray-100'
-                      : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                      : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300',
                   )}
                 >
                   {t('agents.model.sourceCustom')}
@@ -860,7 +871,7 @@ const EmailSettingsPanel = ({ backendUrl }) => {
               <div className="flex flex-col gap-3">
                 {/* Provider selector */}
                 <div className="flex flex-col gap-1.5">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  <span className="text-xs font-semibold tracking-wide text-gray-400 uppercase">
                     {t('agents.model.providers')}
                   </span>
                   <Select
@@ -896,7 +907,7 @@ const EmailSettingsPanel = ({ backendUrl }) => {
 
                 {/* Model selector */}
                 <div className="flex flex-col gap-1.5">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  <span className="text-xs font-semibold tracking-wide text-gray-400 uppercase">
                     {t('agents.model.models')}
                   </span>
                   {addModelSource === 'list' ? (
@@ -918,13 +929,20 @@ const EmailSettingsPanel = ({ backendUrl }) => {
                       <SelectContent className="dark:border-zinc-700 dark:bg-zinc-900">
                         {addAvailableModels.length > 0 ? (
                           addAvailableModels.map(m => (
-                            <SelectItem key={m.value} value={m.value} className="dark:hover:bg-zinc-800">
+                            <SelectItem
+                              key={m.value}
+                              value={m.value}
+                              className="dark:hover:bg-zinc-800"
+                            >
                               <div className="flex items-center gap-2">
                                 {getModelIcon(m.value) && (
                                   <img
                                     src={getModelIcon(m.value)}
                                     alt=""
-                                    className={clsx('h-4 w-4 shrink-0', getModelIconClassName(m.value))}
+                                    className={clsx(
+                                      'h-4 w-4 shrink-0',
+                                      getModelIconClassName(m.value),
+                                    )}
                                   />
                                 )}
                                 <span>{m.label}</span>

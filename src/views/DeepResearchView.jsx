@@ -6,12 +6,12 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Microscope,
   Plus,
   Search,
   X,
   Menu,
 } from 'lucide-react'
+import { Flask as FlaskIcon } from '@phosphor-icons/react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppContext } from '../App'
@@ -198,7 +198,7 @@ const DeepResearchView = () => {
                 <Menu size={20} strokeWidth={2} />
               </button>
               <div className="flex items-center gap-3">
-                <Microscope size={32} className="text-primary-500" />
+                <FlaskIcon size={32} weight="duotone" className="text-primary-500" />
                 <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
                   {t('views.deepResearchView.title')}
                 </h1>
@@ -327,7 +327,7 @@ const DeepResearchView = () => {
               ) : conversations.length === 0 ? (
                 <div className="flex h-64 flex-col items-center justify-center gap-4 text-center">
                   <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white shadow-sm dark:bg-zinc-900">
-                    <Microscope size={28} className="text-gray-300" />
+                    <FlaskIcon size={28} weight="regular" className="text-gray-300" />
                   </div>
                   <p className="text-sm font-medium text-gray-500">
                     {t('views.deepResearchView.noThreadsFound')}

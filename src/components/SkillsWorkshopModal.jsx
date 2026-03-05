@@ -9,12 +9,40 @@ import {
   GraduationCap,
   Code,
   FileText,
+  Sparkles,
+  FileCheck,
+  ArrowLeft,
+  Settings,
+  GitBranch,
+  ShieldAlert,
+  Download,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useTranslation } from 'react-i18next'
-import { getBackendUrl } from '../lib/settings'
+import { getBackendUrl, loadSettings } from '../lib/settings'
 import { useAppContext } from '../App'
 import { useToast } from '../contexts/ToastContext'
+import { getModelsForProvider } from '../lib/models_api'
+import { FALLBACK_MODEL_OPTIONS, PROVIDER_KEYS } from '../lib/modelConstants'
+import { getPublicEnv } from '../lib/publicEnv'
+import { getProvider } from '../lib/providers'
+import { getModelIcon, getModelIconClassName, renderProviderIcon } from '../lib/modelIcons'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  SelectGroup,
+} from '@/components/ui/select'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from '@/components/ui/dialog'
 
 const SkillsWorkshopModal = ({ isOpen, onClose }) => {
   const { t } = useTranslation()
@@ -44,6 +72,345 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
   const [isCreatingFile, setIsCreatingFile] = useState(false)
   const [creatingFileType, setCreatingFileType] = useState(null) // 'script' | 'reference' | null
   const [stagedFiles, setStagedFiles] = useState({}) // path -> content cache for NEW skills
+  const [skillEnvironment, setSkillEnvironment] = useState(null)
+  const [isLoadingEnvironment, setIsLoadingEnvironment] = useState(false)
+  const [dependencyName, setDependencyName] = useState('')
+  const [isInstallingDependency, setIsInstallingDependency] = useState(false)
+
+  // AI Skill Creator State
+  const [isAIMode, setIsAIMode] = useState(false) // whether AI generator panel is visible
+  const [aiPrompt, setAiPrompt] = useState('') // user's natural language description
+  const [isGenerating, setIsGenerating] = useState(false) // generation in progress
+  const [aiResult, setAiResult] = useState(null) // { skill_id, files_created } on success
+  const [isGitImportMode, setIsGitImportMode] = useState(false)
+  const [gitRepoUrl, setGitRepoUrl] = useState('')
+  const [gitRef, setGitRef] = useState('')
+  const [gitSkillPath, setGitSkillPath] = useState('')
+  const [gitSkillId, setGitSkillId] = useState('')
+  const [isImportingGit, setIsImportingGit] = useState(false)
+
+  const [showAIConfig, setShowAIConfig] = useState(false)
+  const [availableProviders, setAvailableProviders] = useState([])
+  const [groupedModels, setGroupedModels] = useState({})
+  const [isLoadingModels, setIsLoadingModels] = useState(false)
+  const [aiProvider, setAiProvider] = useState('')
+  const [aiModel, setAiModel] = useState('')
+  const [aiModelSource, setAiModelSource] = useState('list') // 'list' | 'custom'
+  const [aiCustomModel, setAiCustomModel] = useState('')
+
+  useEffect(() => {
+    if (isAIMode && availableProviders.length === 0) {
+      loadKeysAndFetchModels()
+    }
+  }, [isAIMode])
+
+  const loadKeysAndFetchModels = async () => {
+    setIsLoadingModels(true)
+    const settings = loadSettings()
+
+    // Resolve the latest env vars
+    const ENV_VARS = {
+      openAIKey: getPublicEnv('PUBLIC_OPENAI_API_KEY'),
+      googleApiKey: getPublicEnv('PUBLIC_GOOGLE_API_KEY'),
+      siliconflowKey: getPublicEnv('PUBLIC_SILICONFLOW_API_KEY'),
+      glmKey: getPublicEnv('PUBLIC_GLM_API_KEY'),
+      deepseekKey: getPublicEnv('PUBLIC_DEEPSEEK_API_KEY'),
+      volcengineKey: getPublicEnv('PUBLIC_VOLCENGINE_API_KEY'),
+      modelscopeKey: getPublicEnv('PUBLIC_MODELSCOPE_API_KEY'),
+      kimiKey: getPublicEnv('PUBLIC_KIMI_API_KEY'),
+      nvidiaKey: getPublicEnv('PUBLIC_NVIDIA_API_KEY'),
+      minimaxKey: getPublicEnv('PUBLIC_MINIMAX_API_KEY'),
+    }
+
+    const keys = {
+      gemini: settings.googleApiKey,
+      openai_compatibility: settings.OpenAICompatibilityKey,
+      siliconflow: settings.SiliconFlowKey,
+      glm: settings.GlmKey,
+      deepseek: settings.DeepSeekKey,
+      volcengine: settings.VolcengineKey,
+      modelscope: settings.ModelScopeKey,
+      kimi: settings.KimiKey,
+      nvidia: settings.NvidiaKey,
+      minimax: settings.MinimaxKey,
+    }
+
+    const enabledProviders = PROVIDER_KEYS.filter(key => {
+      const hasApiKey =
+        keys[key] ||
+        ENV_VARS[`${key}Key`] ||
+        ENV_VARS[`${key}ApiKey`] ||
+        (key === 'gemini' && ENV_VARS.googleApiKey) ||
+        (key === 'openai_compatibility' && (ENV_VARS.openAIKey || ENV_VARS.openaiKey))
+      return hasApiKey
+    })
+    setAvailableProviders(enabledProviders)
+
+    // Global Inheritance Logic
+    const currentProvider = settings.skillGenProvider || settings.defaultModelProvider || ''
+    const currentModel = settings.skillGenModel || settings.defaultModel || ''
+    setAiProvider(currentProvider)
+    setAiModel(currentModel)
+    setAiModelSource(settings.skillGenModelSource || 'list')
+    setAiCustomModel(settings.skillGenModelSource === 'custom' ? settings.skillGenModel || '' : '')
+
+    if (currentProvider && currentProvider !== '__none__') {
+      fetchModelsForProvider(currentProvider)
+    }
+    setIsLoadingModels(false)
+  }
+
+  const fetchModelsForProvider = async p => {
+    if (!p || p === '__none__') return
+    const settings = loadSettings()
+    const providerCreds = {
+      gemini: { apiKey: settings.googleApiKey },
+      openai_compatibility: {
+        apiKey: settings.OpenAICompatibilityKey,
+        baseUrl: settings.OpenAICompatibilityUrl,
+      },
+      siliconflow: { apiKey: settings.SiliconFlowKey, baseUrl: 'https://api.siliconflow.cn/v1' },
+      glm: { apiKey: settings.GlmKey },
+      deepseek: {
+        apiKey: settings.DeepSeekKey,
+        baseUrl: getPublicEnv('PUBLIC_DEEPSEEK_BASE_URL') || 'https://api.deepseek.com/v1',
+      },
+      volcengine: {
+        apiKey: settings.VolcengineKey,
+        baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
+      },
+      modelscope: { apiKey: settings.ModelScopeKey },
+      kimi: { apiKey: settings.KimiKey },
+      nvidia: { apiKey: settings.NvidiaKey, baseUrl: 'https://integrate.api.nvidia.com/v1' },
+      minimax: { apiKey: settings.MinimaxKey, baseUrl: 'https://api.minimax.io/v1' },
+    }
+
+    try {
+      const models = await getModelsForProvider(p, providerCreds[p] || {})
+      setGroupedModels(prev => ({
+        ...prev,
+        [p]: models?.length ? models : FALLBACK_MODEL_OPTIONS[p] || [],
+      }))
+    } catch (e) {
+      setGroupedModels(prev => ({
+        ...prev,
+        [p]: FALLBACK_MODEL_OPTIONS[p] || [],
+      }))
+    }
+  }
+
+  const handleAIProviderChange = val => {
+    const p = val === '__none__' ? '' : val
+    setAiProvider(p)
+    setAiModel('')
+    setAiCustomModel('')
+    setAiModelSource('list')
+    if (p) {
+      fetchModelsForProvider(p)
+    }
+  }
+
+  const handleSaveAIConfig = () => {
+    const finalModel = aiModelSource === 'custom' ? aiCustomModel : aiModel
+    const newSettings = {
+      skillGenProvider: aiProvider,
+      skillGenModel: finalModel,
+      skillGenModelSource: aiModelSource,
+    }
+    const current = loadSettings()
+    const updated = { ...current, ...newSettings }
+    localStorage.setItem('app_settings', JSON.stringify(updated))
+    setShowAIConfig(false)
+    toast.success('AI Configuration saved')
+  }
+
+  const handleResetAIConfig = () => {
+    const current = loadSettings()
+    const updated = {
+      ...current,
+      skillGenProvider: '',
+      skillGenModel: '',
+      skillGenModelSource: 'list',
+    }
+    localStorage.setItem('app_settings', JSON.stringify(updated))
+    setAiProvider(current.defaultModelProvider || '')
+    setAiModel(current.defaultModel || '')
+    setAiModelSource('list')
+    setAiCustomModel('')
+    toast.success('Reset to global defaults')
+  }
+
+  /**
+   * Reads the selected provider + api_key from localStorage (set in Settings),
+
+   * calls POST /api/skills/generate, and on success refreshes the skill list.
+   */
+  const handleAIGenerate = async () => {
+    if (!aiPrompt.trim()) return
+
+    const settings = loadSettings()
+    // Resolve the latest env vars
+    const ENV_VARS = {
+      openAIKey: getPublicEnv('PUBLIC_OPENAI_API_KEY'),
+      googleApiKey: getPublicEnv('PUBLIC_GOOGLE_API_KEY'),
+      siliconflowKey: getPublicEnv('PUBLIC_SILICONFLOW_API_KEY'),
+      glmKey: getPublicEnv('PUBLIC_GLM_API_KEY'),
+      deepseekKey: getPublicEnv('PUBLIC_DEEPSEEK_API_KEY'),
+      volcengineKey: getPublicEnv('PUBLIC_VOLCENGINE_API_KEY'),
+      modelscopeKey: getPublicEnv('PUBLIC_MODELSCOPE_API_KEY'),
+      kimiKey: getPublicEnv('PUBLIC_KIMI_API_KEY'),
+      nvidiaKey: getPublicEnv('PUBLIC_NVIDIA_API_KEY'),
+      minimaxKey: getPublicEnv('PUBLIC_MINIMAX_API_KEY'),
+    }
+
+    const provider = aiProvider || settings.defaultModelProvider || ''
+    const model =
+      aiModelSource === 'custom' ? aiCustomModel : aiModel || settings.defaultModel || ''
+
+    if (!provider) {
+      toast.error('Please select a provider or configure global default.')
+      return
+    }
+
+    // Resolve credentials
+    const credentials = {
+      openai: { apiKey: settings.openaiApiKey || ENV_VARS.openAIKey },
+      gemini: { apiKey: settings.googleApiKey || ENV_VARS.googleApiKey },
+      openai_compatibility: {
+        apiKey: settings.OpenAICompatibilityKey || ENV_VARS.openAIKey || ENV_VARS.openaiKey,
+        baseUrl: settings.OpenAICompatibilityUrl,
+      },
+      siliconflow: {
+        apiKey: settings.SiliconFlowKey || ENV_VARS.siliconflowKey,
+        baseUrl: 'https://api.siliconflow.cn/v1',
+      },
+      glm: { apiKey: settings.GlmKey || ENV_VARS.glmKey },
+      deepseek: {
+        apiKey: settings.DeepSeekKey || ENV_VARS.deepseekKey,
+        baseUrl: getPublicEnv('PUBLIC_DEEPSEEK_BASE_URL') || 'https://api.deepseek.com/v1',
+      },
+      volcengine: {
+        apiKey: settings.VolcengineKey || ENV_VARS.volcengineKey,
+        baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
+      },
+      modelscope: { apiKey: settings.ModelScopeKey || ENV_VARS.modelscopeKey },
+      kimi: { apiKey: settings.KimiKey || ENV_VARS.kimiKey },
+      nvidia: {
+        apiKey: settings.NvidiaKey || ENV_VARS.nvidiaKey,
+        baseUrl: 'https://integrate.api.nvidia.com/v1',
+      },
+      minimax: {
+        apiKey: settings.MinimaxKey || ENV_VARS.minimaxKey,
+        baseUrl: 'https://api.minimax.io/v1',
+      },
+    }
+
+    const creds = credentials[provider] || {}
+    const apiKey = creds.apiKey
+
+    if (!apiKey) {
+      toast.error(
+        t('agents.skills.aiConfigNoKey', 'No API key found. Configure one in Settings first.'),
+      )
+      return
+    }
+
+    setIsGenerating(true)
+    setAiResult(null)
+    try {
+      const res = await fetch(`${getBackendUrl()}/api/skills/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: aiPrompt.trim(),
+          provider,
+          api_key: apiKey,
+          base_url: creds.baseUrl,
+          model,
+        }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setAiResult(data)
+        toast.success(t('agents.skills.aiGenerateSuccess', 'Skill generated!'))
+        // Refresh global skills list so new skill is immediately visible
+        window.dispatchEvent(new CustomEvent('skills-changed'))
+        fetchSkills()
+      } else {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.detail || 'Generation failed')
+      }
+    } catch (err) {
+      console.error(err)
+      toast.error(
+        err.message || t('agents.skills.aiGenerateError', 'Generation failed, please try again'),
+      )
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  const handleImportFromGit = async () => {
+    if (!gitRepoUrl.trim()) {
+      toast.error(
+        t('agents.skills.gitImportRepoRequired', 'Please enter a Git repository URL first.'),
+      )
+      return
+    }
+
+    showConfirmation({
+      title: t('agents.skills.gitImportConfirmTitle', 'Import third-party skill from Git?'),
+      message: t(
+        'agents.skills.gitImportConfirmMessage',
+        'Third-party skills may contain unsafe instructions or scripts. Please verify the source and review imported files before use.',
+      ),
+      confirmText: t('agents.skills.gitImportBtn', 'Import from Git'),
+      isDangerous: true,
+      onConfirm: async () => {
+        setIsImportingGit(true)
+        try {
+          const payload = {
+            repo_url: gitRepoUrl.trim(),
+          }
+          if (gitRef.trim()) payload.ref = gitRef.trim()
+          if (gitSkillPath.trim()) payload.skill_path = gitSkillPath.trim()
+          if (gitSkillId.trim()) payload.skill_id = gitSkillId.trim()
+
+          const res = await fetch(`${getBackendUrl()}/api/skills/import/git`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          })
+
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}))
+            throw new Error(err.detail || 'Failed to import skill from Git')
+          }
+
+          const data = await res.json()
+          toast.success(
+            t('agents.skills.gitImportSuccess', 'Imported skill: {{skillId}}', {
+              skillId: data.id,
+            }),
+          )
+          window.dispatchEvent(new CustomEvent('skills-changed'))
+          await fetchSkills()
+          setIsGitImportMode(false)
+          setGitRepoUrl('')
+          setGitRef('')
+          setGitSkillPath('')
+          setGitSkillId('')
+        } catch (err) {
+          console.error(err)
+          toast.error(
+            err.message || t('agents.skills.gitImportError', 'Failed to import skill from Git'),
+          )
+        } finally {
+          setIsImportingGit(false)
+        }
+      },
+    })
+  }
 
   // Categorized Files
   const { scripts, references } = React.useMemo(() => {
@@ -65,7 +432,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
       }
     } catch (err) {
       console.error(err)
-      toast.error(t('skills.loadError', 'Failed to load skills'))
+      toast.error(t('agents.skills.loadError', 'Failed to load skills'))
     } finally {
       setIsLoading(false)
     }
@@ -90,6 +457,8 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
     setActiveFile('SKILL.md')
     setSkillFiles([])
     setStagedFiles({})
+    setSkillEnvironment(null)
+    setDependencyName('')
   }
 
   const handleEdit = async skillId => {
@@ -107,13 +476,15 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
         setIsEditing(true)
         setActiveFile('SKILL.md')
         setStagedFiles({}) // Clear any stale staged changes
+        setDependencyName('')
         fetchSkillFiles(skillId)
+        fetchSkillEnvironment(skillId)
       } else {
         throw new Error('Failed to fetch skill details')
       }
     } catch (err) {
       console.error(err)
-      toast.error(t('skills.detailsError', 'Failed to load skill details'))
+      toast.error(t('agents.skills.detailsError', 'Failed to load skill details'))
     }
   }
 
@@ -127,6 +498,102 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
     } catch (err) {
       console.error('Failed to fetch skill files', err)
     }
+  }
+
+  const fetchSkillEnvironment = async skillId => {
+    if (!skillId) {
+      setSkillEnvironment(null)
+      return
+    }
+    setIsLoadingEnvironment(true)
+    try {
+      const res = await fetch(`${getBackendUrl()}/api/skills/${skillId}/environment`)
+      if (res.ok) {
+        const data = await res.json()
+        setSkillEnvironment(data)
+      } else {
+        throw new Error('Failed to fetch skill environment')
+      }
+    } catch (err) {
+      console.error('Failed to fetch skill environment', err)
+      setSkillEnvironment(null)
+    } finally {
+      setIsLoadingEnvironment(false)
+    }
+  }
+
+  const handleInstallDependency = async () => {
+    const skillId = formData.id?.trim()
+    const packageName = dependencyName.trim()
+    if (!skillId) {
+      toast.error(t('agents.skills.idRequired', 'Please enter a Skill ID first'))
+      return
+    }
+    if (isNew) {
+      toast.error(
+        t(
+          'agents.skills.installDependencySaveFirst',
+          'Save the skill first before installing dependencies.',
+        ),
+      )
+      return
+    }
+    if (!/^[A-Za-z0-9-]+$/.test(packageName)) {
+      toast.error(
+        t(
+          'agents.skills.installDependencyInvalid',
+          'Package name may only contain letters, numbers, and hyphens.',
+        ),
+      )
+      return
+    }
+
+    showConfirmation({
+      title: t('agents.skills.installDependencyConfirmTitle', 'Install dependency?'),
+      message: t(
+        'agents.skills.installDependencyConfirmMessage',
+        'This will create or reuse an isolated virtual environment for the skill and install the requested package.',
+      ),
+      confirmText: t('agents.skills.installDependencyBtn', 'Install'),
+      onConfirm: async () => {
+        setIsInstallingDependency(true)
+        try {
+          const res = await fetch(`${getBackendUrl()}/api/skills/${skillId}/dependencies/install`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ package_name: packageName }),
+          })
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}))
+            const detail = err?.detail
+            const message =
+              typeof detail === 'string'
+                ? detail
+                : detail?.message || 'Failed to install dependency'
+            throw new Error(message)
+          }
+          const data = await res.json()
+          toast.success(
+            data.venv_created
+              ? t(
+                  'agents.skills.installDependencyCreated',
+                  'Dependency installed and isolated environment created.',
+                )
+              : t('agents.skills.installDependencySuccess', 'Dependency installed successfully.'),
+          )
+          setDependencyName('')
+          fetchSkillEnvironment(skillId)
+        } catch (err) {
+          console.error(err)
+          toast.error(
+            err.message ||
+              t('agents.skills.installDependencyError', 'Failed to install dependency'),
+          )
+        } finally {
+          setIsInstallingDependency(false)
+        }
+      },
+    })
   }
 
   const loadFileContent = async (skillId, path) => {
@@ -174,7 +641,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
     if (activeFile === 'SKILL.md') return
 
     setStagedFiles(prev => ({ ...prev, [activeFile]: fileContent }))
-    toast.success(t('skills.fileStaged', 'Changes staged locally'))
+    toast.success(t('agents.skills.fileStaged', 'Changes staged locally'))
   }
 
   const handleCreateFile = async e => {
@@ -218,7 +685,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
       setIsCreatingFile(false)
       setCreatingFileType(null)
       setNewFileName('')
-      toast.success(t('skills.fileStaged', 'File created locally (Save Skill to commit)'))
+      toast.success(t('agents.skills.fileCreated', 'File created locally (Save Skill to commit)'))
     } catch (err) {
       console.error(err)
       toast.error(`Failed to create ${finalPath}`)
@@ -239,7 +706,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
           return next
         })
         if (activeFile === path) setActiveFile('SKILL.md')
-        toast.success(t('skills.fileDeleted', 'File removed'))
+        toast.success(t('agents.skills.fileDeleted', 'File removed'))
         return
       }
 
@@ -281,7 +748,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
           method: 'DELETE',
         })
         if (res.ok) {
-          toast.success(t('skills.deleteSuccess', 'Skill deleted successfully'))
+          toast.success(t('agents.skills.deleteSuccess', 'Skill deleted successfully'))
           window.dispatchEvent(new CustomEvent('skills-changed'))
           fetchSkills()
         } else {
@@ -289,14 +756,14 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
         }
       } catch (err) {
         console.error(err)
-        toast.error(t('skills.deleteError', 'Failed to delete skill'))
+        toast.error(t('agents.skills.deleteError', 'Failed to delete skill'))
       }
     }
 
     showConfirmation({
-      title: t('skills.deleteConfirmTitle', 'Delete Skill?'),
+      title: t('agents.skills.deleteConfirmTitle', 'Delete Skill?'),
       message: t(
-        'skills.deleteConfirmMessage',
+        'agents.skills.deleteConfirmMessage',
         'Are you sure you want to delete this skill? Default agents may break if relying on it.',
       ),
       confirmText: t('common.delete', 'Delete'),
@@ -311,22 +778,22 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
 
     // Mandatory Metadata Validation
     if (!formData.id.trim()) {
-      toast.error(t('skills.idRequired', 'Skill ID is required'))
+      toast.error(t('agents.skills.idRequired', 'Skill ID is required'))
       setIsSaving(false)
       return
     }
     if (!formData.name.trim()) {
-      toast.error(t('skills.nameRequired', 'Display Name is required'))
+      toast.error(t('agents.skills.nameRequired', 'Display Name is required'))
       setIsSaving(false)
       return
     }
     if (!formData.description.trim()) {
-      toast.error(t('skills.descriptionRequired', 'Short Description is required'))
+      toast.error(t('agents.skills.descriptionRequired', 'Short Description is required'))
       setIsSaving(false)
       return
     }
     if (!formData.instructions.trim() || formData.instructions.trim() === '# Instructions') {
-      toast.error(t('skills.instructionsRequired', 'System Instructions are required'))
+      toast.error(t('agents.skills.instructionsRequired', 'System Instructions are required'))
       setIsSaving(false)
       return
     }
@@ -335,7 +802,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
     if (!/^[a-z0-9-]+$/.test(cleanId) || cleanId.length > 64) {
       toast.error(
         t(
-          'skills.invalidId',
+          'agents.skills.invalidId',
           'Skill ID must be 1-64 characters, lowercase, alphanumeric, and hyphens only',
         ),
       )
@@ -344,7 +811,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
     }
 
     if (formData.description.length > 1024) {
-      toast.error(t('skills.descTooLong', 'Description must be 1024 characters or less'))
+      toast.error(t('agents.skills.descTooLong', 'Description must be 1024 characters or less'))
       setIsSaving(false)
       return
     }
@@ -375,7 +842,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
       })
 
       if (res.ok) {
-        toast.success(t('skills.saveSuccess', 'Skill saved successfully'))
+        toast.success(t('agents.skills.saveSuccess', 'Skill saved successfully'))
 
         // Dispatch global event to refresh other components
         window.dispatchEvent(new CustomEvent('skills-changed'))
@@ -401,6 +868,9 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
         }
 
         fetchSkills()
+        if (cleanId) {
+          fetchSkillEnvironment(cleanId)
+        }
         if (shouldClose) onClose()
       } else {
         const errData = await res.json()
@@ -408,7 +878,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
       }
     } catch (err) {
       console.error(err)
-      toast.error(err.message || t('skills.saveError', 'Failed to save skill'))
+      toast.error(err.message || t('agents.skills.saveError', 'Failed to save skill'))
     } finally {
       setIsSaving(false)
     }
@@ -440,25 +910,25 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
       />
 
       {/* Modal */}
-      <div className="relative z-10 flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="glass-elite-panel relative z-10 flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-[28px] border-none shadow-2xl">
         {/* Header */}
-        <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-zinc-800">
+        <div className="flex shrink-0 items-center justify-between border-b border-black/5 px-6 py-4 dark:border-white/5">
           <div>
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
               {isEditing
                 ? isNew
-                  ? t('skills.createNew', 'Create New Skill')
-                  : t('skills.editSkill', 'Edit Skill')
-                : t('sidebar.skills', 'Skills Workshop')}
+                  ? t('agents.skills.createNew', 'Create New Skill')
+                  : t('agents.skills.editSkill', 'Edit Skill')
+                : t('agents.tabs.skills', 'Skills Workshop')}
             </h2>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
               {isEditing
                 ? t(
-                    'skills.editDesc',
+                    'agents.skills.editDesc',
                     'Define the system instructions and capabilities for this skill',
                   )
                 : t(
-                    'skills.workshopDesc',
+                    'agents.skills.workshopDesc',
                     'Create macro-skills that can be attached to any Agent context',
                   )}
             </p>
@@ -472,11 +942,11 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
         </div>
 
         {/* Content Area */}
-        <div className="no-scrollbar flex-1 overflow-y-auto bg-gray-50/50 dark:bg-zinc-900/50">
+        <div className="no-scrollbar flex-1 overflow-y-auto bg-transparent">
           {isEditing ? (
             <div className="flex h-full min-h-[500px]">
               {/* Left Sidebar for Files */}
-              <div className="no-scrollbar flex w-64 shrink-0 flex-col overflow-y-auto border-r border-gray-200 bg-gray-50/50 p-4 dark:border-zinc-800 dark:bg-zinc-900/50">
+              <div className="no-scrollbar flex w-64 shrink-0 flex-col overflow-y-auto border-r border-black/5 bg-transparent p-4 dark:border-white/5">
                 {/* General Header (SKILL.md) */}
                 <div className="mb-6">
                   <button
@@ -502,7 +972,9 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                     <button
                       onClick={() => {
                         if (isNew && !formData.id.trim()) {
-                          toast.error(t('skills.idRequired', 'Please enter a Skill ID first'))
+                          toast.error(
+                            t('agents.skills.idRequired', 'Please enter a Skill ID first'),
+                          )
                           return
                         }
                         setIsCreatingFile(true)
@@ -516,7 +988,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
 
                   {isCreatingFile && creatingFileType === 'script' && (
                     <form onSubmit={handleCreateFile} className="mb-2 px-2">
-                      <div className="border-primary-300 dark:border-primary-900/50 flex items-center gap-1 rounded border bg-white p-1 dark:bg-zinc-800">
+                      <div className="flex items-center gap-1 rounded border-none bg-black/5 p-1 dark:bg-white/5">
                         <input
                           autoFocus
                           type="text"
@@ -547,8 +1019,8 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                           className={clsx(
                             'flex w-full items-center gap-2 truncate rounded-md px-2 py-1.5 text-left text-sm transition-colors',
                             activeFile === file
-                              ? 'bg-primary-50 text-primary-600 dark:bg-primary-500/10 dark:text-primary-400 font-medium'
-                              : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-zinc-800',
+                              ? 'text-primary-600 dark:text-primary-400 bg-black/5 font-medium dark:bg-white/10'
+                              : 'text-gray-600 hover:bg-black/5 dark:text-gray-300 dark:hover:bg-white/5',
                           )}
                         >
                           <Code size={14} className="shrink-0 opacity-60" />
@@ -579,7 +1051,9 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                     <button
                       onClick={() => {
                         if (isNew && !formData.id.trim()) {
-                          toast.error(t('skills.idRequired', 'Please enter a Skill ID first'))
+                          toast.error(
+                            t('agents.skills.idRequired', 'Please enter a Skill ID first'),
+                          )
                           return
                         }
                         setIsCreatingFile(true)
@@ -593,7 +1067,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
 
                   {isCreatingFile && creatingFileType === 'reference' && (
                     <form onSubmit={handleCreateFile} className="mb-2 px-2">
-                      <div className="border-primary-300 dark:border-primary-900/50 flex items-center gap-1 rounded border bg-white p-1 dark:bg-zinc-800">
+                      <div className="flex items-center gap-1 rounded border-none bg-black/5 p-1 dark:bg-white/5">
                         <input
                           autoFocus
                           type="text"
@@ -624,8 +1098,8 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                           className={clsx(
                             'flex w-full items-center gap-2 truncate rounded-md px-2 py-1.5 text-left text-sm transition-colors',
                             activeFile === file
-                              ? 'bg-primary-50 text-primary-600 dark:bg-primary-500/10 dark:text-primary-400 font-medium'
-                              : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-zinc-800',
+                              ? 'text-primary-600 dark:text-primary-400 bg-black/5 font-medium dark:bg-white/10'
+                              : 'text-gray-600 hover:bg-black/5 dark:text-gray-300 dark:hover:bg-white/5',
                           )}
                         >
                           <FileText size={14} className="shrink-0 opacity-60" />
@@ -659,7 +1133,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                     <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                       <div className="space-y-2">
                         <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                          {t('skills.idLabel', 'Skill ID (Internal Name)')}
+                          {t('agents.skills.idLabel', 'Skill ID (Internal Name)')}
                         </label>
                         <input
                           type="text"
@@ -673,7 +1147,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                             }
                           }}
                           placeholder="e.g. pirate-greeter"
-                          className="focus:border-primary-500 focus:ring-primary-500/20 w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 transition-all outline-none placeholder:text-gray-400 focus:ring-2 disabled:bg-gray-100 disabled:text-gray-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white dark:disabled:bg-zinc-800/50"
+                          className="focus:ring-primary-500/20 w-full rounded-xl border-none bg-black/5 px-4 py-2.5 text-sm transition-all outline-none placeholder:text-gray-400 focus:ring-2 disabled:bg-gray-50/10 disabled:opacity-50 dark:bg-white/5 dark:placeholder:text-zinc-600"
                         />
                         {isNew && (
                           <p className="text-[10px] text-gray-500">
@@ -684,7 +1158,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
 
                       <div className="space-y-2">
                         <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                          {t('skills.nameLabel', 'Display Name')}
+                          {t('agents.skills.nameLabel', 'Display Name')}
                         </label>
                         <input
                           type="text"
@@ -692,14 +1166,115 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                           value={formData.name}
                           onChange={e => setFormData({ ...formData, name: e.target.value })}
                           placeholder="e.g. Pirate Greeter"
-                          className="focus:border-primary-500 focus:ring-primary-500/20 w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 transition-all outline-none placeholder:text-gray-400 focus:ring-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+                          className="focus:ring-primary-500/20 w-full rounded-xl border-none bg-black/5 px-4 py-2.5 text-sm transition-all outline-none placeholder:text-gray-400 focus:ring-2 dark:bg-white/5"
                         />
                       </div>
                     </div>
 
+                    <div className="rounded-2xl border border-black/5 bg-black/5 p-4 dark:border-white/5 dark:bg-white/5">
+                      <div className="mb-3 flex items-start justify-between gap-4">
+                        <div>
+                          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                            {t('agents.skills.environmentTitle', 'Runtime Environment')}
+                          </h3>
+                          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                            {t(
+                              'agents.skills.environmentDesc',
+                              'Manage an isolated virtual environment for scripts generated by this skill.',
+                            )}
+                          </p>
+                        </div>
+                        {!isNew && formData.id && (
+                          <button
+                            type="button"
+                            onClick={() => fetchSkillEnvironment(formData.id)}
+                            disabled={isLoadingEnvironment}
+                            className="rounded-lg border border-black/5 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-black/5 disabled:opacity-50 dark:border-white/5 dark:text-gray-300 dark:hover:bg-white/5"
+                          >
+                            {isLoadingEnvironment
+                              ? t('common.loading', 'Loading...')
+                              : t('common.refresh', 'Refresh')}
+                          </button>
+                        )}
+                      </div>
+
+                      {isNew ? (
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {t(
+                            'agents.skills.environmentSaveFirst',
+                            'Save the skill first to create or inspect its isolated environment.',
+                          )}
+                        </p>
+                      ) : (
+                        <div className="space-y-3">
+                          <div className="flex flex-wrap items-center gap-2 text-xs">
+                            <span
+                              className={clsx(
+                                'rounded-full px-2.5 py-1 font-medium',
+                                skillEnvironment?.venv_exists
+                                  ? 'bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-400'
+                                  : 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300',
+                              )}
+                            >
+                              {skillEnvironment?.venv_exists
+                                ? t('agents.skills.environmentReady', 'Environment ready')
+                                : t('agents.skills.environmentMissing', 'Environment not created')}
+                            </span>
+                            {skillEnvironment?.scripts_dir_exists && (
+                              <span className="rounded-full bg-blue-50 px-2.5 py-1 font-medium text-blue-700 dark:bg-blue-500/10 dark:text-blue-300">
+                                {t('agents.skills.environmentScriptsPresent', 'Scripts folder found')}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="rounded-xl bg-white/70 px-3 py-2 text-xs text-gray-600 dark:bg-black/10 dark:text-gray-300">
+                            <span className="font-medium text-gray-700 dark:text-gray-200">
+                              {t('agents.skills.environmentPython', 'Python path')}
+                              {': '}
+                            </span>
+                            <span className="font-mono break-all">
+                              {skillEnvironment?.python_path ||
+                                t('agents.skills.environmentPythonPending', 'Will be created on first install')}
+                            </span>
+                          </div>
+
+                          <div className="flex flex-col gap-3 sm:flex-row">
+                            <input
+                              type="text"
+                              value={dependencyName}
+                              onChange={e => setDependencyName(e.target.value)}
+                              placeholder={t(
+                                'agents.skills.installDependencyPlaceholder',
+                                'e.g. requests',
+                              )}
+                              className="focus:ring-primary-500/20 h-10 flex-1 rounded-xl border-none bg-white/80 px-4 text-sm outline-none placeholder:text-gray-400 focus:ring-2 dark:bg-black/10 dark:text-white dark:placeholder:text-zinc-500"
+                            />
+                            <button
+                              type="button"
+                              onClick={handleInstallDependency}
+                              disabled={isInstallingDependency || !dependencyName.trim()}
+                              className="bg-primary-500 hover:bg-primary-600 flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-sm font-medium text-white shadow-sm transition-all hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {isInstallingDependency ? (
+                                <>
+                                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                                  {t('agents.skills.installDependencyInstalling', 'Installing...')}
+                                </>
+                              ) : (
+                                <>
+                                  <Settings size={14} />
+                                  {t('agents.skills.installDependencyBtn', 'Install Dependency')}
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {t('skills.descLabel', 'Short Description')}
+                        {t('agents.skills.descLabel', 'Short Description')}
                       </label>
                       <input
                         type="text"
@@ -711,7 +1286,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                           }
                         }}
                         placeholder="Describes what this skill does briefly"
-                        className="focus:border-primary-500 focus:ring-primary-500/20 w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 transition-all outline-none placeholder:text-gray-400 focus:ring-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+                        className="focus:ring-primary-500/20 w-full rounded-xl border-none bg-black/5 px-4 py-2.5 text-sm transition-all outline-none placeholder:text-gray-400 focus:ring-2 dark:bg-white/5"
                       />
                       <p className="text-right text-[10px] text-gray-400">
                         {formData.description.length}/1024
@@ -721,7 +1296,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                     <div className="flex min-h-[300px] flex-1 flex-col space-y-2">
                       <div className="flex items-center justify-between">
                         <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                          {t('skills.instructionsLabel', 'System Instructions (Markdown)')}
+                          {t('agents.skills.instructionsLabel', 'System Instructions (Markdown)')}
                         </label>
                       </div>
                       <textarea
@@ -729,7 +1304,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                         value={formData.instructions}
                         onChange={e => setFormData({ ...formData, instructions: e.target.value })}
                         placeholder="You are an expert at..."
-                        className="focus:border-primary-500 focus:ring-primary-500/20 min-h-[300px] w-full flex-1 resize-none rounded-xl border border-gray-200 bg-white p-4 font-mono text-sm text-gray-900 transition-all outline-none placeholder:text-gray-400 focus:ring-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+                        className="focus:ring-primary-500/20 min-h-[300px] w-full flex-1 resize-none rounded-xl border-none bg-black/5 p-4 font-mono text-sm transition-all outline-none placeholder:text-gray-400 focus:ring-2 dark:bg-white/5"
                       />
                     </div>
                   </form>
@@ -746,23 +1321,500 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                       <textarea
                         value={fileContent}
                         onChange={e => setFileContent(e.target.value)}
-                        className="focus:border-primary-500 focus:ring-primary-500/20 w-full flex-1 resize-none rounded-xl border border-gray-200 bg-white p-4 font-mono text-sm text-gray-900 transition-all outline-none focus:ring-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+                        className="focus:ring-primary-500/20 w-full flex-1 resize-none rounded-xl border-none bg-black/5 p-4 font-mono text-sm transition-all outline-none focus:ring-2 dark:bg-white/5"
                       />
                     )}
                   </div>
                 )}
               </div>
             </div>
+          ) : isAIMode ? (
+            /* ── AI Skill Creator Panel ─────────────────────────────────────── */
+            <div className="flex flex-1 flex-col p-6">
+              {/* Panel Header */}
+              <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => {
+                      setIsAIMode(false)
+                      setAiResult(null)
+                      setAiPrompt('')
+                    }}
+                    className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-zinc-800 dark:hover:text-gray-300"
+                  >
+                    <ArrowLeft size={18} />
+                  </button>
+                  <div>
+                    <h3 className="font-semibold text-gray-900 dark:text-white">
+                      {t('agents.skills.aiGenerateTitle', 'Generate Skill with AI')}
+                    </h3>
+                    <p className="text-xs text-gray-400 dark:text-zinc-500">
+                      {t(
+                        'agents.skills.aiGenerateSubtitle',
+                        'Powered by your configured AI provider',
+                      )}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Settings Configuration Button */}
+                <button
+                  onClick={() => setShowAIConfig(true)}
+                  className="flex h-9 items-center gap-2 rounded-xl border border-black/5 px-3 text-sm font-medium text-gray-600 transition-colors hover:bg-black/5 dark:border-white/5 dark:text-gray-300 dark:hover:bg-white/5"
+                >
+                  <Settings size={16} />
+                  {getProvider(aiProvider)?.name || t('settings.email.provider', 'Provider')}
+                </button>
+              </div>
+
+              {/* AI Config Dialog */}
+              <Dialog open={showAIConfig} onOpenChange={open => !open && setShowAIConfig(false)}>
+                <DialogContent className="sm:max-w-[425px]">
+                  <DialogHeader>
+                    <DialogTitle className="text-gray-900 dark:text-gray-100">
+                      {t('settings.modelConfig', 'Model Configuration')}
+                    </DialogTitle>
+                    <DialogDescription className="text-gray-500 dark:text-gray-400">
+                      {t(
+                        'agents.skills.aiConfigDesc',
+                        'Select the AI model specifically for generating this skill. Provider list based on your API keys.',
+                      )}
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  <div className="py-2">
+                    {isLoadingModels ? (
+                      <div className="flex items-center justify-center p-4">
+                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--color-primary-500)] border-t-transparent" />
+                      </div>
+                    ) : availableProviders.length === 0 ? (
+                      <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-500/10 dark:text-red-400">
+                        {t(
+                          'agents.skills.aiConfigNoKey',
+                          'Configure an API key in Settings first.',
+                        )}
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="flex flex-col gap-2">
+                          <span className="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400">
+                            {t('settings.email.provider', 'Provider')}
+                          </span>
+                          <Select
+                            value={aiProvider || '__none__'}
+                            onValueChange={handleAIProviderChange}
+                          >
+                            <SelectTrigger className="h-10 w-full rounded-xl border-none bg-black/5 focus-visible:ring-1 focus-visible:ring-black/10 dark:bg-white/5 dark:focus-visible:ring-white/10">
+                              <SelectValue
+                                placeholder={t('settings.inheritGlobal', 'Inherit Global')}
+                              >
+                                {aiProvider ? (
+                                  <div className="flex items-center gap-2">
+                                    {renderProviderIcon(aiProvider, { size: 16 })}
+                                    <span>{getProvider(aiProvider)?.name || aiProvider}</span>
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-400">
+                                    {t('settings.inheritGlobal', 'Inherit Global')}
+                                  </span>
+                                )}
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent className="z-[300] min-w-[200px] overflow-hidden rounded-xl border border-black/10 bg-white p-1 shadow-2xl dark:border-white/10 dark:bg-zinc-900">
+                              {availableProviders.map(provKey => {
+                                const config = getProvider(provKey)
+                                return (
+                                  <SelectItem key={provKey} value={provKey}>
+                                    <div className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
+                                      {renderProviderIcon(provKey, { size: 16 })}
+                                      <span>{config?.name || provKey}</span>
+                                    </div>
+                                  </SelectItem>
+                                )
+                              })}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="flex flex-col gap-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400">
+                              {t('settings.email.model', 'Model')}
+                            </span>
+                            {aiProvider && (
+                              <button
+                                onClick={() =>
+                                  setAiModelSource(s => (s === 'custom' ? 'list' : 'custom'))
+                                }
+                                className="text-xs text-[var(--color-primary-500)] hover:underline"
+                              >
+                                {aiModelSource === 'custom'
+                                  ? t('settings.selectFromList', 'Select from List')
+                                  : t('settings.manualInput', 'Manual Input')}
+                              </button>
+                            )}
+                          </div>
+
+                          {aiModelSource === 'custom' ? (
+                            <input
+                              value={aiCustomModel}
+                              onChange={e => setAiCustomModel(e.target.value)}
+                              placeholder={t('settings.inputModelName', 'Input model name...')}
+                              className="h-10 w-full rounded-xl border-none bg-black/5 px-4 text-sm outline-none focus-visible:ring-1 focus-visible:ring-black/10 dark:bg-white/5 dark:focus-visible:ring-white/10"
+                            />
+                          ) : (
+                            <Select value={aiModel} onValueChange={val => setAiModel(val)}>
+                              <SelectTrigger className="h-10 w-full rounded-xl border-none bg-black/5 focus-visible:ring-1 focus-visible:ring-black/10 dark:bg-white/5 dark:focus-visible:ring-white/10">
+                                <SelectValue
+                                  placeholder={t('settings.selectModel', 'Select Model')}
+                                >
+                                  {isLoadingModels ? (
+                                    <div className="flex items-center gap-2">
+                                      <div className="h-3 w-3 animate-spin rounded-full border-2 border-[var(--color-primary-500)] border-t-transparent" />
+                                      <span className="text-gray-400">
+                                        {t('settings.loadingModels', 'Loading models...')}
+                                      </span>
+                                    </div>
+                                  ) : aiModel ? (
+                                    <div className="flex items-center gap-2 truncate">
+                                      {getModelIcon(aiModel) && (
+                                        <img
+                                          src={getModelIcon(aiModel)}
+                                          alt=""
+                                          className={clsx(
+                                            'h-4 w-4 shrink-0',
+                                            getModelIconClassName(aiModel),
+                                          )}
+                                        />
+                                      )}
+                                      <span className="truncate text-gray-900 dark:text-gray-100">
+                                        {(
+                                          groupedModels[aiProvider] ||
+                                          FALLBACK_MODEL_OPTIONS[aiProvider] ||
+                                          []
+                                        ).find(m => (m.id || m.value) === aiModel)?.name ||
+                                          (
+                                            groupedModels[aiProvider] ||
+                                            FALLBACK_MODEL_OPTIONS[aiProvider] ||
+                                            []
+                                          ).find(m => (m.id || m.value) === aiModel)?.label ||
+                                          aiModel}
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <span className="text-gray-400">
+                                      {t('settings.selectModel', 'Select Model')}
+                                    </span>
+                                  )}
+                                </SelectValue>
+                              </SelectTrigger>
+                              <SelectContent className="z-[300] min-w-[200px] overflow-hidden rounded-xl border border-black/10 bg-white p-1 shadow-2xl dark:border-white/10 dark:bg-zinc-900">
+                                <SelectGroup>
+                                  {(
+                                    groupedModels[aiProvider] ||
+                                    FALLBACK_MODEL_OPTIONS[aiProvider] ||
+                                    []
+                                  ).map(m => {
+                                    const mId = m.id || m.value
+                                    const mName = m.name || m.label
+                                    return (
+                                      <SelectItem key={mId} value={mId}>
+                                        <div className="flex items-center gap-2 truncate text-gray-900 dark:text-gray-100">
+                                          {getModelIcon(mId) && (
+                                            <img
+                                              src={getModelIcon(mId)}
+                                              alt=""
+                                              className={clsx(
+                                                'h-4 w-4 shrink-0',
+                                                getModelIconClassName(mId),
+                                              )}
+                                            />
+                                          )}
+                                          <span className="truncate">{mName || mId}</span>
+                                        </div>
+                                      </SelectItem>
+                                    )
+                                  })}
+                                </SelectGroup>
+                              </SelectContent>
+                            </Select>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <DialogFooter className="mt-4 flex w-full items-center gap-2 sm:justify-between">
+                    <button
+                      onClick={handleResetAIConfig}
+                      className="h-10 flex-1 rounded-xl border border-black/5 text-sm font-medium text-gray-600 transition-colors hover:bg-black/5 dark:border-white/5 dark:text-gray-300 dark:hover:bg-white/5"
+                    >
+                      {t('settings.resetToGlobal', 'Reset to Global')}
+                    </button>
+                    <button
+                      onClick={handleSaveAIConfig}
+                      disabled={isLoadingModels}
+                      className="h-10 flex-1 rounded-xl bg-zinc-900 text-sm font-medium text-white shadow-md transition-colors hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+                    >
+                      {t('common.save', 'Save')}
+                    </button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+
+              {aiResult ? (
+                /* ── Success State ──────────────────────────────────────────── */
+                <div className="flex flex-1 flex-col items-center justify-center gap-6 text-center">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-green-50 dark:bg-green-500/10">
+                    <FileCheck size={32} className="text-green-500" />
+                  </div>
+                  <div>
+                    <h4 className="mb-1 text-lg font-semibold text-gray-900 dark:text-white">
+                      {t('agents.skills.aiGenerateSuccess', 'Skill generated!')}
+                    </h4>
+                    <p className="font-mono text-sm text-gray-400">{aiResult.skill_id}</p>
+                  </div>
+
+                  {/* Files Created List */}
+                  <div className="w-full max-w-sm rounded-xl bg-black/5 p-4 text-left dark:bg-white/5">
+                    <p className="mb-2 text-xs font-medium text-gray-500 dark:text-gray-400">
+                      {t('agents.skills.aiGenerateFiles', 'Files created')}
+                    </p>
+                    <ul className="space-y-1">
+                      {aiResult.files_created.map(f => (
+                        <li
+                          key={f}
+                          className="flex items-center gap-2 font-mono text-xs text-gray-700 dark:text-gray-300"
+                        >
+                          <FileText size={12} className="shrink-0 text-gray-400" />
+                          {f}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        setIsAIMode(false)
+                        setAiResult(null)
+                        setAiPrompt('')
+                      }}
+                      className="rounded-xl bg-black/5 px-4 py-2 text-sm font-medium text-gray-700 transition-all hover:bg-black/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+                    >
+                      {t('agents.skills.aiGenerateBack', 'Back to list')}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsAIMode(false)
+                        setAiResult(null)
+                        setAiPrompt('')
+                        handleEdit(aiResult.skill_id)
+                      }}
+                      className="bg-primary-500 hover:bg-primary-600 flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:shadow-md"
+                    >
+                      <Pencil size={14} />
+                      {t('agents.skills.aiGenerateOpenEditor', 'Open in Editor')}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* ── Input State ────────────────────────────────────────────── */
+                <div className="flex flex-1 flex-col gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {t('agents.skills.aiGeneratePromptLabel', 'Describe the Skill you want')}
+                    </label>
+                    <textarea
+                      value={aiPrompt}
+                      onChange={e => setAiPrompt(e.target.value)}
+                      placeholder={t(
+                        'agents.skills.aiGeneratePromptPlaceholder',
+                        'e.g. Create a skill that makes the agent always give a 3-point summary',
+                      )}
+                      rows={6}
+                      className="focus:ring-primary-500/20 w-full resize-none rounded-xl border-none bg-black/5 p-4 text-sm transition-all outline-none placeholder:text-gray-400 focus:ring-2 dark:bg-white/5 dark:text-white dark:placeholder:text-zinc-500"
+                    />
+                    <p className="text-xs text-gray-400 dark:text-zinc-500">
+                      {t(
+                        'agents.skills.aiGenerateNote',
+                        'The AI will generate SKILL.md and any necessary scripts / references automatically.',
+                      )}
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={handleAIGenerate}
+                    disabled={isGenerating || !aiPrompt.trim()}
+                    className="bg-primary-500 hover:bg-primary-600 flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-medium text-white shadow-sm transition-all hover:shadow-md active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {isGenerating ? (
+                      <>
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                        {t('agents.skills.aiGenerating', 'AI generating...')}
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles size={16} />
+                        {t('agents.skills.aiGenerateBtn', 'Generate')}
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : isGitImportMode ? (
+            <div className="flex flex-1 flex-col p-6">
+              <div className="mb-6 flex items-center gap-3">
+                <button
+                  onClick={() => setIsGitImportMode(false)}
+                  className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-zinc-800 dark:hover:text-gray-300"
+                >
+                  <ArrowLeft size={18} />
+                </button>
+                <div>
+                  <h3 className="font-semibold text-gray-900 dark:text-white">
+                    {t('agents.skills.gitImportTitle', 'Import Skill from Git')}
+                  </h3>
+                  <p className="text-xs text-gray-400 dark:text-zinc-500">
+                    {t(
+                      'agents.skills.gitImportSubtitle',
+                      'Clone a third-party repository and import a skill folder.',
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50/80 p-4 dark:border-amber-400/20 dark:bg-amber-500/10">
+                <div className="flex items-start gap-3">
+                  <ShieldAlert size={16} className="mt-0.5 shrink-0 text-amber-600" />
+                  <div>
+                    <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                      {t('agents.skills.gitImportRiskTitle', 'Security notice')}
+                    </p>
+                    <p className="mt-1 text-xs text-amber-700 dark:text-amber-200">
+                      {t(
+                        'agents.skills.gitImportRiskDesc',
+                        'Skills from untrusted repositories may include malicious prompts or executable scripts. Import only from trusted sources and review every file before enabling it for agents.',
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {t('agents.skills.gitImportRepoLabel', 'Repository URL')}
+                  </label>
+                  <input
+                    type="text"
+                    value={gitRepoUrl}
+                    onChange={e => setGitRepoUrl(e.target.value)}
+                    placeholder="https://github.com/owner/repo"
+                    className="focus:ring-primary-500/20 h-10 w-full rounded-xl border-none bg-black/5 px-4 text-sm outline-none placeholder:text-gray-400 focus:ring-2 dark:bg-white/5 dark:text-white dark:placeholder:text-zinc-500"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {t('agents.skills.gitImportRefLabel', 'Git ref (optional)')}
+                    </label>
+                    <input
+                      type="text"
+                      value={gitRef}
+                      onChange={e => setGitRef(e.target.value)}
+                      placeholder="main"
+                      className="focus:ring-primary-500/20 h-10 w-full rounded-xl border-none bg-black/5 px-4 text-sm outline-none placeholder:text-gray-400 focus:ring-2 dark:bg-white/5 dark:text-white dark:placeholder:text-zinc-500"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {t('agents.skills.gitImportPathLabel', 'Skill path in repo (optional)')}
+                    </label>
+                    <input
+                      type="text"
+                      value={gitSkillPath}
+                      onChange={e => setGitSkillPath(e.target.value)}
+                      placeholder="skills/my-skill"
+                      className="focus:ring-primary-500/20 h-10 w-full rounded-xl border-none bg-black/5 px-4 text-sm outline-none placeholder:text-gray-400 focus:ring-2 dark:bg-white/5 dark:text-white dark:placeholder:text-zinc-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {t('agents.skills.gitImportIdLabel', 'Override skill ID (optional)')}
+                  </label>
+                  <input
+                    type="text"
+                    value={gitSkillId}
+                    onChange={e => setGitSkillId(e.target.value)}
+                    placeholder="my-imported-skill"
+                    className="focus:ring-primary-500/20 h-10 w-full rounded-xl border-none bg-black/5 px-4 text-sm outline-none placeholder:text-gray-400 focus:ring-2 dark:bg-white/5 dark:text-white dark:placeholder:text-zinc-500"
+                  />
+                  <p className="text-xs text-gray-400 dark:text-zinc-500">
+                    {t(
+                      'agents.skills.gitImportIdHint',
+                      'If omitted, the app will derive it from SKILL.md name or folder name.',
+                    )}
+                  </p>
+                </div>
+
+                <button
+                  onClick={handleImportFromGit}
+                  disabled={isImportingGit || !gitRepoUrl.trim()}
+                  className="bg-primary-500 hover:bg-primary-600 flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-medium text-white shadow-sm transition-all hover:shadow-md active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isImportingGit ? (
+                    <>
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                      {t('agents.skills.gitImporting', 'Importing...')}
+                    </>
+                  ) : (
+                    <>
+                      <Download size={16} />
+                      {t('agents.skills.gitImportBtn', 'Import from Git')}
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           ) : (
             <div className="p-6">
               {/* Header Action */}
-              <div className="mb-6 flex justify-end">
+              <div className="mb-6 flex justify-end gap-3">
+                <button
+                  onClick={() => {
+                    setIsAIMode(true)
+                    setIsGitImportMode(false)
+                    setAiResult(null)
+                    setAiPrompt('')
+                  }}
+                  className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:from-violet-600 hover:to-purple-700 hover:shadow-md active:scale-95"
+                >
+                  <Sparkles size={16} />
+                  {t('agents.skills.aiGenerate', '✨ AI Generate')}
+                </button>
+                <button
+                  onClick={() => {
+                    setIsAIMode(false)
+                    setIsGitImportMode(true)
+                  }}
+                  className="flex items-center gap-2 rounded-xl border border-black/10 bg-black/5 px-4 py-2.5 text-sm font-medium text-gray-700 transition-all hover:bg-black/10 dark:border-white/10 dark:bg-white/5 dark:text-gray-200 dark:hover:bg-white/10"
+                >
+                  <GitBranch size={16} />
+                  {t('agents.skills.gitImportAction', 'Import from Git')}
+                </button>
                 <button
                   onClick={handleCreateNew}
                   className="bg-primary-500 hover:bg-primary-600 flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:shadow-md active:scale-95"
                 >
                   <Plus size={16} />
-                  {t('skills.createButton', 'Create Skill')}
+                  {t('agents.skills.createButton', 'Create Skill')}
                 </button>
               </div>
 
@@ -784,7 +1836,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                   </p>
                   <button
                     onClick={handleCreateNew}
-                    className="flex items-center gap-2 rounded-xl bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100"
+                    className="flex items-center gap-2 rounded-xl bg-black/5 px-4 py-2 text-sm font-medium text-gray-900 transition-all hover:bg-black/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/20"
                   >
                     <Plus size={16} />
                     Create your first Skill
@@ -795,7 +1847,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                   {skills.map(skill => (
                     <div
                       key={skill.id}
-                      className="group flex flex-col justify-between rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-all hover:border-gray-300 hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700"
+                      className="glass-elite-soft group flex flex-col justify-between rounded-2xl border-none p-5 shadow-sm transition-all hover:bg-black/5 hover:shadow-md active:scale-[0.99] dark:hover:bg-white/5"
                     >
                       <div>
                         <div className="mb-2 flex items-center justify-between">
@@ -837,13 +1889,13 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
 
         {/* Footer Actions when Editing */}
         {isEditing && (
-          <div className="flex shrink-0 items-center justify-end gap-3 border-t border-gray-100 bg-white px-6 py-4 dark:border-zinc-800 dark:bg-zinc-900">
+          <div className="flex shrink-0 items-center justify-end gap-3 border-t border-black/5 bg-transparent px-6 py-4 dark:border-white/5">
             <button
               type="button"
               onClick={() => setIsEditing(false)}
               className="rounded-xl px-4 py-2.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-zinc-800"
             >
-              Cancel
+              {t('agents.actions.cancel', 'Cancel')}
             </button>
             <button
               onClick={saveCombined}
@@ -853,12 +1905,12 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
               {isSaving ? (
                 <>
                   <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white"></div>
-                  Saving...
+                  {t('agents.actions.saving', 'Saving...')}
                 </>
               ) : (
                 <>
                   <Check size={16} />
-                  Save Skill
+                  {t('agents.skills.saveButton', 'Save Skill')}
                 </>
               )}
             </button>

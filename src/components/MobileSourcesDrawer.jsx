@@ -77,7 +77,7 @@ const MobileSourcesDrawer = ({ isOpen, onClose, sources = [], title }) => {
                             `https://www.google.com/s2/favicons?domain=${getHostname(url)}&sz=128`
                           }
                           alt=""
-                          className="h-5 w-5 rounded-full border border-white/70 bg-white/90 opacity-80 transition-opacity group-hover:opacity-100 dark:border-white/10 dark:bg-white/10"
+                          className="h-5 w-5 rounded-full border border-black/10 bg-black/5 opacity-80 transition-opacity group-hover:opacity-100 dark:border-white/10 dark:bg-white/10"
                         />
                       )}
                       <div className="min-w-0 flex-1">

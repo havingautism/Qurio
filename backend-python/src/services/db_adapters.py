@@ -282,6 +282,25 @@ class SQLiteAdapter:
                     "ALTER TABLE agents "
                     "ADD COLUMN use_global_model_settings INTEGER NOT NULL DEFAULT 1"
                 )
+            if "avatar_type" not in agent_columns:
+                cursor.execute(
+                    "ALTER TABLE agents "
+                    "ADD COLUMN avatar_type TEXT NOT NULL DEFAULT 'emoji'"
+                )
+            if "avatar_image" not in agent_columns:
+                cursor.execute("ALTER TABLE agents ADD COLUMN avatar_image TEXT")
+            if "avatar_shape" not in agent_columns:
+                cursor.execute(
+                    "ALTER TABLE agents "
+                    "ADD COLUMN avatar_shape TEXT NOT NULL DEFAULT 'circle'"
+                )
+            if "banner_mode" not in agent_columns:
+                cursor.execute(
+                    "ALTER TABLE agents "
+                    "ADD COLUMN banner_mode TEXT NOT NULL DEFAULT 'none'"
+                )
+            if "banner_image" not in agent_columns:
+                cursor.execute("ALTER TABLE agents ADD COLUMN banner_image TEXT")
             if "skill_ids" not in agent_columns:
                 cursor.execute(
                     "ALTER TABLE agents "

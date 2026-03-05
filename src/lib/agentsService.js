@@ -18,6 +18,11 @@ const mapAgent = agent => {
     prompt: agent.prompt,
     isDeepResearch: agent.is_deep_research ?? agent.isDeepResearch ?? false,
     emoji: agent.emoji,
+    avatarType: agent.avatar_type ?? agent.avatarType ?? 'emoji',
+    avatarImage: agent.avatar_image ?? agent.avatarImage ?? '',
+    avatarShape: agent.avatar_shape ?? agent.avatarShape ?? 'circle',
+    bannerMode: agent.banner_mode ?? agent.bannerMode ?? 'none',
+    bannerImage: agent.banner_image ?? agent.bannerImage ?? '',
     provider: agent.provider,
     defaultModelProvider: agent.default_model_provider ?? agent.defaultModelProvider ?? '',
     liteModelProvider: agent.lite_model_provider ?? agent.liteModelProvider ?? '',
@@ -66,6 +71,11 @@ export const createAgent = async ({
   prompt = '',
   isDeepResearch = false,
   emoji = '',
+  avatarType = 'emoji',
+  avatarImage = '',
+  avatarShape = 'circle',
+  bannerMode = 'none',
+  bannerImage = '',
   isDefault = false,
   provider = '',
   defaultModelProvider = '',
@@ -100,6 +110,11 @@ export const createAgent = async ({
     prompt,
     is_deep_research: isDeepResearch,
     emoji,
+    avatar_type: avatarType,
+    avatar_image: avatarImage,
+    avatar_shape: avatarShape,
+    banner_mode: bannerMode,
+    banner_image: bannerImage,
     is_default: isDefault,
     provider,
     default_model_provider: defaultModelProvider,
@@ -141,6 +156,11 @@ export const updateAgent = async (id, payload) => {
   if (payload.prompt !== undefined) updatePayload.prompt = payload.prompt
   if (payload.isDeepResearch !== undefined) updatePayload.is_deep_research = payload.isDeepResearch
   if (payload.emoji !== undefined) updatePayload.emoji = payload.emoji
+  if (payload.avatarType !== undefined) updatePayload.avatar_type = payload.avatarType
+  if (payload.avatarImage !== undefined) updatePayload.avatar_image = payload.avatarImage
+  if (payload.avatarShape !== undefined) updatePayload.avatar_shape = payload.avatarShape
+  if (payload.bannerMode !== undefined) updatePayload.banner_mode = payload.bannerMode
+  if (payload.bannerImage !== undefined) updatePayload.banner_image = payload.bannerImage
   if (payload.provider !== undefined) updatePayload.provider = payload.provider
   if (payload.defaultModelProvider !== undefined)
     updatePayload.default_model_provider = payload.defaultModelProvider

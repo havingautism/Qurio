@@ -6,6 +6,8 @@ import {
   Check,
   ChevronDown,
   RefreshCw,
+  Upload,
+  Trash2,
   Search,
   GraduationCap,
   Eye,
@@ -32,7 +34,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import useScrollLock from '../hooks/useScrollLock'
-import EmojiDisplay from './EmojiDisplay'
+import AgentAvatar from './AgentAvatar'
+import AgentBannerSurface, { AGENT_BANNER_ASPECT_RATIO } from './AgentBannerSurface'
 import CustomEmojiPicker from './CustomEmojiPicker'
 import { Checkbox } from '@/components/ui/checkbox'
 import clsx from 'clsx'
@@ -55,6 +58,15 @@ import { listToolsViaBackend } from '../lib/backendClient'
 import { getUserTools } from '../lib/userToolsService'
 import { TOOL_TRANSLATION_KEYS, TOOL_ICONS, TOOL_INFO_KEYS } from '../lib/toolConstants'
 import { isQuickSearchTool } from '../lib/searchTools'
+import { compressImage } from '../lib/imageCompression'
+import {
+  AGENT_AVATAR_SHAPE_CIRCLE,
+  AGENT_AVATAR_SHAPE_ROUNDED,
+  AGENT_AVATAR_TYPE_EMOJI,
+  AGENT_AVATAR_TYPE_IMAGE,
+  AGENT_BANNER_MODE_MANUAL,
+  AGENT_BANNER_MODE_NONE,
+} from '../lib/agentAppearance'
 
 // Personalization Constants
 const LLM_ANSWER_LANGUAGE_KEYS = [
@@ -134,7 +146,27 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
   const [description, setDescription] = useState('')
   const [prompt, setPrompt] = useState('')
   const [emoji, setEmoji] = useState('🤖')
+  const [avatarType, setAvatarType] = useState(AGENT_AVATAR_TYPE_EMOJI)
+  const [avatarImage, setAvatarImage] = useState('')
+  const [avatarShape, setAvatarShape] = useState(AGENT_AVATAR_SHAPE_CIRCLE)
+  const [bannerMode, setBannerMode] = useState(AGENT_BANNER_MODE_NONE)
+  const [bannerImage, setBannerImage] = useState('')
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [avatarCropSource, setAvatarCropSource] = useState('')
+  const [avatarCropMeta, setAvatarCropMeta] = useState(null)
+  const [avatarCropZoom, setAvatarCropZoom] = useState(1)
+  const [avatarCropOffsetX, setAvatarCropOffsetX] = useState(0)
+  const [avatarCropOffsetY, setAvatarCropOffsetY] = useState(0)
+  const [isAvatarCropping, setIsAvatarCropping] = useState(false)
+  const [avatarDragState, setAvatarDragState] = useState(null)
+  const [bannerCropSource, setBannerCropSource] = useState('')
+  const [bannerCropMeta, setBannerCropMeta] = useState(null)
+  const [bannerCropZoom, setBannerCropZoom] = useState(1)
+  const [bannerCropOffsetX, setBannerCropOffsetX] = useState(0)
+  const [bannerCropOffsetY, setBannerCropOffsetY] = useState(0)
+  const [isBannerCropping, setIsBannerCropping] = useState(false)
+  const [bannerDragState, setBannerDragState] = useState(null)
+  const [isBannerPreviewOpen, setIsBannerPreviewOpen] = useState(false)
 
   // Model Tab
   // Note: 'provider' is now derived from the selected defaultModel or explicitly stored if needed
@@ -213,6 +245,10 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
   // Refs for click outside
   const pickerRef = useRef(null)
   const buttonRef = useRef(null)
+  const avatarInputRef = useRef(null)
+  const bannerInputRef = useRef(null)
+  const avatarCropFrameRef = useRef(null)
+  const bannerCropFrameRef = useRef(null)
   const responseLanguageRef = useRef(null)
   const baseToneRef = useRef(null)
   const traitsRef = useRef(null)
@@ -226,6 +262,36 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
   // State for error and saving
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState('')
+
+  const cropViewportSize = 280
+  const bannerViewportWidth = 520
+  const bannerViewportHeight = 188
+  const avatarPreviewLayout = useMemo(() => {
+    const width = Number(avatarCropMeta?.width || 0)
+    const height = Number(avatarCropMeta?.height || 0)
+    if (!width || !height) return null
+    const scale = Math.max(cropViewportSize / width, cropViewportSize / height)
+    const baseWidth = width * scale
+    const baseHeight = height * scale
+    const renderedWidth = baseWidth * avatarCropZoom
+    const renderedHeight = baseHeight * avatarCropZoom
+    const maxOffsetX = Math.max(0, (renderedWidth - cropViewportSize) / 2)
+    const maxOffsetY = Math.max(0, (renderedHeight - cropViewportSize) / 2)
+    return { baseWidth, baseHeight, renderedWidth, renderedHeight, maxOffsetX, maxOffsetY }
+  }, [avatarCropMeta?.height, avatarCropMeta?.width, avatarCropZoom])
+  const bannerPreviewLayout = useMemo(() => {
+    const width = Number(bannerCropMeta?.width || 0)
+    const height = Number(bannerCropMeta?.height || 0)
+    if (!width || !height) return null
+    const scale = Math.max(bannerViewportWidth / width, bannerViewportHeight / height)
+    const baseWidth = width * scale
+    const baseHeight = height * scale
+    const renderedWidth = baseWidth * bannerCropZoom
+    const renderedHeight = baseHeight * bannerCropZoom
+    const maxOffsetX = Math.max(0, (renderedWidth - bannerViewportWidth) / 2)
+    const maxOffsetY = Math.max(0, (renderedHeight - bannerViewportHeight) / 2)
+    return { baseWidth, baseHeight, renderedWidth, renderedHeight, maxOffsetX, maxOffsetY }
+  }, [bannerCropMeta?.height, bannerCropMeta?.width, bannerCropZoom])
 
   const toolsByCategory = useMemo(() => {
     const groups = {}
@@ -437,6 +503,15 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
         setDescription(editingAgent.description)
         setPrompt(editingAgent.prompt)
         setEmoji(editingAgent.emoji)
+        setAvatarType(
+          editingAgent?.avatarType === AGENT_AVATAR_TYPE_IMAGE && editingAgent?.avatarImage
+            ? AGENT_AVATAR_TYPE_IMAGE
+            : AGENT_AVATAR_TYPE_EMOJI,
+        )
+        setAvatarImage(editingAgent?.avatarImage || '')
+        setAvatarShape(editingAgent?.avatarShape || AGENT_AVATAR_SHAPE_CIRCLE)
+        setBannerMode(editingAgent?.bannerMode || AGENT_BANNER_MODE_NONE)
+        setBannerImage(editingAgent?.bannerImage || '')
         setProvider(
           editingAgent.provider ||
             editingAgent?.defaultModelProvider ||
@@ -486,6 +561,11 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
           defaultAgent?.prompt || settings.systemPrompt || t('agents.defaults.systemPrompt'),
         )
         setEmoji('🤻')
+        setAvatarType(AGENT_AVATAR_TYPE_EMOJI)
+        setAvatarImage('')
+        setAvatarShape(AGENT_AVATAR_SHAPE_CIRCLE)
+        setBannerMode(AGENT_BANNER_MODE_NONE)
+        setBannerImage('')
         setProvider(defaultAgent?.provider || 'gemini')
         const nextLiteModel = defaultAgent?.liteModel || ''
         const nextDefaultModel = defaultAgent?.defaultModel || ''
@@ -524,6 +604,16 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
       loadSkillsList()
       setActiveTab('general')
       setError('')
+      setAvatarCropSource('')
+      setAvatarCropMeta(null)
+      setAvatarCropZoom(1)
+      setAvatarCropOffsetX(0)
+      setAvatarCropOffsetY(0)
+      setBannerCropSource('')
+      setBannerCropMeta(null)
+      setBannerCropZoom(1)
+      setBannerCropOffsetX(0)
+      setBannerCropOffsetY(0)
       setIsSaving(false)
       setDefaultTestState({ status: 'idle', message: '' })
       setLiteTestState({ status: 'idle', message: '' })
@@ -554,6 +644,217 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
     if (unavailableIds.size === 0) return
     setSelectedToolIds(prev => prev.filter(id => !unavailableIds.has(String(id))))
   }, [isOpen, availableTools, apiAvailability])
+
+  const loadImageMeta = source =>
+    new Promise((resolve, reject) => {
+      const image = new Image()
+      image.onload = () =>
+        resolve({
+          image,
+          width: image.naturalWidth || image.width,
+          height: image.naturalHeight || image.height,
+        })
+      image.onerror = () => reject(new Error('Failed to load image'))
+      image.src = source
+    })
+
+  const clampCropOffset = (value, maxOffset) => {
+    if (!Number.isFinite(value)) return 0
+    return Math.min(maxOffset, Math.max(-maxOffset, value))
+  }
+
+  const openAvatarCropper = async source => {
+    const meta = await loadImageMeta(source)
+    setAvatarCropSource(source)
+    setAvatarCropMeta(meta)
+    setAvatarCropZoom(1)
+    setAvatarCropOffsetX(0)
+    setAvatarCropOffsetY(0)
+  }
+
+  const openBannerCropper = async source => {
+    const meta = await loadImageMeta(source)
+    setBannerCropSource(source)
+    setBannerCropMeta(meta)
+    setBannerCropZoom(1)
+    setBannerCropOffsetX(0)
+    setBannerCropOffsetY(0)
+  }
+
+  const handleAvatarUpload = async event => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+
+    try {
+      const { dataUrl } = await compressImage(file, {
+        maxWidth: 1600,
+        maxHeight: 1600,
+        quality: 0.92,
+      })
+      await openAvatarCropper(dataUrl)
+    } catch (err) {
+      setError(err?.message || '头像图片处理失败')
+    }
+  }
+
+  const handleBannerUpload = async event => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+
+    try {
+      const { dataUrl } = await compressImage(file, {
+        maxWidth: 1800,
+        maxHeight: 900,
+        quality: 0.9,
+      })
+      await openBannerCropper(dataUrl)
+    } catch (err) {
+      setError(err?.message || 'Banner 图片处理失败')
+    }
+  }
+
+  const handleApplyAvatarCrop = async () => {
+    if (!avatarCropSource || !avatarPreviewLayout) return
+
+    try {
+      setIsAvatarCropping(true)
+      const { image } = avatarCropMeta
+      const outputSize = 512
+      const canvas = document.createElement('canvas')
+      canvas.width = outputSize
+      canvas.height = outputSize
+      const ctx = canvas.getContext('2d')
+      const scale = outputSize / cropViewportSize
+      const drawX =
+        ((cropViewportSize - avatarPreviewLayout.renderedWidth) / 2 + avatarCropOffsetX) * scale
+      const drawY =
+        ((cropViewportSize - avatarPreviewLayout.renderedHeight) / 2 + avatarCropOffsetY) * scale
+
+      ctx.clearRect(0, 0, outputSize, outputSize)
+      ctx.drawImage(
+        image,
+        drawX,
+        drawY,
+        avatarPreviewLayout.renderedWidth * scale,
+        avatarPreviewLayout.renderedHeight * scale,
+      )
+
+      setAvatarImage(canvas.toDataURL('image/jpeg', 0.92))
+      setAvatarType(AGENT_AVATAR_TYPE_IMAGE)
+      setAvatarCropSource('')
+      setAvatarCropMeta(null)
+    } catch (err) {
+      setError(err?.message || '头像裁剪失败')
+    } finally {
+      setIsAvatarCropping(false)
+    }
+  }
+
+  const handleApplyBannerCrop = async () => {
+    if (!bannerCropSource || !bannerPreviewLayout) return
+
+    try {
+      setIsBannerCropping(true)
+      const { image } = bannerCropMeta
+      const outputWidth = 1560
+      const outputHeight = 564
+      const canvas = document.createElement('canvas')
+      canvas.width = outputWidth
+      canvas.height = outputHeight
+      const ctx = canvas.getContext('2d')
+      const scaleX = outputWidth / bannerViewportWidth
+      const scaleY = outputHeight / bannerViewportHeight
+      const drawX =
+        ((bannerViewportWidth - bannerPreviewLayout.renderedWidth) / 2 + bannerCropOffsetX) * scaleX
+      const drawY =
+        ((bannerViewportHeight - bannerPreviewLayout.renderedHeight) / 2 + bannerCropOffsetY) *
+        scaleY
+
+      ctx.clearRect(0, 0, outputWidth, outputHeight)
+      ctx.drawImage(
+        image,
+        drawX,
+        drawY,
+        bannerPreviewLayout.renderedWidth * scaleX,
+        bannerPreviewLayout.renderedHeight * scaleY,
+      )
+
+      setBannerImage(canvas.toDataURL('image/jpeg', 0.92))
+      setBannerMode(AGENT_BANNER_MODE_MANUAL)
+      setBannerCropSource('')
+      setBannerCropMeta(null)
+    } catch (err) {
+      setError(err?.message || 'Banner 裁剪失败')
+    } finally {
+      setIsBannerCropping(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!avatarDragState || !avatarPreviewLayout) return undefined
+
+    const handlePointerMove = event => {
+      setAvatarCropOffsetX(
+        clampCropOffset(
+          avatarDragState.startOffsetX + (event.clientX - avatarDragState.startX),
+          avatarPreviewLayout.maxOffsetX,
+        ),
+      )
+      setAvatarCropOffsetY(
+        clampCropOffset(
+          avatarDragState.startOffsetY + (event.clientY - avatarDragState.startY),
+          avatarPreviewLayout.maxOffsetY,
+        ),
+      )
+    }
+
+    const handlePointerUp = () => {
+      setAvatarDragState(null)
+    }
+
+    window.addEventListener('pointermove', handlePointerMove)
+    window.addEventListener('pointerup', handlePointerUp)
+    window.addEventListener('pointercancel', handlePointerUp)
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove)
+      window.removeEventListener('pointerup', handlePointerUp)
+      window.removeEventListener('pointercancel', handlePointerUp)
+    }
+  }, [avatarDragState, avatarPreviewLayout])
+
+  useEffect(() => {
+    if (!bannerDragState || !bannerPreviewLayout) return undefined
+
+    const handlePointerMove = event => {
+      setBannerCropOffsetX(
+        clampCropOffset(
+          bannerDragState.startOffsetX + (event.clientX - bannerDragState.startX),
+          bannerPreviewLayout.maxOffsetX,
+        ),
+      )
+      setBannerCropOffsetY(
+        clampCropOffset(
+          bannerDragState.startOffsetY + (event.clientY - bannerDragState.startY),
+          bannerPreviewLayout.maxOffsetY,
+        ),
+      )
+    }
+
+    const handlePointerUp = () => {
+      setBannerDragState(null)
+    }
+
+    window.addEventListener('pointermove', handlePointerMove)
+    window.addEventListener('pointerup', handlePointerUp)
+    window.addEventListener('pointercancel', handlePointerUp)
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove)
+      window.removeEventListener('pointerup', handlePointerUp)
+      window.removeEventListener('pointercancel', handlePointerUp)
+    }
+  }, [bannerDragState, bannerPreviewLayout])
 
   const handleSaveWrapper = async () => {
     if (!editingAgent?.isDefault && !isDeepResearchAgent && !name.trim()) {
@@ -609,6 +910,16 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
           : description.trim()
       const resolvedPrompt = isDeepResearchAgent ? DEEP_RESEARCH_AGENT_PROMPT : prompt.trim()
       const resolvedEmoji = isDeepResearchAgent ? DEEP_RESEARCH_EMOJI : emoji
+      const resolvedAvatarType = isDeepResearchAgent
+        ? AGENT_AVATAR_TYPE_EMOJI
+        : avatarType === AGENT_AVATAR_TYPE_IMAGE && avatarImage
+          ? AGENT_AVATAR_TYPE_IMAGE
+          : AGENT_AVATAR_TYPE_EMOJI
+      const resolvedAvatarImage = isDeepResearchAgent ? '' : avatarImage
+      const resolvedAvatarShape = avatarShape
+      const resolvedBannerMode = isDeepResearchAgent ? AGENT_BANNER_MODE_NONE : bannerMode
+      const resolvedBannerImage =
+        !isDeepResearchAgent && resolvedBannerMode === AGENT_BANNER_MODE_MANUAL ? bannerImage : ''
       const resolvedBaseTone = isDeepResearchAgent ? DEEP_RESEARCH_PROFILE.baseTone : baseTone
       const resolvedTraits = isDeepResearchAgent ? DEEP_RESEARCH_PROFILE.traits : traits
       const resolvedWarmth = isDeepResearchAgent ? DEEP_RESEARCH_PROFILE.warmth : warmth
@@ -626,6 +937,11 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
         description: resolvedDescription,
         prompt: resolvedPrompt,
         emoji: resolvedEmoji,
+        avatarType: resolvedAvatarType,
+        avatarImage: resolvedAvatarImage,
+        avatarShape: resolvedAvatarShape,
+        bannerMode: resolvedBannerMode,
+        bannerImage: resolvedBannerImage,
         provider: derivedProvider,
         defaultModelProvider: resolvedDefaultProvider,
         liteModelProvider: resolvedLiteProvider,
@@ -714,14 +1030,14 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
     <div className="relative flex flex-col gap-2">
       <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</label>
       <Select value={value} onValueChange={onChange} disabled={disabled}>
-        <SelectTrigger className="h-10 w-full border border-gray-200 bg-white disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900">
+        <SelectTrigger className="h-10 w-full border-none bg-black/5 disabled:bg-gray-50/20 dark:bg-white/5">
           <SelectValue>
             {options.find(o => (o.value || o) === value)?.label ||
               options.find(o => (o.value || o) === value) ||
               value}
           </SelectValue>
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent className="glass-elite-dropdown border-none">
           {options.map(opt => {
             const optValue = opt.value || opt
             const optLabel = opt.label || opt
@@ -1003,7 +1319,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
               </label>
 
               {/* Desktop: Inline Segmented Control */}
-              <div className="hidden rounded-lg border border-gray-200 bg-gray-100 p-0.5 sm:flex dark:border-zinc-700 dark:bg-zinc-800">
+              <div className="hidden rounded-lg border-none bg-black/5 p-0.5 sm:flex dark:bg-white/5">
                 <button
                   type="button"
                   disabled={disabled}
@@ -1059,7 +1375,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
             </div>
 
             {/* Mobile: Full Width Segmented Control */}
-            <div className="flex w-full rounded-lg border border-gray-200 bg-gray-100 p-1 sm:hidden dark:border-zinc-700 dark:bg-zinc-800">
+            <div className="flex w-full rounded-lg border-none bg-black/5 p-1 sm:hidden dark:bg-white/5">
               <button
                 type="button"
                 disabled={disabled}
@@ -1126,7 +1442,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
         {hint && <p className="max-w-2xl text-xs text-gray-500 dark:text-gray-400">{hint}</p>}
         <div
           className={clsx(
-            'rounded-lg border border-gray-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900',
+            'rounded-lg border-none bg-black/5 p-3 dark:bg-white/5',
             disabled && 'pointer-events-none bg-gray-50/70 dark:bg-zinc-900/70',
           )}
         >
@@ -1161,7 +1477,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                       )}
                     </SelectValue>
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="glass-elite-dropdown border-none">
                     {providers.map(key => (
                       <SelectItem key={key} value={key}>
                         <div className="flex items-center gap-3">
@@ -1213,7 +1529,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                       </div>
                     </SelectValue>
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="glass-elite-dropdown border-none">
                     {allowEmpty && (
                       <SelectItem value="__none__">
                         <span className="text-gray-500">{t('agents.model.none')}</span>
@@ -1251,7 +1567,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     onChange(nextValue)
                   }}
                   placeholder={t('agents.model.customPlaceholder')}
-                  className="focus:ring-primary-500/20 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-200"
+                  className="focus:ring-primary-500/20 w-full rounded-lg border-none bg-black/5 px-3 py-2 text-sm text-gray-700 focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:bg-white/5 dark:text-gray-200"
                 />
               )}
             </div>
@@ -1280,7 +1596,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium text-gray-800 dark:text-gray-100">{label}</span>
-              <span className="rounded-md bg-gray-100 px-2 py-0.5 font-mono text-xs text-gray-500 dark:bg-zinc-800 dark:text-gray-400">
+              <span className="rounded-md bg-black/5 px-2 py-0.5 font-mono text-xs text-gray-500 dark:bg-white/10 dark:text-gray-400">
                 {param}
               </span>
             </div>
@@ -1325,7 +1641,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
             }}
             placeholder={t('agents.advanced.auto')}
             disabled={!isEnabled}
-            className="focus:ring-primary-500/20 focus:border-primary-500 h-10 w-20 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600"
+            className="focus:ring-primary-500/20 focus:border-primary-500 h-10 w-20 rounded-lg border-none bg-black/5 px-3 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 disabled:opacity-40 dark:bg-white/5 dark:text-gray-100 dark:placeholder-zinc-600"
           />
         </div>
       </div>
@@ -1344,25 +1660,47 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
     : isDeepResearchAgent
       ? t('deepResearch.agentDescription')
       : description
+  const previewProviderId = provider || defaultModelProvider || 'gemini'
+  const previewProvider = getProvider(previewProviderId)
+  const previewProviderLabel = previewProvider?.name || previewProviderId || 'Provider'
+  const previewProviderFallback = previewProviderLabel
+  const previewModel = defaultModel || 'Default model'
+  const previewAgent = {
+    emoji,
+    avatarType,
+    avatarImage,
+    avatarShape,
+    name: displayName,
+  }
+  const compactSegmentGroupClassName =
+    'grid grid-cols-2 gap-1 rounded-lg bg-black/5 p-0.5 dark:bg-white/5'
+  const compactSegmentButtonClassName =
+    'rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors'
+  const compactActionButtonClassName =
+    'inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-black/10 bg-white/85 px-3.5 text-[13px] font-medium text-gray-700 shadow-[0_1px_3px_rgba(15,23,42,0.08)] transition-all hover:bg-white hover:text-gray-900 hover:shadow-[0_4px_10px_rgba(15,23,42,0.12)] disabled:cursor-not-allowed disabled:opacity-50 sm:justify-start dark:border-white/10 dark:bg-white/5 dark:text-gray-200 dark:hover:bg-white/10'
+  const compactDangerButtonClassName =
+    'inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3.5 text-[13px] font-medium text-red-600 shadow-[0_1px_3px_rgba(220,38,38,0.12)] transition-all hover:bg-red-100 hover:text-red-700 hover:shadow-[0_4px_10px_rgba(220,38,38,0.18)] disabled:cursor-not-allowed disabled:opacity-50 sm:justify-start dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-900/30'
+  const bannerActionButtonClassName = `${compactActionButtonClassName} md:h-9 md:gap-1.5 md:rounded-lg md:px-3 md:text-xs`
+  const bannerDangerButtonClassName = `${compactDangerButtonClassName} md:h-9 md:gap-1.5 md:rounded-lg md:px-3 md:text-xs`
 
   return (
     <div className="fixed inset-0 z-100 flex items-start justify-center overflow-y-auto bg-black/50 p-0 backdrop-blur-sm md:items-center md:overflow-hidden md:p-4">
-      <div className="flex h-dvh w-full flex-col overflow-hidden rounded-none border-0 border-gray-200 bg-white shadow-2xl md:h-[85vh] md:max-w-4xl md:flex-row md:rounded-2xl md:border dark:border-zinc-800 dark:bg-[#191a1a]">
+      <div className="glass-elite-panel flex h-dvh w-full flex-col overflow-hidden rounded-none border-0 md:h-[85vh] md:max-w-4xl md:flex-row md:rounded-3xl">
         {/* Mobile Header */}
-        <div className="flex h-14 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4 md:hidden dark:border-zinc-800 dark:bg-[#191a1a]">
+        <div className="flex h-14 shrink-0 items-center justify-between border-b border-black/5 bg-transparent px-4 md:hidden dark:border-white/5">
           <h3 className="text-base font-semibold text-gray-900 dark:text-white">
             {editingAgent ? t('agents.modal.edit') : t('agents.modal.create')}
           </h3>
           <button
             onClick={onClose}
-            className="rounded-full p-2 text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800"
+            className="rounded-full p-2 text-gray-500 transition-colors hover:bg-black/5 dark:hover:bg-white/10"
           >
             <X size={20} />
           </button>
         </div>
 
         {/* Sidebar / Tabs */}
-        <div className="bg-primary-50 dark:bg-background/70 no-scrollbar flex w-full shrink-0 flex-row gap-2 overflow-x-auto border-b border-gray-200 px-1 py-1 sm:px-4 sm:py-4 md:w-64 md:flex-col md:overflow-visible md:border-r md:border-b-0 dark:border-zinc-800">
+        <div className="no-scrollbar flex w-full shrink-0 flex-row gap-2 overflow-x-auto border-b border-black/5 bg-transparent px-1 py-1 sm:px-4 sm:py-4 md:w-64 md:flex-col md:overflow-visible md:border-r md:border-b-0 dark:border-white/5">
           <h2 className="mb-0 hidden px-2 text-xl font-bold text-gray-900 md:mb-6 md:block dark:text-white">
             {editingAgent ? t('agents.modal.edit') : t('agents.modal.create')}
           </h2>
@@ -1378,10 +1716,10 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
                 className={clsx(
-                  'flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-semibold whitespace-nowrap transition-colors sm:gap-3',
+                  'flex h-10 items-center gap-1 rounded-xl px-3.5 py-2 text-sm font-semibold whitespace-nowrap transition-all sm:gap-3',
                   activeTab === item.id
-                    ? 'bg-primary-100 text-primary-600 dark:text-primary-400 dark:bg-zinc-800'
-                    : 'hover:bg-primary-100 text-gray-600 dark:text-gray-400 dark:hover:bg-zinc-800',
+                    ? 'text-primary-700 dark:text-primary-300 bg-white/85 shadow-[0_4px_12px_rgba(15,23,42,0.08)] ring-1 ring-black/5 dark:bg-white/12 dark:ring-white/10'
+                    : 'text-gray-600 hover:bg-white/65 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/8 dark:hover:text-white',
                 )}
               >
                 <item.icon size={18} />
@@ -1392,7 +1730,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
         </div>
 
         {/* Content Area */}
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-[#f9f9f987] dark:bg-[#191a1a]">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-transparent">
           {/* Desktop Header */}
           {/* <div className="h-16 border-b border-gray-200 dark:border-zinc-800 hidden md:flex items-center justify-between px-6 sm:px-8">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white capitalize">
@@ -1412,46 +1750,205 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
             style={{ scrollbarGutter: 'stable' }}
           >
             {activeTab === 'general' && (
-              <div className="flex h-full flex-col gap-6">
+              <div className="flex min-h-full flex-col gap-6">
                 <div className="flex flex-col gap-2">
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {t('agents.general.avatar')} & {t('agents.general.name')}
+                    头像设置
                   </label>
-                  <div className="flex items-center gap-3">
-                    <div className="relative inline-block w-fit">
-                      <button
-                        ref={buttonRef}
-                        onClick={() => {
-                          if (isEmojiLocked) return
-                          setShowEmojiPicker(!showEmojiPicker)
-                        }}
-                        disabled={isEmojiLocked}
-                        className="flex h-12 w-12 items-center justify-center rounded-xl border border-gray-200 bg-white text-2xl transition-colors hover:bg-gray-200 disabled:cursor-not-allowed disabled:bg-gray-50/20 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-700"
-                      >
-                        <EmojiDisplay emoji={emoji} />
-                      </button>
-                      {showEmojiPicker && (
-                        <div
-                          ref={pickerRef}
-                          className="absolute top-full left-0 z-50 mt-2 overflow-hidden rounded-xl shadow-2xl"
-                        >
-                          <CustomEmojiPicker
-                            onEmojiSelect={e => {
-                              setEmoji(e?.native || e)
-                              setShowEmojiPicker(false)
-                            }}
-                            onClose={() => setShowEmojiPicker(false)}
+                  <div className="rounded-2xl border border-black/5 bg-black/[0.03] p-3 sm:p-4 dark:border-white/5 dark:bg-white/[0.03]">
+                    <div className="flex flex-col gap-4">
+                      <div className="flex items-start gap-3 sm:gap-4">
+                        <AgentAvatar
+                          agent={{ emoji, avatarType, avatarImage, avatarShape, name: displayName }}
+                          size="4rem"
+                          className="shrink-0 border border-black/8 bg-white/70 shadow-sm sm:h-[4.5rem] sm:w-[4.5rem] dark:border-white/10 dark:bg-white/5"
+                        />
+                        <div className="min-w-0 flex-1 rounded-xl border border-black/5 bg-white/35 px-3 py-2 dark:border-white/5 dark:bg-white/[0.03]">
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            <div>
+                              <div className="mb-1.5 text-[11px] font-medium text-gray-500 dark:text-gray-400">
+                                类型
+                              </div>
+                              <div className={compactSegmentGroupClassName}>
+                                <button
+                                  type="button"
+                                  disabled={isEmojiLocked}
+                                  onClick={() => setAvatarType(AGENT_AVATAR_TYPE_EMOJI)}
+                                  className={clsx(
+                                    compactSegmentButtonClassName,
+                                    avatarType === AGENT_AVATAR_TYPE_EMOJI
+                                      ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-white'
+                                      : 'text-gray-500 dark:text-gray-400',
+                                    isEmojiLocked && 'cursor-not-allowed opacity-50',
+                                  )}
+                                >
+                                  Emoji
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={isEmojiLocked}
+                                  onClick={() => setAvatarType(AGENT_AVATAR_TYPE_IMAGE)}
+                                  className={clsx(
+                                    compactSegmentButtonClassName,
+                                    avatarType === AGENT_AVATAR_TYPE_IMAGE
+                                      ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-white'
+                                      : 'text-gray-500 dark:text-gray-400',
+                                    isEmojiLocked && 'cursor-not-allowed opacity-50',
+                                  )}
+                                >
+                                  图片
+                                </button>
+                              </div>
+                            </div>
+                            <div>
+                              <div className="mb-1.5 text-[11px] font-medium text-gray-500 dark:text-gray-400">
+                                形状
+                              </div>
+                              <div className={compactSegmentGroupClassName}>
+                                <button
+                                  type="button"
+                                  disabled={isEmojiLocked}
+                                  onClick={() => setAvatarShape(AGENT_AVATAR_SHAPE_ROUNDED)}
+                                  className={clsx(
+                                    compactSegmentButtonClassName,
+                                    avatarShape === AGENT_AVATAR_SHAPE_ROUNDED
+                                      ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-white'
+                                      : 'text-gray-500 dark:text-gray-400',
+                                    isEmojiLocked && 'cursor-not-allowed opacity-50',
+                                  )}
+                                >
+                                  圆角方形
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={isEmojiLocked}
+                                  onClick={() => setAvatarShape(AGENT_AVATAR_SHAPE_CIRCLE)}
+                                  className={clsx(
+                                    compactSegmentButtonClassName,
+                                    avatarShape === AGENT_AVATAR_SHAPE_CIRCLE
+                                      ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-white'
+                                      : 'text-gray-500 dark:text-gray-400',
+                                    isEmojiLocked && 'cursor-not-allowed opacity-50',
+                                  )}
+                                >
+                                  圆形
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] lg:items-start">
+                        <div className="flex flex-col gap-2">
+                          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            {t('agents.general.name')}
+                          </label>
+                          <input
+                            value={displayName}
+                            onChange={e => setName(e.target.value)}
+                            placeholder={t('agents.general.namePlaceholder')}
+                            disabled={isGeneralLocked}
+                            className="focus:ring-primary-500/20 h-10 flex-1 rounded-lg border-none bg-black/5 px-4 py-2 text-sm focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50/20 disabled:opacity-50 dark:bg-white/5"
                           />
                         </div>
-                      )}
+
+                        {avatarType === AGENT_AVATAR_TYPE_EMOJI ? (
+                          <div className="flex flex-col gap-2">
+                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                              Emoji 头像
+                            </label>
+                            <div className="relative inline-block w-full sm:w-fit">
+                              <button
+                                ref={buttonRef}
+                                type="button"
+                                onClick={() => {
+                                  if (isEmojiLocked) return
+                                  setShowEmojiPicker(!showEmojiPicker)
+                                }}
+                                disabled={isEmojiLocked}
+                                className={clsx(
+                                  compactActionButtonClassName,
+                                  'w-full disabled:bg-gray-50/20 sm:w-auto',
+                                )}
+                              >
+                                {/* <AgentAvatar agent={{ emoji }} size="1.6rem" /> */}
+                                <span>选择 Emoji</span>
+                              </button>
+                              {showEmojiPicker && (
+                                <div
+                                  ref={pickerRef}
+                                  className="absolute top-full left-0 z-50 mt-2 overflow-hidden rounded-xl shadow-2xl"
+                                >
+                                  <CustomEmojiPicker
+                                    onEmojiSelect={e => {
+                                      setEmoji(e?.native || e)
+                                      setShowEmojiPicker(false)
+                                    }}
+                                    onClose={() => setShowEmojiPicker(false)}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col gap-2">
+                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                              图片头像
+                            </label>
+                            <div className="grid gap-2 sm:flex sm:flex-wrap sm:items-center">
+                              <button
+                                type="button"
+                                disabled={isEmojiLocked}
+                                onClick={() => avatarInputRef.current?.click()}
+                                className={compactActionButtonClassName}
+                              >
+                                <Upload size={16} />
+                                上传图片
+                              </button>
+                              {avatarImage && (
+                                <>
+                                  <button
+                                    type="button"
+                                    disabled={isEmojiLocked}
+                                    onClick={() =>
+                                      openAvatarCropper(avatarImage).catch(err =>
+                                        setError(err.message),
+                                      )
+                                    }
+                                    className={compactActionButtonClassName}
+                                  >
+                                    重新裁剪
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={isEmojiLocked}
+                                    onClick={() => {
+                                      setAvatarImage('')
+                                      setAvatarType(AGENT_AVATAR_TYPE_EMOJI)
+                                    }}
+                                    className={compactDangerButtonClassName}
+                                  >
+                                    <Trash2 size={16} />
+                                    移除
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                            <input
+                              ref={avatarInputRef}
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={handleAvatarUpload}
+                            />
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              上传后可裁剪为 1:1 头像，并选择圆形或圆角方形外框。
+                            </p>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <input
-                      value={displayName}
-                      onChange={e => setName(e.target.value)}
-                      placeholder={t('agents.general.namePlaceholder')}
-                      disabled={isGeneralLocked}
-                      className="focus:ring-primary-500/20 h-12 flex-1 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50/20 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900"
-                    />
                   </div>
                 </div>
 
@@ -1465,11 +1962,127 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     placeholder={t('agents.general.descriptionPlaceholder')}
                     disabled={isGeneralLocked}
                     rows={2}
-                    className="focus:ring-primary-500/20 w-full resize-none rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50/20 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900"
+                    className="focus:ring-primary-500/20 w-full resize-none rounded-lg border-none bg-black/5 px-4 py-2 text-sm focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50/20 disabled:opacity-50 dark:bg-white/5"
                   />
                 </div>
 
-                <div className="flex min-h-0 flex-1 flex-col gap-2">
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    会话 Banner
+                  </label>
+                  <div className="rounded-2xl border border-black/5 bg-black/[0.03] p-3 sm:p-4 dark:border-white/5 dark:bg-white/[0.03]">
+                    <div className="grid gap-4 lg:grid-cols-[minmax(0,0.86fr)_minmax(0,1.14fr)] lg:items-start">
+                      <div className="space-y-3">
+                        <div className="rounded-xl border border-black/5 bg-white/35 px-3 py-2 dark:border-white/5 dark:bg-white/[0.03]">
+                          <div className="mb-1.5 text-[11px] font-medium tracking-[0.12em] text-gray-500 uppercase dark:text-gray-400">
+                            展示方式
+                          </div>
+                          <div className={compactSegmentGroupClassName}>
+                            {[
+                              { value: AGENT_BANNER_MODE_NONE, label: '关闭' },
+                              { value: AGENT_BANNER_MODE_MANUAL, label: '手动' },
+                            ].map(option => (
+                              <button
+                                key={option.value}
+                                type="button"
+                                disabled={isDeepResearchAgent}
+                                onClick={() => setBannerMode(option.value)}
+                                className={clsx(
+                                  compactSegmentButtonClassName,
+                                  bannerMode === option.value
+                                    ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-white'
+                                    : 'bg-black/5 text-gray-500 dark:bg-white/5 dark:text-gray-400',
+                                  isDeepResearchAgent && 'cursor-not-allowed opacity-50',
+                                )}
+                              >
+                                {option.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <p className="text-xs leading-5 text-gray-500 dark:text-gray-400">
+                          普通会话顶部按 Notion 风格展示。当前只支持手动上传 Banner。
+                        </p>
+                        {bannerMode === AGENT_BANNER_MODE_MANUAL && (
+                          <div className="grid gap-1.5 sm:flex sm:flex-wrap sm:items-center">
+                            <button
+                              type="button"
+                              disabled={isDeepResearchAgent}
+                              onClick={() => bannerInputRef.current?.click()}
+                              className={bannerActionButtonClassName}
+                            >
+                              <Upload size={16} />
+                              选择 Banner
+                            </button>
+                            {bannerImage && (
+                              <>
+                                <button
+                                  type="button"
+                                  disabled={isDeepResearchAgent}
+                                  onClick={() =>
+                                    openBannerCropper(bannerImage).catch(err =>
+                                      setError(err.message),
+                                    )
+                                  }
+                                  className={bannerActionButtonClassName}
+                                >
+                                  重新裁剪
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={isDeepResearchAgent}
+                                  onClick={() => setIsBannerPreviewOpen(true)}
+                                  className={bannerActionButtonClassName}
+                                >
+                                  <Eye size={16} />
+                                  预览效果
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={isDeepResearchAgent}
+                                  onClick={() => {
+                                    setBannerImage('')
+                                    setIsBannerPreviewOpen(false)
+                                  }}
+                                  className={bannerDangerButtonClassName}
+                                >
+                                  <Trash2 size={16} />
+                                  移除 Banner
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        )}
+                        <input
+                          ref={bannerInputRef}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleBannerUpload}
+                        />
+                      </div>
+                      <div>
+                        {bannerImage ? (
+                          <div className="overflow-hidden rounded-[24px] border border-black/8 bg-white/70 dark:border-white/10 dark:bg-white/[0.04]">
+                            <div style={{ aspectRatio: String(AGENT_BANNER_ASPECT_RATIO) }}>
+                              <img
+                                src={bannerImage}
+                                alt="Banner 原图"
+                                className="h-full w-full object-cover"
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex min-h-36 items-center justify-center rounded-[24px] border border-dashed border-black/10 bg-white/30 px-5 text-center text-sm text-gray-500 dark:border-white/10 dark:bg-white/[0.02] dark:text-gray-400">
+                            选择一张常驻显示的会话 Banner
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex min-h-[16rem] flex-1 flex-col gap-2">
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     {t('agents.general.systemPrompt')}
                   </label>
@@ -1477,9 +2090,9 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     value={prompt}
                     onChange={e => setPrompt(e.target.value)}
                     placeholder={t('agents.general.systemPromptPlaceholder')}
-                    rows={6}
+                    rows={8}
                     disabled={isDeepResearchAgent}
-                    className="focus:ring-primary-500/20 min-h-0 w-full flex-1 resize-none rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50/20 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900"
+                    className="focus:ring-primary-500/20 min-h-[16rem] w-full flex-1 resize-y rounded-xl border-none bg-black/5 px-4 py-3 text-sm leading-6 focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50/20 disabled:opacity-50 dark:bg-white/5"
                   />
                 </div>
               </div>
@@ -1720,11 +2333,11 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     onChange={e => setCustomInstruction(e.target.value)}
                     placeholder={t('settings.customInstructionPlaceholder')}
                     rows={3}
-                    className="focus:ring-primary-500/20 w-full resize-none rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900"
+                    className="focus:ring-primary-500/20 w-full resize-none rounded-lg border-none bg-black/5 px-4 py-2 text-sm focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:bg-white/5"
                   />
                 </div>
 
-                <div className="rounded-xl border border-gray-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
+                <div className="rounded-xl border border-black/5 bg-transparent p-1 dark:border-white/5">
                   <button
                     type="button"
                     onClick={() => {
@@ -1916,7 +2529,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                           !disabled && 'cursor-pointer',
                                           checked
                                             ? 'border-primary-400 bg-primary-50/40 dark:bg-primary-900/20'
-                                            : 'border-gray-200 hover:bg-gray-50 dark:border-zinc-700 dark:hover:bg-zinc-800/40',
+                                            : 'border-black/10 hover:bg-black/5 dark:border-zinc-700 dark:hover:bg-zinc-800/40',
                                         )}
                                       >
                                         <Checkbox
@@ -1998,7 +2611,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                     !disabled && 'cursor-pointer',
                                     checked
                                       ? 'border-primary-400 bg-primary-50/40 dark:bg-primary-900/20'
-                                      : 'border-gray-200 hover:bg-gray-50 dark:border-zinc-700 dark:hover:bg-zinc-800/40',
+                                      : 'border-black/10 hover:bg-black/5 dark:border-zinc-700 dark:hover:bg-zinc-800/40',
                                   )}
                                 >
                                   <Checkbox
@@ -2056,13 +2669,8 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                 <div className="flex gap-3 rounded-lg bg-blue-50 p-4 text-sm text-blue-700 dark:bg-blue-900/10 dark:text-blue-300">
                   <Info size={18} className="mt-0.5 shrink-0" />
                   <div>
-                    <p className="font-medium">{t('agents.skills.title', 'Available Skills')}</p>
-                    <p className="opacity-90">
-                      {t(
-                        'agents.skills.description',
-                        'Skills are modular prompts and scripts that give this agent extra automated capabilities.',
-                      )}
-                    </p>
+                    <p className="font-medium">{t('agents.skills.title')}</p>
+                    <p className="opacity-90">{t('agents.skills.description')}</p>
                   </div>
                 </div>
 
@@ -2074,14 +2682,9 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   <div className="rounded-xl border border-dashed border-gray-200 p-8 text-center dark:border-zinc-800">
                     <GraduationCap className="mx-auto mb-3 h-8 w-8 text-gray-400" />
                     <p className="font-medium text-gray-900 dark:text-white">
-                      {t('agents.skills.empty', 'No Custom Skills Found')}
+                      {t('agents.skills.empty')}
                     </p>
-                    <p className="mt-1 text-sm text-gray-500">
-                      {t(
-                        'agents.skills.emptyHint',
-                        'Create skills in the Skills Workshop (Sidebar) before assigning them.',
-                      )}
-                    </p>
+                    <p className="mt-1 text-sm text-gray-500">{t('agents.skills.emptyHint')}</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -2094,7 +2697,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                             'group/skill flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors',
                             checked
                               ? 'border-primary-400 bg-primary-50/40 dark:bg-primary-900/20'
-                              : 'border-gray-200 hover:bg-gray-50 dark:border-zinc-700 dark:hover:bg-zinc-800/40',
+                              : 'border-black/10 hover:bg-black/5 dark:border-zinc-700 dark:hover:bg-zinc-800/40',
                           )}
                         >
                           <Checkbox
@@ -2136,7 +2739,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
           </div>
 
           {/* Footer */}
-          <div className="flex h-16 shrink-0 items-center justify-between border-t border-gray-200 bg-white px-6 dark:border-zinc-800 dark:bg-[#191a1a]">
+          <div className="flex h-16 shrink-0 items-center justify-between border-t border-black/5 bg-transparent px-6 dark:border-white/5">
             {editingAgent && onDelete && !editingAgent.isDefault ? (
               <button
                 onClick={() => {
@@ -2150,7 +2753,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     onConfirm: () => onDelete(editingAgent.id),
                   })
                 }}
-                className="rounded-lg px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                className="inline-flex h-10 items-center rounded-xl border border-red-200 bg-red-50 px-4 text-sm font-semibold text-red-600 transition-all hover:bg-red-100 hover:text-red-700 dark:border-red-900/50 dark:bg-red-900/15 dark:text-red-300 dark:hover:bg-red-900/30"
               >
                 {t('agents.actions.delete')}
               </button>
@@ -2161,14 +2764,14 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
             <div className="flex gap-3">
               <button
                 onClick={onClose}
-                className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-zinc-800"
+                className="inline-flex h-10 items-center rounded-xl border border-black/10 bg-white/80 px-4 text-sm font-semibold text-gray-700 transition-all hover:bg-white hover:text-gray-900 dark:border-white/10 dark:bg-white/5 dark:text-gray-300 dark:hover:bg-white/10"
               >
                 {t('agents.actions.cancel')}
               </button>
               <button
                 onClick={handleSaveWrapper}
                 disabled={isSaving}
-                className="bg-primary-500 hover:bg-primary-600 rounded-lg px-4 py-2 text-sm font-medium text-white shadow-md transition-all hover:shadow-lg active:scale-95 disabled:opacity-50"
+                className="bg-primary-500 hover:bg-primary-600 inline-flex h-10 items-center rounded-xl px-5 text-sm font-semibold text-white shadow-[0_6px_18px_rgba(59,130,246,0.32)] transition-all hover:shadow-[0_10px_22px_rgba(59,130,246,0.36)] active:scale-95 disabled:opacity-50"
               >
                 {isSaving
                   ? t('agents.actions.saving')
@@ -2180,6 +2783,367 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
           </div>
         </div>
       </div>
+      {avatarCropSource && avatarPreviewLayout && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-2xl rounded-[28px] border border-white/10 bg-white/95 p-5 shadow-2xl dark:bg-zinc-950/95">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h4 className="text-lg font-semibold text-gray-900 dark:text-white">裁剪头像</h4>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  调整缩放和位置，输出为 1:1 头像。
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setAvatarCropSource('')
+                  setAvatarCropMeta(null)
+                }}
+                className="rounded-full p-2 text-gray-500 transition-colors hover:bg-black/5 dark:hover:bg-white/10"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="mt-5 flex flex-col gap-6 lg:flex-row">
+              <div className="flex justify-center lg:flex-1">
+                <div
+                  ref={avatarCropFrameRef}
+                  className={clsx(
+                    'relative touch-none overflow-hidden border border-black/8 bg-gray-100 dark:border-white/10 dark:bg-zinc-900',
+                    avatarShape === AGENT_AVATAR_SHAPE_CIRCLE ? 'rounded-full' : 'rounded-[28px]',
+                    avatarDragState ? 'cursor-grabbing' : 'cursor-grab',
+                  )}
+                  style={{ width: cropViewportSize, height: cropViewportSize }}
+                  onPointerDown={event => {
+                    event.preventDefault()
+                    setAvatarDragState({
+                      startX: event.clientX,
+                      startY: event.clientY,
+                      startOffsetX: avatarCropOffsetX,
+                      startOffsetY: avatarCropOffsetY,
+                    })
+                  }}
+                >
+                  <img
+                    src={avatarCropSource}
+                    alt="Avatar crop source"
+                    className="pointer-events-none absolute max-w-none select-none"
+                    style={{
+                      width: avatarPreviewLayout.renderedWidth,
+                      height: avatarPreviewLayout.renderedHeight,
+                      left: '50%',
+                      top: '50%',
+                      transform: `translate(calc(-50% + ${avatarCropOffsetX}px), calc(-50% + ${avatarCropOffsetY}px))`,
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="flex min-w-0 flex-1 flex-col gap-4">
+                <label className="flex flex-col gap-2 text-sm text-gray-700 dark:text-gray-300">
+                  缩放
+                  <input
+                    type="range"
+                    min="1"
+                    max="3"
+                    step="0.01"
+                    value={avatarCropZoom}
+                    onChange={event => {
+                      const nextZoom = Number(event.target.value)
+                      setAvatarCropZoom(nextZoom)
+                      if (avatarPreviewLayout) {
+                        const ratio = nextZoom / avatarCropZoom
+                        const nextMaxX = Math.max(
+                          0,
+                          (avatarPreviewLayout.baseWidth * nextZoom - cropViewportSize) / 2,
+                        )
+                        const nextMaxY = Math.max(
+                          0,
+                          (avatarPreviewLayout.baseHeight * nextZoom - cropViewportSize) / 2,
+                        )
+                        setAvatarCropOffsetX(prev => clampCropOffset(prev * ratio, nextMaxX))
+                        setAvatarCropOffsetY(prev => clampCropOffset(prev * ratio, nextMaxY))
+                      }
+                    }}
+                  />
+                </label>
+                <label className="flex flex-col gap-2 text-sm text-gray-700 dark:text-gray-300">
+                  水平位置
+                  <input
+                    type="range"
+                    min={-avatarPreviewLayout.maxOffsetX}
+                    max={avatarPreviewLayout.maxOffsetX}
+                    step="1"
+                    value={avatarCropOffsetX}
+                    onChange={event =>
+                      setAvatarCropOffsetX(
+                        clampCropOffset(Number(event.target.value), avatarPreviewLayout.maxOffsetX),
+                      )
+                    }
+                  />
+                </label>
+                <label className="flex flex-col gap-2 text-sm text-gray-700 dark:text-gray-300">
+                  垂直位置
+                  <input
+                    type="range"
+                    min={-avatarPreviewLayout.maxOffsetY}
+                    max={avatarPreviewLayout.maxOffsetY}
+                    step="1"
+                    value={avatarCropOffsetY}
+                    onChange={event =>
+                      setAvatarCropOffsetY(
+                        clampCropOffset(Number(event.target.value), avatarPreviewLayout.maxOffsetY),
+                      )
+                    }
+                  />
+                </label>
+                <div className="rounded-2xl border border-black/5 bg-black/[0.03] px-4 py-3 text-xs text-gray-500 dark:border-white/5 dark:bg-white/[0.03] dark:text-gray-400">
+                  当前头像框：{avatarShape === AGENT_AVATAR_SHAPE_CIRCLE ? '圆形' : '圆角方形'}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setAvatarCropSource('')
+                  setAvatarCropMeta(null)
+                }}
+                className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-black/5 dark:text-gray-400 dark:hover:bg-white/10"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={handleApplyAvatarCrop}
+                disabled={isAvatarCropping}
+                className="bg-primary-500 hover:bg-primary-600 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors disabled:opacity-50"
+              >
+                {isAvatarCropping ? '处理中...' : '应用裁剪'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {isBannerPreviewOpen && bannerImage && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-6xl rounded-[28px] border border-white/10 bg-white/95 p-5 shadow-2xl dark:bg-zinc-950/95">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Banner 预览</h4>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  对比桌面端与移动端的实际会话显示效果。
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsBannerPreviewOpen(false)}
+                className="rounded-full p-2 text-gray-500 transition-colors hover:bg-black/5 dark:hover:bg-white/10"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="mt-5 grid gap-4 lg:grid-cols-2">
+              <section className="rounded-2xl border border-black/8 bg-black/[0.03] p-4 dark:border-white/10 dark:bg-white/[0.03]">
+                <div className="mb-2 text-xs font-semibold tracking-[0.08em] text-gray-500 uppercase dark:text-gray-400">
+                  桌面端
+                </div>
+                <div className="rounded-xl bg-slate-100 p-3 dark:bg-zinc-900">
+                  <AgentBannerSurface
+                    imageSrc={bannerImage}
+                    imageAlt={displayName || 'Agent banner'}
+                    agent={previewAgent}
+                    displayName={displayName || 'Agent'}
+                    providerId={previewProviderId}
+                    providerLabel={previewProviderLabel}
+                    providerFallback={previewProviderFallback}
+                    model={previewModel}
+                  />
+                </div>
+              </section>
+              <section className="rounded-2xl border border-black/8 bg-black/[0.03] p-4 dark:border-white/10 dark:bg-white/[0.03]">
+                <div className="mb-2 text-xs font-semibold tracking-[0.08em] text-gray-500 uppercase dark:text-gray-400">
+                  移动端
+                </div>
+                <div className="rounded-xl bg-slate-100 px-2 py-4 dark:bg-zinc-900">
+                  <div className="mx-auto w-full max-w-[390px]">
+                    <AgentBannerSurface
+                      imageSrc={bannerImage}
+                      imageAlt={displayName || 'Agent banner'}
+                      agent={previewAgent}
+                      displayName={displayName || 'Agent'}
+                      providerId={previewProviderId}
+                      providerLabel={previewProviderLabel}
+                      providerFallback={previewProviderFallback}
+                      model={previewModel}
+                    />
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+      )}
+      {bannerCropSource && bannerPreviewLayout && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-5xl rounded-[28px] border border-white/10 bg-white/95 p-5 shadow-2xl dark:bg-zinc-950/95">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h4 className="text-lg font-semibold text-gray-900 dark:text-white">裁剪 Banner</h4>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  调整横幅构图，预览中会显示信息卡遮挡后的最终效果。
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setBannerCropSource('')
+                  setBannerCropMeta(null)
+                }}
+                className="rounded-full p-2 text-gray-500 transition-colors hover:bg-black/5 dark:hover:bg-white/10"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="mt-5 flex flex-col gap-6 xl:flex-row">
+              <div className="flex justify-center xl:flex-1">
+                <div
+                  ref={bannerCropFrameRef}
+                  className={clsx(
+                    'touch-none',
+                    bannerDragState ? 'cursor-grabbing' : 'cursor-grab',
+                  )}
+                  style={{ width: bannerViewportWidth }}
+                  onPointerDown={event => {
+                    event.preventDefault()
+                    setBannerDragState({
+                      startX: event.clientX,
+                      startY: event.clientY,
+                      startOffsetX: bannerCropOffsetX,
+                      startOffsetY: bannerCropOffsetY,
+                    })
+                  }}
+                >
+                  <AgentBannerSurface
+                    imageAlt="Banner crop source"
+                    backgroundNode={
+                      <img
+                        src={bannerCropSource}
+                        alt="Banner crop source"
+                        className="pointer-events-none absolute max-w-none select-none"
+                        style={{
+                          width: bannerPreviewLayout.renderedWidth,
+                          height: bannerPreviewLayout.renderedHeight,
+                          left: '50%',
+                          top: '50%',
+                          transform: `translate(calc(-50% + ${bannerCropOffsetX}px), calc(-50% + ${bannerCropOffsetY}px))`,
+                        }}
+                      />
+                    }
+                    agent={previewAgent}
+                    displayName={displayName || 'Agent'}
+                    providerId={previewProviderId}
+                    providerLabel={previewProviderLabel}
+                    providerFallback={previewProviderFallback}
+                    model={previewModel}
+                    frameClassName="bg-gray-100 dark:bg-zinc-900"
+                    frameStyle={{ width: '100%', aspectRatio: String(AGENT_BANNER_ASPECT_RATIO) }}
+                  />
+                </div>
+              </div>
+
+              <div className="flex min-w-0 flex-1 flex-col gap-4">
+                <label className="flex flex-col gap-2 text-sm text-gray-700 dark:text-gray-300">
+                  缩放
+                  <input
+                    type="range"
+                    min="1"
+                    max="3"
+                    step="0.01"
+                    value={bannerCropZoom}
+                    onChange={event => {
+                      const nextZoom = Number(event.target.value)
+                      setBannerCropZoom(nextZoom)
+                      if (bannerPreviewLayout) {
+                        const ratio = nextZoom / bannerCropZoom
+                        const nextMaxX = Math.max(
+                          0,
+                          (bannerPreviewLayout.baseWidth * nextZoom - bannerViewportWidth) / 2,
+                        )
+                        const nextMaxY = Math.max(
+                          0,
+                          (bannerPreviewLayout.baseHeight * nextZoom - bannerViewportHeight) / 2,
+                        )
+                        setBannerCropOffsetX(prev => clampCropOffset(prev * ratio, nextMaxX))
+                        setBannerCropOffsetY(prev => clampCropOffset(prev * ratio, nextMaxY))
+                      }
+                    }}
+                  />
+                </label>
+                <label className="flex flex-col gap-2 text-sm text-gray-700 dark:text-gray-300">
+                  水平位置
+                  <input
+                    type="range"
+                    min={-bannerPreviewLayout.maxOffsetX}
+                    max={bannerPreviewLayout.maxOffsetX}
+                    step="1"
+                    value={bannerCropOffsetX}
+                    onChange={event =>
+                      setBannerCropOffsetX(
+                        clampCropOffset(Number(event.target.value), bannerPreviewLayout.maxOffsetX),
+                      )
+                    }
+                  />
+                </label>
+                <label className="flex flex-col gap-2 text-sm text-gray-700 dark:text-gray-300">
+                  垂直位置
+                  <input
+                    type="range"
+                    min={-bannerPreviewLayout.maxOffsetY}
+                    max={bannerPreviewLayout.maxOffsetY}
+                    step="1"
+                    value={bannerCropOffsetY}
+                    onChange={event =>
+                      setBannerCropOffsetY(
+                        clampCropOffset(Number(event.target.value), bannerPreviewLayout.maxOffsetY),
+                      )
+                    }
+                  />
+                </label>
+                <div className="rounded-2xl border border-black/5 bg-black/[0.03] px-4 py-3 text-xs text-gray-500 dark:border-white/5 dark:bg-white/[0.03] dark:text-gray-400">
+                  可以直接拖拽图片调整构图。横幅会按会话中的 Banner
+                  信息卡样式进行展示，左下角会保留信息区空间。
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setBannerCropSource('')
+                  setBannerCropMeta(null)
+                }}
+                className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-black/5 dark:text-gray-400 dark:hover:bg-white/10"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={handleApplyBannerCrop}
+                disabled={isBannerCropping}
+                className="bg-primary-500 hover:bg-primary-600 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors disabled:opacity-50"
+              >
+                {isBannerCropping ? '处理中...' : '应用裁剪'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

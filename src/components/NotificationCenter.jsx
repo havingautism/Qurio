@@ -12,17 +12,9 @@
  *  - ESC key to close
  */
 
-import {
-  Bell,
-  Check,
-  CheckCheck,
-  ExternalLink,
-  Inbox,
-  Mail,
-  RefreshCw,
-  Trash2,
-  X,
-} from 'lucide-react'
+import { Check, CheckCheck, ExternalLink, Inbox, Mail, RefreshCw, Trash2, X } from 'lucide-react'
+import { EnvelopeSimple as EnvelopeSimpleIcon } from '@phosphor-icons/react'
+import clsx from 'clsx'
 import { useCallback, useEffect, useState, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
@@ -82,7 +74,7 @@ const deleteNotification = async id => {
 // Component
 // ---------------------------------------------------------------------------
 
-const NotificationCenter = () => {
+const NotificationCenter = ({ buttonClassName = '' }) => {
   const { t } = useTranslation()
   const [isOpen, setIsOpen] = useState(false)
   const [configs, setConfigs] = useState([])
@@ -295,7 +287,7 @@ const NotificationCenter = () => {
           />
 
           {/* Detail Panel */}
-          <div className="relative z-10 w-full max-w-2xl overflow-hidden rounded-xl border border-gray-200/60 bg-white shadow-2xl dark:border-zinc-700/50 dark:bg-zinc-900">
+          <div className="glass-elite-panel relative z-10 w-full max-w-2xl overflow-hidden rounded-[28px] border-none shadow-2xl">
             {/* Header */}
             <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/50 px-6 py-4 dark:border-zinc-800 dark:bg-zinc-800/50">
               <div className="flex items-center gap-3">
@@ -410,7 +402,7 @@ const NotificationCenter = () => {
 
           {/* Modal Panel */}
           <div
-            className="relative z-10 flex w-full max-w-xl flex-col overflow-hidden rounded-xl border border-gray-200/60 bg-white shadow-2xl dark:border-zinc-700/50 dark:bg-zinc-900"
+            className="glass-elite-panel relative z-10 flex w-full max-w-xl flex-col overflow-hidden rounded-[28px] border-none shadow-2xl"
             style={{ maxHeight: '80vh' }}
           >
             {/* Header */}
@@ -463,7 +455,7 @@ const NotificationCenter = () => {
               <div className="flex items-center gap-1 overflow-x-auto border-b border-gray-100 bg-gray-50/50 px-3 py-2 dark:border-zinc-800/50 dark:bg-zinc-800/30">
                 <button
                   onClick={() => setActiveTab('all')}
-                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition-all ${activeTab === 'all' ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-gray-100' : 'text-gray-500 hover:text-gray-700 dark:text-zinc-400 dark:hover:text-zinc-200'}`}
+                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition-all ${activeTab === 'all' ? 'bg-black/5 text-gray-900 shadow-sm dark:bg-white/10 dark:text-gray-100' : 'text-gray-500 hover:text-gray-700 dark:text-zinc-400 dark:hover:text-zinc-200'}`}
                 >
                   {t('notificationCenter.all')}{' '}
                   <span className="ml-0.5 opacity-60">{notifications.length}</span>
@@ -476,7 +468,7 @@ const NotificationCenter = () => {
                     <button
                       key={config.id}
                       onClick={() => setActiveTab(config.id)}
-                      className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${isActive ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-gray-100' : 'text-gray-500 hover:text-gray-700 dark:text-zinc-400 dark:hover:text-zinc-200'}`}
+                      className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${isActive ? 'bg-black/5 text-gray-900 shadow-sm dark:bg-white/10 dark:text-gray-100' : 'text-gray-500 hover:text-gray-700 dark:text-zinc-400 dark:hover:text-zinc-200'}`}
                     >
                       <span className="max-w-[100px] truncate">{config.email.split('@')[0]}</span>
                       {count > 0 && (
@@ -617,11 +609,15 @@ const NotificationCenter = () => {
       <button
         id="notification-center-bell"
         onClick={() => setIsOpen(prev => !prev)}
-        className="relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border border-white/75 bg-white/55 text-slate-600 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)] transition-all duration-300 hover:scale-105 hover:border-white hover:bg-white/75 hover:text-slate-900 active:scale-95 dark:border-white/10 dark:bg-white/5 dark:text-white/75 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] dark:hover:border-white/15 dark:hover:bg-white/10 dark:hover:text-white"
+        className={clsx(
+          'relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl transition-all duration-300 hover:scale-105 active:scale-95',
+          buttonClassName ||
+            'border border-white/75 bg-white/55 text-slate-600 hover:border-white hover:bg-white/75 hover:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white/75 dark:hover:border-white/15 dark:hover:bg-white/10 dark:hover:text-white',
+        )}
         title={t('notificationCenter.title')}
       >
         {/* <Bell size={20} /> */}
-        <Inbox size={20} />
+        <EnvelopeSimpleIcon size={20} weight="duotone" />
         {totalUnreadCount > 0 && (
           <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
             {totalUnreadCount > 99 ? '99+' : totalUnreadCount}

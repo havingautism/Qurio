@@ -24,6 +24,10 @@ except Exception:  # pragma: no cover - backward compatibility only
     from duckduckgo_search import DDGS
 
 from .academic_domains import ACADEMIC_DOMAINS
+from .skill_runtime import (
+    execute_skill_script as execute_skill_script_runtime,
+    install_skill_dependency as install_skill_dependency_runtime,
+)
 
 FIXED_SEARCH_MAX_RESULTS = 5
 
@@ -55,6 +59,10 @@ def _run_blocking_with_timeout(fn: Any, timeout_sec: float | None = None) -> Any
         # If the future already completed (success/error), normal shutdown is safe.
         if future.done():
           executor.shutdown(wait=True, cancel_futures=False)
+
+
+def _run_async_tool_sync(coro_factory: Any, timeout_sec: float | None = None) -> Any:
+    return _run_blocking_with_timeout(lambda: asyncio.run(coro_factory()), timeout_sec=timeout_sec)
 
 
 def _create_ddgs_client() -> Any:
@@ -322,7 +330,7 @@ class SerpApiImageTools(Toolkit):
         )
 
     @tool
-    async def google_image_search(self, query: str) -> str:
+    def google_image_search(self, query: str) -> str:
         """
         Search for images on Google using SerpApi. Returns a list of image results with titles and URLs.
 
@@ -331,20 +339,20 @@ class SerpApiImageTools(Toolkit):
         Returns:
             str: JSON string containing the image results.
         """
-        return await self._serpapi_search(query, engine="google_images")
+        return _run_async_tool_sync(lambda: self._serpapi_search(query, engine="google_images"), 30.0)
 
     @tool
-    async def bing_image_search(self, query: str) -> str:
+    def bing_image_search(self, query: str) -> str:
         """
         Search for images on Bing using SerpApi.
 
         Args:
             query (str): The search query.
         """
-        return await self._serpapi_search(query, engine="bing_images")
+        return _run_async_tool_sync(lambda: self._serpapi_search(query, engine="bing_images"), 30.0)
 
     @tool
-    async def serpapi_image_search(self, query: str, engine: str = "google_images") -> str:
+    def serpapi_image_search(self, query: str, engine: str = "google_images") -> str:
         """
         Search for images using various engines via SerpApi.
         Supported engines include: google_images, bing_images, yahoo_images.
@@ -355,7 +363,7 @@ class SerpApiImageTools(Toolkit):
         Returns:
             str: JSON string containing the image results.
         """
-        return await self._serpapi_search(query, engine=engine)
+        return _run_async_tool_sync(lambda: self._serpapi_search(query, engine=engine), 30.0)
 
     async def _serpapi_search(self, query: str, engine: str) -> str:
         """
@@ -425,6 +433,8 @@ class QurioLocalTools(Toolkit):
             self.extract_text,
             self.json_repair,
             interactive_form,
+            self.install_skill_dependency,
+            self.execute_skill_script,
             self.webpage_reader,
             self.tavily_web_search,
             self.tavily_academic_search,
@@ -481,9 +491,100 @@ class QurioLocalTools(Toolkit):
                 return {"valid": False, "repaired": repaired, "data": data}
             except Exception as exc:
                 return {"valid": False, "error": f"Unable to repair JSON: {exc}"}
+        except Exception as exc:
+            return {"valid": False, "error": f"Unable to repair JSON: {exc}"}
+
+    @tool(
+        name="install_skill_dependency",
+        description=(
+            "Install a Python package into a skill-scoped virtual environment. "
+            "Use only after the user explicitly approves installation, ideally via interactive_form."
+        ),
+    )
+    def install_skill_dependency(self, skill_id: str, package_name: str) -> dict[str, Any]:
+        """
+        Install one Python package into `.skills/<skill_id>/.venv`.
+
+        Args:
+            skill_id: Existing skill id whose isolated environment should be used.
+            package_name: Single package name containing only letters, numbers, and hyphens.
+        """
+        return _run_async_tool_sync(
+            lambda: self._install_skill_dependency_async(skill_id, package_name),
+            180.0,
+        )
+
+    async def _install_skill_dependency_async(
+        self,
+        skill_id: str,
+        package_name: str,
+    ) -> dict[str, Any]:
+        try:
+            return await install_skill_dependency_runtime(skill_id, package_name)
+        except FileNotFoundError as exc:
+            return {"success": False, "error": str(exc), "skill_id": skill_id, "package_name": package_name}
+        except ValueError as exc:
+            return {"success": False, "error": str(exc), "skill_id": skill_id, "package_name": package_name}
+        except RuntimeError as exc:
+            return {"success": False, "error": str(exc), "skill_id": skill_id, "package_name": package_name}
+
+    @tool(
+        name="execute_skill_script",
+        description=(
+            "Execute a script from a skill's scripts directory. "
+            "Supports Python and Bash scripts and returns stdout/stderr."
+        ),
+    )
+    def execute_skill_script(
+        self,
+        skill_id: str,
+        script_path: str,
+        args: list[str] | None = None,
+        timeout_seconds: float = 60.0,
+    ) -> dict[str, Any]:
+        """
+        Execute one script located under `.skills/<skill_id>/scripts/`.
+
+        Args:
+            skill_id: Existing skill id containing the script.
+            script_path: Relative path like scripts/foo.py or scripts/foo.sh.
+            args: Optional positional arguments.
+            timeout_seconds: Optional timeout before aborting execution.
+        """
+        resolved_timeout = float(timeout_seconds) if timeout_seconds else 60.0
+        return _run_async_tool_sync(
+            lambda: self._execute_skill_script_async(
+                skill_id=skill_id,
+                script_path=script_path,
+                args=args,
+                timeout_seconds=resolved_timeout,
+            ),
+            resolved_timeout + 5.0,
+        )
+
+    async def _execute_skill_script_async(
+        self,
+        skill_id: str,
+        script_path: str,
+        args: list[str] | None = None,
+        timeout_seconds: float = 60.0,
+    ) -> dict[str, Any]:
+        try:
+            return await execute_skill_script_runtime(
+                skill_id=skill_id,
+                script_path=script_path,
+                args=args,
+                timeout_seconds=timeout_seconds,
+            )
+        except FileNotFoundError as exc:
+            return {"success": False, "error": str(exc), "skill_id": skill_id, "script_path": script_path}
+        except ValueError as exc:
+            return {"success": False, "error": str(exc), "skill_id": skill_id, "script_path": script_path}
+        except RuntimeError as exc:
+            return {"success": False, "error": str(exc), "skill_id": skill_id, "script_path": script_path}
 
     @tool(name="webpage_reader", description="Read and scrape webpages, auto-detecting platform (WeChat, X/Twitter, Bilibili, YouTube, XHS, Telegram, RSS, etc.).")
-    async def webpage_reader(self, url: str) -> dict[str, Any]:
+    def webpage_reader(self, url: str) -> dict[str, Any]:
         """
         Fetch webpage or platform content and return structured text.
 
@@ -491,6 +592,9 @@ class QurioLocalTools(Toolkit):
         1. x-reader (UniversalReader) — auto-detects platform and uses the best fetcher
         2. Jina.ai — generic fallback for any URL
         """
+        return _run_async_tool_sync(lambda: self._webpage_reader_async(url), 30.0)
+
+    async def _webpage_reader_async(self, url: str) -> dict[str, Any]:
         normalized = re.sub(r"^https?://r\.jina\.ai/", "", (url or "").strip())
         if not normalized:
             return {"error": "Missing required field: url"}
@@ -550,7 +654,10 @@ class QurioLocalTools(Toolkit):
             }
 
     @tool(name="Tavily_web_search", description="Search the web for current information using Tavily API.")
-    async def tavily_web_search(self, query: str) -> dict[str, Any]:
+    def tavily_web_search(self, query: str) -> dict[str, Any]:
+        return _run_async_tool_sync(lambda: self._tavily_web_search_async(query), 30.0)
+
+    async def _tavily_web_search_async(self, query: str) -> dict[str, Any]:
         limit = FIXED_SEARCH_MAX_RESULTS
         api_key = self._resolve_tavily_api_key()
         if not api_key:
@@ -591,7 +698,17 @@ class QurioLocalTools(Toolkit):
         name="Tavily_academic_search",
         description="Search academic sources using Tavily API with advanced depth.",
     )
-    async def tavily_academic_search(self, query: str, min_score: float = 0.9) -> dict[str, Any]:
+    def tavily_academic_search(self, query: str, min_score: float = 0.9) -> dict[str, Any]:
+        return _run_async_tool_sync(
+            lambda: self._tavily_academic_search_async(query, min_score),
+            30.0,
+        )
+
+    async def _tavily_academic_search_async(
+        self,
+        query: str,
+        min_score: float = 0.9,
+    ) -> dict[str, Any]:
         limit = FIXED_SEARCH_MAX_RESULTS
         try:
             score_threshold = float(min_score)

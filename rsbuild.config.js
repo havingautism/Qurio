@@ -17,6 +17,10 @@ export default defineConfig(({ env }) => {
   // In development, use root path to avoid issues with chunk loading
   const isDev = env.mode === 'development'
   const assetPrefix = isDev ? '/' : process.env.PUBLIC_BASE_PATH || '/Qurio/'
+  const ignoredRuntimePath = (filePath) =>
+    /[\\/]backend-python[\\/]\.skills[\\/].*[\\/]\.venv([\\/]|$)/.test(filePath) ||
+    /[\\/]backend-python[\\/].*[\\/]__pycache__([\\/]|$)/.test(filePath) ||
+    /[\\/]backend-python[\\/].*[\\/]\.ruff_cache([\\/]|$)/.test(filePath)
 
   return {
     plugins: [
@@ -49,6 +53,9 @@ export default defineConfig(({ env }) => {
     },
     tools: {
       rspack: {
+        watchOptions: {
+          ignored: ignoredRuntimePath,
+        },
         module: {
           rules: [
             {

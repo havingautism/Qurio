@@ -1,9 +1,12 @@
 import os
 import re
+import shutil
+import tempfile
 import yaml
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from pathlib import Path
+from urllib.parse import urlparse
 from ..services.skill_runtime import (
     ensure_skill_venv,
     get_skill_environment_status,
@@ -52,6 +55,14 @@ class SkillEnvironmentStatus(BaseModel):
 class SkillDependencyInstall(BaseModel):
     package_name: str
 
+
+class SkillImportGitRequest(BaseModel):
+    repo_url: str
+    skill_path: str | None = None
+    skill_id: str | None = None
+    ref: str | None = None
+
+
 def _get_skills_dir() -> str:
     return os.path.join(os.path.dirname(__file__), "..", "..", ".skills")
 
@@ -84,6 +95,120 @@ async def _ensure_skill_venv(skill_path: str) -> tuple[str, bool]:
         return await ensure_skill_venv(skill_path)
     except RuntimeError as exc:
         raise HTTPException(status_code=500, detail=str(exc))
+
+
+def _sanitize_skill_id(raw: str) -> str:
+    skill_id = (raw or "").strip().lower()
+    skill_id = re.sub(r"[^a-z0-9-]", "-", skill_id)
+    skill_id = re.sub(r"-+", "-", skill_id).strip("-")
+    return skill_id[:64]
+
+
+def _is_allowed_git_repo_url(repo_url: str) -> bool:
+    parsed = urlparse((repo_url or "").strip())
+    if parsed.scheme in {"http", "https"}:
+        return bool(parsed.netloc and parsed.path)
+    if parsed.scheme == "ssh":
+        return bool(parsed.netloc and parsed.path)
+    return bool(re.match(r"^[^@\s]+@[^:\s]+:[^\s]+$", repo_url or ""))
+
+
+def _normalize_git_import_source(
+    repo_url: str,
+    skill_path: str | None,
+    ref: str | None,
+) -> tuple[str, str | None, str | None]:
+    """
+    Allow pasting GitHub tree/blob URLs directly, e.g.
+    https://github.com/<owner>/<repo>/tree/<ref>/<path>
+    """
+    raw = (repo_url or "").strip()
+    parsed = urlparse(raw)
+    host = (parsed.netloc or "").lower()
+    if host.startswith("www."):
+        host = host[4:]
+
+    if host != "github.com":
+        return raw, skill_path, ref
+
+    segments = [seg for seg in parsed.path.split("/") if seg]
+    # Expect: owner/repo/(tree|blob)/ref/[path...]
+    if len(segments) >= 4 and segments[2] in {"tree", "blob"}:
+        owner, repo = segments[0], segments[1]
+        extracted_ref = segments[3]
+        extracted_path = "/".join(segments[4:]) if len(segments) > 4 else "."
+        normalized_repo = f"https://github.com/{owner}/{repo}.git"
+        final_ref = (ref or "").strip() or extracted_ref
+        final_path = (skill_path or "").strip() or extracted_path
+        return normalized_repo, final_path, final_ref
+
+    return raw, skill_path, ref
+
+
+def _normalize_skill_subpath(skill_path: str | None) -> str:
+    if not skill_path:
+        return "."
+    cleaned = str(skill_path).strip().replace("\\", "/").strip("/")
+    if not cleaned:
+        return "."
+    if ".." in cleaned.split("/"):
+        raise HTTPException(status_code=400, detail="skill_path cannot contain '..'")
+    return cleaned
+
+
+def _parse_and_validate_skill_md(content: str) -> tuple[dict, str]:
+    """
+    Validate SKILL.md against the Agno-compatible format used by this app:
+    - Must start with YAML frontmatter (`--- ... ---`)
+    - Frontmatter must contain `name` and `description`
+    - `name` must match ^[a-z0-9-]+$
+    """
+    if not content.startswith("---"):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid SKILL.md: missing YAML frontmatter. Expected leading '---'.",
+        )
+
+    parts = content.split("---", 2)
+    if len(parts) < 3:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid SKILL.md: malformed YAML frontmatter block.",
+        )
+
+    metadata = yaml.safe_load(parts[1]) or {}
+    if not isinstance(metadata, dict):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid SKILL.md: frontmatter must be a YAML object.",
+        )
+
+    name = str(metadata.get("name") or "").strip()
+    description = str(metadata.get("description") or "").strip()
+    if not name:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid SKILL.md: frontmatter field 'name' is required.",
+        )
+    if not re.fullmatch(r"^[a-z0-9-]+$", name):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid SKILL.md: 'name' must be lowercase alphanumeric with hyphens only.",
+        )
+    if not description:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid SKILL.md: frontmatter field 'description' is required.",
+        )
+
+    instructions = parts[2].lstrip("\n")
+    if not instructions.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid SKILL.md: instructions body cannot be empty.",
+        )
+
+    return {"name": name, "description": description}, instructions
 
 @router.get("", response_model=list[SkillInfo])
 async def list_skills():
@@ -155,6 +280,114 @@ async def create_skill(skill: SkillCreate):
         f.write(md_content)
         
     return SkillInfo(id=skill.id, name=skill.name or skill.id, description=skill.description)
+
+
+@router.post("/import/git", response_model=SkillInfo)
+async def import_skill_from_git(req: SkillImportGitRequest):
+    """Import a skill from a third-party git repository."""
+    repo_url, auto_skill_path, auto_ref = _normalize_git_import_source(
+        req.repo_url,
+        req.skill_path,
+        req.ref,
+    )
+    repo_url = (repo_url or "").strip()
+    if not repo_url:
+        raise HTTPException(status_code=400, detail="repo_url is required")
+    if not _is_allowed_git_repo_url(repo_url):
+        raise HTTPException(status_code=400, detail="Unsupported repo_url format")
+
+    skill_subpath = _normalize_skill_subpath(auto_skill_path)
+    ref = (auto_ref or "").strip()
+    if ref and not re.fullmatch(r"[A-Za-z0-9._/\-]+", ref):
+        raise HTTPException(status_code=400, detail="Invalid ref format")
+
+    skills_dir = _get_skills_dir()
+    os.makedirs(skills_dir, exist_ok=True)
+
+    tmp_root = tempfile.mkdtemp(prefix="skill-import-", dir=skills_dir)
+    try:
+        clone_cmd = ["git", "clone", "--depth", "1"]
+        if ref:
+            clone_cmd.extend(["--branch", ref])
+        clone_cmd.extend([repo_url, tmp_root])
+
+        try:
+            code, _, stderr = await _run_subprocess(clone_cmd, cwd=skills_dir)
+        except FileNotFoundError:
+            raise HTTPException(status_code=500, detail="Git is not installed on the server")
+        if code != 0:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Failed to clone repository: {stderr.strip() or 'unknown error'}",
+            )
+
+        src_path = os.path.abspath(os.path.join(tmp_root, skill_subpath))
+        tmp_root_abs = os.path.abspath(tmp_root)
+        if not src_path.startswith(tmp_root_abs + os.sep) and src_path != tmp_root_abs:
+            raise HTTPException(status_code=400, detail="Invalid skill_path")
+        if not os.path.isdir(src_path):
+            raise HTTPException(status_code=400, detail="skill_path not found in repository")
+
+        skill_md = os.path.join(src_path, "SKILL.md")
+        if not os.path.isfile(skill_md):
+            raise HTTPException(status_code=400, detail="SKILL.md not found under skill_path")
+
+        parsed_name = ""
+        try:
+            with open(skill_md, "r", encoding="utf-8") as f:
+                content = f.read()
+            if content.startswith("---"):
+                parts = content.split("---", 2)
+                if len(parts) >= 3:
+                    metadata = yaml.safe_load(parts[1]) or {}
+                    parsed_name = str(metadata.get("name") or "").strip()
+        except Exception:
+            parsed_name = ""
+
+        candidate_id = req.skill_id or parsed_name or os.path.basename(src_path) or "imported-skill"
+        skill_id = _sanitize_skill_id(candidate_id)
+        if not skill_id:
+            raise HTTPException(status_code=400, detail="Could not derive a valid skill_id")
+
+        target_path = os.path.join(skills_dir, skill_id)
+        if os.path.exists(target_path):
+            raise HTTPException(status_code=409, detail=f"Skill '{skill_id}' already exists.")
+
+        def _ignore_copy(_dir: str, names: list[str]) -> set[str]:
+            ignored = {".git", ".venv", "__pycache__"}
+            return {n for n in names if n in ignored}
+
+        shutil.copytree(src_path, target_path, ignore=_ignore_copy)
+
+        imported_md = os.path.join(target_path, "SKILL.md")
+        if not os.path.isfile(imported_md):
+            shutil.rmtree(target_path, ignore_errors=True)
+            raise HTTPException(status_code=400, detail="Imported folder does not contain SKILL.md")
+
+        name = skill_id
+        description = "Imported from git repository."
+        try:
+            with open(imported_md, "r", encoding="utf-8") as f:
+                imported_content = f.read()
+            metadata, instructions = _parse_and_validate_skill_md(imported_content)
+            description = metadata["description"]
+            # Force name to match directory id for Agno compatibility in this app.
+            normalized_frontmatter = yaml.safe_dump(
+                {"name": skill_id, "description": description},
+                allow_unicode=True,
+                sort_keys=False,
+            ).strip()
+            normalized_content = f"---\n{normalized_frontmatter}\n---\n\n{instructions}"
+            with open(imported_md, "w", encoding="utf-8") as f:
+                f.write(normalized_content)
+            name = skill_id
+        except Exception:
+            shutil.rmtree(target_path, ignore_errors=True)
+            raise
+
+        return SkillInfo(id=skill_id, name=name, description=description)
+    finally:
+        shutil.rmtree(tmp_root, ignore_errors=True)
 
 @router.get("/{skill_id}")
 async def get_skill(skill_id: str):

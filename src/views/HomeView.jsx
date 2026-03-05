@@ -1342,7 +1342,7 @@ const HomeView = () => {
                     }
                   }}
                   placeholder={t('homeView.askAnything')}
-                  className="relative z-10 max-h-[200px] min-h-[60px] w-full resize-none overflow-y-auto border-none bg-transparent text-lg text-transparent placeholder-gray-400 caret-gray-900 outline-none dark:placeholder-gray-500 dark:caret-gray-100"
+                  className="relative z-10 max-h-[200px] min-h-[60px] w-full resize-none overflow-y-auto border-none bg-transparent! text-lg text-transparent placeholder-gray-400 caret-gray-900 outline-none dark:placeholder-gray-500 dark:caret-gray-100"
                   rows={1}
                 />
               </div>

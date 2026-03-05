@@ -1,6 +1,7 @@
 import { useNavigate } from '@tanstack/react-router'
 import clsx from 'clsx'
-import { Bookmark, Check, ChevronDown, Coffee, Search, X, Menu } from 'lucide-react'
+import { Check, ChevronDown, Coffee, Search, X, Menu } from 'lucide-react'
+import { BookmarkSimple as BookmarkSimpleIcon } from '@phosphor-icons/react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppContext } from '../App'
@@ -149,7 +150,7 @@ const BookmarksView = () => {
                 <Menu size={20} strokeWidth={2} />
               </button>
               <div className="flex items-center gap-3">
-                <Bookmark size={32} className="text-primary-500 fill-current" />
+                <BookmarkSimpleIcon size={32} weight="fill" className="text-primary-500" />
                 <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
                   {t('views.bookmarksView.title')}
                 </h1>

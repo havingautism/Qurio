@@ -6,12 +6,12 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Library as LibraryIcon,
   Plus,
   Search,
   X,
   Menu,
 } from 'lucide-react'
+import { Books as BooksIcon } from '@phosphor-icons/react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppContext } from '../App'
@@ -198,7 +198,7 @@ const LibraryView = () => {
                 <Menu size={20} strokeWidth={2} />
               </button>
               <div className="flex items-center gap-3">
-                <LibraryIcon size={32} className="text-primary-500" />
+                <BooksIcon size={32} weight="duotone" className="text-primary-500" />
                 <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
                   {t('views.libraryView.title')}
                 </h1>
@@ -327,7 +327,7 @@ const LibraryView = () => {
               ) : conversations.length === 0 ? (
                 <div className="flex h-64 flex-col items-center justify-center gap-4 text-center">
                   <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white shadow-sm dark:bg-zinc-900">
-                    <LibraryIcon size={28} className="text-gray-300" />
+                    <BooksIcon size={28} weight="regular" className="text-gray-300" />
                   </div>
                   <p className="text-sm font-medium text-gray-500">
                     {t('views.libraryView.noThreadsFound')}

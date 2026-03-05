@@ -1,5 +1,6 @@
 import clsx from 'clsx'
-import { Plus, Smile, Sparkles, Menu } from 'lucide-react'
+import { Plus, Sparkles, Menu } from 'lucide-react'
+import { Robot as RobotIcon } from '@phosphor-icons/react'
 import { useTranslation } from 'react-i18next'
 import { useAppContext } from '../App'
 import AgentAvatar from '../components/AgentAvatar'
@@ -35,7 +36,7 @@ const AgentsView = () => {
                 <Menu size={20} strokeWidth={2} />
               </button>
               <div className="flex items-center gap-3">
-                <Smile size={32} className="text-primary-500" />
+                <RobotIcon size={32} weight="duotone" className="text-primary-500" />
                 <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
                   {t('agentsView.title')}
                 </h1>

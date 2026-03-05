@@ -1,17 +1,11 @@
 import clsx from 'clsx'
 import {
-  Blocks,
-  BrainCircuit,
   Bookmark,
   ChevronDown,
   ChevronUp,
   Coffee,
   Laptop,
-  LayoutGrid,
-  Library,
-  Microscope,
   Moon,
-  PencilLine,
   Pin,
   Plus,
   Settings,
@@ -19,8 +13,19 @@ import {
   SquareStack,
   Sun,
   Trash2,
-  GraduationCap,
 } from 'lucide-react'
+import {
+  BookmarkSimple as BookmarkSimpleIcon,
+  Books as BooksIcon,
+  Brain as BrainIcon,
+  Flask as FlaskIcon,
+  Gear as GearIcon,
+  Notebook as NotebookIcon,
+  Robot as RobotIcon,
+  SquaresFour as SquaresFourIcon,
+  Student as StudentIcon,
+  Toolbox as ToolboxIcon,
+} from '@phosphor-icons/react'
 import React, { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
@@ -717,18 +722,27 @@ const Sidebar = ({
 
   // Nav items - use constant keys for logic, translate labels for display
   const NAV_ITEM_KEYS = [
-    { id: 'library', icon: Library },
-    { id: 'deepResearch', icon: Microscope },
-    { id: 'expert', icon: BrainCircuit },
-    { id: 'spaces', icon: LayoutGrid },
-    { id: 'agents', icon: Smile },
-    { id: 'bookmarks', icon: Bookmark },
-    { id: 'scrapbook', icon: PencilLine },
+    { id: 'library', icon: BooksIcon },
+    { id: 'deepResearch', icon: FlaskIcon },
+    { id: 'expert', icon: BrainIcon },
+    { id: 'spaces', icon: SquaresFourIcon },
+    { id: 'agents', icon: RobotIcon },
+    { id: 'bookmarks', icon: BookmarkSimpleIcon },
+    { id: 'scrapbook', icon: NotebookIcon },
   ]
 
   const navItems = useMemo(
     () => NAV_ITEM_KEYS.map(item => ({ ...item, label: t(`sidebar.${item.id}`) })),
     [t],
+  )
+  const sidebarActionButtonClassName = clsx(
+    'flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl transition-all duration-300 hover:scale-105 active:scale-95',
+    isScrapbookSidebarTheme
+      ? glassTone(
+          'border border-white/10 bg-white/5 text-white/75 hover:border-white/15 hover:bg-white/10 hover:text-white',
+          'border border-white/75 bg-white/55 text-slate-600 hover:border-white hover:bg-white/75 hover:text-slate-900',
+        )
+      : 'bg-user-bubble text-gray-600 hover:bg-gray-100 dark:bg-zinc-800 dark:text-gray-300 dark:hover:bg-zinc-700',
   )
   const activeScrapbookEntryId = useMemo(() => {
     const match = String(location?.pathname || '').match(/^\/scrapbook\/([^/]+)/)
@@ -1180,7 +1194,7 @@ const Sidebar = ({
                 />
                 <div className="relative z-10 flex flex-col items-center gap-0.5">
                   <div className="rounded-xl p-1.5 transition-all duration-300">
-                    <item.icon size={20} strokeWidth={activeTab === item.id ? 2.5 : 2} />
+                    <item.icon size={20} weight={activeTab === item.id ? 'fill' : 'regular'} />
                   </div>
                   <span
                     className={clsx(
@@ -1204,69 +1218,37 @@ const Sidebar = ({
           <div className="flex flex-col items-center gap-2 py-2">
             <button
               onClick={onToggleTheme}
-              className={clsx(
-                'flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl transition-all duration-300 hover:scale-105 active:scale-95',
-                isScrapbookSidebarTheme
-                  ? glassTone(
-                      'border border-white/10 bg-white/5 text-white/75 hover:border-white/15 hover:bg-white/10 hover:text-white',
-                      'border border-white/75 bg-white/55 text-slate-600 hover:border-white hover:bg-white/75 hover:text-slate-900',
-                    )
-                  : 'bg-user-bubble text-gray-600 hover:bg-gray-100 dark:bg-zinc-800 dark:text-gray-300 dark:hover:bg-zinc-700',
-              )}
+              className={sidebarActionButtonClassName}
               title={`Current theme: ${theme}`}
             >
               {getThemeIcon()}
             </button>
 
             {/* Email Notification Center */}
-            <NotificationCenter />
+            <NotificationCenter buttonClassName={sidebarActionButtonClassName} />
 
             <button
               onClick={onOpenSkills}
-              className={clsx(
-                'flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl transition-all duration-300 hover:scale-105 active:scale-95',
-                isScrapbookSidebarTheme
-                  ? glassTone(
-                      'border border-white/10 bg-white/5 text-white/75 hover:border-white/15 hover:bg-white/10 hover:text-white',
-                      'border border-white/75 bg-white/55 text-slate-600 hover:border-white hover:bg-white/75 hover:text-slate-900',
-                    )
-                  : 'bg-user-bubble text-gray-600 hover:bg-gray-100 dark:bg-zinc-800 dark:text-gray-300 dark:hover:bg-zinc-700',
-              )}
+              className={sidebarActionButtonClassName}
               title={t('sidebar.skills', 'Skills Workshop')}
             >
-              <GraduationCap size={20} />
+              <StudentIcon size={20} weight="duotone" />
             </button>
 
             <button
               onClick={onOpenTools}
-              className={clsx(
-                'flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl transition-all duration-300 hover:scale-105 active:scale-95',
-                isScrapbookSidebarTheme
-                  ? glassTone(
-                      'border border-white/10 bg-white/5 text-white/75 hover:border-white/15 hover:bg-white/10 hover:text-white',
-                      'border border-white/75 bg-white/55 text-slate-600 hover:border-white hover:bg-white/75 hover:text-slate-900',
-                    )
-                  : 'bg-user-bubble text-gray-600 hover:bg-gray-100 dark:bg-zinc-800 dark:text-gray-300 dark:hover:bg-zinc-700',
-              )}
+              className={sidebarActionButtonClassName}
               title={t('sidebar.tools')}
             >
-              <Blocks size={20} />
+              <ToolboxIcon size={20} weight="duotone" />
             </button>
 
             <button
               onClick={onOpenSettings}
-              className={clsx(
-                'flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl transition-all duration-300 hover:scale-105 active:scale-95',
-                isScrapbookSidebarTheme
-                  ? glassTone(
-                      'border border-white/10 bg-white/5 text-white/75 hover:border-white/15 hover:bg-white/10 hover:text-white',
-                      'border border-white/75 bg-white/55 text-slate-600 hover:border-white hover:bg-white/75 hover:text-slate-900',
-                    )
-                  : 'bg-user-bubble text-gray-600 hover:bg-gray-100 dark:bg-zinc-800 dark:text-gray-300 dark:hover:bg-zinc-700',
-              )}
+              className={sidebarActionButtonClassName}
               title={t('sidebar.settings')}
             >
-              <Settings size={20} />
+              <GearIcon size={20} weight="duotone" />
             </button>
           </div>
         </div>

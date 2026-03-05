@@ -1,6 +1,7 @@
 import { useNavigate } from '@tanstack/react-router'
 import clsx from 'clsx'
-import { Brain, Clock, DollarSign, Laptop, LayoutGrid, Plus, Menu } from 'lucide-react'
+import { Brain, Clock, DollarSign, Laptop, Plus, Menu } from 'lucide-react'
+import { SquaresFour as SquaresFourIcon } from '@phosphor-icons/react'
 import { useTranslation } from 'react-i18next'
 import { useAppContext } from '../App'
 import EmojiDisplay from '../components/EmojiDisplay'
@@ -83,7 +84,7 @@ const SpacesView = () => {
             >
               <Menu size={20} strokeWidth={2} />
             </button>
-            <LayoutGrid size={32} className="text-primary-500" />
+            <SquaresFourIcon size={32} weight="duotone" className="text-primary-500" />
             <h1 className="text-2xl font-medium sm:text-3xl">{t('views.spacesView.title')}</h1>
           </div>
         </div>

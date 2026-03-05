@@ -166,6 +166,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
   const [bannerCropOffsetY, setBannerCropOffsetY] = useState(0)
   const [isBannerCropping, setIsBannerCropping] = useState(false)
   const [bannerDragState, setBannerDragState] = useState(null)
+  const [isBannerPreviewOpen, setIsBannerPreviewOpen] = useState(false)
 
   // Model Tab
   // Note: 'provider' is now derived from the selected defaultModel or explicitly stored if needed
@@ -1676,9 +1677,11 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
   const compactSegmentButtonClassName =
     'rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors'
   const compactActionButtonClassName =
-    'inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-black/10 bg-white/60 px-3.5 text-[13px] font-medium transition-colors hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-50 sm:justify-start dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10'
+    'inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-black/10 bg-white/85 px-3.5 text-[13px] font-medium text-gray-700 shadow-[0_1px_3px_rgba(15,23,42,0.08)] transition-all hover:bg-white hover:text-gray-900 hover:shadow-[0_4px_10px_rgba(15,23,42,0.12)] disabled:cursor-not-allowed disabled:opacity-50 sm:justify-start dark:border-white/10 dark:bg-white/5 dark:text-gray-200 dark:hover:bg-white/10'
   const compactDangerButtonClassName =
-    'inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3.5 text-[13px] font-medium text-red-600 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 sm:justify-start dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-900/30'
+    'inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3.5 text-[13px] font-medium text-red-600 shadow-[0_1px_3px_rgba(220,38,38,0.12)] transition-all hover:bg-red-100 hover:text-red-700 hover:shadow-[0_4px_10px_rgba(220,38,38,0.18)] disabled:cursor-not-allowed disabled:opacity-50 sm:justify-start dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-900/30'
+  const bannerActionButtonClassName = `${compactActionButtonClassName} md:h-9 md:gap-1.5 md:rounded-lg md:px-3 md:text-xs`
+  const bannerDangerButtonClassName = `${compactDangerButtonClassName} md:h-9 md:gap-1.5 md:rounded-lg md:px-3 md:text-xs`
 
   return (
     <div className="fixed inset-0 z-100 flex items-start justify-center overflow-y-auto bg-black/50 p-0 backdrop-blur-sm md:items-center md:overflow-hidden md:p-4">
@@ -1713,10 +1716,10 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
                 className={clsx(
-                  'flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-semibold whitespace-nowrap transition-colors sm:gap-3',
+                  'flex h-10 items-center gap-1 rounded-xl px-3.5 py-2 text-sm font-semibold whitespace-nowrap transition-all sm:gap-3',
                   activeTab === item.id
-                    ? 'text-primary-600 dark:text-primary-400 bg-black/5 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:bg-white/10'
-                    : 'text-gray-600 hover:bg-black/5 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-white',
+                    ? 'text-primary-700 dark:text-primary-300 bg-white/85 shadow-[0_4px_12px_rgba(15,23,42,0.08)] ring-1 ring-black/5 dark:bg-white/12 dark:ring-white/10'
+                    : 'text-gray-600 hover:bg-white/65 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/8 dark:hover:text-white',
                 )}
               >
                 <item.icon size={18} />
@@ -1747,7 +1750,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
             style={{ scrollbarGutter: 'stable' }}
           >
             {activeTab === 'general' && (
-              <div className="flex flex-col gap-6">
+              <div className="flex min-h-full flex-col gap-6">
                 <div className="flex flex-col gap-2">
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     头像设置
@@ -1760,75 +1763,77 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                           size="4rem"
                           className="shrink-0 border border-black/8 bg-white/70 shadow-sm sm:h-[4.5rem] sm:w-[4.5rem] dark:border-white/10 dark:bg-white/5"
                         />
-                        <div className="grid min-w-0 flex-1 gap-3">
-                          <div className="rounded-xl border border-black/5 bg-white/35 p-2 dark:border-white/5 dark:bg-white/[0.03]">
-                            <div className="mb-1.5 text-[11px] font-medium tracking-[0.12em] text-gray-500 uppercase dark:text-gray-400">
-                              头像类型
+                        <div className="min-w-0 flex-1 rounded-xl border border-black/5 bg-white/35 px-3 py-2 dark:border-white/5 dark:bg-white/[0.03]">
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            <div>
+                              <div className="mb-1.5 text-[11px] font-medium text-gray-500 dark:text-gray-400">
+                                类型
+                              </div>
+                              <div className={compactSegmentGroupClassName}>
+                                <button
+                                  type="button"
+                                  disabled={isEmojiLocked}
+                                  onClick={() => setAvatarType(AGENT_AVATAR_TYPE_EMOJI)}
+                                  className={clsx(
+                                    compactSegmentButtonClassName,
+                                    avatarType === AGENT_AVATAR_TYPE_EMOJI
+                                      ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-white'
+                                      : 'text-gray-500 dark:text-gray-400',
+                                    isEmojiLocked && 'cursor-not-allowed opacity-50',
+                                  )}
+                                >
+                                  Emoji
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={isEmojiLocked}
+                                  onClick={() => setAvatarType(AGENT_AVATAR_TYPE_IMAGE)}
+                                  className={clsx(
+                                    compactSegmentButtonClassName,
+                                    avatarType === AGENT_AVATAR_TYPE_IMAGE
+                                      ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-white'
+                                      : 'text-gray-500 dark:text-gray-400',
+                                    isEmojiLocked && 'cursor-not-allowed opacity-50',
+                                  )}
+                                >
+                                  图片
+                                </button>
+                              </div>
                             </div>
-                            <div className={compactSegmentGroupClassName}>
-                              <button
-                                type="button"
-                                disabled={isEmojiLocked}
-                                onClick={() => setAvatarType(AGENT_AVATAR_TYPE_EMOJI)}
-                                className={clsx(
-                                  compactSegmentButtonClassName,
-                                  avatarType === AGENT_AVATAR_TYPE_EMOJI
-                                    ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-white'
-                                    : 'text-gray-500 dark:text-gray-400',
-                                  isEmojiLocked && 'cursor-not-allowed opacity-50',
-                                )}
-                              >
-                                Emoji
-                              </button>
-                              <button
-                                type="button"
-                                disabled={isEmojiLocked}
-                                onClick={() => setAvatarType(AGENT_AVATAR_TYPE_IMAGE)}
-                                className={clsx(
-                                  compactSegmentButtonClassName,
-                                  avatarType === AGENT_AVATAR_TYPE_IMAGE
-                                    ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-white'
-                                    : 'text-gray-500 dark:text-gray-400',
-                                  isEmojiLocked && 'cursor-not-allowed opacity-50',
-                                )}
-                              >
-                                图片
-                              </button>
-                            </div>
-                          </div>
-                          <div className="rounded-xl border border-black/5 bg-white/35 p-2 dark:border-white/5 dark:bg-white/[0.03]">
-                            <div className="mb-1.5 text-[11px] font-medium tracking-[0.12em] text-gray-500 uppercase dark:text-gray-400">
-                              外框形状
-                            </div>
-                            <div className={compactSegmentGroupClassName}>
-                              <button
-                                type="button"
-                                disabled={isEmojiLocked}
-                                onClick={() => setAvatarShape(AGENT_AVATAR_SHAPE_ROUNDED)}
-                                className={clsx(
-                                  compactSegmentButtonClassName,
-                                  avatarShape === AGENT_AVATAR_SHAPE_ROUNDED
-                                    ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-white'
-                                    : 'text-gray-500 dark:text-gray-400',
-                                  isEmojiLocked && 'cursor-not-allowed opacity-50',
-                                )}
-                              >
-                                圆角方形
-                              </button>
-                              <button
-                                type="button"
-                                disabled={isEmojiLocked}
-                                onClick={() => setAvatarShape(AGENT_AVATAR_SHAPE_CIRCLE)}
-                                className={clsx(
-                                  compactSegmentButtonClassName,
-                                  avatarShape === AGENT_AVATAR_SHAPE_CIRCLE
-                                    ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-white'
-                                    : 'text-gray-500 dark:text-gray-400',
-                                  isEmojiLocked && 'cursor-not-allowed opacity-50',
-                                )}
-                              >
-                                圆形
-                              </button>
+                            <div>
+                              <div className="mb-1.5 text-[11px] font-medium text-gray-500 dark:text-gray-400">
+                                形状
+                              </div>
+                              <div className={compactSegmentGroupClassName}>
+                                <button
+                                  type="button"
+                                  disabled={isEmojiLocked}
+                                  onClick={() => setAvatarShape(AGENT_AVATAR_SHAPE_ROUNDED)}
+                                  className={clsx(
+                                    compactSegmentButtonClassName,
+                                    avatarShape === AGENT_AVATAR_SHAPE_ROUNDED
+                                      ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-white'
+                                      : 'text-gray-500 dark:text-gray-400',
+                                    isEmojiLocked && 'cursor-not-allowed opacity-50',
+                                  )}
+                                >
+                                  圆角方形
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={isEmojiLocked}
+                                  onClick={() => setAvatarShape(AGENT_AVATAR_SHAPE_CIRCLE)}
+                                  className={clsx(
+                                    compactSegmentButtonClassName,
+                                    avatarShape === AGENT_AVATAR_SHAPE_CIRCLE
+                                      ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-white'
+                                      : 'text-gray-500 dark:text-gray-400',
+                                    isEmojiLocked && 'cursor-not-allowed opacity-50',
+                                  )}
+                                >
+                                  圆形
+                                </button>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -1844,7 +1849,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                             onChange={e => setName(e.target.value)}
                             placeholder={t('agents.general.namePlaceholder')}
                             disabled={isGeneralLocked}
-                            className="focus:ring-primary-500/20 h-11 flex-1 rounded-lg border-none bg-black/5 px-4 py-2 text-sm focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50/20 disabled:opacity-50 dark:bg-white/5"
+                            className="focus:ring-primary-500/20 h-10 flex-1 rounded-lg border-none bg-black/5 px-4 py-2 text-sm focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50/20 disabled:opacity-50 dark:bg-white/5"
                           />
                         </div>
 
@@ -1867,7 +1872,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                   'w-full disabled:bg-gray-50/20 sm:w-auto',
                                 )}
                               >
-                                <AgentAvatar agent={{ emoji }} size="1.6rem" />
+                                {/* <AgentAvatar agent={{ emoji }} size="1.6rem" /> */}
                                 <span>选择 Emoji</span>
                               </button>
                               {showEmojiPicker && (
@@ -1968,7 +1973,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   <div className="rounded-2xl border border-black/5 bg-black/[0.03] p-3 sm:p-4 dark:border-white/5 dark:bg-white/[0.03]">
                     <div className="grid gap-4 lg:grid-cols-[minmax(0,0.86fr)_minmax(0,1.14fr)] lg:items-start">
                       <div className="space-y-3">
-                        <div className="rounded-xl border border-black/5 bg-white/35 p-2 dark:border-white/5 dark:bg-white/[0.03]">
+                        <div className="rounded-xl border border-black/5 bg-white/35 px-3 py-2 dark:border-white/5 dark:bg-white/[0.03]">
                           <div className="mb-1.5 text-[11px] font-medium tracking-[0.12em] text-gray-500 uppercase dark:text-gray-400">
                             展示方式
                           </div>
@@ -1999,12 +2004,12 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                           普通会话顶部按 Notion 风格展示。当前只支持手动上传 Banner。
                         </p>
                         {bannerMode === AGENT_BANNER_MODE_MANUAL && (
-                          <div className="grid gap-2 sm:flex sm:flex-wrap sm:items-center">
+                          <div className="grid gap-1.5 sm:flex sm:flex-wrap sm:items-center">
                             <button
                               type="button"
                               disabled={isDeepResearchAgent}
                               onClick={() => bannerInputRef.current?.click()}
-                              className={compactActionButtonClassName}
+                              className={bannerActionButtonClassName}
                             >
                               <Upload size={16} />
                               选择 Banner
@@ -2019,15 +2024,27 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                       setError(err.message),
                                     )
                                   }
-                                  className={compactActionButtonClassName}
+                                  className={bannerActionButtonClassName}
                                 >
                                   重新裁剪
                                 </button>
                                 <button
                                   type="button"
                                   disabled={isDeepResearchAgent}
-                                  onClick={() => setBannerImage('')}
-                                  className={compactDangerButtonClassName}
+                                  onClick={() => setIsBannerPreviewOpen(true)}
+                                  className={bannerActionButtonClassName}
+                                >
+                                  <Eye size={16} />
+                                  预览效果
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={isDeepResearchAgent}
+                                  onClick={() => {
+                                    setBannerImage('')
+                                    setIsBannerPreviewOpen(false)
+                                  }}
+                                  className={bannerDangerButtonClassName}
                                 >
                                   <Trash2 size={16} />
                                   移除 Banner
@@ -2046,17 +2063,15 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                       </div>
                       <div>
                         {bannerImage ? (
-                          <AgentBannerSurface
-                            imageSrc={bannerImage}
-                            imageAlt="Banner preview"
-                            agent={previewAgent}
-                            displayName={displayName || 'Agent'}
-                            providerId={previewProviderId}
-                            providerLabel={previewProviderLabel}
-                            providerFallback={previewProviderFallback}
-                            model={previewModel}
-                            frameClassName="border-black/6 dark:border-white/8"
-                          />
+                          <div className="overflow-hidden rounded-[24px] border border-black/8 bg-white/70 dark:border-white/10 dark:bg-white/[0.04]">
+                            <div style={{ aspectRatio: String(AGENT_BANNER_ASPECT_RATIO) }}>
+                              <img
+                                src={bannerImage}
+                                alt="Banner 原图"
+                                className="h-full w-full object-cover"
+                              />
+                            </div>
+                          </div>
                         ) : (
                           <div className="flex min-h-36 items-center justify-center rounded-[24px] border border-dashed border-black/10 bg-white/30 px-5 text-center text-sm text-gray-500 dark:border-white/10 dark:bg-white/[0.02] dark:text-gray-400">
                             选择一张常驻显示的会话 Banner
@@ -2067,7 +2082,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-2">
+                <div className="flex min-h-[16rem] flex-1 flex-col gap-2">
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     {t('agents.general.systemPrompt')}
                   </label>
@@ -2075,9 +2090,9 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     value={prompt}
                     onChange={e => setPrompt(e.target.value)}
                     placeholder={t('agents.general.systemPromptPlaceholder')}
-                    rows={6}
+                    rows={8}
                     disabled={isDeepResearchAgent}
-                    className="focus:ring-primary-500/20 min-h-[10rem] w-full resize-y rounded-lg border-none bg-black/5 px-4 py-2 text-sm focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50/20 disabled:opacity-50 dark:bg-white/5"
+                    className="focus:ring-primary-500/20 min-h-[16rem] w-full flex-1 resize-y rounded-xl border-none bg-black/5 px-4 py-3 text-sm leading-6 focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50/20 disabled:opacity-50 dark:bg-white/5"
                   />
                 </div>
               </div>
@@ -2738,7 +2753,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     onConfirm: () => onDelete(editingAgent.id),
                   })
                 }}
-                className="rounded-lg px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                className="inline-flex h-10 items-center rounded-xl border border-red-200 bg-red-50 px-4 text-sm font-semibold text-red-600 transition-all hover:bg-red-100 hover:text-red-700 dark:border-red-900/50 dark:bg-red-900/15 dark:text-red-300 dark:hover:bg-red-900/30"
               >
                 {t('agents.actions.delete')}
               </button>
@@ -2749,14 +2764,14 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
             <div className="flex gap-3">
               <button
                 onClick={onClose}
-                className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-black/5 dark:text-gray-400 dark:hover:bg-white/10"
+                className="inline-flex h-10 items-center rounded-xl border border-black/10 bg-white/80 px-4 text-sm font-semibold text-gray-700 transition-all hover:bg-white hover:text-gray-900 dark:border-white/10 dark:bg-white/5 dark:text-gray-300 dark:hover:bg-white/10"
               >
                 {t('agents.actions.cancel')}
               </button>
               <button
                 onClick={handleSaveWrapper}
                 disabled={isSaving}
-                className="bg-primary-500 hover:bg-primary-600 rounded-lg px-4 py-2 text-sm font-medium text-white shadow-md transition-all hover:shadow-lg active:scale-95 disabled:opacity-50"
+                className="bg-primary-500 hover:bg-primary-600 inline-flex h-10 items-center rounded-xl px-5 text-sm font-semibold text-white shadow-[0_6px_18px_rgba(59,130,246,0.32)] transition-all hover:shadow-[0_10px_22px_rgba(59,130,246,0.36)] active:scale-95 disabled:opacity-50"
               >
                 {isSaving
                   ? t('agents.actions.saving')
@@ -2908,6 +2923,66 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
               >
                 {isAvatarCropping ? '处理中...' : '应用裁剪'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {isBannerPreviewOpen && bannerImage && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-6xl rounded-[28px] border border-white/10 bg-white/95 p-5 shadow-2xl dark:bg-zinc-950/95">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Banner 预览</h4>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  对比桌面端与移动端的实际会话显示效果。
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsBannerPreviewOpen(false)}
+                className="rounded-full p-2 text-gray-500 transition-colors hover:bg-black/5 dark:hover:bg-white/10"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="mt-5 grid gap-4 lg:grid-cols-2">
+              <section className="rounded-2xl border border-black/8 bg-black/[0.03] p-4 dark:border-white/10 dark:bg-white/[0.03]">
+                <div className="mb-2 text-xs font-semibold tracking-[0.08em] text-gray-500 uppercase dark:text-gray-400">
+                  桌面端
+                </div>
+                <div className="rounded-xl bg-slate-100 p-3 dark:bg-zinc-900">
+                  <AgentBannerSurface
+                    imageSrc={bannerImage}
+                    imageAlt={displayName || 'Agent banner'}
+                    agent={previewAgent}
+                    displayName={displayName || 'Agent'}
+                    providerId={previewProviderId}
+                    providerLabel={previewProviderLabel}
+                    providerFallback={previewProviderFallback}
+                    model={previewModel}
+                  />
+                </div>
+              </section>
+              <section className="rounded-2xl border border-black/8 bg-black/[0.03] p-4 dark:border-white/10 dark:bg-white/[0.03]">
+                <div className="mb-2 text-xs font-semibold tracking-[0.08em] text-gray-500 uppercase dark:text-gray-400">
+                  移动端
+                </div>
+                <div className="rounded-xl bg-slate-100 px-2 py-4 dark:bg-zinc-900">
+                  <div className="mx-auto w-full max-w-[390px]">
+                    <AgentBannerSurface
+                      imageSrc={bannerImage}
+                      imageAlt={displayName || 'Agent banner'}
+                      agent={previewAgent}
+                      displayName={displayName || 'Agent'}
+                      providerId={previewProviderId}
+                      providerLabel={previewProviderLabel}
+                      providerFallback={previewProviderFallback}
+                      model={previewModel}
+                    />
+                  </div>
+                </div>
+              </section>
             </div>
           </div>
         </div>

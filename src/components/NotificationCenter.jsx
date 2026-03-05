@@ -12,17 +12,9 @@
  *  - ESC key to close
  */
 
-import {
-  Bell,
-  Check,
-  CheckCheck,
-  ExternalLink,
-  Inbox,
-  Mail,
-  RefreshCw,
-  Trash2,
-  X,
-} from 'lucide-react'
+import { Check, CheckCheck, ExternalLink, Inbox, Mail, RefreshCw, Trash2, X } from 'lucide-react'
+import { EnvelopeSimple as EnvelopeSimpleIcon } from '@phosphor-icons/react'
+import clsx from 'clsx'
 import { useCallback, useEffect, useState, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
@@ -82,7 +74,7 @@ const deleteNotification = async id => {
 // Component
 // ---------------------------------------------------------------------------
 
-const NotificationCenter = () => {
+const NotificationCenter = ({ buttonClassName = '' }) => {
   const { t } = useTranslation()
   const [isOpen, setIsOpen] = useState(false)
   const [configs, setConfigs] = useState([])
@@ -617,11 +609,15 @@ const NotificationCenter = () => {
       <button
         id="notification-center-bell"
         onClick={() => setIsOpen(prev => !prev)}
-        className="relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-[18px] border-none bg-black/5 text-slate-600 transition-all duration-300 hover:scale-105 hover:bg-black/10 hover:text-slate-900 active:scale-95 dark:bg-white/5 dark:text-white/75 dark:hover:bg-white/10 dark:hover:text-white"
+        className={clsx(
+          'relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl transition-all duration-300 hover:scale-105 active:scale-95',
+          buttonClassName ||
+            'border border-white/75 bg-white/55 text-slate-600 hover:border-white hover:bg-white/75 hover:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white/75 dark:hover:border-white/15 dark:hover:bg-white/10 dark:hover:text-white',
+        )}
         title={t('notificationCenter.title')}
       >
         {/* <Bell size={20} /> */}
-        <Inbox size={20} />
+        <EnvelopeSimpleIcon size={20} weight="duotone" />
         {totalUnreadCount > 0 && (
           <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
             {totalUnreadCount > 99 ? '99+' : totalUnreadCount}

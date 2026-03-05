@@ -13,6 +13,9 @@ import {
   FileCheck,
   ArrowLeft,
   Settings,
+  GitBranch,
+  ShieldAlert,
+  Download,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useTranslation } from 'react-i18next'
@@ -79,6 +82,12 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
   const [aiPrompt, setAiPrompt] = useState('') // user's natural language description
   const [isGenerating, setIsGenerating] = useState(false) // generation in progress
   const [aiResult, setAiResult] = useState(null) // { skill_id, files_created } on success
+  const [isGitImportMode, setIsGitImportMode] = useState(false)
+  const [gitRepoUrl, setGitRepoUrl] = useState('')
+  const [gitRef, setGitRef] = useState('')
+  const [gitSkillPath, setGitSkillPath] = useState('')
+  const [gitSkillId, setGitSkillId] = useState('')
+  const [isImportingGit, setIsImportingGit] = useState(false)
 
   const [showAIConfig, setShowAIConfig] = useState(false)
   const [availableProviders, setAvailableProviders] = useState([])
@@ -339,6 +348,68 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
     } finally {
       setIsGenerating(false)
     }
+  }
+
+  const handleImportFromGit = async () => {
+    if (!gitRepoUrl.trim()) {
+      toast.error(
+        t('agents.skills.gitImportRepoRequired', 'Please enter a Git repository URL first.'),
+      )
+      return
+    }
+
+    showConfirmation({
+      title: t('agents.skills.gitImportConfirmTitle', 'Import third-party skill from Git?'),
+      message: t(
+        'agents.skills.gitImportConfirmMessage',
+        'Third-party skills may contain unsafe instructions or scripts. Please verify the source and review imported files before use.',
+      ),
+      confirmText: t('agents.skills.gitImportBtn', 'Import from Git'),
+      isDangerous: true,
+      onConfirm: async () => {
+        setIsImportingGit(true)
+        try {
+          const payload = {
+            repo_url: gitRepoUrl.trim(),
+          }
+          if (gitRef.trim()) payload.ref = gitRef.trim()
+          if (gitSkillPath.trim()) payload.skill_path = gitSkillPath.trim()
+          if (gitSkillId.trim()) payload.skill_id = gitSkillId.trim()
+
+          const res = await fetch(`${getBackendUrl()}/api/skills/import/git`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          })
+
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}))
+            throw new Error(err.detail || 'Failed to import skill from Git')
+          }
+
+          const data = await res.json()
+          toast.success(
+            t('agents.skills.gitImportSuccess', 'Imported skill: {{skillId}}', {
+              skillId: data.id,
+            }),
+          )
+          window.dispatchEvent(new CustomEvent('skills-changed'))
+          await fetchSkills()
+          setIsGitImportMode(false)
+          setGitRepoUrl('')
+          setGitRef('')
+          setGitSkillPath('')
+          setGitSkillId('')
+        } catch (err) {
+          console.error(err)
+          toast.error(
+            err.message || t('agents.skills.gitImportError', 'Failed to import skill from Git'),
+          )
+        } finally {
+          setIsImportingGit(false)
+        }
+      },
+    })
   }
 
   // Categorized Files
@@ -1593,6 +1664,125 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                 </div>
               )}
             </div>
+          ) : isGitImportMode ? (
+            <div className="flex flex-1 flex-col p-6">
+              <div className="mb-6 flex items-center gap-3">
+                <button
+                  onClick={() => setIsGitImportMode(false)}
+                  className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-zinc-800 dark:hover:text-gray-300"
+                >
+                  <ArrowLeft size={18} />
+                </button>
+                <div>
+                  <h3 className="font-semibold text-gray-900 dark:text-white">
+                    {t('agents.skills.gitImportTitle', 'Import Skill from Git')}
+                  </h3>
+                  <p className="text-xs text-gray-400 dark:text-zinc-500">
+                    {t(
+                      'agents.skills.gitImportSubtitle',
+                      'Clone a third-party repository and import a skill folder.',
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50/80 p-4 dark:border-amber-400/20 dark:bg-amber-500/10">
+                <div className="flex items-start gap-3">
+                  <ShieldAlert size={16} className="mt-0.5 shrink-0 text-amber-600" />
+                  <div>
+                    <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                      {t('agents.skills.gitImportRiskTitle', 'Security notice')}
+                    </p>
+                    <p className="mt-1 text-xs text-amber-700 dark:text-amber-200">
+                      {t(
+                        'agents.skills.gitImportRiskDesc',
+                        'Skills from untrusted repositories may include malicious prompts or executable scripts. Import only from trusted sources and review every file before enabling it for agents.',
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {t('agents.skills.gitImportRepoLabel', 'Repository URL')}
+                  </label>
+                  <input
+                    type="text"
+                    value={gitRepoUrl}
+                    onChange={e => setGitRepoUrl(e.target.value)}
+                    placeholder="https://github.com/owner/repo"
+                    className="focus:ring-primary-500/20 h-10 w-full rounded-xl border-none bg-black/5 px-4 text-sm outline-none placeholder:text-gray-400 focus:ring-2 dark:bg-white/5 dark:text-white dark:placeholder:text-zinc-500"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {t('agents.skills.gitImportRefLabel', 'Git ref (optional)')}
+                    </label>
+                    <input
+                      type="text"
+                      value={gitRef}
+                      onChange={e => setGitRef(e.target.value)}
+                      placeholder="main"
+                      className="focus:ring-primary-500/20 h-10 w-full rounded-xl border-none bg-black/5 px-4 text-sm outline-none placeholder:text-gray-400 focus:ring-2 dark:bg-white/5 dark:text-white dark:placeholder:text-zinc-500"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {t('agents.skills.gitImportPathLabel', 'Skill path in repo (optional)')}
+                    </label>
+                    <input
+                      type="text"
+                      value={gitSkillPath}
+                      onChange={e => setGitSkillPath(e.target.value)}
+                      placeholder="skills/my-skill"
+                      className="focus:ring-primary-500/20 h-10 w-full rounded-xl border-none bg-black/5 px-4 text-sm outline-none placeholder:text-gray-400 focus:ring-2 dark:bg-white/5 dark:text-white dark:placeholder:text-zinc-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {t('agents.skills.gitImportIdLabel', 'Override skill ID (optional)')}
+                  </label>
+                  <input
+                    type="text"
+                    value={gitSkillId}
+                    onChange={e => setGitSkillId(e.target.value)}
+                    placeholder="my-imported-skill"
+                    className="focus:ring-primary-500/20 h-10 w-full rounded-xl border-none bg-black/5 px-4 text-sm outline-none placeholder:text-gray-400 focus:ring-2 dark:bg-white/5 dark:text-white dark:placeholder:text-zinc-500"
+                  />
+                  <p className="text-xs text-gray-400 dark:text-zinc-500">
+                    {t(
+                      'agents.skills.gitImportIdHint',
+                      'If omitted, the app will derive it from SKILL.md name or folder name.',
+                    )}
+                  </p>
+                </div>
+
+                <button
+                  onClick={handleImportFromGit}
+                  disabled={isImportingGit || !gitRepoUrl.trim()}
+                  className="bg-primary-500 hover:bg-primary-600 flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-medium text-white shadow-sm transition-all hover:shadow-md active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isImportingGit ? (
+                    <>
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                      {t('agents.skills.gitImporting', 'Importing...')}
+                    </>
+                  ) : (
+                    <>
+                      <Download size={16} />
+                      {t('agents.skills.gitImportBtn', 'Import from Git')}
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           ) : (
             <div className="p-6">
               {/* Header Action */}
@@ -1600,6 +1790,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                 <button
                   onClick={() => {
                     setIsAIMode(true)
+                    setIsGitImportMode(false)
                     setAiResult(null)
                     setAiPrompt('')
                   }}
@@ -1607,6 +1798,16 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                 >
                   <Sparkles size={16} />
                   {t('agents.skills.aiGenerate', '✨ AI Generate')}
+                </button>
+                <button
+                  onClick={() => {
+                    setIsAIMode(false)
+                    setIsGitImportMode(true)
+                  }}
+                  className="flex items-center gap-2 rounded-xl border border-black/10 bg-black/5 px-4 py-2.5 text-sm font-medium text-gray-700 transition-all hover:bg-black/10 dark:border-white/10 dark:bg-white/5 dark:text-gray-200 dark:hover:bg-white/10"
+                >
+                  <GitBranch size={16} />
+                  {t('agents.skills.gitImportAction', 'Import from Git')}
                 </button>
                 <button
                   onClick={handleCreateNew}

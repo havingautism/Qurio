@@ -72,7 +72,7 @@ const AgentBannerSurface = ({
             <div className="truncate text-sm font-semibold text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.3)] dark:drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)]">
               {displayName}
             </div>
-            <div className="mt-1 inline-flex max-w-full items-center gap-1.5 rounded-full bg-black/18 px-2.5 py-1 text-xs text-white/96 ring-1 ring-white/22 dark:bg-black/30 dark:text-white/92 dark:ring-white/10">
+            <div className="mt-1 inline-flex max-w-full items-center gap-1.5 rounded-full bg-black/18 px-2.5 py-1 text-xs text-white/96 ring-1 ring-white/5 dark:bg-black/30 dark:text-white/92 dark:ring-white/10">
               {renderProviderIcon(providerId, {
                 size: 12,
                 alt: providerLabel,

@@ -46,7 +46,7 @@ const AgentAvatar = ({
   return (
     <span
       className={clsx(
-        'inline-flex shrink-0 items-center justify-center overflow-hidden border border-black/10 bg-white/[0.05] dark:border-white/12 dark:bg-white/[0.05]',
+        'inline-flex shrink-0 items-center justify-center overflow-hidden border border-black/10 bg-white/35 dark:border-white/12 dark:bg-white/5',
         shapeClassName,
         fallbackClassName,
         className,

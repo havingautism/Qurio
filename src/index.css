@@ -177,18 +177,18 @@
   --glass-dark: rgba(0, 0, 0, 0.3);
   --glass-border-light: rgba(255, 255, 255, 0.2);
   --glass-border-dark: rgba(255, 255, 255, 0.1);
-  --glass-panel-bg: rgba(255, 255, 255, 0.72);
-  --glass-panel-bg-strong: rgba(255, 255, 255, 0.84);
-  --glass-panel-border: rgba(255, 255, 255, 0.72);
-  --glass-panel-highlight: rgba(255, 255, 255, 0.52);
-  --glass-chip-bg: rgba(0, 0, 0, 0.04);
-  --glass-chip-bg-hover: rgba(0, 0, 0, 0.08);
-  --glass-chip-border: rgba(0, 0, 0, 0.08);
+  --glass-panel-bg: rgba(255, 255, 255, 0.84);
+  --glass-panel-bg-strong: rgba(255, 255, 255, 0.93);
+  --glass-panel-border: rgba(255, 255, 255, 0.86);
+  --glass-panel-highlight: rgba(255, 255, 255, 0.68);
+  --glass-chip-bg: rgba(255, 255, 255, 0.66);
+  --glass-chip-bg-hover: rgba(255, 255, 255, 0.82);
+  --glass-chip-border: rgba(15, 23, 42, 0.08);
   --glass-dropdown-bg: rgba(255, 255, 255, 0.93);
   --glass-dropdown-bg-strong: rgba(255, 255, 255, 0.98);
   --glass-dropdown-border: rgba(255, 255, 255, 0.88);
   --glass-shadow-panel:
-    0 18px 44px -24px rgba(15, 23, 42, 0.38), 0 8px 20px -14px rgba(15, 23, 42, 0.2);
+    0 18px 44px -24px rgba(15, 23, 42, 0.28), 0 8px 20px -14px rgba(15, 23, 42, 0.14);
   --glass-shadow-dropdown:
     0 26px 40px -24px rgba(15, 23, 42, 0.46), 0 10px 20px -14px rgba(15, 23, 42, 0.28);
 }
@@ -329,6 +329,68 @@
   background: linear-gradient(180deg, rgba(22, 24, 28, 0.42) 0%, rgba(22, 24, 28, 0.24) 100%);
   border-color: rgba(255, 255, 255, 0.12);
   box-shadow: 0 20px 42px -28px rgba(0, 0, 0, 0.7);
+}
+
+/* Improve light-mode modal legibility for inputs and disabled states. */
+.glass-elite-panel :is(input, textarea, select):not([type='checkbox']):not([type='radio']) {
+  background-color: rgba(255, 255, 255, 0.9);
+  border-color: rgba(15, 23, 42, 0.1);
+  color: rgb(17, 24, 39);
+}
+
+.glass-elite-panel :is(input, textarea, select):not([type='checkbox']):not([type='radio'])::placeholder {
+  color: rgba(100, 116, 139, 0.9);
+}
+
+.dark .glass-elite-panel :is(input, textarea, select):not([type='checkbox']):not([type='radio']) {
+  background-color: rgba(39, 39, 42, 0.72);
+  border-color: rgba(82, 82, 91, 0.8);
+  color: rgba(244, 244, 245, 0.98);
+}
+
+.dark
+  .glass-elite-panel
+  :is(input, textarea, select):not([type='checkbox']):not([type='radio'])::placeholder {
+  color: rgba(161, 161, 170, 0.95);
+}
+
+.glass-elite-panel
+  :is(input, textarea, select):disabled:not([type='checkbox']):not([type='radio']) {
+  background-color: rgba(241, 245, 249, 0.92);
+  border-color: rgba(203, 213, 225, 0.92);
+  color: rgba(100, 116, 139, 0.96);
+  cursor: not-allowed;
+  box-shadow: inset 0 0 0 1px rgba(203, 213, 225, 0.45);
+  opacity: 1;
+}
+
+.dark
+  .glass-elite-panel
+  :is(input, textarea, select):disabled:not([type='checkbox']):not([type='radio']) {
+  background-color: rgba(39, 39, 42, 0.72);
+  border-color: rgba(82, 82, 91, 0.82);
+  color: rgba(161, 161, 170, 0.95);
+  cursor: not-allowed;
+  box-shadow: inset 0 0 0 1px rgba(82, 82, 91, 0.42);
+}
+
+.glass-elite-panel button:disabled {
+  background-color: rgba(226, 232, 240, 0.92);
+  border-color: rgba(203, 213, 225, 0.92);
+  color: rgba(100, 116, 139, 0.96);
+  cursor: not-allowed;
+  box-shadow: inset 0 0 0 1px rgba(203, 213, 225, 0.45);
+  filter: saturate(0.85);
+  opacity: 1;
+}
+
+.dark .glass-elite-panel button:disabled {
+  background-color: rgba(63, 63, 70, 0.78);
+  border-color: rgba(82, 82, 91, 0.85);
+  color: rgba(161, 161, 170, 0.98);
+  cursor: not-allowed;
+  box-shadow: inset 0 0 0 1px rgba(82, 82, 91, 0.45);
+  filter: saturate(0.88);
 }
 
 @media (max-width: 767px) {

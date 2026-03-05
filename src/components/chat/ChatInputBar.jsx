@@ -1287,7 +1287,7 @@ const ChatInputBar = React.memo(
                   disabled={isInteractionLocked}
                   rows={1}
                   className={clsx(
-                    'relative z-10 max-h-[200px] min-h-[48px] w-full resize-none overflow-y-auto border-none bg-transparent px-1 py-3 text-[15px] leading-[1.6] text-transparent placeholder-gray-400 caret-gray-900 outline-none dark:placeholder-gray-500 dark:caret-gray-100',
+                    'relative z-10 max-h-[200px] min-h-[48px] w-full resize-none overflow-y-auto border-none bg-transparent! px-1 py-3 text-[15px] leading-[1.6] text-transparent placeholder-gray-400 caret-gray-900 outline-none dark:placeholder-gray-500 dark:caret-gray-100',
                     !isMultiline && 'no-scrollbar',
                   )}
                 />

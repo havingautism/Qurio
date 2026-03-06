@@ -93,6 +93,10 @@ python scripts/memory_store.py list
 python scripts/memory_store.py search --keyword "your keyword"
 ```
 
+**Strategy:**
+- If you don't know what to search for, call `list` first to see all categories and summaries.
+- If `search` returns no results, try a broader keyword or `list` the entire category.
+
 When called by the model, prefer this tool call pattern:
 
 ```json

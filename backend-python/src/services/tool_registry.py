@@ -257,112 +257,112 @@ AGENT_TOOLS: list[dict[str, Any]] = [
             },
         },
     },
-    {
-        "id": "memory_retrieve",
-        "name": "memory_retrieve",
-        "category": "memory",
-        "description": (
-            "Two-step long-term memory retrieval. "
-            "Step 1: action='list' returns domain_key/aliases/scope only (no summary). "
-            "Step 2: action='fetch' with selected domain_keys returns summaries."
-        ),
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "action": {
-                    "type": "string",
-                    "enum": ["list", "fetch"],
-                    "description": "Retrieval stage: list domains first, then fetch summaries by selected domain_keys.",
-                },
-                "query": {
-                    "type": "string",
-                    "description": "Optional query for domain filtering in list stage.",
-                },
-                "domain_keys": {
-                    "description": "Selected domain keys for fetch stage. Supports string array or object map {key:true}.",
-                },
-                "include_summary": {
-                    "type": "boolean",
-                    "description": "Set true with action='fetch' to return summaries. Default false.",
-                },
-                "limit": {
-                    "type": "integer",
-                    "description": "Maximum number of domains to return (default 8, max 20).",
-                },
-                "user_id": {
-                    "type": "string",
-                    "description": "Optional user id for DB fallback retrieval.",
-                },
-                "database_provider": {
-                    "type": "string",
-                    "description": "Optional DB provider id/type for fallback retrieval.",
-                },
-            },
-        },
-    },
-    {
-        "id": "memory_update",
-        "name": "memory_update",
-        "category": "memory",
-        "description": (
-            "Manage long-term memory for a user domain. "
-            "Prefer reusing an existing domain_key whenever possible. "
-            "Use operation='add' to append/create, operation='upsert' to update/overwrite, "
-            "and operation='delete' to remove a memory domain. "
-            "For operation='upsert' on an existing domain, set based_on_existing=true "
-            "after reading existing memory."
-        ),
-        "parameters": {
-            "type": "object",
-            "required": ["domain_key", "operation"],
-            "properties": {
-                "operation": {
-                    "type": "string",
-                    "enum": ["add", "upsert", "delete"],
-                    "description": "Memory operation type: add, upsert (overwrite update), or delete.",
-                },
-                "domain_key": {
-                    "type": "string",
-                    "description": (
-                        'Memory domain key (e.g. "music", "career", "personal_intro"). '
-                        "Prefer existing keys for semantically similar updates; create a new key only for clearly new topics."
-                    ),
-                },
-                "summary": {
-                    "type": "string",
-                    "description": (
-                        "Summary content. Required for operation=add. "
-                        "For operation=upsert, you may omit summary in the first call to fetch existing memory, "
-                        "then call again with the full replacement summary."
-                    ),
-                },
-                "based_on_existing": {
-                    "type": "boolean",
-                    "description": (
-                        "Set true when operation=upsert for an existing domain, indicating the new summary "
-                        "was rewritten from existing memory."
-                    ),
-                },
-                "aliases": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Optional synonyms or related tags for this domain.",
-                },
-                "scope": {
-                    "type": "string",
-                    "description": "Optional description of what this domain covers.",
-                },
-                "user_id": {
-                    "type": "string",
-                    "description": "User ID used to locate memory rows for read/update/delete.",
-                },
-                "database_provider": {
-                    "type": "string",
-                    "description": "Optional DB provider id/type for memory lookup, e.g. supabase-main or sqlite-local.",
-                },
-            },
-        },
-    },
+    # [DEPRECATED] Replaced by the agent-memory internal skill
+    # {
+    #     "id": "memory_retrieve",
+    #     "name": "memory_retrieve",
+    #     "category": "memory",
+    #     "description": (
+    #         "Two-step long-term memory retrieval. "
+    #         "Step 1: action='list' returns domain_key/aliases/scope only (no summary). "
+    #         "Step 2: action='fetch' with selected domain_keys returns summaries."
+    #     ),
+    #         "parameters": {
+    #             "type": "object",
+    #             "properties": {
+    #                 "action": {
+    #                     "type": "string",
+    #                     "enum": ["list", "fetch"],
+    #                     "description": "Retrieval stage: list domains first, then fetch summaries by selected domain_keys.",
+    #                 },
+    #                 "query": {
+    #                     "type": "string",
+    #                     "description": "Optional query for domain filtering in list stage.",
+    #                 },
+    #                 "domain_keys": {
+    #                     "description": "Selected domain keys for fetch stage. Supports string array or object map {key:true}.",
+    #                 },
+    #                 "include_summary": {
+    #                     "type": "boolean",
+    #                     "description": "Set true with action='fetch' to return summaries. Default false.",
+    #                 },
+    #                 "limit": {
+    #                     "type": "integer",
+    #                     "description": "Maximum number of domains to return (default 8, max 20).",
+    #                 },
+    #                 "user_id": {
+    #                     "type": "string",
+    #                     "description": "Optional user id for DB fallback retrieval.",
+    #                 },
+    #                 "database_provider": {
+    #                     "type": "string",
+    #                     "description": "Optional DB provider id/type for fallback retrieval.",
+    #                 },
+    #             },
+    #         },
+    #     },
+    # {
+    #     "id": "memory_update",
+    #     "name": "memory_update",
+    #     "category": "memory",
+    #     "description": (
+    #         "Manage long-term memory for a user domain. "
+    #         "Prefer reusing an existing domain_key whenever possible. "
+    #         "Use operation='add' to append/create, operation='upsert' to update/overwrite, "
+    #         "and operation='delete' to remove a memory domain. "
+    #         "For operation='upsert' on an existing domain, set based_on_existing=true "
+    #         "after reading existing memory."
+    #     ),
+    #     "parameters": {
+    #         "type": "object",
+    #         "required": ["domain_key", "operation"],
+    #         "properties": {
+    #             "operation": {
+    #                 "type": "string",
+    #                 "enum": ["add", "upsert", "delete"],
+    #                 "description": "Memory operation type: add, upsert (overwrite update), or delete.",
+    #             },
+    #             "domain_key": {
+    #                 "type": "string",
+    #                 "description": (
+    #                     'Memory domain key (e.g. "music", "career", "personal_intro"). '
+    #                     "Prefer existing keys for semantically similar updates; create a new key only for clearly new topics."
+    #                 ),
+    #             },
+    #             "summary": {
+    #                 "type": "string",
+    #                 "description": (
+    #                     "Summary content. Required for operation=add. "
+    #                     "For operation=upsert, you may omit summary in the first call to fetch existing memory, "
+    #                     "then call again with the full replacement summary."
+    #                 ),
+    #             },
+    #             "based_on_existing": {
+    #                 "type": "boolean",
+    #                 "description": (
+    #                     "Set true when operation=upsert for an existing domain, indicating the new summary "
+    #                     "was rewritten from existing memory."
+    #                 ),
+    #             },
+    #             "aliases": {
+    #                 "type": "array",
+    #                 "items": {"type": "string"},
+    #                 "description": "Optional synonyms or related tags for this domain.",
+    #             },
+    #             "scope": {
+    #                 "type": "string",
+    #                 "description": "Optional description of what this domain covers.",
+    #             },
+    #             "user_id": {
+    #                 "type": "string",
+    #                 "description": "User ID used to locate memory rows for read/update/delete.",
+    #             },
+    #             "database_provider": {
+    #                 "type": "string",
+    #             },
+    #         },
+    #     },
+    # },
 ]
 
 AGNO_TOOLS: list[dict[str, Any]] = [

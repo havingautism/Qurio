@@ -103,8 +103,14 @@ def _search(args: argparse.Namespace) -> dict:
     listing = _list(argparse.Namespace(category=args.category))
     matches = []
     for item in listing.get("items", []):
-        text = Path(item["path"]).read_text(encoding="utf-8", errors="ignore").lower()
-        if keyword in text:
+        path_obj = Path(item["path"])
+        # Search in: relative path, summary, and content
+        search_scope = [
+            str(path_obj.relative_to(MEM_ROOT)).lower(),
+            item.get("summary", "").lower(),
+            path_obj.read_text(encoding="utf-8", errors="ignore").lower()
+        ]
+        if any(keyword in scope for scope in search_scope):
             matches.append(item)
     return {"ok": True, "action": "search", "keyword": keyword, "items": matches}
 

@@ -163,10 +163,11 @@ const resolveSearchTools = (isSearchActive, searchTool) => {
 
 const resolveTools = (isSearchActive, searchTool, enableMemory) => {
   const tools = resolveSearchTools(isSearchActive, searchTool) || []
-  if (enableMemory) {
-    tools.push(MEMORY_RETRIEVE_TOOL)
-    tools.push(MEMORY_UPDATE_TOOL)
-  }
+  // [DEPRECATED] Old memory tools replaced by built-in agent-memory skill
+  // if (enableMemory) {
+  //   tools.push(MEMORY_RETRIEVE_TOOL)
+  //   tools.push(MEMORY_UPDATE_TOOL)
+  // }
   return tools.length > 0 ? tools : undefined
 }
 

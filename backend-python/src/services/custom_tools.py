@@ -111,6 +111,35 @@ def _create_ddgs_client() -> Any:
         return DDGS()
 
 
+def _normalize_list_input(val: Any) -> list[str]:
+    """
+    Robustly convert Any input to a list of strings.
+    Handles:
+    1. Actual lists: [1, 2] -> ["1", "2"]
+    2. Stringified JSON lists: '["a", "b"]' -> ["a", "b"]
+    3. Comma-separated strings: 'a, b' -> ["a", "b"]
+    4. Single strings: 'a' -> ["a"]
+    """
+    if isinstance(val, list):
+        return [str(i) for i in val]
+    if isinstance(val, str):
+        val = val.strip()
+        if not val:
+            return []
+        if val.startswith("[") and val.endswith("]"):
+            try:
+                parsed = json.loads(val)
+                if isinstance(parsed, list):
+                    return [str(i) for i in parsed]
+            except Exception:
+                pass
+        # Fallback to comma-separated if it's not a valid JSON list but contains commas
+        if "," in val:
+            return [i.strip() for i in val.split(",") if i.strip()]
+        return [val]
+    return []
+
+
 @tool(
     name="interactive_form",
     external_execution=True,
@@ -438,8 +467,9 @@ class QurioLocalTools(Toolkit):
             self.webpage_reader,
             self.tavily_web_search,
             self.tavily_academic_search,
-            self.memory_retrieve,
-            self.memory_update,
+            # [DEPRECATED]
+            # self.memory_retrieve,
+            # self.memory_update,
         ]
         super().__init__(name="QurioLocalTools", tools=tools, include_tools=include_tools)
 
@@ -539,8 +569,8 @@ class QurioLocalTools(Toolkit):
         self,
         skill_id: str,
         script_path: str,
-        args: list[str] | None = None,
-        timeout_seconds: float = 60.0,
+        args: Any = None,
+        timeout_seconds: Any = 60.0,
     ) -> dict[str, Any]:
         """
         Execute one script located under `.skills/<skill_id>/scripts/`.
@@ -551,12 +581,17 @@ class QurioLocalTools(Toolkit):
             args: Optional positional arguments.
             timeout_seconds: Optional timeout before aborting execution.
         """
-        resolved_timeout = float(timeout_seconds) if timeout_seconds else 60.0
+        try:
+            resolved_timeout = float(timeout_seconds) if timeout_seconds else 60.0
+        except (ValueError, TypeError):
+            resolved_timeout = 60.0
+
+        normalized_args = _normalize_list_input(args)
         return _run_async_tool_sync(
             lambda: self._execute_skill_script_async(
                 skill_id=skill_id,
                 script_path=script_path,
-                args=args,
+                args=normalized_args,
                 timeout_seconds=resolved_timeout,
             ),
             resolved_timeout + 5.0,
@@ -890,22 +925,23 @@ class QurioLocalTools(Toolkit):
         except Exception:
             return []
 
-    @tool(
-        name="memory_retrieve",
-        description=(
-            "Two-step memory retrieval: list domains first, then fetch summaries for selected domain_keys."
-        ),
-    )
-    def memory_retrieve(
-        self,
-        action: str = "list",
-        query: str = "",
-        domain_keys: Any = None,
-        include_summary: bool = False,
-        limit: int = 8,
-        user_id: str | None = None,
-        database_provider: str | None = None,
-    ) -> str:
+    # [DEPRECATED] Replaced by the agent-memory internal skill
+    # @tool(
+    #     name="memory_retrieve",
+    #     description=(
+    #         "Two-step memory retrieval: list domains first, then fetch summaries for selected domain_keys."
+    #     ),
+    # )
+    # def memory_retrieve(
+    #     self,
+    #     action: str = "list",
+    #     query: str = "",
+    #     domain_keys: Any = None,
+    #     include_summary: bool = False,
+    #     limit: int = 8,
+    #     user_id: str | None = None,
+    #     database_provider: str | None = None,
+    # ) -> str:
         try:
             normalized_limit = max(1, min(int(limit or 8), 20))
         except Exception:
@@ -1111,28 +1147,29 @@ class QurioLocalTools(Toolkit):
         except Exception:
             return None
 
-    @tool(
-        name="memory_update",
-        description=(
-            "Manage long-term memory for a specific domain. "
-            "Prefer reusing an existing domain_key whenever possible. "
-            "Use operation='add' to append/create, operation='upsert' to update/overwrite, "
-            "and operation='delete' to remove a memory domain. "
-            "For operation='upsert' on an existing domain, set based_on_existing=true "
-            "after reviewing existing_memory."
-        ),
-    )
-    def memory_update(
-        self,
-        domain_key: str,
-        summary: str | None = None,
-        based_on_existing: bool = False,
-        aliases: Any = None,
-        scope: str = "",
-        operation: str = "upsert",
-        user_id: str | None = None,
-        database_provider: str | None = None,
-    ) -> str:
+    # [DEPRECATED] Replaced by the agent-memory internal skill
+    # @tool(
+    #     name="memory_update",
+    #     description=(
+    #         "Manage long-term memory for a specific domain. "
+    #         "Prefer reusing an existing domain_key whenever possible. "
+    #         "Use operation='add' to append/create, operation='upsert' to update/overwrite, "
+    #         "and operation='delete' to remove a memory domain. "
+    #         "For operation='upsert' on an existing domain, set based_on_existing=true "
+    #         "after reviewing existing_memory."
+    #     ),
+    # )
+    # def memory_update(
+    #     self,
+    #     domain_key: str,
+    #     summary: str | None = None,
+    #     based_on_existing: bool = False,
+    #     aliases: Any = None,
+    #     scope: str = "",
+    #     operation: str = "upsert",
+    #     user_id: str | None = None,
+    #     database_provider: str | None = None,
+    # ) -> str:
         """
         No-op implementation for backend. The real save happens on the frontend asynchronously.
         Resilience: Handles models that pass aliases as stringified JSON arrays instead of proper lists.

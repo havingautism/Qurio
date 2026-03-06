@@ -33,7 +33,7 @@ export default function SupabaseSetupModal({ isOpen, onConfigured, isManual = fa
         // Only save if FULL success (connection + tables)
         await saveSettings({
           databaseProvider: 'supabase',
-          databaseProviderId: 'supabase',
+          databaseProviderLabel: 'Supabase',
           databaseConfig: {
             supabase: {
               url: supabaseUrl,

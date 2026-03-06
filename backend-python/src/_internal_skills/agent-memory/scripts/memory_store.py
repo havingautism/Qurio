@@ -96,6 +96,25 @@ def _list(args: argparse.Namespace) -> dict:
     return {"ok": True, "action": "list", "items": items}
 
 
+def _categories(_: argparse.Namespace) -> dict:
+    if not MEM_ROOT.exists():
+        return {"ok": True, "action": "categories", "items": []}
+
+    items = []
+    for entry in sorted(MEM_ROOT.iterdir()):
+        if not entry.is_dir():
+            continue
+        count = sum(1 for _ in entry.rglob("*.md"))
+        items.append(
+            {
+                "category": entry.name,
+                "path": str(entry),
+                "count": count,
+            }
+        )
+    return {"ok": True, "action": "categories", "items": items}
+
+
 def _search(args: argparse.Namespace) -> dict:
     keyword = (args.keyword or "").strip().lower()
     if not keyword:
@@ -142,6 +161,8 @@ def main() -> int:
     save.add_argument("--related", default="")
     save.add_argument("--overwrite", action="store_true")
 
+    sub.add_parser("categories")
+
     list_cmd = sub.add_parser("list")
     list_cmd.add_argument("--category", default="")
 
@@ -158,6 +179,8 @@ def main() -> int:
 
     if args.command == "save":
         result = _save(args)
+    elif args.command == "categories":
+        result = _categories(args)
     elif args.command == "list":
         result = _list(args)
     elif args.command == "search":

@@ -307,7 +307,6 @@ def _build_tools(request: Any) -> list[Any]:
             QurioLocalTools(
                 tavily_api_key=request.tavily_api_key,
                 include_tools=include_local,
-                prefetched_memory_domains=getattr(request, "memory_domains_prefetch", None),
             )
         )
 
@@ -747,7 +746,7 @@ def build_memory_agent(
         user_tools=None,
         tool_choice=None,
         enable_long_term_memory=True,
-        database_provider="supabase",
+        database_provider=os.getenv("DATABASE_PROVIDER") or "default",
         user_id=user_id,
         enable_skills=False,  # Helper agent: keep skills disabled
     )

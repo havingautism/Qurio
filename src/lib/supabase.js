@@ -26,9 +26,16 @@ const getDbAccessKey = () => {
   const settings = loadSettings()
   return settings.dbAccessKey || ''
 }
+
+const getActiveProviderId = (settings = {}) => {
+  const resolved = settings.databaseProvider || ''
+  return String(resolved || '').trim() || 'default'
+}
+
 const resolveProviderId = (overrides = {}) => {
   const settings = loadSettings(overrides)
-  return settings.databaseProviderId || settings.databaseProvider || ''
+  if (!settings.databaseProvider) return ''
+  return getActiveProviderId(settings)
 }
 
 const parseOrFilter = raw => {

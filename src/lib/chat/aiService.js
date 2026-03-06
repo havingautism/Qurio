@@ -6,11 +6,6 @@ import {
   notifyConversationPatched,
   updateMessageById,
 } from '../conversationsService'
-import {
-  upsertMemoryDomainSummary,
-  getMemoryDomains,
-  deleteMemoryDomain,
-} from '../lazyMemoryService'
 import { getModelConfigForAgent, resolveProviderConfigWithCredentials } from './modelConfig'
 import { getLanguageInstruction, applyLanguageInstructionToText } from './prompts'
 import { buildSpaceAgentOptions, resolveAgentForSpace } from './conversationSetup'
@@ -382,7 +377,6 @@ export const callAIAPI = async (
   summaryModelConfig = null,
   hitlRunId = null,
   hitlFieldValues = null,
-  memoryDomainsPrefetch = [],
   deferTitleGeneration = false,
   isEditing = false,
 ) => {
@@ -847,8 +841,7 @@ export const callAIAPI = async (
     const resolvedMemoryModel = modelConfig.model
     const memoryApiKey = credentials.apiKey
     const memoryBaseUrl = credentials.baseUrl
-    const selectedDatabaseProvider =
-      settings.databaseProviderId || settings.databaseProvider || 'supabase'
+    const selectedDatabaseProvider = settings.databaseProvider || 'supabase'
 
     const modelThinkingParam = thinkingActive
       ? provider.getThinking(thinkingActive, modelConfig.model)
@@ -883,8 +876,6 @@ export const callAIAPI = async (
       memoryModel: resolvedMemoryModel,
       memoryApiKey: memoryApiKey,
       memoryBaseUrl: memoryBaseUrl,
-      memoryDomainsPrefetch: Array.isArray(memoryDomainsPrefetch) ? memoryDomainsPrefetch : [],
-
       userTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       userLocale: navigator.language || 'en-US',
       runId: hitlRunId,
@@ -1474,117 +1465,6 @@ export const finalizeMessage = async (
 
       if (toolCallsToProcess && toolCallsToProcess.length > 0) {
         lastMsg.tool_calls = toolCallsToProcess
-
-        if (settings.enableLongTermMemory) {
-          toolCallsToProcess.forEach(tc => {
-            const toolName = tc.name || tc.function?.name
-            if (toolName === 'memory_update') {
-              try {
-                const rawArgs =
-                  typeof tc.arguments !== 'undefined' ? tc.arguments : tc.function?.arguments
-                const args = typeof rawArgs === 'string' ? JSON.parse(rawArgs) : rawArgs
-                const operation = String(args?.operation || 'upsert').toLowerCase()
-                const domainKeyRaw = args?.domain_key
-                const domainKey = String(domainKeyRaw || '')
-                  .trim()
-                  .toLowerCase()
-                const memoryProvider = String(
-                  args?.database_provider ||
-                    args?.databaseProvider ||
-                    settings.databaseProviderId ||
-                    settings.databaseProvider ||
-                    '',
-                ).trim()
-                if (!domainKey) return
-
-                if (operation === 'delete') {
-                  deleteMemoryDomain(domainKey, { databaseProvider: memoryProvider }).catch(err => {
-                    console.error(`[Memory] Background delete failed: ${domainKey}`, err)
-                  })
-                  return
-                }
-
-                if (!args?.summary) return
-
-                if (operation === 'upsert') {
-                  ;(async () => {
-                    try {
-                      const domains =
-                        (await getMemoryDomains({ databaseProvider: memoryProvider })) || []
-                      const existingDomain = domains.find(
-                        domain =>
-                          String(domain?.domain_key || '')
-                            .trim()
-                            .toLowerCase() === domainKey,
-                      )
-                      const existingSummary = String(
-                        existingDomain?.latest_summary?.summary || existingDomain?.summary || '',
-                      ).trim()
-                      const basedOnExisting = args?.based_on_existing === true
-
-                      if (existingSummary && !basedOnExisting) {
-                        console.warn(
-                          `[Memory] Skipping unsafe upsert without based_on_existing=true for existing domain: ${domainKey}`,
-                        )
-                        return
-                      }
-
-                      upsertMemoryDomainSummary({
-                        domainKey,
-                        summary: args.summary,
-                        aliases: args.aliases || [],
-                        scope: args.scope || '',
-                        append: false,
-                        databaseProvider: memoryProvider,
-                      })
-                        .then(result => {
-                          if (!result?.updated) {
-                            console.error(
-                              `[Memory] Background auto-update rejected: ${domainKey}`,
-                              result,
-                            )
-                            return
-                          }
-                          getMemoryDomains({ databaseProvider: memoryProvider })
-                        })
-                        .catch(err => {
-                          console.error(`[Memory] Background auto-update failed: ${domainKey}`, err)
-                        })
-                    } catch (err) {
-                      console.error(`[Memory] Failed to validate upsert safety: ${domainKey}`, err)
-                    }
-                  })()
-                  return
-                }
-
-                upsertMemoryDomainSummary({
-                  domainKey,
-                  summary: args.summary,
-                  aliases: args.aliases || [],
-                  scope: args.scope || '',
-                  // add = append; upsert = overwrite
-                  append: operation === 'add',
-                  databaseProvider: memoryProvider,
-                })
-                  .then(result => {
-                    if (!result?.updated) {
-                      console.error(
-                        `[Memory] Background auto-update rejected: ${domainKey}`,
-                        result,
-                      )
-                      return
-                    }
-                    getMemoryDomains({ databaseProvider: memoryProvider })
-                  })
-                  .catch(err => {
-                    console.error(`[Memory] Background auto-update failed: ${domainKey}`, err)
-                  })
-              } catch (e) {
-                console.error('[Memory] Failed to parse memory_update arguments:', e)
-              }
-            }
-          })
-        }
       }
       lastMsg.provider = modelConfig.provider
       lastMsg.model = modelConfig.model
@@ -1848,9 +1728,7 @@ export const finalizeMessage = async (
         ? normalizeContent(result.content)
         : sanitizeModelOutputText(latestAi?.content ?? '')
     })()
-    const databaseProviderKey = String(
-      settings?.databaseProviderId || settings?.databaseProvider || '',
-    ).toLowerCase()
+    const databaseProviderKey = String(settings?.databaseProvider || '').toLowerCase()
     const streamBlocksForRuntime = buildStreamBlocks({
       content: contentForPersistence,
       thoughtHistory: thoughtHistoryForPersistence || [],

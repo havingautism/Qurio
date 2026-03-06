@@ -86,16 +86,19 @@ related: [src/core/file/fileProcessor.ts]
 
 ## Search Workflow
 
-Use summary-first retrieval:
+Use folder-first, then summary-first retrieval:
 
 ```bash
+python scripts/memory_store.py categories
 python scripts/memory_store.py list
 python scripts/memory_store.py search --keyword "your keyword"
 ```
 
 **Strategy:**
-- If you don't know what to search for, call `list` first to see all categories and summaries.
-- If `search` returns no results, try a broader keyword or `list` the entire category.
+- First call `categories` to inspect the folder names under `memories/`.
+- Then choose the most likely category and call `list --category "that-category"` or `search --category "that-category" --keyword "keyword"`.
+- Only do a global `search` when the category is unclear or category-scoped search failed.
+- If `search` returns no results, try a broader keyword or inspect another category.
 
 When called by the model, prefer this tool call pattern:
 
@@ -105,19 +108,38 @@ When called by the model, prefer this tool call pattern:
   "arguments": {
     "skill_id": "agent-memory",
     "script_path": "scripts/memory_store.py",
-    "args": ["search", "--keyword", "keyword"]
+    "args": ["categories"]
   }
 }
 ```
+
+Then follow with:
+
+```json
+{
+  "name": "execute_skill_script",
+  "arguments": {
+    "skill_id": "agent-memory",
+    "script_path": "scripts/memory_store.py",
+    "args": ["search", "--category", "pets", "--keyword", "cat"]
+  }
+}
+```
+
+Important:
+- `args` must be a JSON array of CLI tokens, not an object.
+- Correct: `"args": ["search", "--keyword", "cat"]`
+- Wrong: `"args": {"action": "recall", "query": "cat"}`
 
 ## Operations
 
 ### Save
 
-1. Check existing memory first (`search`)
-2. Save with category + slug + summary + content
-3. Verify persistence by calling `list` or `search`
-4. Only then report success to user
+1. Check folders first (`categories`)
+2. Check existing memory in the likely category (`search`)
+3. Save with category + slug + summary + content
+4. Verify persistence by calling `list` or `search`
+5. Only then report success to user
 
 ```bash
 python scripts/memory_store.py save \

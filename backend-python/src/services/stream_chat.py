@@ -2413,61 +2413,6 @@ class StreamChatService:
                 "Do not call local_time again unless the user explicitly asks to refresh/recheck time."
             )
             updated = self._append_system_message(updated, local_time_guidance, system_index)
-
-        # [DEPRECATED] Old custom tools for long-term memory are replaced by the internal skill
-        # if "memory_update" in enabled_tools:
-        #     memory_guidance = (
-        #         "\n\n[MEMORY UPDATE GUIDANCE]\n"
-        #         "When calling 'memory_update', prioritize existing memory domains first.\n"
-        #         "Optionally call 'memory_retrieve' first to inspect existing domain summaries.\n"
-        #         "1) Reuse an existing domain_key if semantically similar.\n"
-        #         "2) Create a new domain_key only for clearly new topics.\n"
-        #         "3) Prefer operation='upsert' for corrections/overwrites; use 'add' for appending details; "
-        #         "use 'delete' to remove outdated domains.\n"
-        #         "4) Always provide a non-empty summary for operation='add' and operation='upsert'.\n"
-        #         "5) If upserting an existing domain, rewrite summary from old memory and set based_on_existing=true."
-        #     )
-        #     updated = self._append_system_message(updated, memory_guidance, system_index)
-
-        # if "memory_retrieve" in enabled_tools:
-        #     prefetched_domains = []
-        #     raw_prefetched = getattr(request, "memory_domains_prefetch", None) if request else None
-        #     if isinstance(raw_prefetched, list):
-        #         for row in raw_prefetched[:80]:
-        #             if not isinstance(row, dict):
-        #                 continue
-        #             domain_key = str(row.get("domain_key") or "").strip()
-        #             if not domain_key:
-        #                 continue
-        #             aliases = row.get("aliases")
-        #             if not isinstance(aliases, list):
-        #                 aliases = []
-        #             cleaned_aliases = [str(item).strip() for item in aliases if str(item).strip()]
-        #             prefetched_domains.append(
-        #                 {
-        #                     "domain_key": domain_key,
-        #                     "aliases": cleaned_aliases,
-        #                 }
-        #             )
-
-        #     available_domains_text = ""
-        #     if prefetched_domains:
-        #         available_domains_text = (
-        #             "\nAvailable existing domains (prefer these keys first): "
-        #             f"{json.dumps(prefetched_domains, ensure_ascii=False)}"
-        #         )
-
-        #     memory_retrieve_guidance = (
-        #         "\n\n[MEMORY RETRIEVE GUIDANCE]\n"
-        #         "Use 'memory_retrieve' only when memory context is needed for the current answer.\n"
-        #         "Use TWO steps:\n"
-        #         "1) Call memory_retrieve(action='list', include_summary=false) to inspect candidate domains.\n"
-        #         "2) Select domain_keys and call memory_retrieve(action='fetch', include_summary=true, domain_keys=[...]).\n"
-        #         "Do not fetch all summaries directly without selecting domains first."
-        #         f"{available_domains_text}"
-        #     )
-        #     updated = self._append_system_message(updated, memory_retrieve_guidance, system_index)
-
         # [REINFORCED] System-level long-term memory guidance for the internal agent-memory skill
         if getattr(request, "enable_long_term_memory", False):
             memory_guidance = (

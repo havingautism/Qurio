@@ -156,7 +156,7 @@ def get_agent_os() -> AgentOS:
         user_tools=None,
         tool_choice=None,
         enable_long_term_memory=os.getenv("ENABLE_LONG_TERM_MEMORY", "0") == "1",
-        database_provider=os.getenv("DATABASE_PROVIDER", "supabase"),
+        database_provider=os.getenv("DATABASE_PROVIDER") or "default",
     )
     default_agent = build_agent(default_request)
 

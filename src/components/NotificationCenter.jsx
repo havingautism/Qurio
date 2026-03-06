@@ -18,21 +18,14 @@ import clsx from 'clsx'
 import { useCallback, useEffect, useState, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
-import { getBackendUrl, loadSettings } from '../lib/settings'
+import { getBackendUrl } from '../lib/settings'
 
 // ---------------------------------------------------------------------------
 // API helpers
 // ---------------------------------------------------------------------------
 
-const getDbProvider = () => {
-  const settings = loadSettings()
-  return settings.databaseProviderId || settings.databaseProvider || ''
-}
-
 const buildUrl = (path, params = {}) => {
   const url = new URL(`${getBackendUrl()}${path}`)
-  const dbProvider = getDbProvider()
-  if (dbProvider) url.searchParams.set('dbProvider', dbProvider)
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v))
   return url.toString()
 }

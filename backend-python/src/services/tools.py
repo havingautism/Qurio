@@ -4,6 +4,7 @@ Local tool execution helpers (legacy support for non-Agno adapters).
 
 from __future__ import annotations
 
+import ast
 import asyncio
 import json
 import os
@@ -64,6 +65,111 @@ def _tool_timeout_seconds(default: float = 20.0) -> float:
         return default
 
 
+def _parse_loose_object(value: Any) -> dict[str, Any] | None:
+    if isinstance(value, dict):
+        return value
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    if not text:
+        return None
+    for parser in (json.loads, ast.literal_eval):
+        try:
+            parsed = parser(text)
+            if isinstance(parsed, dict):
+                return parsed
+        except Exception:
+            continue
+    return None
+
+
+def _coerce_agent_memory_args(script_path: str, raw_args: Any) -> list[str] | None:
+    normalized_script = str(script_path or "").strip().replace("\\", "/").lower()
+    if normalized_script not in {"memory_store.py", "scripts/memory_store.py"}:
+        return None
+
+    payload = _parse_loose_object(raw_args)
+    if not payload:
+        return None
+
+    command = str(
+        payload.get("command")
+        or payload.get("action")
+        or payload.get("operation")
+        or ""
+    ).strip().lower()
+
+    if command in {"categories", "folders", "list-categories", "list-folders", "inspect"}:
+        return ["categories"]
+
+    if command in {"recall", "search", "find", "lookup"}:
+        keyword = str(
+            payload.get("keyword")
+            or payload.get("query")
+            or payload.get("text")
+            or payload.get("term")
+            or ""
+        ).strip()
+        category = str(payload.get("category") or "").strip()
+        if not keyword:
+            return None
+        args = ["search", "--keyword", keyword]
+        if category:
+            args.extend(["--category", category])
+        return args
+
+    if command in {"list", "ls"}:
+        category = str(payload.get("category") or "").strip()
+        args = ["list"]
+        if category:
+            args.extend(["--category", category])
+        return args
+
+    if command in {"delete", "remove"}:
+        category = str(payload.get("category") or "").strip()
+        slug = str(payload.get("slug") or payload.get("name") or "").strip()
+        if not category or not slug:
+            return None
+        return ["delete", "--category", category, "--slug", slug]
+
+    if command in {"save", "remember", "store"}:
+        category = str(payload.get("category") or "").strip()
+        slug = str(payload.get("slug") or payload.get("name") or "").strip()
+        summary = str(payload.get("summary") or "").strip()
+        content = str(payload.get("content") or payload.get("text") or "").strip()
+        if not category or not slug or not summary or not content:
+            return None
+        args = [
+            "save",
+            "--category",
+            category,
+            "--slug",
+            slug,
+            "--summary",
+            summary,
+            "--content",
+            content,
+        ]
+        title = str(payload.get("title") or "").strip()
+        status = str(payload.get("status") or "").strip()
+        tags = payload.get("tags")
+        related = payload.get("related")
+        overwrite = bool(payload.get("overwrite"))
+        if title:
+            args.extend(["--title", title])
+        if status:
+            args.extend(["--status", status])
+        if isinstance(tags, list) and tags:
+            args.extend(["--tags", ",".join(str(item).strip() for item in tags if str(item).strip())])
+        if isinstance(related, list) and related:
+            args.extend(["--related", ",".join(str(item).strip() for item in related if str(item).strip())])
+        if overwrite:
+            args.append("--overwrite")
+        return args
+
+    return None
+
+
 def list_tools() -> list[dict[str, Any]]:
     return list_tool_registry()
 
@@ -108,8 +214,6 @@ async def execute_local_tool(
             return await _execute_install_skill_dependency(args)
         case "execute_skill_script":
             return await _execute_execute_skill_script(args)
-        case "memory_update":
-            return await _execute_memory_update(args)
         case "webpage_reader":
             return await _execute_webpage_reader(args)
         case "Tavily_academic_search":
@@ -218,6 +322,11 @@ async def _execute_execute_skill_script(args: dict[str, Any]) -> dict[str, Any]:
             "skill_id": skill_id or None,
             "script_path": script_path or None,
         }
+    if skill_id == "agent-memory":
+        coerced_args = _coerce_agent_memory_args(script_path, raw_args)
+        if coerced_args:
+            raw_args = coerced_args
+
     if not isinstance(raw_args, list):
         raw_args = [str(raw_args)]
     try:
@@ -234,74 +343,6 @@ async def _execute_execute_skill_script(args: dict[str, Any]) -> dict[str, Any]:
             "skill_id": skill_id,
             "script_path": script_path,
         }
-
-
-async def _execute_memory_update(args: dict[str, Any]) -> dict[str, Any]:
-    domain_key = str(args.get("domain_key") or "").strip()
-    summary = args.get("summary")
-    based_on_existing = args.get("based_on_existing")
-    operation_raw = str(args.get("operation") or "upsert").strip().lower()
-    user_id = str(args.get("user_id") or "").strip() or None
-    database_provider = str(args.get("database_provider") or "").strip() or None
-
-    if not domain_key:
-        return {
-            "status": "invalid_request",
-            "error": "domain_key is required",
-        }
-
-    operation_aliases = {
-        "create": "add",
-        "insert": "add",
-        "add": "add",
-        "update": "upsert",
-        "modify": "upsert",
-        "edit": "upsert",
-        "upsert": "upsert",
-        "overwrite": "upsert",
-        "replace": "upsert",
-        "delete": "delete",
-        "remove": "delete",
-        "del": "delete",
-    }
-    operation = operation_aliases.get(operation_raw)
-    if not operation:
-        return {
-            "status": "invalid_request",
-            "error": "operation must be one of: add, upsert, delete",
-        }
-
-    if operation == "add" and not str(summary or "").strip():
-        return {
-            "status": "invalid_request",
-            "operation": "add",
-            "domain_key": domain_key,
-            "error": "summary is required when operation is add",
-            "instruction": "Retry memory_update with a non-empty summary.",
-        }
-
-    if operation == "upsert" and not str(summary or "").strip():
-        return {
-            "status": "needs_summary",
-            "operation": "upsert",
-            "domain_key": domain_key,
-            "user_id": user_id,
-            "database_provider": database_provider,
-            "instruction": (
-                "Call memory_update again with operation='upsert', based_on_existing=true, and full replacement summary "
-                "after retrieving existing memory."
-            ),
-        }
-
-    return {
-        "status": "accepted",
-        "operation": operation,
-        "domain_key": domain_key,
-        "based_on_existing": based_on_existing,
-        "user_id": user_id,
-        "database_provider": database_provider,
-        "message": f"Memory {operation} accepted for domain '{domain_key}'.",
-    }
 
 
 async def _execute_webpage_reader(args: dict[str, Any]) -> dict[str, Any]:

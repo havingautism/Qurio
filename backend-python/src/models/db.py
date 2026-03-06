@@ -42,7 +42,7 @@ class DbRpc(BaseModel):
 
 
 class DbQueryRequest(BaseModel):
-    provider_id: str = Field(alias="providerId")
+    provider_id: str = Field(default="default", alias="providerId")
     action: Literal[
         "select",
         "insert",
@@ -74,8 +74,8 @@ class DbQueryResponse(BaseModel):
 
 
 class DbProviderUpsertRequest(BaseModel):
-    id: str
-    type: Literal["supabase", "sqlite"]
+    id: str = "default"
+    type: Literal["supabase", "sqlite", "postgres", "pgsql", "mysql", "mariadb"]
     label: str | None = None
     access_key: str | None = Field(default=None, alias="accessKey")
     url: str | None = None

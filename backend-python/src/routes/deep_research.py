@@ -14,6 +14,7 @@ from sse_starlette.sse import EventSourceResponse
 from starlette.responses import Response
 
 from ..providers import is_provider_supported
+from ._request_secrets import apply_stream_secret_headers, get_llm_api_key
 from ..services.deep_research import stream_deep_research
 
 router = APIRouter(tags=["deep-research"])
@@ -21,15 +22,15 @@ router = APIRouter(tags=["deep-research"])
 
 @router.post("/stream-deep-research", response_model=None)
 async def deep_research_stream(request: Request) -> Response:
-    body = await request.json()
+    body = apply_stream_secret_headers(request, await request.json())
     provider = body.get("provider")
-    api_key = body.get("apiKey")
+    api_key = get_llm_api_key(request)
     messages = body.get("messages")
 
     if not provider:
         return JSONResponse(status_code=400, content={"error": "Missing required field: provider"})
     if not api_key:
-        return JSONResponse(status_code=400, content={"error": "Missing required field: apiKey"})
+        return JSONResponse(status_code=400, content={"error": "Missing required header: x-llm-api-key"})
     if not messages or not isinstance(messages, list):
         return JSONResponse(status_code=400, content={"error": "Missing required field: messages"})
     if not is_provider_supported(provider):

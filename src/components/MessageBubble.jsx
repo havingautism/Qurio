@@ -2919,16 +2919,16 @@ const MessageBubble = ({
             isDeepResearchContext ? 'justify-center' : 'justify-end',
           )}
         >
-          <div
-            className={clsx(
-              'flex flex-col gap-2',
-              // For Deep Research: centered and wide
-              // For Standard: right-aligned (user) or left-aligned (AI) but constrained width
-              isDeepResearchContext
-                ? 'w-full max-w-full items-center'
-                : 'max-w-[85%] items-end sm:max-w-3xl',
-            )}
-          >
+              <div
+                className={clsx(
+                  'flex flex-col gap-2',
+                  // For Deep Research: centered and wide
+                  // For Standard: right-aligned (user) or left-aligned (AI) but constrained width
+                  isDeepResearchContext
+                    ? 'w-full max-w-full items-center'
+                    : 'max-w-[85%] items-end sm:max-w-[42rem]',
+                )}
+              >
             {/* Message Content */}
             {(() => {
               if (isDeepResearchContext) {
@@ -2937,7 +2937,7 @@ const MessageBubble = ({
               return (
                 <div
                   className={clsx(
-                    'relative w-fit max-w-full rounded-[28px] border px-3.5 py-2.5 text-base shadow-[0_18px_36px_-24px_rgba(59,130,246,0.55)] backdrop-blur-xl',
+                    'relative w-fit max-w-full rounded-[28px] border px-3.5 py-2.5 text-base shadow-[0_10px_24px_-20px_rgba(15,23,42,0.28)] backdrop-blur-xl sm:max-w-[42rem]',
                     'border-primary-300/30 bg-primary-500/88 dark:border-primary-400/20 dark:bg-primary-900/58 text-white dark:text-gray-100',
                   )}
                 >

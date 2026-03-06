@@ -6,6 +6,24 @@
 import { getBackendUrl } from './settings'
 import { getSupabaseClient } from './supabase'
 
+const buildSecretHeaders = secrets => {
+  const headers = {}
+  const entries = [
+    ['x-llm-api-key', secrets.apiKey],
+    ['x-tavily-api-key', secrets.tavilyApiKey],
+    ['x-serpapi-api-key', secrets.serpapiApiKey],
+    ['x-exa-api-key', secrets.exaApiKey],
+    ['x-summary-api-key', secrets.summaryApiKey],
+    ['x-memory-api-key', secrets.memoryApiKey],
+  ]
+  entries.forEach(([header, value]) => {
+    if (String(value || '').trim()) {
+      headers[header] = String(value).trim()
+    }
+  })
+  return headers
+}
+
 const getBackendErrorMessage = (error, status) => {
   if (!error || typeof error !== 'object') {
     return `Backend error: ${status}`
@@ -152,11 +170,11 @@ export const generateTitleViaBackend = async (
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...buildSecretHeaders({ apiKey }),
       },
       body: JSON.stringify({
         provider,
         message,
-        apiKey,
         baseUrl,
         model,
         userTimezone,
@@ -198,11 +216,11 @@ export const generateEmojiViaBackend = async (
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...buildSecretHeaders({ apiKey }),
       },
       body: JSON.stringify({
         provider,
         message,
-        apiKey,
         baseUrl,
         model,
         userTimezone,
@@ -244,12 +262,12 @@ export const generateDailyTipViaBackend = async (
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...buildSecretHeaders({ apiKey }),
       },
       body: JSON.stringify({
         provider,
         language,
         category,
-        apiKey,
         baseUrl,
         model,
       }),
@@ -289,11 +307,11 @@ export const generateResearchPlanViaBackend = async (
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...buildSecretHeaders({ apiKey }),
       },
       body: JSON.stringify({
         provider,
         message,
-        apiKey,
         baseUrl,
         model,
         researchType, // Pass researchType to backend
@@ -376,11 +394,11 @@ export const streamResearchPlanViaBackend = async params => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...buildSecretHeaders({ apiKey }),
         },
         body: JSON.stringify({
           provider,
           message,
-          apiKey,
           baseUrl,
           model,
           responseFormat,
@@ -485,12 +503,12 @@ export const generateTitleSpaceAndAgentViaBackend = async (
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...buildSecretHeaders({ apiKey }),
       },
       body: JSON.stringify({
         provider,
         message,
         spacesWithAgents,
-        apiKey,
         baseUrl,
         model,
         userTimezone,
@@ -534,12 +552,12 @@ export const generateSpaceAndAgentViaBackend = async (
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...buildSecretHeaders({ apiKey }),
       },
       body: JSON.stringify({
         provider,
         message,
         spacesWithAgents,
-        apiKey,
         baseUrl,
         model,
         userTimezone,
@@ -596,12 +614,12 @@ export const generateTitleAndSpaceViaBackend = async (
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...buildSecretHeaders({ apiKey }),
       },
       body: JSON.stringify({
         provider,
         message,
         spaces,
-        apiKey,
         baseUrl,
         model,
         userTimezone,
@@ -643,12 +661,12 @@ export const generateAgentForAutoViaBackend = async (
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...buildSecretHeaders({ apiKey }),
       },
       body: JSON.stringify({
         provider,
         message,
         currentSpace,
-        apiKey,
         baseUrl,
         model,
       }),
@@ -686,11 +704,11 @@ export const generateRelatedQuestionsViaBackend = async (
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...buildSecretHeaders({ apiKey }),
       },
       body: JSON.stringify({
         provider,
         messages,
-        apiKey,
         baseUrl,
         model,
       }),
@@ -781,7 +799,6 @@ export const streamChatViaBackend = async params => {
     memoryModel,
     memoryApiKey,
     memoryBaseUrl,
-    memoryDomainsPrefetch,
     isEditing,
   } = params
 
@@ -803,10 +820,17 @@ export const streamChatViaBackend = async params => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...buildSecretHeaders({
+            apiKey,
+            tavilyApiKey,
+            serpapiApiKey,
+            exaApiKey,
+            summaryApiKey,
+            memoryApiKey,
+          }),
         },
         body: JSON.stringify({
           provider,
-          apiKey,
           baseUrl,
           model,
           messages,
@@ -824,9 +848,6 @@ export const streamChatViaBackend = async params => {
           presence_penalty,
           contextTurns,
           searchProvider,
-          tavilyApiKey,
-          serpapiApiKey,
-          exaApiKey,
           exaSearchCategory,
           searchBackend,
           userTools,
@@ -838,13 +859,10 @@ export const streamChatViaBackend = async params => {
           fieldValues,
           summaryProvider,
           summaryModel,
-          summaryApiKey,
           summaryBaseUrl,
           memoryProvider,
           memoryModel,
-          memoryApiKey,
           memoryBaseUrl,
-          memoryDomainsPrefetch,
           isEditing,
         }),
         signal,
@@ -988,10 +1006,14 @@ export const streamDeepResearchViaBackend = async params => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...buildSecretHeaders({
+            apiKey,
+            tavilyApiKey,
+            serpapiApiKey,
+          }),
         },
         body: JSON.stringify({
           provider,
-          apiKey,
           baseUrl,
           model,
           messages,
@@ -1009,8 +1031,6 @@ export const streamDeepResearchViaBackend = async params => {
           researchType, // Pass researchType to backend
           concurrencyLimit: concurrencyLimit, // Pass concurrencyLimit to backend
           searchProvider,
-          tavilyApiKey,
-          serpapiApiKey,
           skillIds,
         }),
         signal,

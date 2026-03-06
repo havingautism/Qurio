@@ -15,7 +15,7 @@ from uuid import UUID
 
 from ..models.db import DbFilter, DbQueryRequest
 from .db_adapters import build_adapter
-from .db_registry import ProviderConfig, get_provider_registry
+from .db_registry import ProviderConfig, get_provider_registry, normalize_provider_type
 from .db_service import execute_db_async
 from .hitl_serializer import deserialize_requirements, serialize_requirements
 
@@ -459,25 +459,18 @@ def _resolve_provider(provider_id_or_type: str | None) -> ProviderConfig | None:
     if not providers:
         return None
 
+    active = providers[0]
     if provider_id_or_type:
         raw = str(provider_id_or_type).strip()
         if raw:
             by_id = registry.get(raw)
             if by_id:
                 return by_id
-            normalized = raw.lower().replace("_", " ").strip()
-            if normalized in {"supabase", "sqlite", "sqlite local", "sqlite-local"}:
-                target = "supabase" if normalized == "supabase" else "sqlite"
-                for provider in providers:
-                    if provider.type == target:
-                        return provider
-    for provider in providers:
-        if provider.type == "supabase":
-            return provider
-    for provider in providers:
-        if provider.type == "sqlite":
-            return provider
-    return None
+            provider_type = normalize_provider_type(raw)
+            if provider_type == active.type:
+                return active
+            return None
+    return active
 
 
 def get_hitl_storage(provider_id_or_type: str | None = None) -> DbHITLStorage | InMemoryHITLStorage:
@@ -485,10 +478,9 @@ def get_hitl_storage(provider_id_or_type: str | None = None) -> DbHITLStorage | 
     Return HITL storage based on provider.
 
     Priority:
-    1) Explicit provider id
-    2) Provider type alias ("supabase"/"sqlite"/"sqlite local")
-    3) First available configured provider (supabase > sqlite)
-    4) In-memory fallback
+    1) Explicit provider id/type matching the active database
+    2) Active configured provider
+    3) In-memory fallback
     """
     provider = _resolve_provider(provider_id_or_type)
     if provider is None:

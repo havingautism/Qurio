@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import {
   Check,
@@ -29,10 +29,15 @@ const isElectronRuntime = () =>
   typeof window !== 'undefined' &&
   (window.location.protocol === 'file:' || navigator.userAgent.includes('Electron'))
 
-const buildSqlitePath = (directory, providerId) => {
+const buildSqlitePath = (directory, providerLabel) => {
   const trimmedDir = String(directory || '').trim().replace(/[\\/]+$/, '')
   if (!trimmedDir) return ''
-  const fileName = `${String(providerId || 'qurio-local').trim() || 'qurio-local'}.db`
+  const slug = String(providerLabel || 'qurio-local')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'qurio-local'
+  const fileName = `${slug}.db`
   const separator = trimmedDir.includes('\\') ? '\\' : '/'
   return `${trimmedDir}${separator}${fileName}`
 }
@@ -63,7 +68,7 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
   const electron = useMemo(() => isElectronRuntime(), [])
   const [dbAccessKey, setDbAccessKey] = useState('')
   const [providers, setProviders] = useState([])
-  const [selectedId, setSelectedId] = useState('')
+  const [selectedId, setSelectedId] = useState('default')
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isAdding, setIsAdding] = useState(false)
@@ -79,10 +84,10 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
   const [isEditingProvider, setIsEditingProvider] = useState(false)
 
   const [providerType, setProviderType] = useState('sqlite')
-  const [providerId, setProviderId] = useState('')
   const [providerLabel, setProviderLabel] = useState('')
   const [supabaseUrl, setSupabaseUrl] = useState('')
   const [supabaseAnonKey, setSupabaseAnonKey] = useState('')
+  const [databaseUrl, setDatabaseUrl] = useState('')
   const [sqliteDirectory, setSqliteDirectory] = useState('')
   const [sqliteImportFile, setSqliteImportFile] = useState('')
   const [providerAccessKey, setProviderAccessKey] = useState('')
@@ -93,10 +98,10 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
 
   const resetProviderForm = () => {
     setProviderType('sqlite')
-    setProviderId('')
     setProviderLabel('')
     setSupabaseUrl('')
     setSupabaseAnonKey('')
+    setDatabaseUrl('')
     setSqliteDirectory('')
     setSqliteImportFile('')
     setProviderAccessKey('')
@@ -107,7 +112,7 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
     if (!isOpen) return
     const settings = loadSettings()
     setDbAccessKey(settings.dbAccessKey || '')
-    setSelectedId(settings.databaseProviderId || '')
+    setSelectedId('default')
     setError('')
     setHealthStatus('idle')
     setHealthMessage('')
@@ -146,11 +151,10 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
       setProviders(list)
 
       if (list.length > 0) {
-        const current = loadSettings().databaseProviderId || ''
-        const target = list.find(item => item.id === current)?.id || list[0].id
+        const target = list[0]?.id || 'default'
         setSelectedId(target)
       } else {
-        setSelectedId('')
+        setSelectedId('default')
       }
 
       if (electron && Boolean(payload.mutable)) {
@@ -230,10 +234,10 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
   const handleEditProvider = provider => {
     if (!provider) return
     setProviderType(provider.type || 'sqlite')
-    setProviderId(provider.id || '')
-    setProviderLabel(provider.label || provider.id || '')
+    setProviderLabel(provider.label || '')
     setSupabaseUrl(provider.url || '')
     setSupabaseAnonKey(provider.anonKey || '')
+    setDatabaseUrl(provider.connectionUrl || '')
     if (isLikelySqliteFilePath(provider.path)) {
       setSqliteImportFile(provider.path || '')
       setSqliteDirectory('')
@@ -248,8 +252,8 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
   }
 
   const handleUpsertProvider = async () => {
-    if (!providerId.trim()) {
-      setError(t('settings.databaseSetup.errors.providerIdRequired'))
+    if (!providerLabel.trim()) {
+      setError(t('settings.databaseSetup.errors.labelRequired') || 'Please enter database label.')
       return
     }
     if (providerType === 'supabase' && (!supabaseUrl.trim() || !supabaseAnonKey.trim())) {
@@ -260,22 +264,38 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
       setError(t('settings.databaseSetup.errors.sqliteDirectoryRequired'))
       return
     }
+    if (
+      providerType !== 'supabase' &&
+      providerType !== 'sqlite' &&
+      !databaseUrl.trim()
+    ) {
+      setError(t('settings.databaseSetup.errors.databaseUrlRequired') || 'Please enter database URL.')
+      return
+    }
 
     const payload =
       providerType === 'supabase'
         ? {
-            id: providerId.trim(),
+            id: 'default',
             type: 'supabase',
-            label: providerLabel.trim() || providerId.trim(),
+            label: providerLabel.trim(),
             url: supabaseUrl.trim(),
             anonKey: supabaseAnonKey.trim(),
             accessKey: providerAccessKey.trim() || undefined,
           }
-        : {
-            id: providerId.trim(),
+        : providerType === 'sqlite'
+          ? {
+            id: 'default',
             type: 'sqlite',
-            label: providerLabel.trim() || providerId.trim(),
-            path: sqliteImportFile.trim() || buildSqlitePath(sqliteDirectory, providerId),
+            label: providerLabel.trim(),
+            path: sqliteImportFile.trim() || buildSqlitePath(sqliteDirectory, providerLabel),
+            accessKey: providerAccessKey.trim() || undefined,
+          }
+          : {
+            id: 'default',
+            type: providerType,
+            label: providerLabel.trim(),
+            url: databaseUrl.trim(),
             accessKey: providerAccessKey.trim() || undefined,
           }
 
@@ -293,7 +313,7 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
       }
 
       await fetchProviders()
-      setSelectedId(payload.id)
+      setSelectedId('default')
       setHealthMessage(t('settings.databaseSetup.messages.providerSaved'))
       setHealthStatus('success')
       resetProviderForm()
@@ -306,13 +326,9 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
   }
 
   const handleRebuildInitialize = async () => {
-    const targetId = providerId.trim()
-    if (!targetId) {
-      setError(t('settings.databaseSetup.errors.providerIdRequired'))
-      return
-    }
+    const targetId = selectedProvider?.id || 'default'
     const confirmed = window.confirm(
-      t('settings.databaseSetup.initializeConfirm', { id: targetId }),
+      t('settings.databaseSetup.initializeConfirm', { id: providerLabel.trim() || targetId }),
     )
     if (!confirmed) return
     await handleInitializeProvider(targetId)
@@ -321,10 +337,12 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
   }
 
   const handleDeleteProvider = async () => {
-    const targetId = providerId.trim()
+    const targetId = selectedProvider?.id || 'default'
     if (!targetId) return
     const confirmed = window.confirm(
-      t('settings.databaseSetup.deleteProviderConfirm', { id: targetId }),
+      t('settings.databaseSetup.deleteProviderConfirm', {
+        id: selectedProvider?.label || providerLabel.trim() || targetId,
+      }),
     )
     if (!confirmed) return
 
@@ -342,8 +360,8 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
       if (selectedId === targetId) {
         await saveSettings({
           dbAccessKey: dbAccessKey.trim(),
-          databaseProviderId: '',
           databaseProvider: '',
+          databaseProviderLabel: '',
         })
       }
 
@@ -362,8 +380,8 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
     setIsSaving(true)
     setError('')
 
-    if (!selectedId) {
-      setError(t('settings.databaseSetup.errors.selectProvider'))
+    if (!selectedProvider) {
+      setError(t('settings.databaseSetup.errors.selectProvider') || 'Database is not configured.')
       setIsSaving(false)
       return
     }
@@ -385,7 +403,7 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
       const response = await fetch(`${getBackendUrl()}/api/db/query`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ providerId: selectedId, action: 'test' }),
+        body: JSON.stringify({ providerId: selectedProvider.id || 'default', action: 'test' }),
       })
       const payload = await response.json().catch(() => ({}))
       if (!response.ok || payload.error) {
@@ -403,8 +421,8 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
       const resolvedType = provider?.type || ''
       await saveSettings({
         dbAccessKey: dbAccessKey.trim(),
-        databaseProviderId: selectedId,
         databaseProvider: resolvedType,
+        databaseProviderLabel: provider?.label || '',
       })
       window.dispatchEvent(new Event('database-settings-changed'))
       navigate({ to: '/new_chat' })
@@ -431,7 +449,7 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
             {electron
               ? t('settings.databaseSetup.electronDescription')
               : t('settings.databaseSetup.description') ||
-                'Enter the access key to load database providers, then choose one to use.'}
+                'Configure the active database and enter the access key if required.'}
           </p>
         </div>
 
@@ -481,24 +499,11 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
                         <SelectContent>
                           <SelectItem value="sqlite">SQLite</SelectItem>
                           <SelectItem value="supabase">Supabase</SelectItem>
+                          <SelectItem value="postgres">PostgreSQL</SelectItem>
+                          <SelectItem value="mysql">MySQL</SelectItem>
+                          <SelectItem value="mariadb">MariaDB</SelectItem>
                         </SelectContent>
                       </Select>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[11px] text-gray-500 dark:text-gray-400">
-                        {t('settings.databaseSetup.providerId')}
-                      </label>
-                      <input
-                        value={providerId}
-                        disabled={isEditingProvider}
-                        onChange={e => setProviderId(e.target.value)}
-                        placeholder={
-                          providerType === 'supabase'
-                            ? t('settings.databaseSetup.providerIdPlaceholderSupabase')
-                            : t('settings.databaseSetup.providerIdPlaceholderSqlite')
-                        }
-                        className="h-9 w-full rounded-md border border-gray-200 px-2 text-xs disabled:cursor-not-allowed disabled:bg-gray-100 dark:border-zinc-700 dark:bg-zinc-900 dark:disabled:bg-zinc-800"
-                      />
                     </div>
                   </div>
                   <div className="space-y-1">
@@ -511,7 +516,9 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
                       placeholder={
                         providerType === 'supabase'
                           ? t('settings.databaseSetup.labelPlaceholderSupabase')
-                          : t('settings.databaseSetup.labelPlaceholderSqlite')
+                          : providerType === 'sqlite'
+                            ? t('settings.databaseSetup.labelPlaceholderSqlite')
+                            : 'Production PostgreSQL'
                       }
                       className="h-9 w-full rounded-md border border-gray-200 px-2 text-xs dark:border-zinc-700 dark:bg-zinc-900"
                     />
@@ -542,7 +549,7 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
                         />
                       </div>
                     </>
-                  ) : (
+                  ) : providerType === 'sqlite' ? (
                     <div className="space-y-1">
                       <label className="text-[11px] text-gray-500 dark:text-gray-400">
                         {sqliteImportFile.trim()
@@ -601,6 +608,24 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
                         {' '}
                         {t('settings.databaseSetup.sqliteUsageHintImport')}
                       </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      <label className="text-[11px] text-gray-500 dark:text-gray-400">
+                        {t('settings.databaseSetup.databaseUrl') || 'Database URL'}
+                      </label>
+                      <input
+                        value={databaseUrl}
+                        onChange={e => setDatabaseUrl(e.target.value)}
+                        placeholder={
+                          providerType === 'postgres'
+                            ? 'postgresql+psycopg2://user:pass@host:5432/qurio'
+                            : providerType === 'mysql'
+                              ? 'mysql+pymysql://user:pass@host:3306/qurio'
+                              : 'mariadb+pymysql://user:pass@host:3306/qurio'
+                        }
+                        className="h-9 w-full rounded-md border border-gray-200 px-2 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                      />
                     </div>
                   )}
 
@@ -682,7 +707,7 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-2">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                {t('settings.databaseSetup.provider') || 'Provider'}
+                {t('settings.databaseSetup.provider') || 'Active Database'}
               </label>
               {electron && registryMutable && selectedProvider && (
                 <button
@@ -695,34 +720,29 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
                 </button>
               )}
             </div>
-            <div className="relative w-full">
-              <Select value={selectedId} onValueChange={setSelectedId} disabled={noProvidersInElectron}>
-                <SelectTrigger className="h-10 w-full pl-10">
-                  <div className="absolute top-1/2 left-3 flex -translate-y-1/2 items-center">
-                    <Database size={16} className="text-gray-400" />
+            <div className="flex min-h-10 items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900/50">
+              {selectedProvider ? (
+                <>
+                  {renderProviderIcon(selectedProvider.type || selectedProvider.id, {
+                    size: 16,
+                    alt: selectedProvider.label || selectedProvider.id,
+                  })}
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-medium text-gray-900 dark:text-white">
+                      {selectedProvider.label || selectedProvider.id}
+                    </div>
+                    <div className="text-[11px] text-gray-500 dark:text-gray-400">
+                      {selectedProvider.type}
+                    </div>
                   </div>
-                  <SelectValue
-                    placeholder={
-                      isLoading
-                        ? t('settings.databaseSetup.loadingProviders')
-                        : t('settings.databaseSetup.selectProvider') || 'Select provider'
-                    }
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {providers.map(provider => (
-                    <SelectItem key={provider.id} value={provider.id}>
-                      <div className="flex items-center gap-3">
-                        {renderProviderIcon(provider.type || provider.id, {
-                          size: 16,
-                          alt: provider.label || provider.id,
-                        })}
-                        <span>{provider.label || provider.id}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                </>
+              ) : (
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  {isLoading
+                    ? t('settings.databaseSetup.loadingProviders')
+                    : t('settings.databaseSetup.selectProvider') || 'No database configured'}
+                </span>
+              )}
             </div>
             {noProvidersInElectron && (
               <p className="text-xs text-amber-600 dark:text-amber-400">
@@ -765,7 +785,7 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
         <div className="flex flex-col gap-3">
           <button
             onClick={handleSave}
-            disabled={!selectedId || isSaving || noProvidersInElectron}
+            disabled={!selectedProvider || isSaving || noProvidersInElectron}
             className="bg-primary-600 hover:bg-primary-700 shadow-primary-500/20 flex w-full items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold text-white shadow-lg transition-all disabled:cursor-not-allowed disabled:opacity-50"
           >
             <span>

@@ -240,7 +240,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
   }
 
   /**
-   * Reads the selected provider + api_key from localStorage (set in Settings),
+   * Reads the selected provider + API key from current settings/session state,
 
    * calls POST /api/skills/generate, and on success refreshes the skill list.
    */
@@ -319,11 +319,13 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
     try {
       const res = await fetch(`${getBackendUrl()}/api/skills/generate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-llm-api-key': apiKey,
+        },
         body: JSON.stringify({
           prompt: aiPrompt.trim(),
           provider,
-          api_key: apiKey,
           base_url: creds.baseUrl,
           model,
         }),

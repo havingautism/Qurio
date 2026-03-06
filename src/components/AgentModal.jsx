@@ -128,8 +128,6 @@ const HIDDEN_AGENT_TOOL_IDS = new Set([
   'search_news',
   'search_arxiv_and_return_articles',
   'search_wikipedia',
-  'memory_retrieve',
-  'memory_update',
   'execute_skill_script',
   'install_skill_dependency',
 ])
@@ -2743,7 +2741,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
           </div>
 
           {/* Footer */}
-          <div className="flex h-16 shrink-0 items-center justify-between border-t border-black/5 bg-transparent px-6 dark:border-white/5">
+          <div className="flex h-20 shrink-0 items-center justify-between border-t border-black/5 bg-transparent px-6 sm:px-8 dark:border-white/5">
             {editingAgent && onDelete && !editingAgent.isDefault ? (
               <button
                 onClick={() => {
@@ -2757,7 +2755,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     onConfirm: () => onDelete(editingAgent.id),
                   })
                 }}
-                className="inline-flex h-10 items-center rounded-xl border border-red-200 bg-red-50 px-4 text-sm font-semibold text-red-600 transition-all hover:bg-red-100 hover:text-red-700 dark:border-red-900/50 dark:bg-red-900/15 dark:text-red-300 dark:hover:bg-red-900/30"
+                className="cursor-pointer rounded-lg px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
               >
                 {t('agents.actions.delete')}
               </button>
@@ -2768,14 +2766,14 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
             <div className="flex gap-3">
               <button
                 onClick={onClose}
-                className="inline-flex h-10 items-center rounded-xl border border-black/10 bg-white/80 px-4 text-sm font-semibold text-gray-700 transition-all hover:bg-white hover:text-gray-900 dark:border-white/10 dark:bg-white/5 dark:text-gray-300 dark:hover:bg-white/10"
+                className="cursor-pointer rounded-lg px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-zinc-800"
               >
                 {t('agents.actions.cancel')}
               </button>
               <button
                 onClick={handleSaveWrapper}
                 disabled={isSaving}
-                className="bg-primary-500 hover:bg-primary-600 inline-flex h-10 items-center rounded-xl px-5 text-sm font-semibold text-white shadow-[0_6px_18px_rgba(59,130,246,0.32)] transition-all hover:shadow-[0_10px_22px_rgba(59,130,246,0.36)] active:scale-95 disabled:opacity-50"
+                className="bg-primary-500 flex cursor-pointer items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isSaving
                   ? t('agents.actions.saving')

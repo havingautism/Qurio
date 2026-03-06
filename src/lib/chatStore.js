@@ -27,7 +27,6 @@ import {
 import { selectDocumentQuery } from './chat/contextService'
 import { fetchDocumentChunkContext } from './documentRetrievalService'
 import { formatDocumentAppendText } from './documentContextUtils'
-import { getMemoryDomains, upsertMemoryDomainSummary } from './lazyMemoryService'
 import { listSpaceAgents } from './spacesService'
 
 // Import constants
@@ -580,7 +579,7 @@ const useChatStore = create((set, get) => ({
           toolIds: resolvedToolIds,
           userTools: activeUserTools,
           enableLongTermMemory: Boolean(settings.enableLongTermMemory),
-          databaseProvider: settings.databaseProviderId || settings.databaseProvider || '',
+          databaseProvider: settings.databaseProvider || '',
           contextTurns: settings.contextTurns,
           searchProvider,
           tavilyApiKey,
@@ -879,7 +878,7 @@ const useChatStore = create((set, get) => ({
               expertActiveAgentId: currentLast.expertActiveAgentId || '',
             })
             const databaseProviderKey = String(
-              settings?.databaseProviderId || settings?.databaseProvider || '',
+              settings?.databaseProvider || '',
             ).toLowerCase()
             const shouldPersistStreamBlocks =
               databaseProviderKey.includes('sqlite') ||
@@ -1745,7 +1744,7 @@ const useChatStore = create((set, get) => ({
                   toolIds: resolvedToolIds,
                   userTools: activeUserTools,
                   enableLongTermMemory: Boolean(settings.enableLongTermMemory),
-                  databaseProvider: settings.databaseProviderId || settings.databaseProvider || '',
+                  databaseProvider: settings.databaseProvider || '',
                   contextTurns: settings.contextTurns,
                   searchProvider,
                   tavilyApiKey,
@@ -2299,7 +2298,7 @@ const useChatStore = create((set, get) => ({
             expertActiveAgentId: activeAgentId,
           })
           const databaseProviderKey = String(
-            settings?.databaseProviderId || settings?.databaseProvider || '',
+            settings?.databaseProvider || '',
           ).toLowerCase()
           const shouldPersistStreamBlocks =
             databaseProviderKey.includes('sqlite') ||
@@ -2536,28 +2535,6 @@ const useChatStore = create((set, get) => ({
       })
     }
 
-    // ========================================
-    // MEMORY DOMAINS PREFETCH
-    // ========================================
-    let memoryDomainsPrefetch = []
-    if (settings.enableLongTermMemory) {
-      try {
-        const selectedDatabaseProvider =
-          settings.databaseProviderId || settings.databaseProvider || ''
-        const allDomains = await getMemoryDomains({ databaseProvider: selectedDatabaseProvider })
-        memoryDomainsPrefetch = (Array.isArray(allDomains) ? allDomains : []).map(domain => ({
-          id: domain?.id || null,
-          domain_key: domain?.domain_key || '',
-          aliases: Array.isArray(domain?.aliases) ? domain.aliases : [],
-          scope: domain?.scope || '',
-          updated_at: domain?.updated_at || null,
-          latest_summary: domain?.latest_summary || null,
-        }))
-      } catch (e) {
-        console.error('Failed to prefetch memory domains:', e)
-      }
-    }
-
     const combinedContextAppend = [resolvedDocumentContextAppend].filter(Boolean).join('\n\n')
 
     const { payloadContent } = buildUserMessage(
@@ -2606,7 +2583,6 @@ const useChatStore = create((set, get) => ({
       summaryModelConfig, // New arg
       null, // hitlRunId
       null, // hitlFieldValues
-      memoryDomainsPrefetch,
       shouldGenerateTitleAsync,
       hasEditingInfo,
     )

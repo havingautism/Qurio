@@ -46,10 +46,8 @@ import { fetchRemoteSettings, saveRemoteSettings, testConnection } from '../lib/
 import { THEMES } from '../lib/themes'
 import Logo from './Logo'
 import { useAppContext } from '../App'
-import { upsertMemoryDomainSummary, ensureLongTermMemoryIndex } from '../lib/lazyMemoryService'
 import { getProvider } from '../lib/providers'
 import { FALLBACK_MODEL_OPTIONS, PROVIDER_KEYS } from '../lib/modelConstants'
-import MemoryTable from './MemoryTable'
 import EmailSettingsPanel from './EmailSettingsPanel'
 import { useToast } from '../contexts/ToastContext'
 import INIT_SQL_SCRIPT from '../assets/init-schema.sql'
@@ -107,134 +105,6 @@ const EMBEDDING_KEYWORDS = ['embed', 'bge', 'vector']
 const matchesEmbeddingKeyword = model => {
   const text = String((model?.value || model?.label) ?? '').toLowerCase()
   return EMBEDDING_KEYWORDS.some(keyword => text.includes(keyword))
-}
-
-const extractJsonObject = text => {
-  const trimmed = String(text || '').trim()
-  if (!trimmed) return ''
-  if (trimmed.startsWith('{') && trimmed.endsWith('}')) return trimmed
-  const start = trimmed.indexOf('{')
-  const end = trimmed.lastIndexOf('}')
-  if (start >= 0 && end > start) {
-    return trimmed.slice(start, end + 1)
-  }
-  return ''
-}
-
-const safeJsonParse = str => {
-  let cleaned = String(str || '').trim()
-  if (!cleaned) return null
-
-  try {
-    return JSON.parse(cleaned)
-  } catch (e) {
-    // If it fails, it might be using single quotes (common in some Lite models)
-    try {
-      // Heuristic: swap single quotes with double quotes
-      // and handle common issues like trailing commas
-      const normalized = cleaned.replace(/'/g, '"').replace(/,\s*([\]}])/g, '$1') // remove trailing commas
-      return JSON.parse(normalized)
-    } catch (e2) {
-      console.warn('[Settings] Final JSON parse attempt failed:', e2)
-      return null
-    }
-  }
-}
-
-const parseMemoryDomainExtractionResponse = content => {
-  const raw = extractJsonObject(content)
-  if (!raw) return []
-  const parsed = safeJsonParse(raw)
-  if (!parsed) return []
-
-  try {
-    const domains = Array.isArray(parsed?.domains) ? parsed.domains : []
-    // Flatten tags back to domain_key + aliases logic for DB compatibility
-    return domains
-      .map(d => {
-        const tags = Array.isArray(d.tags)
-          ? d.tags.filter(Boolean)
-          : d.domain_key
-            ? [d.domain_key, ...(Array.isArray(d.aliases) ? d.aliases : [])]
-            : []
-        if (tags.length === 0) return null
-        return {
-          domain_key: String(tags[0]).toLowerCase(), // First tag becomes primary ID
-          aliases: tags.slice(1).map(t => String(t).toLowerCase()), // Rest become aliases
-          summary: d.summary || '',
-          scope: d.scope || '',
-        }
-      })
-      .filter(Boolean)
-  } catch {
-    return []
-  }
-}
-
-const buildMemoryDomainExtractionPrompt = introText => {
-  return [
-    `Task: Act as an information extraction expert. Analyze the User's Self-Introduction and extract MULTIPLE significant, granular factual memory tags.`,
-    ``,
-    `Rules:`,
-    `1. Extract separate domains for each category: Career, Skills, Hobbies, Location, Preferences, etc.`,
-    `2. Each domain MUST have a 'tags' array (e.g. ["python", "coding", "backend"]) and a 'summary'.`,
-    `3. Use the user's PRECISE language for the summary (e.g., if input is Chinese, summary MUST be Chinese).`,
-    `4. Return ONLY valid JSON in the specified format.`,
-    `5. CRITICAL: Use DOUBLE QUOTES (") for all keys and strings. NEVER use single quotes (').`,
-    ``,
-    `Example Input:`,
-    `"I am a backend dev based in Beijing. I love basketball and hip-hop."`,
-    ``,
-    `Example Output:`,
-    `{`,
-    `  "domains": [`,
-    `    {"tags": ["career", "backend", "developer"], "summary": "User is a backend developer.", "scope": "Career"},`,
-    `    {"tags": ["location", "beijing"], "summary": "User is based in Beijing.", "scope": "Location"},`,
-    `    {"tags": ["sports", "basketball"], "summary": "User loves basketball.", "scope": "Hobbies"},`,
-    `    {"tags": ["music", "hiphop"], "summary": "User enjoys hip-hop music.", "scope": "Interests"}`,
-    `  ]`,
-    `}`,
-    ``,
-    `Example Input (Chinese):`,
-    `"闁瑰瓨鍨跺Σ鍛婄▔閳ь剟宕ュ鍛伎闁哄秴鐗嗙槐鎴﹀矗閹搭垳绀夐柛鐘崇矋椤愪粙宕￠弴鐔哥皻婵炴挸鎲￠崹娆撳Υ?`,
-    ``,
-    `Example Output (Chinese):`,
-    `{`,
-    `  "domains": [`,
-    `    {"tags": ["career", "fullstack", "developer"], "summary": "闁活潿鍔嶉崺娑㈠及椤栨瑧顏遍柛姘Т閸欏繘寮介崼锝堟嫬濞寸姾娉涚槐鎴﹀矗閹寸姭鏌ら幖鏉戠箰閹叉娊濡?, "scope": "闁煎崬濂旂粭鐔兼嚄鐏炵偓鐝?},`,
-    `    {"tags": ["gaming", "single-player"], "summary": "闁活潿鍔嶉崺娑㈠窗濠婂嫷鍋ㄩ柡鍫濐槸婢т粙骞嗛崨顖涚暠闁告娲樺┃鈧繛鎾虫啞閸ㄦ瑩濡?, "scope": "闁稿繒顥愰崣顕€鎮ラ崡鐐仺"}`,
-    `  ]`,
-    `}`,
-    ``,
-    `Analyze this Introduction:`,
-    `"""`,
-    `${introText}`,
-    `"""`,
-  ].join('\n')
-}
-
-const resolveLiteModelConfig = (agent, settings) => {
-  const defaultModel = agent?.default_model ?? agent?.defaultModel
-  const liteModel = agent?.lite_model ?? agent?.liteModel
-  const defaultModelProvider = agent?.default_model_provider ?? agent?.defaultModelProvider ?? ''
-  const liteModelProvider = agent?.lite_model_provider ?? agent?.liteModelProvider ?? ''
-  const model = (
-    liteModel ||
-    defaultModel ||
-    settings?.liteModel ||
-    settings?.defaultModel ||
-    ''
-  ).trim()
-  const provider = (
-    liteModelProvider ||
-    defaultModelProvider ||
-    agent?.provider ||
-    settings?.apiProvider ||
-    ''
-  ).trim()
-
-  if (!model || !provider) return null
-  return { model, provider }
 }
 
 const validateSettingsForSave = settings => {
@@ -323,12 +193,11 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
   const [exaApiKey, setExaApiKey] = useState('')
   const [backendUrl, setBackendUrl] = useState(ENV_VARS.backendUrl || '')
   const [databaseProvider, setDatabaseProvider] = useState('')
-  const [databaseProviderId, setDatabaseProviderId] = useState('')
   const [dbProviders, setDbProviders] = useState([])
   const [dbAccessKey, setDbAccessKey] = useState('')
   const [supabaseUrl, setSupabaseUrl] = useState('')
   const [supabaseKey, setSupabaseKey] = useState('')
-  const initialDbConfigRef = useRef({ provider: '', providerId: '', accessKey: '' })
+  const initialDbConfigRef = useRef({ provider: '', accessKey: '' })
 
   const [backendHealthState, setBackendHealthState] = useState({
     status: 'idle',
@@ -573,10 +442,13 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
           cache: 'no-store',
         })
         const payload = await response.json().catch(() => ({}))
-        const providers = Array.isArray(payload.providers) ? payload.providers : []
+        const providers = Array.isArray(payload.providers)
+          ? payload.providers
+          : payload.provider
+            ? [payload.provider]
+            : []
         setDbProviders(providers)
-        if (!databaseProviderId && providers.length > 0) {
-          setDatabaseProviderId(providers[0].id)
+        if (!databaseProvider && providers.length > 0) {
           setDatabaseProvider(providers[0].type || '')
         }
       } catch (error) {
@@ -587,11 +459,9 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
     if (isOpen) {
       const settings = loadSettings()
       if (settings.databaseProvider) setDatabaseProvider(settings.databaseProvider)
-      if (settings.databaseProviderId) setDatabaseProviderId(settings.databaseProviderId)
       if (settings.dbAccessKey) setDbAccessKey(settings.dbAccessKey)
       initialDbConfigRef.current = {
         provider: settings.databaseProvider || '',
-        providerId: settings.databaseProviderId || '',
         accessKey: settings.dbAccessKey || '',
       }
       if (settings.supabaseUrl) setSupabaseUrl(settings.supabaseUrl)
@@ -688,7 +558,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       setInterfaceLanguage(i18n.language)
 
       // Fetch Remote (Async Update)
-      if (settings.databaseProviderId || settings.databaseProvider) {
+      if (settings.databaseProvider) {
         fetchRemoteSettings().then(({ data }) => {
           if (data) {
             if (data.OpenAICompatibilityKey) setOpenAICompatibilityKey(data.OpenAICompatibilityKey)
@@ -744,14 +614,13 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       }
       loadProviders()
     }
-  }, [isOpen, i18n, dbAccessKey, databaseProviderId])
+  }, [isOpen, i18n, dbAccessKey, databaseProvider])
 
   useEffect(() => {
     if (!isOpen) return
     const handleDatabaseSettingsChanged = () => {
       const settings = loadSettings()
       setDatabaseProvider(settings.databaseProvider || '')
-      setDatabaseProviderId(settings.databaseProviderId || '')
       setDbAccessKey(settings.dbAccessKey || '')
     }
     window.addEventListener('database-settings-changed', handleDatabaseSettingsChanged)
@@ -1896,7 +1765,8 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
     embeddingModel &&
     documentSearchState.status !== 'loading',
   )
-  const selectedDbProvider = dbProviders.find(provider => provider.id === databaseProviderId)
+  const selectedDbProvider =
+    dbProviders.find(provider => provider.type === databaseProvider) || dbProviders[0]
   const isSupabaseProvider = selectedDbProvider?.type === 'supabase'
 
   if (!isOpen) return null
@@ -1936,7 +1806,6 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       const resolvedDatabaseProvider = selectedDbProvider?.type || databaseProvider || ''
       const dbChanged =
         resolvedDatabaseProvider !== initialDbConfigRef.current.provider ||
-        databaseProviderId !== initialDbConfigRef.current.providerId ||
         dbAccessKey !== initialDbConfigRef.current.accessKey
       const settingsToSave = {
         apiProvider,
@@ -1960,7 +1829,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
         KimiKey,
         // Providers
         databaseProvider: resolvedDatabaseProvider,
-        databaseProviderId,
+        databaseProviderLabel: selectedDbProvider?.label || '',
         dbAccessKey,
         supabaseUrl,
         supabaseKey,
@@ -2008,125 +1877,8 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       // Save to local storage
       await saveSettings(settingsToSave)
 
-      // Handle personal intro memory extraction if changed
-      const introChanged = userSelfIntro.trim() !== (initialSelfIntroRef.current || '').trim()
-
-      if (userSelfIntro && introChanged) {
-        console.log('[Settings] Intro changed, starting memory extraction...')
-        try {
-          // 1. Update the base profile domain immediately
-          await ensureLongTermMemoryIndex({ text: userSelfIntro })
-
-          // 2. Resolve a lightweight model and its corresponding provider
-          const liteConfig = resolveLiteModelConfig(defaultAgent, settingsToSave)
-          const extractionProviderName = liteConfig?.provider || apiProvider
-          const extractionProvider = getProvider(extractionProviderName)
-
-          const canRunExtraction =
-            extractionProvider &&
-            (extractionProvider.streamChatCompletion || extractionProvider.generateChatCompletion)
-
-          console.log(
-            `[Settings] Extraction check: provider=${liteConfig?.provider || apiProvider}, model=${liteConfig?.model}, canRun=${!!canRunExtraction}`,
-          )
-
-          if (canRunExtraction && liteConfig?.model) {
-            const extractionPrompt = buildMemoryDomainExtractionPrompt(userSelfIntro)
-            const messages = [
-              { role: 'system', content: 'You are a precise JSON extractor.' },
-              { role: 'user', content: extractionPrompt },
-            ]
-
-            let fullContent = ''
-            try {
-              if (extractionProvider.streamChatCompletion) {
-                // Resolve the specific API Key for the extraction provider
-                let extractionApiKey = ''
-                switch (extractionProviderName) {
-                  case 'gemini':
-                    extractionApiKey = googleApiKey
-                    break
-                  case 'openai':
-                    extractionApiKey = OpenAICompatibilityKey
-                    break
-                  case 'siliconflow':
-                    extractionApiKey = SiliconFlowKey
-                    break
-                  case 'nvidia':
-                    extractionApiKey = NvidiaKey
-                    break
-                  case 'minimax':
-                    extractionApiKey = MinimaxKey
-                    break
-                  case 'glm':
-                    extractionApiKey = GlmKey
-                    break
-                  case 'deepseek':
-                    extractionApiKey = DeepSeekKey
-                    break
-                  case 'volcengine':
-                    extractionApiKey = VolcengineKey
-                    break
-                  case 'kimi':
-                    extractionApiKey = KimiKey
-                    break
-                  case 'modelscope':
-                    extractionApiKey = ModelScopeKey
-                    break
-                }
-
-                await extractionProvider.streamChatCompletion({
-                  ...settingsToSave,
-                  apiKey: extractionApiKey, // Explicitly pass as apiKey
-                  baseUrl: extractionProviderName === 'openai' ? OpenAICompatibilityUrl : undefined,
-                  model: liteConfig.model,
-                  messages,
-                  temperature: 0.1,
-                  responseFormat: { type: 'json_object' },
-                  onChunk: chunk => {
-                    const text = typeof chunk === 'string' ? chunk : chunk?.content || ''
-                    fullContent += text
-                  },
-                  onFinish: result => {
-                    if (result?.content) fullContent = result.content
-                  },
-                })
-              } else {
-                // Fallback for non-streaming providers if any (currently mostly stream)
-              }
-
-              // Parse and save extracted domains
-              if (fullContent) {
-                console.log('[Settings] Extraction raw output:', fullContent)
-                const domains = parseMemoryDomainExtractionResponse(fullContent)
-                if (Array.isArray(domains) && domains.length > 0) {
-                  for (const domain of domains) {
-                    await upsertMemoryDomainSummary({
-                      domainKey: domain.domain_key,
-                      summary: domain.summary,
-                      aliases: domain.aliases,
-                      scope: domain.scope,
-                    })
-                  }
-                  console.log('[Settings] Extracted and saved memory domains:', domains.length)
-                } else {
-                  console.warn('[Settings] No domains extracted from model output.')
-                }
-              }
-            } catch (extractError) {
-              console.error('[Settings] Failed to extract memory domains:', extractError)
-            }
-          }
-        } catch (memoryError) {
-          console.error('[Settings] Failed to update memory profile:', memoryError)
-        }
-
-        // Update ref
-        initialSelfIntroRef.current = userSelfIntro
-      }
-
       // Prevent accidental overwrite of remote keys with empty local keys
-      if (databaseProviderId) {
+      if (resolvedDatabaseProvider) {
         try {
           const { data: remoteData } = await fetchRemoteSettings()
           if (remoteData) {
@@ -2175,10 +1927,11 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       }
 
       // Save Remote (if connected)
-      if (databaseProviderId) {
+      if (resolvedDatabaseProvider) {
         await saveRemoteSettings(settingsToSave)
       }
 
+      initialSelfIntroRef.current = userSelfIntro
       onClose()
       if (dbChanged) {
         navigate({ to: '/new_chat' })
@@ -2812,7 +2565,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                         )}
                         <span>
                           {selectedDbProvider?.label ||
-                            databaseProviderId ||
+                            databaseProvider ||
                             t('settings.databaseProvider')}
                         </span>
                       </div>
@@ -2832,7 +2585,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                           : t('settings.configureDatabase') || 'Configure Database'}
                       </button>
 
-                      {databaseProviderId && (
+                      {databaseProvider && (
                         <>
                           <button
                             onClick={handleTestConnection}
@@ -3398,16 +3151,18 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
 
                     <div className="h-px bg-gray-100 dark:bg-zinc-800" />
 
-                    <div className="flex flex-col gap-4">
+                    <div className="rounded-xl border border-black/5 bg-black/[0.03] p-4 dark:border-white/5 dark:bg-white/[0.03]">
                       <div className="flex flex-col gap-1">
-                        <h3 className="text-base font-semibold text-gray-900 dark:text-white">
-                          {t('settings.memory.title')}
+                        <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                          {t('settings.memory.fileSkillTitle')}
                         </h3>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {t('settings.memory.description')}
+                        <p className="text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+                          {t('settings.memory.fileSkillDescription')}
                         </p>
+                        <code className="mt-2 inline-flex w-fit rounded-md bg-black/5 px-2 py-1 text-[11px] text-gray-700 dark:bg-white/5 dark:text-gray-300">
+                          backend-python/.skills/agent-memory/memories/
+                        </code>
                       </div>
-                      <MemoryTable />
                     </div>
                   </div>
                 )}

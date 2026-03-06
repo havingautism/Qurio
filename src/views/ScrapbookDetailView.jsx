@@ -1,4 +1,4 @@
-﻿import { useLoaderData, useParams, useNavigate } from '@tanstack/react-router'
+import { useLoaderData, useParams, useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useState, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
@@ -29,12 +29,7 @@ import {
   generateTitleViaBackend,
   streamChatViaBackend,
 } from '../lib/backendClient'
-import { getBackendUrl, loadSettings } from '../lib/settings'
-
-const getSelectedDatabaseProvider = () => {
-  const settings = loadSettings()
-  return settings.databaseProviderId || settings.databaseProvider || ''
-}
+import { getBackendUrl } from '../lib/settings'
 
 const PLATFORM_COLORS = {
   xhs: 'bg-red-50 text-red-600 border-red-100 dark:bg-red-900/20 dark:border-red-900/30',
@@ -145,14 +140,12 @@ export default function ScrapbookDetailView() {
 
       if (!nextTitle) return
       try {
-        const databaseProvider = getSelectedDatabaseProvider()
         await fetch(`${getBackendUrl()}/api/scrapbook/${entry.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             title: nextTitle,
             emoji: nextEmoji || null,
-            ...(databaseProvider ? { database_provider: databaseProvider } : {}),
           }),
         })
       } catch (patchErr) {
@@ -364,13 +357,11 @@ ${entry.content}`
             return
           }
           try {
-            const databaseProvider = getSelectedDatabaseProvider()
             const resp = await fetch(`${getBackendUrl()}/api/scrapbook/${entry.id}`, {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 summary: finalSummary,
-                ...(databaseProvider ? { database_provider: databaseProvider } : {}),
               }),
             })
             console.log('[Scrapbook] PATCH status:', resp.status)

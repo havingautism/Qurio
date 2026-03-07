@@ -57,6 +57,12 @@ const ConfirmationModal = ({
 
           <div className="flex w-full flex-col gap-3 sm:flex-row">
             <button
+              onClick={onClose}
+              className="flex flex-1 items-center justify-center rounded-2xl border border-slate-300 bg-white px-6 py-4 text-sm font-bold text-gray-600 transition-all hover:bg-gray-50 dark:border-zinc-800 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+            >
+              {cancelText || t('confirmation.cancel')}
+            </button>
+            <button
               onClick={onConfirm}
               className={clsx(
                 'flex flex-1 items-center justify-center rounded-2xl px-6 py-4 text-sm font-bold text-white shadow-lg transition-all hover:scale-[1.02] active:scale-[0.98]',
@@ -66,12 +72,6 @@ const ConfirmationModal = ({
               )}
             >
               {confirmText || t('confirmation.confirm')}
-            </button>
-            <button
-              onClick={onClose}
-              className="flex flex-1 items-center justify-center rounded-2xl border border-slate-300 bg-white px-6 py-4 text-sm font-bold text-gray-600 transition-all hover:bg-gray-50 dark:border-zinc-800 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
-            >
-              {cancelText || t('confirmation.cancel')}
             </button>
           </div>
         </div>

@@ -246,6 +246,42 @@ def _collect_enabled_tool_names(request: Any) -> list[str]:
     return names
 
 
+def _has_selected_skills(request: Any) -> bool:
+    """Check if any manual/external skills are selected in the request."""
+    raw_skill_ids = getattr(request, "skill_ids", None)
+    if isinstance(raw_skill_ids, list):
+        return any(str(item or "").strip() for item in raw_skill_ids)
+    if isinstance(raw_skill_ids, str):
+        return bool(raw_skill_ids.strip())
+    return False
+
+
+def _has_skills(request: Any) -> bool:
+    """Check if the agent will have any active skills (internal or external)."""
+    if not getattr(request, "enable_skills", False):
+        return False
+    
+    # 1. Check for manual/external skills
+    if _has_selected_skills(request):
+        return True
+    
+    # 2. Check for internal skills.
+    # Note: agent-memory and skill-creator are handled specifically, but other 
+    # internal skills are loaded by default if enable_skills is True.
+    if getattr(request, "enable_long_term_memory", False):
+        return True
+    
+    internal_skills_dir = os.path.join(os.path.dirname(__file__), '..', '_internal_skills')
+    if os.path.isdir(internal_skills_dir):
+        for item in os.listdir(internal_skills_dir):
+            if item in ("agent-memory", "skill-creator", "academic-research", "deep-research"):
+                continue
+            if os.path.isdir(os.path.join(internal_skills_dir, item)):
+                return True
+                
+    return False
+
+
 def _build_tools(request: Any) -> list[Any]:
     enabled_names = set(_collect_enabled_tool_names(request))
     if (
@@ -258,10 +294,12 @@ def _build_tools(request: Any) -> list[Any]:
 
     local_tool_names = {tool["name"] for tool in LOCAL_TOOLS}
     include_local = sorted([name for name in enabled_names if name in local_tool_names])
-    if getattr(request, "enable_skills", False):
-        include_local = sorted(set(include_local) | {"execute_skill_script"})
-        if "interactive_form" in enabled_names:
-            include_local = sorted(set(include_local) | {"install_skill_dependency"})
+    
+    # Inject skill execution tools if ANY skill (internal or external) is present
+    if _has_skills(request):
+        include_local = sorted(
+            set(include_local) | {"execute_skill_script", "install_skill_dependency"}
+        )
     tools: list[Any] = []
 
     if include_local:
@@ -269,7 +307,6 @@ def _build_tools(request: Any) -> list[Any]:
             QurioLocalTools(
                 tavily_api_key=request.tavily_api_key,
                 include_tools=include_local,
-                prefetched_memory_domains=getattr(request, "memory_domains_prefetch", None),
             )
         )
 
@@ -573,7 +610,7 @@ def build_agent(request: Any = None, **kwargs: Any) -> Agent:
             "Do not proceed with incomplete information. "
             "However, limit to 2-3 forms maximum per conversation to respect user time."
         )
-        if getattr(request, "enable_skills", False):
+        if getattr(request, "enable_skills", False) and _has_selected_skills(request):
             instructions_list.append(
                 "When a skill tells you to run a bundled script, do not merely summarize or restate the script. "
                 "Use execute_skill_script to actually run the file and rely on its stdout/stderr."
@@ -628,6 +665,7 @@ def build_agent(request: Any = None, **kwargs: Any) -> Agent:
     skills = None
     if getattr(request, "enable_skills", False):
         skills_dir = os.path.join(os.path.dirname(__file__), '..', '..', '.skills')
+        internal_skills_dir = os.path.join(os.path.dirname(__file__), '..', '_internal_skills')
         requested_skills = getattr(request, "skill_ids", [])
         if isinstance(requested_skills, str):
             try:
@@ -635,16 +673,35 @@ def build_agent(request: Any = None, **kwargs: Any) -> Agent:
             except (json.JSONDecodeError, TypeError):
                 requested_skills = []
         
+        paths = []
+        
+        # Inject built-in agent-memory skill if long term memory is enabled
+        if getattr(request, "enable_long_term_memory", False):
+            am_path = os.path.join(internal_skills_dir, "agent-memory")
+            if os.path.isdir(am_path):
+                paths.append(am_path)
+
+        # Inject any other internal skills by default (except for specific non-autoloading skills)
+        if os.path.isdir(internal_skills_dir):
+            for item in os.listdir(internal_skills_dir):
+                if item in ("agent-memory", "skill-creator", "academic-research", "deep-research"):
+                    continue
+                item_path = os.path.join(internal_skills_dir, item)
+                if os.path.isdir(item_path):
+                    paths.append(item_path)
+
         if requested_skills:
-            # We want to load only the specific requested skills
-            paths = []
             for skill_id in requested_skills:
-                skill_path = os.path.join(skills_dir, skill_id)
-                if os.path.isdir(skill_path):
-                    paths.append(skill_path)
+                internal_skill_path = os.path.join(internal_skills_dir, skill_id)
+                external_skill_path = os.path.join(skills_dir, skill_id)
+                
+                if os.path.isdir(internal_skill_path):
+                    paths.append(internal_skill_path)
+                elif os.path.isdir(external_skill_path):
+                    paths.append(external_skill_path)
             
-            if paths:
-                skills = Skills(loaders=[LocalSkills(path) for path in paths])
+        if paths:
+            skills = Skills(loaders=[LocalSkills(path) for path in paths])
 
     return Agent(
         id=f"qurio-{request.provider}",
@@ -693,7 +750,7 @@ def build_memory_agent(
         user_tools=None,
         tool_choice=None,
         enable_long_term_memory=True,
-        database_provider="supabase",
+        database_provider=os.getenv("DATABASE_PROVIDER") or "default",
         user_id=user_id,
         enable_skills=False,  # Helper agent: keep skills disabled
     )

@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 from starlette.responses import Response
 
 from ..providers import is_provider_supported
+from ._request_secrets import get_llm_api_key
 from ..services.generation import generate_agent_for_auto
 from ..utils.json_stream import create_streaming_json_response
 
@@ -24,7 +25,7 @@ async def agent_for_auto(request: Request) -> Response:
     provider = body.get("provider")
     message = body.get("message")
     current_space = body.get("currentSpace")
-    api_key = body.get("apiKey")
+    api_key = get_llm_api_key(request)
     base_url = body.get("baseUrl")
     model = body.get("model")
     user_timezone = body.get("userTimezone")

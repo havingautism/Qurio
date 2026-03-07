@@ -75,10 +75,11 @@ def _build_base_app() -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        # Start email polling scheduler on startup
-        start_email_monitor()
+        # Optional auto polling; disabled by default to avoid background pulls.
+        if os.getenv("EMAIL_AUTO_POLL_ENABLED", "0") == "1":
+            start_email_monitor()
         yield
-        # Stop scheduler on shutdown
+        # Stop scheduler on shutdown if it was started.
         stop_email_monitor()
 
     app = FastAPI(
@@ -155,7 +156,7 @@ def get_agent_os() -> AgentOS:
         user_tools=None,
         tool_choice=None,
         enable_long_term_memory=os.getenv("ENABLE_LONG_TERM_MEMORY", "0") == "1",
-        database_provider=os.getenv("DATABASE_PROVIDER", "supabase"),
+        database_provider=os.getenv("DATABASE_PROVIDER") or "default",
     )
     default_agent = build_agent(default_request)
 

@@ -1,5 +1,7 @@
 """
-Database proxy routes (provider-aware).
+Database proxy routes.
+
+The backend exposes one active database configuration at a time.
 """
 
 from __future__ import annotations
@@ -13,7 +15,7 @@ from fastapi import APIRouter, Header, HTTPException
 from ..config import get_settings
 from ..models.db import DbProviderUpsertRequest, DbQueryRequest, DbQueryResponse
 from ..services.db_adapters import build_adapter
-from ..services.db_registry import ProviderConfig, get_provider_registry
+from ..services.db_registry import ProviderConfig, get_provider_registry, normalize_provider_type
 from ..services.db_service import initialize_provider_schema, invalidate_db_adapter_cache
 
 router = APIRouter()
@@ -60,10 +62,15 @@ def list_db_providers():
                 provider.supabase_anon_key if include_details and provider.type == "supabase" else None
             ),
             "path": provider.sqlite_path if include_details and provider.type == "sqlite" else None,
+            "connectionUrl": (
+                provider.connection_url
+                if include_details and provider.type not in {"supabase", "sqlite"}
+                else None
+            ),
         }
         for provider in registry.list()
     ]
-    return {"providers": data, "mutable": registry.is_mutable()}
+    return {"providers": data, "provider": data[0] if data else None, "mutable": registry.is_mutable()}
 
 
 @router.post("/db/providers")
@@ -72,14 +79,15 @@ def upsert_db_provider(request: DbProviderUpsertRequest):
     if not registry.is_mutable():
         raise HTTPException(status_code=403, detail="Provider changes are only allowed in Electron mode")
 
-    provider_id = request.id.strip()
-    if not provider_id:
-        raise HTTPException(status_code=400, detail="Provider id is required")
+    provider_id = request.id.strip() or "default"
+    provider_type = normalize_provider_type(request.type)
+    if not provider_type:
+        raise HTTPException(status_code=400, detail="Unsupported database provider type")
 
-    label = (request.label or provider_id).strip()
+    label = (request.label or provider_type).strip()
     access_key = (request.access_key or "").strip() or None
 
-    if request.type == "supabase":
+    if provider_type == "supabase":
         url = (request.url or "").strip()
         anon_key = (request.anon_key or "").strip()
         if not url or not anon_key:
@@ -92,7 +100,7 @@ def upsert_db_provider(request: DbProviderUpsertRequest):
             supabase_anon_key=anon_key,
             access_key=access_key,
         )
-    else:
+    elif provider_type == "sqlite":
         raw_path = (request.path or "").strip()
         if not raw_path:
             raise HTTPException(status_code=400, detail="SQLite path is required")
@@ -104,6 +112,17 @@ def upsert_db_provider(request: DbProviderUpsertRequest):
             type="sqlite",
             label=label,
             sqlite_path=str(sqlite_path),
+            access_key=access_key,
+        )
+    else:
+        url = (request.url or "").strip()
+        if not url:
+            raise HTTPException(status_code=400, detail="Database url is required")
+        provider = ProviderConfig(
+            id=provider_id,
+            type=provider_type,
+            label=label,
+            connection_url=url,
             access_key=access_key,
         )
 
@@ -118,6 +137,7 @@ def upsert_db_provider(request: DbProviderUpsertRequest):
             "url": saved.supabase_url if saved.type == "supabase" else None,
             "anonKey": saved.supabase_anon_key if saved.type == "supabase" else None,
             "path": saved.sqlite_path if saved.type == "sqlite" else None,
+            "connectionUrl": saved.connection_url if saved.type not in {"supabase", "sqlite"} else None,
         }
     }
 

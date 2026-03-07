@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse
 from sse_starlette.sse import EventSourceResponse
 
 from ..providers import is_provider_supported
+from ._request_secrets import get_llm_api_key
 from ..services.research_plan import (
     generate_academic_research_plan,
     generate_research_plan,
@@ -28,7 +29,7 @@ async def research_plan(request: Request) -> JSONResponse:
     body = await request.json()
     provider = body.get("provider")
     message = body.get("message")
-    api_key = body.get("apiKey")
+    api_key = get_llm_api_key(request)
     base_url = body.get("baseUrl")
     model = body.get("model")
     research_type = body.get("researchType") or "general"
@@ -38,7 +39,7 @@ async def research_plan(request: Request) -> JSONResponse:
     if not message:
         return JSONResponse(status_code=400, content={"error": "Missing required field: message"})
     if not api_key:
-        return JSONResponse(status_code=400, content={"error": "Missing required field: apiKey"})
+        return JSONResponse(status_code=400, content={"error": "Missing required header: x-llm-api-key"})
     if not is_provider_supported(provider):
         return JSONResponse(status_code=400, content={"error": f"Unsupported provider: {provider}"})
 
@@ -66,7 +67,7 @@ async def research_plan_stream(request: Request) -> EventSourceResponse:
     body = await request.json()
     provider = body.get("provider")
     message = body.get("message")
-    api_key = body.get("apiKey")
+    api_key = get_llm_api_key(request)
     base_url = body.get("baseUrl")
     model = body.get("model")
     thinking = body.get("thinking")
@@ -84,7 +85,7 @@ async def research_plan_stream(request: Request) -> EventSourceResponse:
         )
     if not api_key:
         return EventSourceResponse(
-            _error_stream("Missing required field: apiKey"),
+            _error_stream("Missing required header: x-llm-api-key"),
             media_type="text/event-stream",
         )
     if not is_provider_supported(provider):

@@ -61,6 +61,10 @@ class Settings(BaseSettings):
     # Database Providers (backend-managed)
     database_providers_json: str = Field(default="", alias="DATABASE_PROVIDERS")
     db_access_key: str = Field(default="", alias="DB_PROVIDER_ACCESS_KEY")
+    database_provider: str = Field(default="", alias="DATABASE_PROVIDER")
+    database_url: str = Field(default="", alias="DATABASE_URL")
+    database_path: str = Field(default="", alias="DATABASE_PATH")
+    database_label: str = Field(default="", alias="DATABASE_LABEL")
 
     # Session Summary Configuration
     summary_lite_provider: str = Field(default="openai", alias="SUMMARY_LITE_PROVIDER")

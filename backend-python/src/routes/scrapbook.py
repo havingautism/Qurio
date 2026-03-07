@@ -25,6 +25,7 @@ from ..services.generation import generate_emoji, generate_title
 from ..services.llm_utils import run_agent_completion, safe_json_parse
 from ..models.db import DbFilter, DbOrder, DbQueryRequest
 from ..models.stream_chat import StreamChatRequest
+from ._request_secrets import get_llm_api_key
 
 router = APIRouter(tags=["scrapbook"])
 logger = logging.getLogger(__name__)
@@ -276,7 +277,7 @@ async def create_scrapbook_entry(request: Request) -> JSONResponse:
 
         # AI model config (used when generating title/summary)
         provider        str         — e.g. "gemini", "siliconflow"
-        api_key         str         — API key for the provider
+        x-llm-api-key   header      — API key for the provider
         base_url        str | None  — optional custom base URL
         model           str | None  — model name
     """
@@ -294,7 +295,7 @@ async def create_scrapbook_entry(request: Request) -> JSONResponse:
 
     # AI model config
     provider = (body.get("provider") or "gemini").strip()
-    api_key = (body.get("api_key") or body.get("apiKey") or "").strip()
+    api_key = get_llm_api_key(request)
     base_url = body.get("base_url") or body.get("baseUrl")
     model = body.get("model")
 

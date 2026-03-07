@@ -1,0 +1,6 @@
+# Ignore all memory files (personal/AI notes)
+*
+
+# Keep this .gitignore
+!.gitignore
+!.gitkeep

@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from starlette.responses import Response
 
 from ..providers import is_provider_supported
+from ._request_secrets import get_llm_api_key
 from ..services.generation import generate_daily_tip
 from ..utils.json_stream import create_streaming_json_response
 
@@ -19,7 +20,7 @@ router = APIRouter(tags=["daily-tip"])
 async def daily_tip(request: Request) -> Response:
     body = await request.json()
     provider = body.get("provider")
-    api_key = body.get("apiKey")
+    api_key = get_llm_api_key(request)
     base_url = body.get("baseUrl")
     model = body.get("model")
     language = body.get("language")

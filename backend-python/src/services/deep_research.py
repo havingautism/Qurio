@@ -23,11 +23,13 @@ from agno.workflow.step import Step
 
 from ..models.stream_chat import StreamChatRequest
 from ..prompts import (
-    ACADEMIC_FINAL_REPORT_PROMPT,
     ACADEMIC_STEP_AGENT_PROMPT,
-    GENERAL_FINAL_REPORT_PROMPT,
     GENERAL_STEP_AGENT_PROMPT,
 )
+# from ..prompts import (
+#     ACADEMIC_FINAL_REPORT_PROMPT,
+#     GENERAL_FINAL_REPORT_PROMPT,
+# )
 from ..services.stream_chat import get_stream_chat_service
 from .agent_registry import build_agent
 from .llm_utils import safe_json_parse
@@ -103,13 +105,26 @@ def build_final_report_prompt(
         return (
             f"You are writing an academic research report based on a systematic literature review.\n\n"
             f"{base_info}\n\n"
-            f"{ACADEMIC_FINAL_REPORT_PROMPT}"
+            f"CRITICAL INSTRUCTION: You MUST completely reorganize the provided 'Findings to synthesize' by logical themes. "
+            f"DO NOT simply list the steps or write source-by-source. "
+            f"DO NOT output any conversational filler, greetings, or introductory remarks (e.g., 'Here is the report...', 'I will now...'). "
+            f"Start your response IMMEDIATELY with the first Markdown heading (e.g., `#` or `##`). "
+            f"You MUST strictly adopt the 'Output Format' structure defined in your assigned 'Academic Researcher' skill "
+            f"and you MUST cite the sources using the `[1]` format from the provided Sources list."
+            # f"{ACADEMIC_FINAL_REPORT_PROMPT}"
         )
 
     return (
         f"You are a deep research writer producing a comprehensive, evidence-driven report.\n\n"
         f"{base_info}\n\n"
-        f"{GENERAL_FINAL_REPORT_PROMPT}"
+        f"CRITICAL INSTRUCTION: You MUST completely synthesize the provided 'Findings' by overall topics. "
+        f"DO NOT simply summarize step 1, step 2, etc. "
+        f"DO NOT output any conversational filler, greetings, or introductory remarks (e.g., 'Here is the report...', 'I will now...'). "
+        f"Start your response IMMEDIATELY with the first Markdown heading (e.g., `#` or `##`). "
+        f"You MUST strictly adopt the 'Output Format' structure defined in your assigned 'Deep Researcher' skill "
+        f"(e.g., Executive Summary, Key Findings, Detailed Analysis, etc.) "
+        f"and you MUST cite the sources using the `[1]` format from the provided Sources list."
+        # f"{GENERAL_FINAL_REPORT_PROMPT}"
     )
 
 
@@ -227,6 +242,8 @@ Assumptions:
         tools=tools,
         user_tools=None,
         tool_choice="auto" if (tool_ids or tools) else None,
+        enable_skills=False,  # Step agents focus purely on tool usage, avoiding overarching analysis directives
+        skill_ids=None,
     )
 
     # Build and configure the agent
@@ -974,6 +991,8 @@ async def stream_deep_research(params: dict[str, Any]) -> AsyncGenerator[dict[st
         {"role": "user", "content": question},
     ]
 
+    report_skill_ids = ["academic-research"] if research_type == "academic" else ["deep-research"]
+    
     report_request = StreamChatRequest(
         provider=provider,
         apiKey=api_key,
@@ -983,6 +1002,8 @@ async def stream_deep_research(params: dict[str, Any]) -> AsyncGenerator[dict[st
         tools=[],
         toolChoice=None,
         toolIds=[],
+        skillIds=report_skill_ids,
+        enable_skills=True,
         responseFormat=None,
         thinking=None,
         temperature=temperature,

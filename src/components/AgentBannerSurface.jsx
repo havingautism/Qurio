@@ -53,7 +53,7 @@ const AgentBannerSurface = ({
       <div className="absolute inset-x-0 bottom-0 flex items-end p-4 sm:p-5">
         <div
           className={clsx(
-            'inline-flex max-w-[min(88%,34rem)] items-center gap-3 self-end rounded-[28px] border border-black/8 bg-white/32 px-3 py-2 shadow-[0_14px_30px_-18px_rgba(0,0,0,0.35)] backdrop-blur-md dark:border-white/12 dark:bg-black/22 dark:shadow-[0_14px_30px_-18px_rgba(0,0,0,0.9)]',
+            'inline-flex max-w-[min(88%,34rem)] items-center gap-3 self-end rounded-[28px] border border-black/8 bg-white/32 px-3 py-3 shadow-[0_14px_30px_-18px_rgba(0,0,0,0.35)] backdrop-blur-md dark:border-white/12 dark:bg-black/22 dark:shadow-[0_14px_30px_-18px_rgba(0,0,0,0.9)]',
             className,
           )}
         >

@@ -14,6 +14,9 @@ from datetime import datetime
 from typing import Any
 
 from agno.utils.log import logger
+from sqlalchemy import MetaData, and_, create_engine, delete, func, inspect, or_, select, update
+from sqlalchemy.dialects.mysql import insert as mysql_insert
+from sqlalchemy.dialects.postgresql import insert as postgres_insert
 
 from ..models.db import DbFilter, DbQueryRequest, DbQueryResponse
 from .db_registry import ProviderConfig
@@ -138,6 +141,14 @@ def _deserialize_row(table: str, row: dict[str, Any]) -> dict[str, Any]:
     return row
 
 
+def _prepare_payload(table: str, payload: dict[str, Any]) -> dict[str, Any]:
+    return {key: _serialize_value(table, key, value) for key, value in payload.items()}
+
+
+def _deserialize_rows(table: str, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [_deserialize_row(table, dict(row)) for row in rows]
+
+
 def _normalize_columns(columns: str | list[str] | None) -> list[str] | None:
     if columns is None:
         return None
@@ -225,6 +236,34 @@ def _extract_filter_values(filters: list[DbFilter] | None, column: str) -> list[
     for filt in filters:
         walk(filt)
     return list(dict.fromkeys(values))
+
+
+def _build_sa_expression(table_obj, filt: DbFilter):
+    if filt.op == "or" and filt.filters:
+        expressions = [_build_sa_expression(table_obj, inner) for inner in filt.filters]
+        expressions = [expr for expr in expressions if expr is not None]
+        return or_(*expressions) if expressions else None
+
+    column_name = filt.column
+    if not column_name or column_name not in table_obj.c:
+        return None
+    column = table_obj.c[column_name]
+
+    if filt.op == "eq":
+        return column == filt.value
+    if filt.op == "gt":
+        return column > filt.value
+    if filt.op == "lt":
+        return column < filt.value
+    if filt.op == "ilike":
+        return column.ilike(f"%{filt.value}%")
+    if filt.op == "is_null":
+        return column.is_(None)
+    if filt.op == "in":
+        return column.in_(filt.values or [])
+    if filt.op == "not_in":
+        return ~column.in_(filt.values or [])
+    return None
 
 
 @dataclass
@@ -709,6 +748,222 @@ class SQLiteAdapter:
 
 
 @dataclass
+class SQLAlchemyAdapter:
+    config: ProviderConfig
+
+    def __post_init__(self) -> None:
+        if not self.config.connection_url:
+            raise ValueError(f"{self.config.type} provider missing connection url")
+        self._engine = create_engine(self.config.connection_url, future=True, pool_pre_ping=True)
+        self._metadata = MetaData()
+        self._table_cache: dict[str, Any] = {}
+        self._lock = threading.Lock()
+
+    def _get_table(self, table_name: str):
+        with self._lock:
+            if table_name in self._table_cache:
+                return self._table_cache[table_name]
+            table_obj = self._metadata.tables.get(table_name)
+            if table_obj is None:
+                self._metadata.reflect(bind=self._engine, only=[table_name], extend_existing=True)
+                table_obj = self._metadata.tables.get(table_name)
+            if table_obj is None:
+                raise ValueError(f"Unknown table: {table_name}")
+            self._table_cache[table_name] = table_obj
+            return table_obj
+
+    def _apply_filters(self, stmt, table_obj, filters: list[DbFilter] | None):
+        expressions = [_build_sa_expression(table_obj, filt) for filt in (filters or [])]
+        expressions = [expr for expr in expressions if expr is not None]
+        if expressions:
+            stmt = stmt.where(and_(*expressions))
+        return stmt
+
+    def execute(self, req: DbQueryRequest) -> DbQueryResponse:
+        try:
+            if req.action == "test":
+                return self._test()
+            if req.action == "rpc":
+                return DbQueryResponse(error=f"RPC is not supported for provider type '{self.config.type}'")
+            if not req.table:
+                return DbQueryResponse(error="Missing table")
+            if req.action == "select":
+                return self._select(req)
+            if req.action == "insert":
+                return self._insert(req)
+            if req.action == "update":
+                return self._update(req)
+            if req.action == "delete":
+                return self._delete(req)
+            if req.action == "upsert":
+                return self._upsert(req)
+            return DbQueryResponse(error="Unsupported action")
+        except Exception as exc:
+            logger.error("%s adapter error: %s", self.config.type, exc)
+            return DbQueryResponse(error=str(exc))
+
+    def _select(self, req: DbQueryRequest) -> DbQueryResponse:
+        table_obj = self._get_table(req.table)
+        columns = _normalize_columns(req.columns)
+        selected_columns = [table_obj.c[col] for col in columns if col in table_obj.c] if columns else [table_obj]
+        stmt = select(*selected_columns)
+        stmt = self._apply_filters(stmt, table_obj, req.filters)
+        if req.order:
+            for order in req.order:
+                if order.column in table_obj.c:
+                    column = table_obj.c[order.column]
+                    stmt = stmt.order_by(column.asc() if order.ascending else column.desc())
+        if req.range:
+            stmt = stmt.offset(req.range.from_).limit(max(0, req.range.to - req.range.from_ + 1))
+        elif req.limit:
+            stmt = stmt.limit(req.limit)
+        with self._engine.begin() as conn:
+            rows = [dict(row._mapping) for row in conn.execute(stmt).fetchall()]
+            count = None
+            if req.count == "exact":
+                count_stmt = select(func.count()).select_from(table_obj)
+                count_stmt = self._apply_filters(count_stmt, table_obj, req.filters)
+                count = int(conn.execute(count_stmt).scalar_one() or 0)
+        data: Any = _deserialize_rows(req.table, rows)
+        if req.single or req.maybe_single:
+            data = data[0] if data else None
+        return DbQueryResponse(data=data, count=count)
+
+    def _prepare_rows(self, table: str, values: list[dict[str, Any]] | dict[str, Any]) -> list[dict[str, Any]]:
+        rows = values if isinstance(values, list) else [values]
+        now = _utc_now_iso()
+        prepared = []
+        for row in rows:
+            payload = dict(row)
+            if table in TABLES_WITH_ID and not payload.get("id"):
+                payload["id"] = str(uuid.uuid4())
+            if table in TABLES_WITH_CREATED_AT or "created_at" in payload:
+                payload.setdefault("created_at", now)
+            if table in TABLES_WITH_UPDATED_AT or "updated_at" in payload:
+                payload.setdefault("updated_at", now)
+            prepared.append(_prepare_payload(table, payload))
+        return prepared
+
+    def _insert(self, req: DbQueryRequest) -> DbQueryResponse:
+        values = req.values if req.values is not None else req.payload
+        if values is None:
+            return DbQueryResponse(error="Missing values")
+        table_obj = self._get_table(req.table)
+        prepared = self._prepare_rows(req.table, values)
+        with self._engine.begin() as conn:
+            conn.execute(table_obj.insert(), prepared)
+        data: Any = _deserialize_rows(req.table, prepared)
+        if req.single or req.maybe_single:
+            data = data[0] if data else None
+        return DbQueryResponse(data=data)
+
+    def _update(self, req: DbQueryRequest) -> DbQueryResponse:
+        payload = dict(req.payload or {})
+        if not payload:
+            return DbQueryResponse(error="Missing payload")
+        if req.table in TABLES_WITH_UPDATED_AT and "updated_at" not in payload:
+            payload["updated_at"] = _utc_now_iso()
+        table_obj = self._get_table(req.table)
+        stmt = update(table_obj).values(**_prepare_payload(req.table, payload))
+        stmt = self._apply_filters(stmt, table_obj, req.filters)
+        with self._engine.begin() as conn:
+            conn.execute(stmt)
+        if req.columns or req.single or req.maybe_single:
+            return self._select(
+                DbQueryRequest(
+                    providerId=req.provider_id,
+                    action="select",
+                    table=req.table,
+                    columns=req.columns,
+                    filters=req.filters,
+                    single=bool(req.single or req.maybe_single),
+                )
+            )
+        return DbQueryResponse(data=None)
+
+    def _delete(self, req: DbQueryRequest) -> DbQueryResponse:
+        table_obj = self._get_table(req.table)
+        stmt = delete(table_obj)
+        stmt = self._apply_filters(stmt, table_obj, req.filters)
+        with self._engine.begin() as conn:
+            conn.execute(stmt)
+        return DbQueryResponse(data=None)
+
+    def _upsert(self, req: DbQueryRequest) -> DbQueryResponse:
+        values = req.values if req.values is not None else req.payload
+        if values is None:
+            return DbQueryResponse(error="Missing values")
+        table_obj = self._get_table(req.table)
+        prepared = self._prepare_rows(req.table, values)
+        on_conflict_raw = req.on_conflict or ["id"]
+        on_conflict = (
+            [str(item).strip() for item in on_conflict_raw if str(item).strip()]
+            if isinstance(on_conflict_raw, list)
+            else [part.strip() for part in str(on_conflict_raw).split(",") if part.strip()]
+        )
+        update_cols = [col.name for col in table_obj.columns if col.name not in on_conflict]
+
+        dialect = self._engine.dialect.name
+        if dialect == "postgresql":
+            stmt = postgres_insert(table_obj).values(prepared)
+            stmt = stmt.on_conflict_do_update(
+                index_elements=on_conflict,
+                set_={col: getattr(stmt.excluded, col) for col in update_cols},
+            )
+        elif dialect in {"mysql", "mariadb"}:
+            stmt = mysql_insert(table_obj).values(prepared)
+            stmt = stmt.on_duplicate_key_update(
+                **{col: getattr(stmt.inserted, col) for col in update_cols}
+            )
+        else:
+            return DbQueryResponse(
+                error=f"Upsert is not supported for SQL dialect '{dialect}' on provider type '{self.config.type}'"
+            )
+
+        with self._engine.begin() as conn:
+            conn.execute(stmt)
+        data: Any = _deserialize_rows(req.table, prepared)
+        if req.single or req.maybe_single:
+            data = data[0] if data else None
+        return DbQueryResponse(data=data)
+
+    def _test(self) -> DbQueryResponse:
+        inspector = inspect(self._engine)
+        table_names = set(inspector.get_table_names())
+        tables = [
+            "spaces",
+            "agents",
+            "space_agents",
+            "conversations",
+            "conversation_messages",
+            "space_documents",
+            "conversation_documents",
+            "document_sections",
+            "document_chunks",
+            "user_settings",
+            "memory_domains",
+            "memory_summaries",
+            "user_tools",
+            "home_notes",
+            "home_shortcuts",
+            "pending_form_runs",
+            "scrapbook",
+        ]
+        results = {table: table in table_names for table in tables}
+        all_ok = all(results.values())
+        return DbQueryResponse(
+            data={
+                "success": all_ok,
+                "connection": True,
+                "tables": results,
+                "message": "Connection successful; required tables are present."
+                if all_ok
+                else "Connection OK, but missing tables.",
+            }
+        )
+
+
+@dataclass
 class SupabaseAdapter:
     config: ProviderConfig
 
@@ -987,4 +1242,6 @@ def build_adapter(config: ProviderConfig):
         return SQLiteAdapter(config)
     if config.type == "supabase":
         return SupabaseAdapter(config)
+    if config.type in {"postgres", "mysql", "mariadb"}:
+        return SQLAlchemyAdapter(config)
     raise ValueError("Unsupported provider type")

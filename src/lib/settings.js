@@ -174,6 +174,15 @@ export const buildResponseStylePromptFromAgent = agent => {
 
 // In-memory cache for sensitive settings (API keys) fetched from Supabase
 let memorySettings = {}
+let legacySensitiveSettingsMigrated = false
+
+const getSessionStorage = () => {
+  try {
+    return typeof sessionStorage === 'undefined' ? null : sessionStorage
+  } catch {
+    return null
+  }
+}
 
 const MEMORY_SETTINGS_KEYS = [
   'OpenAICompatibilityKey',
@@ -206,6 +215,32 @@ const MEMORY_SETTINGS_KEYS = [
   'scrapbookProvider',
   'scrapbookModel',
   'scrapbookModelSource',
+  'dbAccessKey',
+]
+
+const LEGACY_LOCAL_SENSITIVE_KEYS = [
+  'tavilyApiKey',
+  'serpapiApiKey',
+  'exaApiKey',
+  'dbAccessKey',
+]
+
+const SESSION_SENSITIVE_KEYS = [
+  'OpenAICompatibilityKey',
+  'OpenAICompatibilityUrl',
+  'SiliconFlowKey',
+  'GlmKey',
+  'DeepSeekKey',
+  'VolcengineKey',
+  'ModelScopeKey',
+  'KimiKey',
+  'googleApiKey',
+  'tavilyApiKey',
+  'serpapiApiKey',
+  'exaApiKey',
+  'NvidiaKey',
+  'MinimaxKey',
+  'dbAccessKey',
 ]
 
 export const updateMemorySettings = settings => {
@@ -219,7 +254,26 @@ export const updateMemorySettings = settings => {
   })
 }
 
+const migrateLegacySensitiveSettings = () => {
+  if (legacySensitiveSettingsMigrated || typeof localStorage === 'undefined') return
+  legacySensitiveSettingsMigrated = true
+  const session = getSessionStorage()
+
+  LEGACY_LOCAL_SENSITIVE_KEYS.forEach(key => {
+    const value = localStorage.getItem(key)
+    if (value !== null && memorySettings[key] === undefined) {
+      memorySettings[key] = value
+    }
+    if (value !== null && session && !session.getItem(key)) {
+      session.setItem(key, value)
+    }
+    localStorage.removeItem(key)
+  })
+}
+
 export const loadSettings = (overrides = {}) => {
+  migrateLegacySensitiveSettings()
+  const session = getSessionStorage()
   const electronMode = isElectronRuntime()
   const electronBackendUrl = getElectronBackendUrlFromBridge() || getElectronBackendUrlOverride()
 
@@ -227,7 +281,6 @@ export const loadSettings = (overrides = {}) => {
   const envSupabaseUrl = electronMode ? '' : getPublicEnv('PUBLIC_SUPABASE_URL')
   const envSupabaseKey = electronMode ? '' : getPublicEnv('PUBLIC_SUPABASE_KEY')
   const envBackendUrl = electronMode ? '' : getPublicEnv('PUBLIC_BACKEND_URL')
-  const envDbProviderId = electronMode ? '' : getPublicEnv('PUBLIC_DB_PROVIDER_ID')
   const envDbAccessKey = electronMode ? '' : getPublicEnv('PUBLIC_DB_ACCESS_KEY')
 
   // OpenAI Env Vars
@@ -238,16 +291,14 @@ export const loadSettings = (overrides = {}) => {
 
   // LocalStorage - Only load non-sensitive or essential connection configs
   const localDatabaseProvider = localStorage.getItem('databaseProvider')
-  const localDatabaseProviderId = localStorage.getItem('databaseProviderId')
+  const legacyDatabaseProviderId = localStorage.getItem('databaseProviderId')
+  const localDatabaseProviderLabel = localStorage.getItem('databaseProviderLabel')
   const localDatabaseSupabaseUrl = localStorage.getItem('databaseSupabaseUrl')
   const localDatabaseSupabaseKey = localStorage.getItem('databaseSupabaseKey')
   const localSupabaseUrl = localStorage.getItem('supabaseUrl')
   const localSupabaseKey = localStorage.getItem('supabaseKey')
   const localSearchProvider = localStorage.getItem('searchProvider')
   const localBackendUrl = localStorage.getItem('backendUrl')
-  const localTavilyApiKey = localStorage.getItem('tavilyApiKey')
-  const localSerpapiApiKey = localStorage.getItem('serpapiApiKey')
-  const localExaApiKey = localStorage.getItem('exaApiKey')
 
   // Model configuration
   const localSystemPrompt = localStorage.getItem('systemPrompt')
@@ -274,8 +325,6 @@ export const loadSettings = (overrides = {}) => {
   const localDefaultModelSource = localStorage.getItem('defaultModelSource')
   const localLiteModelSource = localStorage.getItem('liteModelSource')
   const localDeveloperMode = localStorage.getItem('developerMode')
-  const localDbAccessKey = localStorage.getItem('dbAccessKey')
-
   // Style settings
   const localStyleBaseTone = localStorage.getItem('styleBaseTone')
   const localStyleTraits = localStorage.getItem('styleTraits')
@@ -315,13 +364,13 @@ export const loadSettings = (overrides = {}) => {
         ? localEnableLongTermMemory === 'true'
         : false
 
-  const resolvedDatabaseProvider = overrides.databaseProvider || localDatabaseProvider || ''
-  const resolvedDatabaseProviderId =
-    overrides.databaseProviderId ||
-    localDatabaseProviderId ||
-    envDbProviderId ||
-    resolvedDatabaseProvider ||
+  const resolvedDatabaseProvider =
+    overrides.databaseProvider ||
+    localDatabaseProvider ||
+    legacyDatabaseProviderId ||
     ''
+  const resolvedDatabaseProviderLabel =
+    overrides.databaseProviderLabel || localDatabaseProviderLabel || ''
   const overrideSupabaseUrl =
     overrides.supabaseUrl ||
     overrides.databaseSupabaseUrl ||
@@ -340,7 +389,7 @@ export const loadSettings = (overrides = {}) => {
   const settings = {
     // Database (local/env to connect)
     databaseProvider: resolvedDatabaseProvider,
-    databaseProviderId: resolvedDatabaseProviderId,
+    databaseProviderLabel: resolvedDatabaseProviderLabel,
     databaseConfig: {
       supabase: {
         url: resolvedSupabaseUrl,
@@ -418,10 +467,19 @@ export const loadSettings = (overrides = {}) => {
       localStyleCustomInstruction ||
       overrides.customInstruction ||
       DEFAULT_STYLE_SETTINGS.customInstruction,
-    dbAccessKey: localDbAccessKey || overrides.dbAccessKey || envDbAccessKey || '',
+    dbAccessKey: overrides.dbAccessKey || envDbAccessKey || '',
 
     ...overrides,
   }
+
+  SESSION_SENSITIVE_KEYS.forEach(key => {
+    if (
+      !Object.prototype.hasOwnProperty.call(memorySettings, key) &&
+      session?.getItem(key) !== null
+    ) {
+      memorySettings[key] = session.getItem(key)
+    }
+  })
 
   // Merge Memory Settings (API Keys from Supabase)
   // This overrides everything else for keys
@@ -459,11 +517,10 @@ export const loadSettings = (overrides = {}) => {
   if (!mergedSettings.googleApiKey)
     mergedSettings.googleApiKey = electronMode ? '' : getPublicEnv('PUBLIC_GOOGLE_API_KEY') || ''
   if (!mergedSettings.tavilyApiKey)
-    mergedSettings.tavilyApiKey = localTavilyApiKey || envTavilyApiKey || ''
-  if (!mergedSettings.exaApiKey) mergedSettings.exaApiKey = localExaApiKey || envExaApiKey || ''
+    mergedSettings.tavilyApiKey = envTavilyApiKey || ''
+  if (!mergedSettings.exaApiKey) mergedSettings.exaApiKey = envExaApiKey || ''
   if (!mergedSettings.serpapiApiKey)
-    mergedSettings.serpapiApiKey =
-      localSerpapiApiKey || (electronMode ? '' : getPublicEnv('PUBLIC_SERPAPI_API_KEY')) || ''
+    mergedSettings.serpapiApiKey = (electronMode ? '' : getPublicEnv('PUBLIC_SERPAPI_API_KEY')) || ''
   if (!mergedSettings.NvidiaKey) mergedSettings.NvidiaKey = ''
   if (!mergedSettings.MinimaxKey)
     mergedSettings.MinimaxKey = electronMode ? '' : getPublicEnv('PUBLIC_MINIMAX_API_KEY') || ''
@@ -491,17 +548,30 @@ export const getBackendUrl = (overrides = {}) => {
 export const saveSettings = async settings => {
   // Update Memory Cache
   updateMemorySettings(settings)
+  const session = getSessionStorage()
   if (isElectronRuntime()) {
     const runtimeUrl = getElectronBackendUrlFromBridge() || getElectronBackendUrlOverride()
     if (runtimeUrl) settings.backendUrl = runtimeUrl
   }
 
+  SESSION_SENSITIVE_KEYS.forEach(key => {
+    if (!session) return
+    const value = settings[key]
+    if (value === undefined) return
+    if (String(value || '').trim()) {
+      session.setItem(key, String(value))
+    } else {
+      session.removeItem(key)
+    }
+  })
+
   // Persist Non-Sensitive to LocalStorage
   if (settings.databaseProvider !== undefined) {
     localStorage.setItem('databaseProvider', settings.databaseProvider)
   }
-  if (settings.databaseProviderId !== undefined) {
-    localStorage.setItem('databaseProviderId', settings.databaseProviderId)
+  localStorage.removeItem('databaseProviderId')
+  if (settings.databaseProviderLabel !== undefined) {
+    localStorage.setItem('databaseProviderLabel', settings.databaseProviderLabel)
   }
 
   const supabaseConfig = settings?.databaseConfig?.supabase || {}
@@ -532,8 +602,10 @@ export const saveSettings = async settings => {
     'googleApiKey',
     'tavilyApiKey',
     'exaApiKey',
+    'serpapiApiKey',
     'NvidiaKey',
     'MinimaxKey',
+    'dbAccessKey',
   ]
   SENSITIVE_KEYS.forEach(key => localStorage.removeItem(key))
 
@@ -570,27 +642,9 @@ export const saveSettings = async settings => {
   if (settings.backendUrl !== undefined) {
     localStorage.setItem('backendUrl', settings.backendUrl)
   }
-  if (settings.tavilyApiKey !== undefined) {
-    if (String(settings.tavilyApiKey || '').trim()) {
-      localStorage.setItem('tavilyApiKey', settings.tavilyApiKey)
-    } else {
-      localStorage.removeItem('tavilyApiKey')
-    }
-  }
-  if (settings.exaApiKey !== undefined) {
-    if (String(settings.exaApiKey || '').trim()) {
-      localStorage.setItem('exaApiKey', settings.exaApiKey)
-    } else {
-      localStorage.removeItem('exaApiKey')
-    }
-  }
-  if (settings.serpapiApiKey !== undefined) {
-    if (String(settings.serpapiApiKey || '').trim()) {
-      localStorage.setItem('serpapiApiKey', settings.serpapiApiKey)
-    } else {
-      localStorage.removeItem('serpapiApiKey')
-    }
-  }
+  localStorage.removeItem('tavilyApiKey')
+  localStorage.removeItem('exaApiKey')
+  localStorage.removeItem('serpapiApiKey')
   if (settings.llmAnswerLanguage !== undefined) {
     localStorage.setItem('llmAnswerLanguage', settings.llmAnswerLanguage)
   }
@@ -664,9 +718,7 @@ export const saveSettings = async settings => {
   if (settings.developerMode !== undefined) {
     localStorage.setItem('developerMode', String(!!settings.developerMode))
   }
-  if (settings.dbAccessKey !== undefined) {
-    localStorage.setItem('dbAccessKey', settings.dbAccessKey)
-  }
+  localStorage.removeItem('dbAccessKey')
 
   window.dispatchEvent(new Event('settings-changed'))
   console.log('Settings saved (Sensitive keys in memory only)')

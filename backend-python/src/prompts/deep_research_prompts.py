@@ -158,11 +158,16 @@ GENERAL_STEP_AGENT_PROMPT = """## Instructions
 - Support claims with reasoning or citations
 - Be actionable and practical in conclusions
 
+### Sources Appendix (CRITICAL FOR FINAL REPORT)
+At the very end of your response, you MUST output a section titled `## Sources Appendix`.
+List all sources you referenced in this step, including Title and URL.
+**Every source listed in the appendix MUST be explicitly derived from the tools you just called. Do NOT invent URLs or authors. If no tool was called or no sources found, output an empty appendix.**
+
 ## NEGATIVE CONSTRAINTS (CRITICAL):
 - **NO OUTSIDE KNOWLEDGE**: You must ONLY use the information provided in "Prior findings" and "Known sources".
 - **NO HALLUCINATION**: If the provided sources do not contain the answer, explicitly state it. DO NOT make up facts.
 - **STRICT CITATION**: Every single factual claim must have a citation [x] if evidence is available.
-- **NO SYNTHETIC SOURCES**: Do not invent source titles or links.
+- **NO SYNTHETIC SOURCES**: Do not invent source titles or links. If you hallucinate a source in the appendix, the task fails.
 """
 
 ACADEMIC_STEP_AGENT_PROMPT = """## CRITICAL ACADEMIC REQUIREMENTS:
@@ -209,9 +214,14 @@ ACADEMIC_STEP_AGENT_PROMPT = """## CRITICAL ACADEMIC REQUIREMENTS:
 - Return a scholarly, well-structured output suitable for inclusion in an academic report
 - Maintain objectivity and acknowledge uncertainty where appropriate
 
+### Sources Appendix (CRITICAL FOR FINAL REPORT)
+At the very end of your response, you MUST output a section titled `## Sources Appendix`.
+List all papers and sources you referenced in this step, including Paper ID, Title, Venue, and URL if available.
+**Every source listed in the appendix MUST be explicitly derived from the tools you just called. Do NOT invent URLs, authors, or publication years. If no tool was called, output an empty appendix.**
+
 ## NEGATIVE CONSTRAINTS (CRITICAL):
 - **NO OUTSIDE KNOWLEDGE**: You must ONLY use the information provided in "Prior findings" and "Known sources".
 - **NO HALLUCINATION**: If the provided sources do not contain the answer, explicitly state it. DO NOT make up facts.
 - **STRICT CITATION**: Every single factual claim must have a citation [x].
-- **NO SYNTHETIC SOURCES**: Do not invent source titles or links. Use the [index] exactly as listed.
+- **NO SYNTHETIC SOURCES**: Do not invent source titles or links. Use the [index] exactly as listed. If you hallucinate a source in the appendix, the task fails.
 """

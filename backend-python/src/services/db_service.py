@@ -1,6 +1,7 @@
 """
 Database service for resolving adapters and executing queries.
-Unifies access to Supabase and SQLite providers.
+
+The backend now uses one active database configuration at a time.
 """
 
 from __future__ import annotations
@@ -14,13 +15,13 @@ import sqlite3
 
 import psycopg2
 
-from .db_adapters import SQLiteAdapter, SupabaseAdapter, build_adapter
-from .db_registry import ProviderConfig, get_provider_registry
+from .db_adapters import SQLAlchemyAdapter, SQLiteAdapter, SupabaseAdapter, build_adapter
+from .db_registry import ProviderConfig, get_provider_registry, normalize_provider_type
 from ..config import get_settings
 
 logger = logging.getLogger(__name__)
 
-DbAdapter = Union[SQLiteAdapter, SupabaseAdapter]
+DbAdapter = Union[SQLiteAdapter, SupabaseAdapter, SQLAlchemyAdapter]
 
 _adapter_cache: dict[str, DbAdapter] = {}
 _adapter_cache_lock = threading.Lock()
@@ -49,34 +50,26 @@ APP_TABLES: list[str] = [
 
 
 def _resolve_provider(provider_id_or_type: str | None) -> ProviderConfig | None:
-    """
-    Resolve a provider config by ID or type alias.
-    """
     registry = get_provider_registry()
     providers = registry.list()
     if not providers:
         return None
 
-    if provider_id_or_type:
-        raw = str(provider_id_or_type).strip()
-        if raw:
-            by_id = registry.get(raw)
-            if by_id:
-                return by_id
-            normalized = raw.lower().replace("_", " ").strip()
-            if normalized in {"supabase", "sqlite", "sqlite local", "sqlite-local"}:
-                target = "supabase" if normalized == "supabase" else "sqlite"
-                for provider in providers:
-                    if provider.type == target:
-                        return provider
+    active = providers[0]
+    if not provider_id_or_type:
+        return active
 
-    # Defaults: Supabase > SQLite
-    for provider in providers:
-        if provider.type == "supabase":
-            return provider
-    for provider in providers:
-        if provider.type == "sqlite":
-            return provider
+    raw = str(provider_id_or_type).strip()
+    if not raw:
+        return active
+
+    by_id = registry.get(raw)
+    if by_id:
+        return by_id
+
+    provider_type = normalize_provider_type(raw)
+    if provider_type == active.type:
+        return active
     return None
 
 
@@ -151,6 +144,15 @@ def initialize_provider_schema(provider: ProviderConfig) -> dict[str, Any]:
         if not adapter:
             return {"success": False, "message": "Failed to initialize SQLite adapter."}
         return {"success": True, "message": "SQLite schema reset and initialized."}
+
+    if provider.type in {"postgres", "mysql", "mariadb"}:
+        return {
+            "success": False,
+            "message": (
+                f"Automatic schema initialization is not implemented for provider type '{provider.type}'. "
+                "Create the schema externally and use /db/query test to validate connectivity."
+            ),
+        }
 
     if provider.type != "supabase":
         return {"success": False, "message": f"Unsupported provider type: {provider.type}"}

@@ -1287,7 +1287,7 @@ const ChatInputBar = React.memo(
                   disabled={isInteractionLocked}
                   rows={1}
                   className={clsx(
-                    'relative z-10 max-h-[200px] min-h-[48px] w-full resize-none overflow-y-auto border-none bg-transparent! px-1 py-3 text-[15px] leading-[1.6] text-transparent placeholder-gray-400 caret-gray-900 outline-none dark:placeholder-gray-500 dark:caret-gray-100',
+                    'chat-input-textarea relative z-10 max-h-[200px] min-h-[48px] w-full resize-none overflow-y-auto border-none bg-transparent! px-1 py-3 text-[15px] leading-[1.6] text-transparent placeholder-gray-400 caret-gray-900 outline-none dark:placeholder-gray-500 dark:caret-gray-100',
                     !isMultiline && 'no-scrollbar',
                   )}
                 />
@@ -1429,7 +1429,7 @@ const ChatInputBar = React.memo(
               onKeyDown={handleKeyDown}
               placeholder={t('chatInterface.askFollowUp')}
               disabled={isInteractionLocked}
-              className="relative z-10 max-h-[200px] min-h-[48px] w-full resize-none overflow-y-auto border-none bg-transparent py-3.5 text-[15px] leading-[1.6] text-transparent placeholder-gray-400 caret-gray-900 outline-none disabled:cursor-not-allowed dark:placeholder-gray-500 dark:caret-gray-100"
+              className="chat-input-textarea relative z-10 max-h-[200px] min-h-[48px] w-full resize-none overflow-y-auto border-none bg-transparent py-3.5 text-[15px] leading-[1.6] text-transparent placeholder-gray-400 caret-gray-900 outline-none disabled:cursor-not-allowed dark:placeholder-gray-500 dark:caret-gray-100"
               rows={1}
             />
           </div>

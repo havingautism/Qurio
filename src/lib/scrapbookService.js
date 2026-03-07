@@ -21,9 +21,12 @@ const ENV_VARS = {
   openAIBase: getPublicEnv('PUBLIC_OPENAI_API_BASE'),
 }
 
-const getSelectedDatabaseProvider = () => {
-  const settings = loadSettings()
-  return settings.databaseProviderId || settings.databaseProvider || ''
+const buildSecretHeaders = secrets => {
+  const headers = {}
+  if (String(secrets.apiKey || '').trim()) {
+    headers['x-llm-api-key'] = String(secrets.apiKey).trim()
+  }
+  return headers
 }
 
 /** Resolve the effective AI model config for Scrapbook. */
@@ -68,13 +71,11 @@ const _getBaseUrl = (provider, settings) => {
 export const listScrapbookEntries = async ({ platform, q, cursor, limit = 50, page } = {}) => {
   try {
     const params = new URLSearchParams()
-    const databaseProvider = getSelectedDatabaseProvider()
     if (platform && platform !== 'all') params.set('platform', platform)
     if (q) params.set('q', q)
     if (cursor) params.set('cursor', cursor)
     if (page) params.set('page', String(page))
     if (limit) params.set('limit', String(limit))
-    if (databaseProvider) params.set('database_provider', databaseProvider)
     const res = await fetch(`${getBackendUrl()}/api/scrapbook?${params.toString()}`)
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const json = await res.json()
@@ -93,11 +94,7 @@ export const listScrapbookEntries = async ({ platform, q, cursor, limit = 50, pa
  */
 export const getScrapbookEntryById = async id => {
   try {
-    const params = new URLSearchParams()
-    const databaseProvider = getSelectedDatabaseProvider()
-    if (databaseProvider) params.set('database_provider', databaseProvider)
-    const suffix = params.toString() ? `?${params.toString()}` : ''
-    const res = await fetch(`${getBackendUrl()}/api/scrapbook/${id}${suffix}`)
+    const res = await fetch(`${getBackendUrl()}/api/scrapbook/${id}`)
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const json = await res.json()
     return { data: json.item, error: null }
@@ -115,19 +112,19 @@ export const getScrapbookEntryById = async id => {
 export const createScrapbookEntry = async (entry, modelConfig = {}) => {
   try {
     const resolved = resolveScrapbookModelConfig()
-    const databaseProvider = getSelectedDatabaseProvider()
     const payload = {
       ...entry,
-      ...(databaseProvider ? { database_provider: databaseProvider } : {}),
       // AI model config — frontend resolves the key and passes it to backend
       provider: modelConfig.provider || resolved.provider,
-      api_key: modelConfig.apiKey || resolved.apiKey,
       base_url: modelConfig.baseUrl || resolved.baseUrl || null,
       model: modelConfig.model || resolved.model || null,
     }
     const res = await fetch(`${getBackendUrl()}/api/scrapbook`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...buildSecretHeaders({ apiKey: modelConfig.apiKey || resolved.apiKey }),
+      },
       body: JSON.stringify(payload),
     })
     if (!res.ok) {
@@ -146,11 +143,7 @@ export const createScrapbookEntry = async (entry, modelConfig = {}) => {
  */
 export const deleteScrapbookEntry = async id => {
   try {
-    const params = new URLSearchParams()
-    const databaseProvider = getSelectedDatabaseProvider()
-    if (databaseProvider) params.set('database_provider', databaseProvider)
-    const suffix = params.toString() ? `?${params.toString()}` : ''
-    const res = await fetch(`${getBackendUrl()}/api/scrapbook/${id}${suffix}`, { method: 'DELETE' })
+    const res = await fetch(`${getBackendUrl()}/api/scrapbook/${id}`, { method: 'DELETE' })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     return { error: null }
   } catch (err) {

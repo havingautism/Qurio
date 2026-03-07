@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from starlette.responses import Response
 
 from ..providers import is_provider_supported
+from ._request_secrets import get_llm_api_key
 from ..services.generation import generate_space_and_agent
 from ..utils.json_stream import create_streaming_json_response
 
@@ -21,7 +22,7 @@ async def space_agent(request: Request) -> Response:
     provider = body.get("provider")
     message = body.get("message")
     spaces_with_agents = body.get("spacesWithAgents") or []
-    api_key = body.get("apiKey")
+    api_key = get_llm_api_key(request)
     base_url = body.get("baseUrl")
     model = body.get("model")
     user_timezone = body.get("userTimezone")

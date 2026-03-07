@@ -57,7 +57,6 @@ import { getPublicEnv } from '../lib/publicEnv'
 import { listToolsViaBackend } from '../lib/backendClient'
 import { getUserTools } from '../lib/userToolsService'
 import { TOOL_TRANSLATION_KEYS, TOOL_ICONS, TOOL_INFO_KEYS } from '../lib/toolConstants'
-import { isQuickSearchTool } from '../lib/searchTools'
 import { compressImage } from '../lib/imageCompression'
 import {
   AGENT_AVATAR_SHAPE_CIRCLE,
@@ -124,11 +123,13 @@ const TOOL_API_REQUIREMENTS = {
   search_youtube: { key: 'serpapiApiKey', providerLabel: 'SerpApi' },
 }
 
-const HIDDEN_QUICK_SEARCH_TOOL_IDS = new Set([
+const HIDDEN_AGENT_TOOL_IDS = new Set([
   'web_search',
   'search_news',
   'search_arxiv_and_return_articles',
   'search_wikipedia',
+  'execute_skill_script',
+  'install_skill_dependency',
 ])
 
 const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) => {
@@ -359,13 +360,11 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
             }))
         : []
 
-      const hiddenQuickSearchTools = validSystemTools.filter(tool => {
-        if (!isQuickSearchTool(tool)) return false
-        const toolId = String(tool.id || tool.name)
-        return HIDDEN_QUICK_SEARCH_TOOL_IDS.has(toolId)
-      })
+      const hiddenAgentTools = validSystemTools.filter(tool =>
+        HIDDEN_AGENT_TOOL_IDS.has(String(tool.id || tool.name)),
+      )
       searchToolIdSetRef.current = new Set(
-        hiddenQuickSearchTools.map(tool => String(tool.id || tool.name)),
+        hiddenAgentTools.map(tool => String(tool.id || tool.name)),
       )
       const filteredSystemTools = validSystemTools.filter(tool => {
         const toolId = String(tool.id || tool.name)
@@ -597,7 +596,10 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
         setSelectedSkillIds([])
       }
       if (editingAgent) {
-        setSelectedToolIds(editingAgent?.toolIds || editingAgent?.tool_ids || [])
+        const incomingToolIds = editingAgent?.toolIds || editingAgent?.tool_ids || []
+        setSelectedToolIds(
+          incomingToolIds.filter(id => !HIDDEN_AGENT_TOOL_IDS.has(String(id))),
+        )
         setSelectedSkillIds(editingAgent?.skillIds || editingAgent?.skill_ids || [])
       }
       loadToolsList()
@@ -2739,7 +2741,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
           </div>
 
           {/* Footer */}
-          <div className="flex h-16 shrink-0 items-center justify-between border-t border-black/5 bg-transparent px-6 dark:border-white/5">
+          <div className="flex h-20 shrink-0 items-center justify-between border-t border-black/5 bg-transparent px-6 sm:px-8 dark:border-white/5">
             {editingAgent && onDelete && !editingAgent.isDefault ? (
               <button
                 onClick={() => {
@@ -2753,7 +2755,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     onConfirm: () => onDelete(editingAgent.id),
                   })
                 }}
-                className="inline-flex h-10 items-center rounded-xl border border-red-200 bg-red-50 px-4 text-sm font-semibold text-red-600 transition-all hover:bg-red-100 hover:text-red-700 dark:border-red-900/50 dark:bg-red-900/15 dark:text-red-300 dark:hover:bg-red-900/30"
+                className="cursor-pointer rounded-lg px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
               >
                 {t('agents.actions.delete')}
               </button>
@@ -2764,14 +2766,14 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
             <div className="flex gap-3">
               <button
                 onClick={onClose}
-                className="inline-flex h-10 items-center rounded-xl border border-black/10 bg-white/80 px-4 text-sm font-semibold text-gray-700 transition-all hover:bg-white hover:text-gray-900 dark:border-white/10 dark:bg-white/5 dark:text-gray-300 dark:hover:bg-white/10"
+                className="cursor-pointer rounded-lg px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-zinc-800"
               >
                 {t('agents.actions.cancel')}
               </button>
               <button
                 onClick={handleSaveWrapper}
                 disabled={isSaving}
-                className="bg-primary-500 hover:bg-primary-600 inline-flex h-10 items-center rounded-xl px-5 text-sm font-semibold text-white shadow-[0_6px_18px_rgba(59,130,246,0.32)] transition-all hover:shadow-[0_10px_22px_rgba(59,130,246,0.36)] active:scale-95 disabled:opacity-50"
+                className="bg-primary-500 flex cursor-pointer items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isSaving
                   ? t('agents.actions.saving')

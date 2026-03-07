@@ -17,10 +17,19 @@ def get_skills_dir() -> str:
 
 
 def get_skill_path(skill_id: str) -> str:
-    skill_path = os.path.join(get_skills_dir(), skill_id)
-    if not os.path.isdir(skill_path):
-        raise FileNotFoundError(f"Skill '{skill_id}' not found")
-    return skill_path
+    # 1. Check external (.skills) directory
+    ext_path = os.path.join(get_skills_dir(), skill_id)
+    if os.path.isdir(ext_path):
+        return ext_path
+    
+    # 2. Check internal (_internal_skills) directory
+    # Path relative to source file src/services/skill_runtime.py
+    int_skills_dir = os.path.join(os.path.dirname(__file__), "..", "_internal_skills")
+    int_path = os.path.normpath(os.path.join(int_skills_dir, skill_id))
+    if os.path.isdir(int_path):
+        return int_path
+
+    raise FileNotFoundError(f"Skill '{skill_id}' not found")
 
 
 def get_skill_venv_path(skill_path: str) -> str:
@@ -171,12 +180,25 @@ def resolve_skill_script_path(skill_id: str, script_path: str) -> tuple[str, str
     normalized_rel = str(script_path or "").strip().replace("\\", "/")
     if not normalized_rel:
         raise ValueError("script_path is required")
-    abs_path = os.path.abspath(os.path.join(skill_path, normalized_rel))
+    
     scripts_root = os.path.abspath(os.path.join(skill_path, "scripts"))
+    
+    # Try the original path first
+    abs_path = os.path.abspath(os.path.join(skill_path, normalized_rel))
+    
+    # If not found and doesn't already start with scripts/, try prepending scripts/
+    if not os.path.isfile(abs_path) and not normalized_rel.startswith("scripts/"):
+        alt_path = os.path.abspath(os.path.join(scripts_root, normalized_rel))
+        if os.path.isfile(alt_path):
+            abs_path = alt_path
+
+    # Security Check: Must stay inside scripts_root
     if not abs_path.startswith(scripts_root + os.sep) and abs_path != scripts_root:
-        raise ValueError("script_path must stay inside the skill's scripts directory")
+        raise ValueError(f"Security error: script_path '{normalized_rel}' must stay inside the skill's scripts directory")
+        
     if not os.path.isfile(abs_path):
-        raise FileNotFoundError(f"Script '{normalized_rel}' not found in skill '{skill_id}'")
+        raise FileNotFoundError(f"Script '{normalized_rel}' not found in skill '{skill_id}' (searched in scripts/ directory)")
+        
     return skill_path, abs_path
 
 

@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from starlette.responses import Response
 
 from ..providers import is_provider_supported
+from ._request_secrets import get_llm_api_key
 from ..services.generation import generate_title
 
 router = APIRouter(tags=["title"])
@@ -19,7 +20,7 @@ async def title(request: Request) -> Response:
     body = await request.json()
     provider = body.get("provider")
     message = body.get("message")
-    api_key = body.get("apiKey")
+    api_key = get_llm_api_key(request)
     base_url = body.get("baseUrl")
     model = body.get("model")
     user_timezone = body.get("userTimezone")

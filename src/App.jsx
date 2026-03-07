@@ -50,12 +50,7 @@ const isDeepResearchAgent = agent => agent?.isDeepResearch || agent?.is_deep_res
 
 const syncEmailMonitorProvider = async () => {
   try {
-    const settings = loadSettings()
-    const dbProvider = settings.databaseProviderId || settings.databaseProvider || ''
-    if (!dbProvider) return
-    const url = new URL(`${getBackendUrl()}/api/email/monitor/provider`)
-    url.searchParams.set('dbProvider', dbProvider)
-    await fetch(url.toString(), { method: 'POST' })
+    await fetch(`${getBackendUrl()}/api/email/monitor/provider`, { method: 'POST' })
   } catch (error) {
     console.warn('Failed to sync email monitor provider:', error)
   }
@@ -275,8 +270,8 @@ function App() {
   // Sync Remote Settings to Memory on Mount
   useEffect(() => {
     const syncRemoteSettings = async () => {
-      const localSettings = loadSettings()
-      const providerId = localSettings.databaseProviderId || localSettings.databaseProvider
+    const localSettings = loadSettings()
+      const providerId = localSettings.databaseProvider
       if (!providerId) return
 
       // Ensure client is initialized
@@ -309,7 +304,7 @@ function App() {
 
   useEffect(() => {
     const settings = loadSettings()
-    if (!settings.databaseProviderId) {
+    if (!settings.databaseProvider) {
       setIsDatabaseSetupOpen(true)
     }
   }, [location.pathname])

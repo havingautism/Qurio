@@ -14,6 +14,7 @@ from ..models.stream_chat import StreamChatRequest
 from ..services.stream_chat import get_stream_chat_service
 from ..services.tools import list_tools  # Imported list_tools
 from ..utils.sse import get_sse_config
+from ._request_secrets import apply_stream_secret_headers
 
 router = APIRouter(tags=["stream-chat"])
 
@@ -26,7 +27,6 @@ async def stream_chat(request: Request) -> Response:
     Request body:
     {
         "provider": "gemini" | "openai" | "openai_compatibility" | "siliconflow" | "glm" | "deepseek" | "volcengine" | "modelscope" | "kimi" | "nvidia" | "minimax",
-        "apiKey": "API key for the provider",
         "baseUrl": "Custom base URL (optional)",
         "model": "model-name" (optional),
         "messages": [...],
@@ -42,9 +42,16 @@ async def stream_chat(request: Request) -> Response:
         "contextTurns": 6 (optional),
         "toolIds": ["calculator", "local_time"] (optional),
         "searchProvider": "tavily" (optional),
-        "tavilyApiKey": "Tavily API key" (optional),
         "searchBackend": "auto|exa|duckduckgo|google|bing|brave|yandex|yahoo" (optional)
     }
+
+    Sensitive headers:
+    - x-llm-api-key
+    - x-tavily-api-key
+    - x-serpapi-api-key
+    - x-exa-api-key
+    - x-summary-api-key
+    - x-memory-api-key
 
     Response: Server-Sent Events stream
     - data: {"type":"text","content":"..."}
@@ -55,7 +62,7 @@ async def stream_chat(request: Request) -> Response:
     - data: {"type":"error","error":"..."}
     """
     # Parse request body
-    body = await request.json()
+    body = apply_stream_secret_headers(request, await request.json())
     stream_request = StreamChatRequest(**body)
     if not stream_request.user_id:
         stream_request.user_id = "default-user"

@@ -13,9 +13,8 @@ import {
   FileCheck,
   ArrowLeft,
   Settings,
-  GitBranch,
+  Github,
   ShieldAlert,
-  Download,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useTranslation } from 'react-i18next'
@@ -241,7 +240,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
   }
 
   /**
-   * Reads the selected provider + api_key from localStorage (set in Settings),
+   * Reads the selected provider + API key from current settings/session state,
 
    * calls POST /api/skills/generate, and on success refreshes the skill list.
    */
@@ -320,11 +319,13 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
     try {
       const res = await fetch(`${getBackendUrl()}/api/skills/generate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-llm-api-key': apiKey,
+        },
         body: JSON.stringify({
           prompt: aiPrompt.trim(),
           provider,
-          api_key: apiKey,
           base_url: creds.baseUrl,
           model,
         }),
@@ -1776,7 +1777,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                     </>
                   ) : (
                     <>
-                      <Download size={16} />
+                      <Github size={16} />
                       {t('agents.skills.gitImportBtn', 'Import from Git')}
                     </>
                   )}
@@ -1794,7 +1795,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                     setAiResult(null)
                     setAiPrompt('')
                   }}
-                  className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:from-violet-600 hover:to-purple-700 hover:shadow-md active:scale-95"
+                  className="bg-primary-500 hover:bg-primary-600 flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:shadow-md active:scale-95"
                 >
                   <Sparkles size={16} />
                   {t('agents.skills.aiGenerate', '✨ AI Generate')}
@@ -1806,7 +1807,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                   }}
                   className="flex items-center gap-2 rounded-xl border border-black/10 bg-black/5 px-4 py-2.5 text-sm font-medium text-gray-700 transition-all hover:bg-black/10 dark:border-white/10 dark:bg-white/5 dark:text-gray-200 dark:hover:bg-white/10"
                 >
-                  <GitBranch size={16} />
+                  <Github size={16} />
                   {t('agents.skills.gitImportAction', 'Import from Git')}
                 </button>
                 <button

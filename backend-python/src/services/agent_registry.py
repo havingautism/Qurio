@@ -274,7 +274,7 @@ def _has_skills(request: Any) -> bool:
     internal_skills_dir = os.path.join(os.path.dirname(__file__), '..', '_internal_skills')
     if os.path.isdir(internal_skills_dir):
         for item in os.listdir(internal_skills_dir):
-            if item in ("agent-memory", "skill-creator"):
+            if item in ("agent-memory", "skill-creator", "academic-research", "deep-research"):
                 continue
             if os.path.isdir(os.path.join(internal_skills_dir, item)):
                 return True
@@ -681,10 +681,10 @@ def build_agent(request: Any = None, **kwargs: Any) -> Agent:
             if os.path.isdir(am_path):
                 paths.append(am_path)
 
-        # Inject any other internal skills by default (except for agent-memory and skill-creator)
+        # Inject any other internal skills by default (except for specific non-autoloading skills)
         if os.path.isdir(internal_skills_dir):
             for item in os.listdir(internal_skills_dir):
-                if item in ("agent-memory", "skill-creator"):
+                if item in ("agent-memory", "skill-creator", "academic-research", "deep-research"):
                     continue
                 item_path = os.path.join(internal_skills_dir, item)
                 if os.path.isdir(item_path):
@@ -692,9 +692,13 @@ def build_agent(request: Any = None, **kwargs: Any) -> Agent:
 
         if requested_skills:
             for skill_id in requested_skills:
-                skill_path = os.path.join(skills_dir, skill_id)
-                if os.path.isdir(skill_path):
-                    paths.append(skill_path)
+                internal_skill_path = os.path.join(internal_skills_dir, skill_id)
+                external_skill_path = os.path.join(skills_dir, skill_id)
+                
+                if os.path.isdir(internal_skill_path):
+                    paths.append(internal_skill_path)
+                elif os.path.isdir(external_skill_path):
+                    paths.append(external_skill_path)
             
         if paths:
             skills = Skills(loaders=[LocalSkills(path) for path in paths])

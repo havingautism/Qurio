@@ -1066,7 +1066,7 @@ const Sidebar = ({
         {/* 1. Fixed Icon Strip */}
         <div
           className={clsx(
-            'no-scrollbar relative z-20 flex h-full w-18 flex-col items-center overflow-y-auto py-4',
+            'relative z-20 flex h-full w-18 flex-col items-center pt-4 pb-2',
             isScrapbookSidebarTheme
               ? glassTone(
                   'border-r border-white/8 bg-black/35 backdrop-blur-2xl',
@@ -1133,7 +1133,7 @@ const Sidebar = ({
           </div>
 
           {/* Nav Icons */}
-          <div className="flex w-full flex-col gap-3 px-1">
+          <div className="no-scrollbar flex min-h-0 w-full shrink flex-col gap-3 overflow-x-hidden overflow-y-auto px-1 pt-1 pb-2">
             {navItems.map(item => (
               <button
                 key={item.id}
@@ -1159,7 +1159,7 @@ const Sidebar = ({
                   if (!isMobile) setHoveredTab(item.id)
                 }}
                 className={clsx(
-                  'group relative flex cursor-pointer flex-col items-center justify-center overflow-hidden rounded-xl px-0 py-2.5 transition-all duration-300',
+                  'group relative flex shrink-0 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-xl px-0 py-2.5 transition-all duration-300',
                   activeTab === item.id
                     ? isScrapbookSidebarTheme
                       ? glassTone('text-primary-400 font-bold', 'text-primary-600 font-bold')
@@ -1215,7 +1215,7 @@ const Sidebar = ({
           <div className="flex-1" />
 
           {/* Bottom Action Buttons */}
-          <div className="flex flex-col items-center gap-2 py-2">
+          <div className="flex flex-col items-center gap-2 pt-2 pb-0">
             <button
               onClick={onToggleTheme}
               className={sidebarActionButtonClassName}

@@ -21,6 +21,8 @@ from agno.models.openai import OpenAILike
 from agno.utils.log import logger
 
 from ..config import get_settings
+from ..models.db import DbFilter, DbQueryRequest
+from .db_service import get_db_adapter
 from .custom_tools import (
     DuckDuckGoImageTools,
     DuckDuckGoVideoTools,
@@ -703,9 +705,24 @@ def build_agent(request: Any = None, **kwargs: Any) -> Agent:
         if paths:
             skills = Skills(loaders=[LocalSkills(path) for path in paths])
 
+    # Merge personalized prompt with tool-derived instructions
+    personalized = getattr(request, "personalized_prompt", None)
+    if personalized:
+        if instructions:
+            instructions = f"{personalized}\n\n{instructions}"
+        else:
+            instructions = personalized
+
+    # Use resolved agent name/description if available (for Team member identification)
+    agent_id = getattr(request, "agent_id", None) or f"qurio-{request.provider}"
+    agent_name = getattr(request, "agent_name", None) or f"Qurio {request.provider} Agent"
+    agent_description = getattr(request, "agent_description", None)
+
     return Agent(
-        id=f"qurio-{request.provider}",
-        name=f"Qurio {request.provider} Agent",
+        id=agent_id,
+        name=agent_name,
+        description=agent_description,
+        role=agent_description,
         model=model,
         tools=tools or None,
         markdown=True,
@@ -714,6 +731,135 @@ def build_agent(request: Any = None, **kwargs: Any) -> Agent:
         skills=skills,
     )
 
+
+
+# Mapping of provider to user_settings key for API keys
+_PROVIDER_KEY_MAP: dict[str, str] = {
+    "gemini": "googleApiKey",
+    "openai": "OpenAICompatibilityKey",
+    "openai_compatibility": "OpenAICompatibilityKey",
+    "siliconflow": "SiliconFlowKey",
+    "glm": "GlmKey",
+    "deepseek": "DeepSeekKey",
+    "volcengine": "VolcengineKey",
+    "modelscope": "ModelScopeKey",
+    "kimi": "KimiKey",
+    "nvidia": "NvidiaKey",
+    "minimax": "MinimaxKey",
+}
+
+
+def _get_provider_credentials(provider: str) -> tuple[str | None, str | None]:
+    """
+    Get API key and base URL for a provider.
+
+    Priority: user_settings table -> environment variables.
+    """
+    api_key: str | None = None
+    base_url = DEFAULT_BASE_URLS.get(provider)
+
+    # 1. Try to get API key from user_settings table
+    db_key = _PROVIDER_KEY_MAP.get(provider)
+    if db_key:
+        try:
+            adapter = get_db_adapter()
+            if adapter:
+                req = DbQueryRequest(
+                    action="select",
+                    table="user_settings",
+                    filters=[DbFilter(op="eq", column="key", value=db_key)],
+                    maybe_single=True,
+                )
+                result = adapter.execute(req)
+                if result.data:
+                    data = result.data
+                    if isinstance(data, list) and len(data) > 0:
+                        data = data[0]
+                    if isinstance(data, dict):
+                        api_key = data.get("value")
+        except Exception as e:
+            logger.debug(f"Failed to get API key from user_settings for {provider}: {e}")
+
+    # 2. Fallback to environment variables
+    if not api_key:
+        provider_upper = provider.upper().replace("-", "_")
+        api_key = os.getenv(f"{provider_upper}_API_KEY")
+
+    return api_key, base_url
+
+
+def resolve_agent_config(agent_id: str, base_request: Any) -> Any:
+    """Fetch agent configuration from database and merge with base request secrets."""
+    import copy
+    from types import SimpleNamespace
+
+    adapter = get_db_adapter()
+    if not adapter:
+        return base_request
+
+    try:
+        query_req = DbQueryRequest(
+            action="select",
+            table="agents",
+            filters=[DbFilter(op="eq", column="id", value=agent_id)],
+            maybe_single=True
+        )
+        response = adapter.execute(query_req)
+        if response.error:
+            logger.warning(f"[resolve_agent_config] DB error for agent_id={agent_id}: {response.error}")
+            return base_request
+        if not response.data:
+            logger.warning(f"[resolve_agent_config] No agent found with id={agent_id}")
+            return base_request
+
+        # Handle case where data might be a list or a single dict
+        agent_data = response.data
+        if isinstance(agent_data, list):
+            if len(agent_data) == 0:
+                return base_request
+            agent_data = agent_data[0]
+        new_req = copy.deepcopy(base_request)
+
+        # Override provider and get corresponding credentials from settings
+        agent_provider = agent_data.get("provider")
+        if agent_provider:
+            new_req.provider = agent_provider
+            # Get API key and base URL for this provider from environment
+            api_key, base_url = _get_provider_credentials(agent_provider)
+            if api_key:
+                new_req.api_key = api_key
+            if base_url:
+                new_req.base_url = base_url
+
+        new_req.model = agent_data.get("default_model") or base_request.model
+        new_req.tool_ids = agent_data.get("tool_ids") or []
+        new_req.skill_ids = agent_data.get("skill_ids") or []
+
+        # Handle instructions (personalized prompt)
+        # We'll store it in a custom attribute that build_agent can pick up
+        new_req.personalized_prompt = agent_data.get("prompt")
+
+        # Store agent name and description for proper identification in Teams
+        new_req.agent_id = agent_id  # Store the original agent_id
+        new_req.agent_name = agent_data.get("name")
+        new_req.agent_description = agent_data.get("description")
+        logger.info(f"[resolve_agent_config] Resolved agent: id={agent_id}, name={new_req.agent_name}, provider={agent_provider}")
+
+        # Override generation params if configured
+        if not agent_data.get("use_global_model_settings"):
+            if agent_data.get("temperature") is not None:
+                new_req.temperature = agent_data.get("temperature")
+            if agent_data.get("top_p") is not None:
+                new_req.top_p = agent_data.get("top_p")
+            if agent_data.get("frequency_penalty") is not None:
+                new_req.frequency_penalty = agent_data.get("frequency_penalty")
+            if agent_data.get("presence_penalty") is not None:
+                new_req.presence_penalty = agent_data.get("presence_penalty")
+
+        return new_req
+    except Exception as e:
+        logger.error(f"Failed to resolve agent config for {agent_id}: {e}")
+        return base_request
 
 
 def build_memory_agent(
@@ -759,3 +905,41 @@ def build_memory_agent(
 
 def get_agent_for_provider(request: Any) -> Agent:
     return build_agent(request)
+
+
+def build_team(request: Any, members: list[Agent]) -> Any:
+    """Build an Agno Team from a list of member agents."""
+    from agno.team import Team
+    from agno.team.mode import TeamMode
+
+    # Map requested team mode string to TeamMode enum
+    mode_str = getattr(request, "team_mode", "route")
+    try:
+        team_mode = TeamMode(mode_str)
+    except Exception:
+        team_mode = TeamMode.route
+
+    # Build a leader agent to inherit tools, skills, and personalised prompt
+    leader_agent = build_agent(request)
+
+    instructions = (
+        "You are the Team Leader coordinating a group of expert agents. "
+        "Analyze the user's request. Based on the expertise of your team members, "
+        "delegate sub-tasks or questions to them. Finally, synthesize and summarize their findings into a comprehensive response."
+    )
+
+    # Prepend leader's own instructions if they exist
+    if leader_agent.instructions:
+        instructions = f"{leader_agent.instructions}\n\n{instructions}"
+
+    return Team(
+        name="Expert Team",
+        members=members,
+        model=leader_agent.model,
+        tools=leader_agent.tools,
+        mode=team_mode,
+        instructions=instructions,
+        markdown=True,
+        stream_member_events=True,  # Ensure member events are streamed
+    )
+

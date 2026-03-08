@@ -254,6 +254,26 @@
     "noDeepResearchConversations": "No deep research conversations yet.",
     "noExpertConversations": "No expert conversations yet.",
     "noBookmarks": "No bookmarked conversations.",
+    "expertMode": {
+      "title": "Expert Mode",
+      "teamMode": "Team Mode",
+      "modes": {
+        "coordinate": "Coordinate",
+        "coordinateDesc": "All experts collaborate to solve the task via a lead agent.",
+        "route": "Route",
+        "routeDesc": "Route the task to the most appropriate expert for execution.",
+        "broadcast": "Broadcast",
+        "broadcastDesc": "Broadcast the task to all experts and consolidate responses.",
+        "tasks": "Sequential Tasks",
+        "tasksDesc": "Break down the task into a sequence of subtasks for specific experts."
+      },
+      "teamComposition": "Team Composition",
+      "leader": "Leader",
+      "member": "Member",
+      "addMember": "Add Member",
+      "noAgents": "No experts available in this space.",
+      "expertRole": "Expert Role"
+    },
     "today": "Today",
     "yesterday": "Yesterday",
     "previous7Days": "Previous 7 Days",

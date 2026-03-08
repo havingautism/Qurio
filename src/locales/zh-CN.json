@@ -237,6 +237,26 @@
     "noDeepResearchConversations": "暂无深度研究会话",
     "noExpertConversations": "暂无专家模式会话",
     "noBookmarks": "暂无收藏的对话。",
+    "expertMode": {
+      "title": "专家模式",
+      "teamMode": "协作模式",
+      "modes": {
+        "coordinate": "智能协作",
+        "coordinateDesc": "所有专家共同讨论并达成共识，适合需要深度协作的复杂问题。",
+        "route": "智能路由",
+        "routeDesc": "根据问题自动分配给最合适的专家，适合方向明确的专项任务。",
+        "broadcast": "并行响应",
+        "broadcastDesc": "所有专家同时独立作答并由组长汇总，适合全方位视角的探索。",
+        "tasks": "分步执行",
+        "tasksDesc": "将任务分解为有序序列由对应专家依次完成，适合强流程化的工作流。"
+      },
+      "teamComposition": "专家团队构成",
+      "leader": "组长 (Leader)",
+      "member": "专家 (Member)",
+      "addMember": "添加专家",
+      "noAgents": "该空间暂无专家可以分派。",
+      "expertRole": "专家角色"
+    },
     "today": "今天",
     "yesterday": "昨天",
     "previous7Days": "过去 7 天",

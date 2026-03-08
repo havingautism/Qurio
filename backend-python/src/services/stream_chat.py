@@ -19,6 +19,7 @@ from zoneinfo import ZoneInfo
 from agno.agent import Agent, RunEvent
 from agno.models.message import Message
 from agno.run.agent import RunOutput, ToolCallCompletedEvent, ToolCallStartedEvent
+from agno.run.team import TeamRunEvent
 from agno.utils.log import logger
 
 from ..models.stream_chat import (
@@ -32,7 +33,7 @@ from ..models.stream_chat import (
     ToolCallEvent,
     ToolResultEvent,
 )
-from .agent_registry import get_agent_for_provider
+from .agent_registry import get_agent_for_provider, build_team, resolve_agent_config
 from .hitl_storage import get_hitl_storage
 from .summary_service import update_session_summary
 from .tool_registry import resolve_tool_name
@@ -143,6 +144,28 @@ def _strip_inline_tool_protocol(
 
 def _squash_whitespace(text: Any) -> str:
     return re.sub(r"\s+", "", str(text or ""))
+
+
+def _extract_agent_info_from_event(run_event: Any) -> dict[str, str | None]:
+    """
+    Extract agent identification from a run event.
+
+    For Team mode, member events have agent_id and agent_name directly on the event.
+    If these are set, it's a member event; otherwise it's from the leader.
+
+    Returns:
+        dict with 'agent_id' and 'agent_name' keys (values may be None)
+    """
+    # Events from member agents have agent_id and agent_name set directly
+    agent_id = getattr(run_event, "agent_id", None)
+    agent_name = getattr(run_event, "agent_name", None)
+
+    if agent_id or agent_name:
+        logger.info(f"[TEAM] Member event detected: agent_id={agent_id}, agent_name={agent_name}")
+        return {"agent_id": agent_id, "agent_name": agent_name}
+
+    # This is a leader event (or single agent mode)
+    return {"agent_id": None, "agent_name": None}
 
 
 def _is_reasoning_duplicate_of_content(reasoning: str, content: str) -> bool:
@@ -636,6 +659,7 @@ def _build_tool_result_event(
     tool: Any,
     duration_ms: int | None,
     normalize_tool_output_fn: Any,
+    agent_info: dict[str, str | None] | None = None,
 ) -> tuple[dict[str, Any], Any]:
     """
     Build frontend ToolResultEvent payload and return parsed tool output.
@@ -647,20 +671,29 @@ def _build_tool_result_event(
         status="done" if not getattr(tool, "tool_call_error", None) else "error",
         output=output,
         durationMs=duration_ms,
-    ).model_dump()
+        agent_id=agent_info.get("agent_id") if agent_info else None,
+        agent_name=agent_info.get("agent_name") if agent_info else None,
+    ).model_dump(by_alias=True, exclude_none=True)
     return event, output
 
 
-def _build_tool_call_event(tool: Any, text_index: int, include_none: bool = False) -> dict[str, Any]:
+def _build_tool_call_event(
+    tool: Any,
+    text_index: int,
+    include_none: bool = False,
+    agent_info: dict[str, str | None] | None = None,
+) -> dict[str, Any]:
     payload = ToolCallEvent(
         id=getattr(tool, "tool_call_id", None),
         name=getattr(tool, "tool_name", "") or "",
         arguments=json.dumps(getattr(tool, "tool_args", None) or {}),
         text_index=text_index,
+        agent_id=agent_info.get("agent_id") if agent_info else None,
+        agent_name=agent_info.get("agent_name") if agent_info else None,
     )
     if include_none:
         return payload.model_dump(by_alias=True, exclude_none=False)
-    return payload.model_dump(by_alias=True)
+    return payload.model_dump(by_alias=True, exclude_none=True)
 
 
 def _normalize_interactive_form_fields(raw_fields: Any) -> list[dict[str, Any]]:
@@ -792,6 +825,10 @@ class StreamChatService:
                 yield event
             return
 
+        # Debug: Log request fields for expert mode
+        if request.expert_mode:
+            logger.info(f"[DEBUG] Expert mode request - leader_agent_id: {getattr(request, 'leader_agent_id', 'NOT_FOUND')}, team_agent_ids: {getattr(request, 'team_agent_ids', [])}")
+
         # ================================================================
         # Normal chat flow
         # ================================================================
@@ -803,7 +840,33 @@ class StreamChatService:
 
             # Enable skills for the definitive user-facing chat agent
             request.enable_skills = True
-            agent = get_agent_for_provider(request)
+
+            # Build standard agent or Team
+            if request.expert_mode and getattr(request, "team_agent_ids", []):
+                # Log leader configuration for debugging
+                logger.info(f"[TEAM] Building team - leader_agent_id: {getattr(request, 'leader_agent_id', None)}, team_agent_ids: {request.team_agent_ids}")
+
+                # 1. Resolve Leader Configuration if ID is provided
+                if getattr(request, "leader_agent_id", None):
+                    request = resolve_agent_config(request.leader_agent_id, request)
+                    logger.info(f"[TEAM] Leader resolved - agent_id: {getattr(request, 'agent_id', None)}, agent_name: {getattr(request, 'agent_name', None)}")
+
+                # 2. Resolve Member Agents
+                members = []
+                for a_id in request.team_agent_ids:
+                    import copy
+                    sub_req = copy.deepcopy(request)
+                    sub_req.expert_mode = False
+                    # Fetch actual member config from DB
+                    member_req = resolve_agent_config(a_id, sub_req)
+                    members.append(get_agent_for_provider(member_req))
+
+                # 3. Build the Team with resolved leader (request) and members
+                agent = build_team(request, members)
+                is_team_mode = True
+            else:
+                agent = get_agent_for_provider(request)
+                is_team_mode = False
             sources_map: dict[str, Any] = {}
             full_content = ""
             full_thought = ""
@@ -815,6 +878,8 @@ class StreamChatService:
             inline_tool_trace_depth = 0
             inline_protocol_tail = ""
             stream_trace = _is_stream_trace_enabled()
+            # Current agent info for Team mode (updated per event)
+            current_agent_info: dict[str, str | None] = {"agent_id": None, "agent_name": None}
 
             def trace_stream(stage: str, **kwargs: Any) -> None:
                 if not stream_trace:
@@ -833,7 +898,12 @@ class StreamChatService:
                 full_thought += text
                 trace_stream("emit_reasoning", reasoning_preview=_preview(text))
                 current_text_index = len(full_content)
-                yield ThoughtEvent(content=text, text_index=current_text_index).model_dump(by_alias=True, exclude_none=False)
+                yield ThoughtEvent(
+                    content=text,
+                    text_index=current_text_index,
+                    agent_id=current_agent_info.get("agent_id"),
+                    agent_name=current_agent_info.get("agent_name"),
+                ).model_dump(by_alias=True, exclude_none=True)
 
             def process_text(text: str):
                 nonlocal full_content, in_reasoning_phase, should_break_next_thought, reasoning_closed_for_current_cycle
@@ -845,7 +915,11 @@ class StreamChatService:
                         should_break_next_thought = True
                         reasoning_closed_for_current_cycle = True
                     full_content += clean_text
-                    yield TextEvent(content=clean_text).model_dump()
+                    yield TextEvent(
+                        content=clean_text,
+                        agent_id=current_agent_info.get("agent_id"),
+                        agent_name=current_agent_info.get("agent_name"),
+                    ).model_dump(by_alias=True, exclude_none=True)
 
             # Context management now handled by Agno's num_history_runs parameter
             messages = request.messages
@@ -1115,8 +1189,18 @@ class StreamChatService:
                 # ============================================================
                 # Check if this is a detailed event (from stream_events=True)
                 if hasattr(run_event, 'event'):
+                    # Extract agent info for Team mode (member vs leader identification)
+                    current_agent_info = _extract_agent_info_from_event(run_event)
+                    if current_agent_info.get("agent_name"):
+                        trace_stream(
+                            "member_event",
+                            agent_id=current_agent_info.get("agent_id"),
+                            agent_name=current_agent_info.get("agent_name"),
+                        )
+
                     match run_event.event:
-                        case RunEvent.run_content.value:
+                        # Handle both Agent RunEvent and Team TeamRunEvent for content streaming
+                        case RunEvent.run_content.value | TeamRunEvent.run_content:
                             raw_content_chunk = _extract_text_chunk(run_event)
                             raw_content_chunk, inline_tool_trace_depth, inline_protocol_tail, had_protocol = _strip_inline_tool_protocol(
                                 raw_content_chunk,
@@ -1187,7 +1271,7 @@ class StreamChatService:
                                     content_preview=_preview(content_chunk),
                                 )
 
-                        case RunEvent.reasoning_content_delta.value:
+                        case RunEvent.reasoning_content_delta.value | TeamRunEvent.reasoning_content_delta:
                             raw_content_chunk = _extract_text_chunk(run_event)
                             raw_content_chunk, inline_tool_trace_depth, inline_protocol_tail, had_protocol = _strip_inline_tool_protocol(
                                 raw_content_chunk,
@@ -1257,7 +1341,7 @@ class StreamChatService:
                                     content_preview=_preview(content_chunk),
                                 )
 
-                        case RunEvent.tool_call_started.value:
+                        case RunEvent.tool_call_started.value | TeamRunEvent.tool_call_started:
                             tool_event: ToolCallStartedEvent = run_event  # type: ignore[assignment]
                             tool = tool_event.tool
                             if tool:
@@ -1279,9 +1363,10 @@ class StreamChatService:
                                     tool,
                                     current_text_index,
                                     include_none=True,
+                                    agent_info=current_agent_info,
                                 )
 
-                        case RunEvent.tool_call_completed.value:
+                        case RunEvent.tool_call_completed.value | TeamRunEvent.tool_call_completed:
                             tool_event: ToolCallCompletedEvent = run_event  # type: ignore[assignment]
                             tool = tool_event.tool
                             if tool:
@@ -1304,11 +1389,12 @@ class StreamChatService:
                                     tool,
                                     duration_ms,
                                     self._normalize_tool_output,
+                                    agent_info=current_agent_info,
                                 )
                                 yield tool_result_event
                                 self._collect_search_sources(output, sources_map)
 
-                        case RunEvent.run_completed.value:
+                        case RunEvent.run_completed.value | TeamRunEvent.run_completed:
                             final_content, output = _extract_completed_content_and_output(
                                 run_event,
                                 full_content,
@@ -1361,7 +1447,7 @@ class StreamChatService:
 
                             return
 
-                        case RunEvent.run_error.value:
+                        case RunEvent.run_error.value | TeamRunEvent.run_error:
                             error_msg = _extract_best_error_message(run_event)
                             yield ErrorEvent(error=error_msg).model_dump()
                             return
@@ -1532,7 +1618,7 @@ class StreamChatService:
                 full_thought += text
                 trace_stream("emit_reasoning", reasoning_preview=_preview(text))
                 current_text_index = len(full_content)
-                yield ThoughtEvent(content=text, text_index=current_text_index).model_dump(by_alias=True)
+                yield ThoughtEvent(content=text, text_index=current_text_index).model_dump(by_alias=True, exclude_none=True)
 
             def process_text(text: str):
                 nonlocal full_content, in_reasoning_phase, should_break_next_thought, reasoning_closed_for_current_cycle
@@ -1544,7 +1630,7 @@ class StreamChatService:
                         should_break_next_thought = True
                         reasoning_closed_for_current_cycle = True
                     full_content += clean_text
-                    yield TextEvent(content=clean_text).model_dump()
+                    yield TextEvent(content=clean_text).model_dump(by_alias=True, exclude_none=True)
 
             async def _iterate_run_stream(stream: Any):
                 """

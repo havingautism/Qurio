@@ -536,8 +536,6 @@ CapsuleSettingsMenu.displayName = 'CapsuleSettingsMenu'
  * @param {Function} props.onSearchBackendChange - Called when a web search backend is chosen
  * @param {Function} props.onSearchClear - Called to clear search selections and close the menu
  * @param {Function} props.onSearchMenuClose - Called to close the search picker
- * @param {boolean} props.isExpertMode - Whether expert mode is enabled
- * @param {Function} props.onToggleExpertMode - Callback to toggle expert mode
  * @param {string|null} props.quotedText - Currently quoted text (or null)
  * @param {Function} props.onQuoteClear - Callback to clear quoted text
  * @param {Function} props.onSend - Callback to send message (text, attachments) => void
@@ -582,8 +580,6 @@ const ChatInputBar = React.memo(
     onSearchBackendChange,
     onSearchClear,
     onSearchMenuClose,
-    isExpertMode = false,
-    onToggleExpertMode,
     quotedText,
     onQuoteClear,
     onSend,

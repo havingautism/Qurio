@@ -800,6 +800,9 @@ export const streamChatViaBackend = async params => {
     memoryApiKey,
     memoryBaseUrl,
     isEditing,
+    expertMode,
+    teamMode,
+    teamAgentIds,
   } = params
 
   if (!provider) {
@@ -864,6 +867,9 @@ export const streamChatViaBackend = async params => {
           memoryModel,
           memoryBaseUrl,
           isEditing,
+          expertMode,
+          teamMode,
+          teamAgentIds,
         }),
         signal,
       },

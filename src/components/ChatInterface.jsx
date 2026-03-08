@@ -650,6 +650,9 @@ const ChatInterface = ({
 
     // Reset the sync tracking if we're switching to a different conversation
     if (targetConversationId !== lastSyncedConversationIdRef.current) {
+      // Clear expert mode when switching conversations
+      setIsExpertMode(false)
+
       // Check if the store's conversationId is different from the target
       if (targetConversationId && targetConversationId !== conversationId) {
         setConversationId(targetConversationId)
@@ -1660,7 +1663,9 @@ const ChatInterface = ({
       const thinkingActive =
         thinkingModeValue === 'deep' ? true : thinkingModeValue === 'fast' ? false : false
       const relatedActive = togglesOverride ? togglesOverride.related : isRelatedEnabled
-      const expertModeActive = togglesOverride ? togglesOverride.expertMode : isExpertMode
+      // Expert mode only applies to the first message (when togglesOverride is provided)
+      // Subsequent messages are normal conversation
+      const expertModeActive = togglesOverride?.expertMode ?? false
       const searchTool = togglesOverride ? togglesOverride.searchTool : resolvedSearchToolIds
       const searchBackendValue = togglesOverride ? togglesOverride.searchBackend : searchBackend
       const exaSearchCategoryValue =
@@ -1753,6 +1758,9 @@ const ChatInterface = ({
             thinking: thinkingActive,
             thinkingMode: thinkingModeValue,
             expertMode: expertModeActive,
+            teamMode: togglesOverride?.teamMode || null,
+            leaderAgentId: togglesOverride?.leaderAgentId || null,
+            memberAgentIds: togglesOverride?.memberAgentIds || null,
             related: relatedActive,
           },
           settings,
@@ -1813,7 +1821,6 @@ const ChatInterface = ({
       isSearchActive,
       thinkingMode,
       isRelatedEnabled,
-      isExpertMode,
       isLoading,
       editingIndex,
       editingTargetId,
@@ -2535,8 +2542,6 @@ const ChatInterface = ({
               onSearchClear={handleClearSearchSelection}
               onSearchMenuClose={handleSearchMenuClose}
               onThinkingModeChange={setThinkingMode}
-              isExpertMode={isExpertMode}
-              onToggleExpertMode={() => setIsExpertMode(prev => !prev)}
               quotedText={quotedText}
               onQuoteClear={() => {
                 setQuotedText(null)

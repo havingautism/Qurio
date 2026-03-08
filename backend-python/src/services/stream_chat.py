@@ -1395,17 +1395,28 @@ class StreamChatService:
                                 self._collect_search_sources(output, sources_map)
 
                         case RunEvent.run_completed.value | TeamRunEvent.run_completed:
+                            # Extract agent info to check if this is a member or leader
+                            event_agent_info = _extract_agent_info_from_event(run_event)
+                            is_member_completion = bool(event_agent_info.get("agent_id") or event_agent_info.get("agent_name"))
+
+                            # In Team Mode, only terminate when the LEADER (no agent_id on event) completes.
+                            # Member completions should just let the main loop continue.
+                            if is_team_mode and is_member_completion:
+                                logger.info(f"[TEAM] Member {event_agent_info.get('agent_name')} completed. Continuing stream...")
+                                continue
+
                             final_content, output = _extract_completed_content_and_output(
                                 run_event,
                                 full_content,
                             )
 
                             yield DoneEvent(
-                                content=final_content,
+                                content=final_content or "",
                                 output=output,
                                 thought=full_thought.strip() or None,
                                 sources=list(sources_map.values()) or None,
                             ).model_dump()
+                            
                             if request:
                                     asyncio.create_task(self._maybe_optimize_memories(agent, request))
 
@@ -1601,6 +1612,8 @@ class StreamChatService:
             last_event_name: str | None = None
             last_event_type: str | None = None
             last_event_run_id: str | None = None
+            # Current agent info for Team mode (updated per event)
+            current_agent_info: dict[str, str | None] = {"agent_id": None, "agent_name": None}
 
             def trace_stream(stage: str, **kwargs: Any) -> None:
                 if not stream_trace:
@@ -1618,7 +1631,12 @@ class StreamChatService:
                 full_thought += text
                 trace_stream("emit_reasoning", reasoning_preview=_preview(text))
                 current_text_index = len(full_content)
-                yield ThoughtEvent(content=text, text_index=current_text_index).model_dump(by_alias=True, exclude_none=True)
+                yield ThoughtEvent(
+                    content=text,
+                    text_index=current_text_index,
+                    agent_id=current_agent_info.get("agent_id"),
+                    agent_name=current_agent_info.get("agent_name"),
+                ).model_dump(by_alias=True, exclude_none=True)
 
             def process_text(text: str):
                 nonlocal full_content, in_reasoning_phase, should_break_next_thought, reasoning_closed_for_current_cycle
@@ -1630,7 +1648,11 @@ class StreamChatService:
                         should_break_next_thought = True
                         reasoning_closed_for_current_cycle = True
                     full_content += clean_text
-                    yield TextEvent(content=clean_text).model_dump(by_alias=True, exclude_none=True)
+                    yield TextEvent(
+                        content=clean_text,
+                        agent_id=current_agent_info.get("agent_id"),
+                        agent_name=current_agent_info.get("agent_name"),
+                    ).model_dump(by_alias=True, exclude_none=True)
 
             async def _iterate_run_stream(stream: Any):
                 """
@@ -1665,8 +1687,10 @@ class StreamChatService:
                     continuation_event_count += 1
                     last_event_type = type(run_event).__name__
                     last_event_name = str(getattr(run_event, "event", None) or last_event_type)
-                    raw_event_run_id = getattr(run_event, "run_id", None)
                     last_event_run_id = str(raw_event_run_id) if raw_event_run_id else None
+
+                    # Extract agent info for Team mode
+                    current_agent_info = _extract_agent_info_from_event(run_event)
 
                     # When yield_run_output=True, acontinue_run may yield the final RunOutput object.
                     # Capture its canonical content as a robust fallback for providers that emit sparse events.

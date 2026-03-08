@@ -270,7 +270,7 @@ function App() {
   // Sync Remote Settings to Memory on Mount
   useEffect(() => {
     const syncRemoteSettings = async () => {
-    const localSettings = loadSettings()
+      const localSettings = loadSettings()
       const providerId = localSettings.databaseProvider
       if (!providerId) return
 
@@ -1046,7 +1046,7 @@ function App() {
                     !location.pathname.includes('/scrapbook') &&
                     !location.pathname.includes('/library') &&
                     !location.pathname.includes('/agents') &&
-                    !location.pathname.includes('/spaces') &&
+                    !location.pathname.includes('/space') &&
                     !location.pathname.includes('/bookmarks') &&
                     !location.pathname.includes('/new_chat') && (
                       <div className="relative z-30 h-20 shrink-0 md:hidden">

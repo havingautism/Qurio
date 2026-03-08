@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+﻿import { useState, useEffect, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   X,
@@ -66,6 +66,12 @@ import {
   AGENT_BANNER_MODE_MANUAL,
   AGENT_BANNER_MODE_NONE,
 } from '../lib/agentAppearance'
+import {
+  MODAL_INPUT_CLASS,
+  MODAL_SELECT_TRIGGER_CLASS,
+  MODAL_TEXTAREA_CLASS,
+  MODAL_TEXTAREA_MONO_CLASS,
+} from '../lib/modalFieldStyles'
 
 // Personalization Constants
 const LLM_ANSWER_LANGUAGE_KEYS = [
@@ -308,10 +314,10 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
         let subGroupKey
         if (tool.type === 'mcp') {
           // Group by MCP server name
-          subGroupKey = tool.config?.serverName || 'Unknown Server'
+          subGroupKey = tool.config?.serverName || t('agents.tools.unknownServer')
         } else {
           // All HTTP tools in one group
-          subGroupKey = 'HTTP 自定义工具'
+          subGroupKey = t('agents.tools.httpCustomGroup')
         }
 
         if (!groups[category].subGroups[subGroupKey]) {
@@ -329,7 +335,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
       if (b === 'custom') return 1
       return 0
     })
-  }, [availableTools])
+  }, [availableTools, t])
 
   const getToolApiRequirement = tool => TOOL_API_REQUIREMENTS[String(tool?.name || '')] || null
   const isToolUnavailable = tool => {
@@ -597,9 +603,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
       }
       if (editingAgent) {
         const incomingToolIds = editingAgent?.toolIds || editingAgent?.tool_ids || []
-        setSelectedToolIds(
-          incomingToolIds.filter(id => !HIDDEN_AGENT_TOOL_IDS.has(String(id))),
-        )
+        setSelectedToolIds(incomingToolIds.filter(id => !HIDDEN_AGENT_TOOL_IDS.has(String(id))))
         setSelectedSkillIds(editingAgent?.skillIds || editingAgent?.skill_ids || [])
       }
       loadToolsList()
@@ -656,7 +660,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
           width: image.naturalWidth || image.width,
           height: image.naturalHeight || image.height,
         })
-      image.onerror = () => reject(new Error('Failed to load image'))
+      image.onerror = () => reject(new Error(t('agents.errors.loadImageFailed')))
       image.src = source
     })
 
@@ -696,7 +700,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
       })
       await openAvatarCropper(dataUrl)
     } catch (err) {
-      setError(err?.message || '头像图片处理失败')
+      setError(err?.message || t('agents.errors.avatarImageProcessFailed'))
     }
   }
 
@@ -713,7 +717,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
       })
       await openBannerCropper(dataUrl)
     } catch (err) {
-      setError(err?.message || 'Banner 图片处理失败')
+      setError(err?.message || t('agents.errors.bannerImageProcessFailed'))
     }
   }
 
@@ -748,7 +752,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
       setAvatarCropSource('')
       setAvatarCropMeta(null)
     } catch (err) {
-      setError(err?.message || '头像裁剪失败')
+      setError(err?.message || t('agents.errors.avatarCropFailed'))
     } finally {
       setIsAvatarCropping(false)
     }
@@ -788,7 +792,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
       setBannerCropSource('')
       setBannerCropMeta(null)
     } catch (err) {
-      setError(err?.message || 'Banner 裁剪失败')
+      setError(err?.message || t('agents.errors.bannerCropFailed'))
     } finally {
       setIsBannerCropping(false)
     }
@@ -1032,7 +1036,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
     <div className="relative flex flex-col gap-2">
       <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</label>
       <Select value={value} onValueChange={onChange} disabled={disabled}>
-        <SelectTrigger className="h-10 w-full border-none bg-black/5 disabled:bg-gray-50/20 dark:bg-white/5">
+        <SelectTrigger className={MODAL_SELECT_TRIGGER_CLASS}>
           <SelectValue>
             {options.find(o => (o.value || o) === value)?.label ||
               options.find(o => (o.value || o) === value) ||
@@ -1245,7 +1249,9 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
     } catch (err) {
       setDefaultTestState({
         status: 'error',
-        message: t('agents.model.testFailed', { message: err?.message || 'Unknown error' }),
+        message: t('agents.model.testFailed', {
+          message: err?.message || t('agents.errors.unknownError'),
+        }),
       })
     }
   }
@@ -1276,7 +1282,9 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
     } catch (err) {
       setLiteTestState({
         status: 'error',
-        message: t('agents.model.testFailed', { message: err?.message || 'Unknown error' }),
+        message: t('agents.model.testFailed', {
+          message: err?.message || t('agents.errors.unknownError'),
+        }),
       })
     }
   }
@@ -1321,7 +1329,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
               </label>
 
               {/* Desktop: Inline Segmented Control */}
-              <div className="hidden rounded-lg border-none bg-black/5 p-0.5 sm:flex dark:bg-white/5">
+              <div className="hidden rounded-[18px] bg-black/5 p-1 sm:flex dark:bg-white/5">
                 <button
                   type="button"
                   disabled={disabled}
@@ -1331,9 +1339,9 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     if (!existsInList) onChange('')
                   }}
                   className={clsx(
-                    'rounded-md px-3 py-1 text-xs font-medium transition-all',
+                    'inline-flex h-9 items-center justify-center rounded-[14px] px-3.5 text-xs font-medium transition-all',
                     modelSource === 'list'
-                      ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-gray-100'
+                      ? 'bg-white/90 text-gray-900 shadow-[0_1px_3px_rgba(15,23,42,0.08)] dark:bg-white/10 dark:text-gray-100'
                       : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300',
                     disabled && 'cursor-not-allowed opacity-60',
                   )}
@@ -1350,9 +1358,9 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     onChange(nextValue)
                   }}
                   className={clsx(
-                    'rounded-md px-3 py-1 text-xs font-medium transition-all',
+                    'inline-flex h-9 items-center justify-center rounded-[14px] px-3.5 text-xs font-medium transition-all',
                     modelSource === 'custom'
-                      ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-gray-100'
+                      ? 'bg-white/90 text-gray-900 shadow-[0_1px_3px_rgba(15,23,42,0.08)] dark:bg-white/10 dark:text-gray-100'
                       : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300',
                     disabled && 'cursor-not-allowed opacity-60',
                   )}
@@ -1377,7 +1385,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
             </div>
 
             {/* Mobile: Full Width Segmented Control */}
-            <div className="flex w-full rounded-lg border-none bg-black/5 p-1 sm:hidden dark:bg-white/5">
+            <div className="flex w-full rounded-[18px] bg-black/5 p-1 sm:hidden dark:bg-white/5">
               <button
                 type="button"
                 disabled={disabled}
@@ -1387,9 +1395,9 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   if (!existsInList) onChange('')
                 }}
                 className={clsx(
-                  'flex-1 rounded-md py-1.5 text-xs font-medium transition-all',
+                  'inline-flex h-9 flex-1 items-center justify-center rounded-[14px] text-xs font-medium transition-all',
                   modelSource === 'list'
-                    ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-gray-100'
+                    ? 'bg-white/90 text-gray-900 shadow-[0_1px_3px_rgba(15,23,42,0.08)] dark:bg-white/10 dark:text-gray-100'
                     : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300',
                   disabled && 'cursor-not-allowed opacity-60',
                 )}
@@ -1406,9 +1414,9 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   onChange(nextValue)
                 }}
                 className={clsx(
-                  'flex-1 rounded-md py-1.5 text-xs font-medium transition-all',
+                  'inline-flex h-9 flex-1 items-center justify-center rounded-[14px] text-xs font-medium transition-all',
                   modelSource === 'custom'
-                    ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-gray-100'
+                    ? 'bg-white/90 text-gray-900 shadow-[0_1px_3px_rgba(15,23,42,0.08)] dark:bg-white/10 dark:text-gray-100'
                     : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300',
                   disabled && 'cursor-not-allowed opacity-60',
                 )}
@@ -1464,7 +1472,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   }}
                   disabled={disabled || !providers.length}
                 >
-                  <SelectTrigger className="h-10 w-full">
+                  <SelectTrigger className={MODAL_SELECT_TRIGGER_CLASS}>
                     <SelectValue>
                       {resolvedProvider ? (
                         <div className="flex items-center gap-3">
@@ -1505,7 +1513,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   onValueChange={val => onChange(val === '__none__' ? '' : val)}
                   disabled={disabled || (!activeModels.length && !allowEmpty)}
                 >
-                  <SelectTrigger className="h-10 w-full">
+                  <SelectTrigger className={MODAL_SELECT_TRIGGER_CLASS}>
                     <SelectValue placeholder={t('agents.model.notSelected')}>
                       <div className="flex items-center gap-2 truncate">
                         {getModelIcon(value) && (
@@ -1569,7 +1577,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     onChange(nextValue)
                   }}
                   placeholder={t('agents.model.customPlaceholder')}
-                  className="focus:ring-primary-500/20 w-full rounded-lg border-none bg-black/5 px-3 py-2 text-sm text-gray-700 focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:bg-white/5 dark:text-gray-200"
+                  className={MODAL_INPUT_CLASS}
                 />
               )}
             </div>
@@ -1643,7 +1651,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
             }}
             placeholder={t('agents.advanced.auto')}
             disabled={!isEnabled}
-            className="focus:ring-primary-500/20 focus:border-primary-500 h-10 w-20 rounded-lg border-none bg-black/5 px-3 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 disabled:opacity-40 dark:bg-white/5 dark:text-gray-100 dark:placeholder-zinc-600"
+            className={`${MODAL_INPUT_CLASS} w-20`}
           />
         </div>
       </div>
@@ -1664,9 +1672,10 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
       : description
   const previewProviderId = provider || defaultModelProvider || 'gemini'
   const previewProvider = getProvider(previewProviderId)
-  const previewProviderLabel = previewProvider?.name || previewProviderId || 'Provider'
+  const previewProviderLabel =
+    previewProvider?.name || previewProviderId || t('agents.preview.providerFallback')
   const previewProviderFallback = previewProviderLabel
-  const previewModel = defaultModel || 'Default model'
+  const previewModel = defaultModel || t('agents.preview.defaultModelFallback')
   const previewAgent = {
     emoji,
     avatarType,
@@ -1675,19 +1684,34 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
     name: displayName,
   }
   const compactSegmentGroupClassName =
-    'grid grid-cols-2 gap-1 rounded-lg bg-black/5 p-0.5 dark:bg-white/5'
+    'grid grid-cols-2 gap-1 rounded-xl bg-black/5 p-1 dark:bg-white/5'
   const compactSegmentButtonClassName =
-    'rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors'
+    'inline-flex h-10 items-center justify-center rounded-lg px-3.5 text-[13px] font-medium transition-all'
   const compactActionButtonClassName =
     'inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-black/10 bg-white/85 px-3.5 text-[13px] font-medium text-gray-700 shadow-[0_1px_3px_rgba(15,23,42,0.08)] transition-all hover:bg-white hover:text-gray-900 hover:shadow-[0_4px_10px_rgba(15,23,42,0.12)] disabled:cursor-not-allowed disabled:opacity-50 sm:justify-start dark:border-white/10 dark:bg-white/5 dark:text-gray-200 dark:hover:bg-white/10'
   const compactDangerButtonClassName =
     'inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3.5 text-[13px] font-medium text-red-600 shadow-[0_1px_3px_rgba(220,38,38,0.12)] transition-all hover:bg-red-100 hover:text-red-700 hover:shadow-[0_4px_10px_rgba(220,38,38,0.18)] disabled:cursor-not-allowed disabled:opacity-50 sm:justify-start dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-900/30'
-  const bannerActionButtonClassName = `${compactActionButtonClassName} md:h-9 md:gap-1.5 md:rounded-lg md:px-3 md:text-xs`
-  const bannerDangerButtonClassName = `${compactDangerButtonClassName} md:h-9 md:gap-1.5 md:rounded-lg md:px-3 md:text-xs`
-
+  const bannerActionButtonClassName = compactActionButtonClassName
+  const bannerDangerButtonClassName = compactDangerButtonClassName
+  const tabItems = [
+    { id: 'general', icon: Settings, description: t('agents.tabDescriptions.general') },
+    { id: 'model', icon: Box, description: t('agents.tabDescriptions.model') },
+    {
+      id: 'personalization',
+      icon: User,
+      description: t('agents.tabDescriptions.personalization'),
+    },
+    { id: 'tools', icon: Wrench, description: t('agents.tabDescriptions.tools') },
+    { id: 'skills', icon: GraduationCap, description: t('agents.tabDescriptions.skills') },
+  ]
+  const activeTabMeta = tabItems.find(item => item.id === activeTab) || tabItems[0]
+  const responseLanguageOptions = LLM_ANSWER_LANGUAGE_KEYS.map(value => ({
+    value,
+    label: t(`agents.personalization.languageOptions.${value}`, value),
+  }))
   return (
-    <div className="fixed inset-0 z-100 flex items-start justify-center overflow-y-auto bg-black/50 p-0 backdrop-blur-sm md:items-center md:overflow-hidden md:p-4">
-      <div className="glass-elite-panel flex h-dvh w-full flex-col overflow-hidden rounded-none border-0 md:h-[85vh] md:max-w-4xl md:flex-row md:rounded-3xl">
+    <div className="fixed inset-0 z-200 flex items-start justify-center overflow-y-auto bg-black/50 p-0 backdrop-blur-sm md:items-center md:overflow-hidden md:p-4">
+      <div className="glass-elite-panel flex h-dvh w-full flex-col overflow-hidden rounded-none border-0 md:h-[88vh] md:max-w-[1440px] md:flex-row md:rounded-[28px]">
         {/* Mobile Header */}
         <div className="flex h-14 shrink-0 items-center justify-between border-b border-black/5 bg-transparent px-4 md:hidden dark:border-white/5">
           <h3 className="text-base font-semibold text-gray-900 dark:text-white">
@@ -1702,30 +1726,24 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
         </div>
 
         {/* Sidebar / Tabs */}
-        <div className="no-scrollbar flex w-full shrink-0 flex-row gap-2 overflow-x-auto border-b border-black/5 bg-transparent px-1 py-1 sm:px-4 sm:py-4 md:w-64 md:flex-col md:overflow-visible md:border-r md:border-b-0 dark:border-white/5">
-          <h2 className="mb-0 hidden px-2 text-xl font-bold text-gray-900 md:mb-6 md:block dark:text-white">
+        <div className="no-scrollbar flex w-full shrink-0 flex-row gap-2 overflow-x-auto border-b border-black/5 bg-transparent px-2 py-2 sm:px-4 sm:py-4 md:w-[280px] md:flex-col md:overflow-visible md:border-r md:border-b-0 md:px-4 md:py-5 dark:border-white/5">
+          <h2 className="mb-0 hidden px-2 text-[2rem] font-semibold text-gray-900 md:mb-6 md:block dark:text-white">
             {editingAgent ? t('agents.modal.edit') : t('agents.modal.create')}
           </h2>
           <nav className="flex w-full flex-row gap-1 md:w-auto md:flex-col">
-            {[
-              { id: 'general', icon: Settings },
-              { id: 'model', icon: Box },
-              { id: 'personalization', icon: User },
-              { id: 'tools', icon: Wrench },
-              { id: 'skills', icon: GraduationCap },
-            ].map(item => (
+            {tabItems.map(item => (
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
                 className={clsx(
-                  'flex h-10 items-center gap-1 rounded-xl px-3.5 py-2 text-sm font-semibold whitespace-nowrap transition-all sm:gap-3',
+                  'flex min-h-10 items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium whitespace-nowrap transition-all sm:gap-3 md:min-h-11 md:px-3.5',
                   activeTab === item.id
-                    ? 'text-primary-700 dark:text-primary-300 bg-white/85 shadow-[0_4px_12px_rgba(15,23,42,0.08)] ring-1 ring-black/5 dark:bg-white/12 dark:ring-white/10'
-                    : 'text-gray-600 hover:bg-white/65 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/8 dark:hover:text-white',
+                    ? 'bg-black/6 text-gray-950 dark:bg-white/10 dark:text-white'
+                    : 'text-gray-500 hover:bg-black/4 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/6 dark:hover:text-white',
                 )}
               >
-                <item.icon size={18} />
-                {t(`agents.tabs.${item.id}`)}
+                <item.icon size={17} className="shrink-0" />
+                <span className="truncate">{t(`agents.tabs.${item.id}`)}</span>
               </button>
             ))}
           </nav>
@@ -1733,43 +1751,53 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
 
         {/* Content Area */}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-transparent">
-          {/* Desktop Header */}
-          {/* <div className="h-16 border-b border-gray-200 dark:border-zinc-800 hidden md:flex items-center justify-between px-6 sm:px-8">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white capitalize">
-              {activeTab}
-            </h3>
-            <button
-              onClick={onClose}
-              className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-500 transition-colors"
-            >
-              <X size={20} />
-            </button>
-          </div> */}
+          <div className="hidden border-b border-black/5 px-4 py-5 sm:block sm:px-10 dark:border-white/5">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <h3 className="mt-2 text-4xl font-semibold tracking-tight text-gray-900 dark:text-white">
+                  {t(`agents.tabs.${activeTabMeta.id}`)}
+                </h3>
+                <p className="mt-2 max-w-3xl text-sm leading-7 text-gray-500 dark:text-gray-400">
+                  {activeTabMeta.description}
+                </p>
+              </div>
+              <button
+                onClick={onClose}
+                className="hidden rounded-full p-2 text-gray-500 transition-colors hover:bg-black/5 md:block dark:hover:bg-white/10"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            {(error || modelsError) && (
+              <div className="mt-4 rounded-2xl border border-red-200/80 bg-red-50/90 px-4 py-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
+                {error || modelsError}
+              </div>
+            )}
+          </div>
 
-          {/* Scrollable Content */}
           <div
-            className="no-scrollbar modal-content-scrollbar min-h-0 flex-1 overflow-y-auto px-4 py-4 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] sm:px-8 sm:py-8"
+            className="no-scrollbar modal-content-scrollbar min-h-0 flex-1 overflow-y-auto px-4 py-5 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] sm:px-10 sm:py-8"
             style={{ scrollbarGutter: 'stable' }}
           >
             {activeTab === 'general' && (
-              <div className="flex min-h-full flex-col gap-6">
+              <div className="flex min-h-full flex-col gap-10">
                 <div className="flex flex-col gap-2">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    头像设置
+                  <label className="mb-2 text-[1.75rem] font-semibold tracking-tight text-gray-900 dark:text-white">
+                    {t('agents.general.avatarSettings')}
                   </label>
-                  <div className="rounded-2xl border border-black/5 bg-black/[0.03] p-3 sm:p-4 dark:border-white/5 dark:bg-white/[0.03]">
+                  <div className="border-t border-black/5 pt-6 dark:border-white/5">
                     <div className="flex flex-col gap-4">
-                      <div className="flex items-start gap-3 sm:gap-4">
+                      <div className="grid gap-3 sm:grid-cols-[auto_minmax(0,1fr)] sm:gap-4">
                         <AgentAvatar
                           agent={{ emoji, avatarType, avatarImage, avatarShape, name: displayName }}
                           size="4rem"
-                          className="shrink-0 border border-black/8 bg-white/70 shadow-sm sm:h-[4.5rem] sm:w-[4.5rem] dark:border-white/10 dark:bg-white/5"
+                          className="shrink-0 self-start border border-black/8 bg-white/70 shadow-sm sm:h-[4.5rem] sm:w-[4.5rem] dark:border-white/10 dark:bg-white/5"
                         />
-                        <div className="min-w-0 flex-1 rounded-xl border border-black/5 bg-white/35 px-3 py-2 dark:border-white/5 dark:bg-white/[0.03]">
-                          <div className="grid gap-2 sm:grid-cols-2">
-                            <div>
-                              <div className="mb-1.5 text-[11px] font-medium text-gray-500 dark:text-gray-400">
-                                类型
+                        <div className="min-w-0">
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <div className="space-y-2">
+                              <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                {t('agents.general.avatarType')}
                               </div>
                               <div className={compactSegmentGroupClassName}>
                                 <button
@@ -1779,12 +1807,12 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                   className={clsx(
                                     compactSegmentButtonClassName,
                                     avatarType === AGENT_AVATAR_TYPE_EMOJI
-                                      ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-white'
+                                      ? 'bg-white/90 text-gray-900 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:bg-white/10 dark:text-white'
                                       : 'text-gray-500 dark:text-gray-400',
                                     isEmojiLocked && 'cursor-not-allowed opacity-50',
                                   )}
                                 >
-                                  Emoji
+                                  {t('agents.general.avatarTypeEmoji')}
                                 </button>
                                 <button
                                   type="button"
@@ -1793,18 +1821,18 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                   className={clsx(
                                     compactSegmentButtonClassName,
                                     avatarType === AGENT_AVATAR_TYPE_IMAGE
-                                      ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-white'
+                                      ? 'bg-white/90 text-gray-900 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:bg-white/10 dark:text-white'
                                       : 'text-gray-500 dark:text-gray-400',
                                     isEmojiLocked && 'cursor-not-allowed opacity-50',
                                   )}
                                 >
-                                  图片
+                                  {t('agents.general.avatarTypeImage')}
                                 </button>
                               </div>
                             </div>
-                            <div>
-                              <div className="mb-1.5 text-[11px] font-medium text-gray-500 dark:text-gray-400">
-                                形状
+                            <div className="space-y-2">
+                              <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                {t('agents.general.avatarShape')}
                               </div>
                               <div className={compactSegmentGroupClassName}>
                                 <button
@@ -1814,12 +1842,12 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                   className={clsx(
                                     compactSegmentButtonClassName,
                                     avatarShape === AGENT_AVATAR_SHAPE_ROUNDED
-                                      ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-white'
+                                      ? 'bg-white/90 text-gray-900 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:bg-white/10 dark:text-white'
                                       : 'text-gray-500 dark:text-gray-400',
                                     isEmojiLocked && 'cursor-not-allowed opacity-50',
                                   )}
                                 >
-                                  圆角方形
+                                  {t('agents.general.avatarShapeRounded')}
                                 </button>
                                 <button
                                   type="button"
@@ -1828,12 +1856,12 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                   className={clsx(
                                     compactSegmentButtonClassName,
                                     avatarShape === AGENT_AVATAR_SHAPE_CIRCLE
-                                      ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-white'
+                                      ? 'bg-white/90 text-gray-900 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:bg-white/10 dark:text-white'
                                       : 'text-gray-500 dark:text-gray-400',
                                     isEmojiLocked && 'cursor-not-allowed opacity-50',
                                   )}
                                 >
-                                  圆形
+                                  {t('agents.general.avatarShapeCircle')}
                                 </button>
                               </div>
                             </div>
@@ -1851,14 +1879,14 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                             onChange={e => setName(e.target.value)}
                             placeholder={t('agents.general.namePlaceholder')}
                             disabled={isGeneralLocked}
-                            className="focus:ring-primary-500/20 h-10 flex-1 rounded-lg border-none bg-black/5 px-4 py-2 text-sm focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50/20 disabled:opacity-50 dark:bg-white/5"
+                            className={MODAL_INPUT_CLASS}
                           />
                         </div>
 
                         {avatarType === AGENT_AVATAR_TYPE_EMOJI ? (
                           <div className="flex flex-col gap-2">
                             <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                              Emoji 头像
+                              {t('agents.general.emojiAvatar')}
                             </label>
                             <div className="relative inline-block w-full sm:w-fit">
                               <button
@@ -1875,7 +1903,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                 )}
                               >
                                 {/* <AgentAvatar agent={{ emoji }} size="1.6rem" /> */}
-                                <span>选择 Emoji</span>
+                                <span>{t('agents.general.chooseEmoji')}</span>
                               </button>
                               {showEmojiPicker && (
                                 <div
@@ -1896,9 +1924,9 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                         ) : (
                           <div className="flex flex-col gap-2">
                             <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                              图片头像
+                              {t('agents.general.imageAvatar')}
                             </label>
-                            <div className="grid gap-2 sm:flex sm:flex-wrap sm:items-center">
+                            <div className="flex flex-wrap items-center gap-2">
                               <button
                                 type="button"
                                 disabled={isEmojiLocked}
@@ -1906,7 +1934,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                 className={compactActionButtonClassName}
                               >
                                 <Upload size={16} />
-                                上传图片
+                                {t('agents.general.uploadImage')}
                               </button>
                               {avatarImage && (
                                 <>
@@ -1920,7 +1948,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                     }
                                     className={compactActionButtonClassName}
                                   >
-                                    重新裁剪
+                                    {t('agents.general.recrop')}
                                   </button>
                                   <button
                                     type="button"
@@ -1932,7 +1960,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                     className={compactDangerButtonClassName}
                                   >
                                     <Trash2 size={16} />
-                                    移除
+                                    {t('agents.general.remove')}
                                   </button>
                                 </>
                               )}
@@ -1945,7 +1973,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                               onChange={handleAvatarUpload}
                             />
                             <p className="text-xs text-gray-500 dark:text-gray-400">
-                              上传后可裁剪为 1:1 头像，并选择圆形或圆角方形外框。
+                              {t('agents.general.avatarHelp')}
                             </p>
                           </div>
                         )}
@@ -1955,147 +1983,158 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                 </div>
 
                 <div className="flex flex-col gap-2">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <label className="mb-2 text-[1.75rem] font-semibold tracking-tight text-gray-900 dark:text-white">
                     {t('agents.general.description')}
                   </label>
-                  <textarea
-                    value={displayDescription}
-                    onChange={e => setDescription(e.target.value)}
-                    placeholder={t('agents.general.descriptionPlaceholder')}
-                    disabled={isGeneralLocked}
-                    rows={2}
-                    className="focus:ring-primary-500/20 w-full resize-none rounded-lg border-none bg-black/5 px-4 py-2 text-sm focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50/20 disabled:opacity-50 dark:bg-white/5"
-                  />
+                  <div className="border-t border-black/5 pt-6 dark:border-white/5">
+                    <input
+                      value={displayDescription}
+                      onChange={e => setDescription(e.target.value)}
+                      placeholder={t('agents.general.descriptionPlaceholder')}
+                      disabled={isGeneralLocked}
+                      className={MODAL_INPUT_CLASS}
+                    />
+                  </div>
                 </div>
 
                 <div className="flex flex-col gap-2">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    会话 Banner
+                  <label className="mb-2 text-[1.75rem] font-semibold tracking-tight text-gray-900 dark:text-white">
+                    {t('agents.general.bannerTitle')}
                   </label>
-                  <div className="rounded-2xl border border-black/5 bg-black/[0.03] p-3 sm:p-4 dark:border-white/5 dark:bg-white/[0.03]">
-                    <div className="grid gap-4 lg:grid-cols-[minmax(0,0.86fr)_minmax(0,1.14fr)] lg:items-start">
-                      <div className="space-y-3">
-                        <div className="rounded-xl border border-black/5 bg-white/35 px-3 py-2 dark:border-white/5 dark:bg-white/[0.03]">
-                          <div className="mb-1.5 text-[11px] font-medium tracking-[0.12em] text-gray-500 uppercase dark:text-gray-400">
-                            展示方式
-                          </div>
-                          <div className={compactSegmentGroupClassName}>
-                            {[
-                              { value: AGENT_BANNER_MODE_NONE, label: '关闭' },
-                              { value: AGENT_BANNER_MODE_MANUAL, label: '手动' },
-                            ].map(option => (
-                              <button
-                                key={option.value}
-                                type="button"
-                                disabled={isDeepResearchAgent}
-                                onClick={() => setBannerMode(option.value)}
-                                className={clsx(
-                                  compactSegmentButtonClassName,
-                                  bannerMode === option.value
-                                    ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-white'
-                                    : 'bg-black/5 text-gray-500 dark:bg-white/5 dark:text-gray-400',
-                                  isDeepResearchAgent && 'cursor-not-allowed opacity-50',
-                                )}
-                              >
-                                {option.label}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                        <p className="text-xs leading-5 text-gray-500 dark:text-gray-400">
-                          普通会话顶部按 Notion 风格展示。当前只支持手动上传 Banner。
-                        </p>
-                        {bannerMode === AGENT_BANNER_MODE_MANUAL && (
-                          <div className="grid gap-1.5 sm:flex sm:flex-wrap sm:items-center">
-                            <button
-                              type="button"
-                              disabled={isDeepResearchAgent}
-                              onClick={() => bannerInputRef.current?.click()}
-                              className={bannerActionButtonClassName}
-                            >
-                              <Upload size={16} />
-                              选择 Banner
-                            </button>
-                            {bannerImage && (
-                              <>
+                  <div className="border-t border-black/5 pt-6 dark:border-white/5">
+                    <div className="rounded-xl border border-black/5 bg-black/[0.03] p-4 dark:border-white/5 dark:bg-white/[0.03]">
+                      <div className="grid gap-4 lg:grid-cols-[minmax(0,0.86fr)_minmax(0,1.14fr)] lg:items-start">
+                        <div className="space-y-3">
+                          <div className="space-y-2">
+                            <div className="text-sm font-medium text-gray-900 dark:text-white">
+                              {t('agents.general.bannerDisplayMode')}
+                            </div>
+                            <div className={compactSegmentGroupClassName}>
+                              {[
+                                {
+                                  value: AGENT_BANNER_MODE_NONE,
+                                  label: t('agents.general.bannerModeNone'),
+                                },
+                                {
+                                  value: AGENT_BANNER_MODE_MANUAL,
+                                  label: t('agents.general.bannerModeManual'),
+                                },
+                              ].map(option => (
                                 <button
+                                  key={option.value}
                                   type="button"
                                   disabled={isDeepResearchAgent}
-                                  onClick={() =>
-                                    openBannerCropper(bannerImage).catch(err =>
-                                      setError(err.message),
-                                    )
-                                  }
-                                  className={bannerActionButtonClassName}
+                                  onClick={() => setBannerMode(option.value)}
+                                  className={clsx(
+                                    compactSegmentButtonClassName,
+                                    bannerMode === option.value
+                                      ? 'bg-white/90 text-gray-900 shadow-[0_1px_3px_rgba(15,23,42,0.08)] dark:bg-white/10 dark:text-white'
+                                      : 'text-gray-500 dark:text-gray-400',
+                                    isDeepResearchAgent && 'cursor-not-allowed opacity-50',
+                                  )}
                                 >
-                                  重新裁剪
+                                  {option.label}
                                 </button>
-                                <button
-                                  type="button"
-                                  disabled={isDeepResearchAgent}
-                                  onClick={() => setIsBannerPreviewOpen(true)}
-                                  className={bannerActionButtonClassName}
-                                >
-                                  <Eye size={16} />
-                                  预览效果
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={isDeepResearchAgent}
-                                  onClick={() => {
-                                    setBannerImage('')
-                                    setIsBannerPreviewOpen(false)
-                                  }}
-                                  className={bannerDangerButtonClassName}
-                                >
-                                  <Trash2 size={16} />
-                                  移除 Banner
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        )}
-                        <input
-                          ref={bannerInputRef}
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={handleBannerUpload}
-                        />
-                      </div>
-                      <div>
-                        {bannerImage ? (
-                          <div className="overflow-hidden rounded-[24px] border border-black/8 bg-white/70 dark:border-white/10 dark:bg-white/[0.04]">
-                            <div style={{ aspectRatio: String(AGENT_BANNER_ASPECT_RATIO) }}>
-                              <img
-                                src={bannerImage}
-                                alt="Banner 原图"
-                                className="h-full w-full object-cover"
-                              />
+                              ))}
                             </div>
                           </div>
-                        ) : (
-                          <div className="flex min-h-36 items-center justify-center rounded-[24px] border border-dashed border-black/10 bg-white/30 px-5 text-center text-sm text-gray-500 dark:border-white/10 dark:bg-white/[0.02] dark:text-gray-400">
-                            选择一张常驻显示的会话 Banner
-                          </div>
-                        )}
+                          <p className="text-xs leading-5 text-gray-500 dark:text-gray-400">
+                            {t('agents.general.bannerHelp')}
+                          </p>
+                          {bannerMode === AGENT_BANNER_MODE_MANUAL && (
+                            <div className="grid gap-1.5 sm:flex sm:flex-wrap sm:items-center">
+                              <button
+                                type="button"
+                                disabled={isDeepResearchAgent}
+                                onClick={() => bannerInputRef.current?.click()}
+                                className={bannerActionButtonClassName}
+                              >
+                                <Upload size={16} />
+                                {t('agents.general.selectBanner')}
+                              </button>
+                              {bannerImage && (
+                                <>
+                                  <button
+                                    type="button"
+                                    disabled={isDeepResearchAgent}
+                                    onClick={() =>
+                                      openBannerCropper(bannerImage).catch(err =>
+                                        setError(err.message),
+                                      )
+                                    }
+                                    className={bannerActionButtonClassName}
+                                  >
+                                    {t('agents.general.recrop')}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={isDeepResearchAgent}
+                                    onClick={() => setIsBannerPreviewOpen(true)}
+                                    className={bannerActionButtonClassName}
+                                  >
+                                    <Eye size={16} />
+                                    {t('agents.general.previewBanner')}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={isDeepResearchAgent}
+                                    onClick={() => {
+                                      setBannerImage('')
+                                      setIsBannerPreviewOpen(false)
+                                    }}
+                                    className={bannerDangerButtonClassName}
+                                  >
+                                    <Trash2 size={16} />
+                                    {t('agents.general.removeBanner')}
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          )}
+                          <input
+                            ref={bannerInputRef}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handleBannerUpload}
+                          />
+                        </div>
+                        <div>
+                          {bannerImage ? (
+                            <div className="overflow-hidden rounded-[24px] border border-black/8 bg-white/70 dark:border-white/10 dark:bg-white/[0.04]">
+                              <div style={{ aspectRatio: String(AGENT_BANNER_ASPECT_RATIO) }}>
+                                <img
+                                  src={bannerImage}
+                                  alt={t('agents.general.bannerImageAlt')}
+                                  className="h-full w-full object-cover"
+                                />
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex min-h-36 items-center justify-center rounded-[24px] border border-dashed border-black/10 bg-white/30 px-5 text-center text-sm text-gray-500 dark:border-white/10 dark:bg-white/[0.02] dark:text-gray-400">
+                              {t('agents.general.bannerEmpty')}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
 
                 <div className="flex min-h-[16rem] flex-1 flex-col gap-2">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <label className="mb-2 text-[1.75rem] font-semibold tracking-tight text-gray-900 dark:text-white">
                     {t('agents.general.systemPrompt')}
                   </label>
-                  <textarea
-                    value={prompt}
-                    onChange={e => setPrompt(e.target.value)}
-                    placeholder={t('agents.general.systemPromptPlaceholder')}
-                    rows={8}
-                    disabled={isDeepResearchAgent}
-                    className="focus:ring-primary-500/20 min-h-[16rem] w-full flex-1 resize-y rounded-xl border-none bg-black/5 px-4 py-3 text-sm leading-6 focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50/20 disabled:opacity-50 dark:bg-white/5"
-                  />
+                  <div className="border-t border-black/5 pt-6 dark:border-white/5">
+                    <textarea
+                      value={prompt}
+                      onChange={e => setPrompt(e.target.value)}
+                      placeholder={t('agents.general.systemPromptPlaceholder')}
+                      rows={8}
+                      disabled={isDeepResearchAgent}
+                      className={`min-h-[16rem] flex-1 resize-y leading-6 ${MODAL_TEXTAREA_MONO_CLASS}`}
+                    />
+                  </div>
                 </div>
               </div>
             )}
@@ -2206,9 +2245,6 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     })}
                   </>
                 )}
-                {/* {(error || modelsError) && (
-                  <div className="mt-4 text-sm text-red-500">{error || modelsError}</div>
-                )} */}
               </div>
             )}
 
@@ -2225,7 +2261,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   t('settings.respondLanguage'),
                   responseLanguage,
                   setResponseLanguage,
-                  LLM_ANSWER_LANGUAGE_KEYS,
+                  responseLanguageOptions,
                   isResponseLanguageOpen,
                   setIsResponseLanguageOpen,
                   responseLanguageRef,
@@ -2335,7 +2371,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     onChange={e => setCustomInstruction(e.target.value)}
                     placeholder={t('settings.customInstructionPlaceholder')}
                     rows={3}
-                    className="focus:ring-primary-500/20 w-full resize-none rounded-lg border-none bg-black/5 px-4 py-2 text-sm focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:bg-white/5"
+                    className={MODAL_TEXTAREA_CLASS}
                   />
                 </div>
 
@@ -2790,9 +2826,11 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
           <div className="w-full max-w-2xl rounded-[28px] border border-white/10 bg-white/95 p-5 shadow-2xl dark:bg-zinc-950/95">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h4 className="text-lg font-semibold text-gray-900 dark:text-white">裁剪头像</h4>
+                <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  {t('agents.crop.avatarTitle')}
+                </h4>
                 <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                  调整缩放和位置，输出为 1:1 头像。
+                  {t('agents.crop.avatarDescription')}
                 </p>
               </div>
               <button
@@ -2829,7 +2867,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                 >
                   <img
                     src={avatarCropSource}
-                    alt="Avatar crop source"
+                    alt={t('agents.crop.avatarSourceAlt')}
                     className="pointer-events-none absolute max-w-none select-none"
                     style={{
                       width: avatarPreviewLayout.renderedWidth,
@@ -2844,7 +2882,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
 
               <div className="flex min-w-0 flex-1 flex-col gap-4">
                 <label className="flex flex-col gap-2 text-sm text-gray-700 dark:text-gray-300">
-                  缩放
+                  {t('agents.crop.zoom')}
                   <input
                     type="range"
                     min="1"
@@ -2871,7 +2909,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   />
                 </label>
                 <label className="flex flex-col gap-2 text-sm text-gray-700 dark:text-gray-300">
-                  水平位置
+                  {t('agents.crop.horizontal')}
                   <input
                     type="range"
                     min={-avatarPreviewLayout.maxOffsetX}
@@ -2886,7 +2924,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   />
                 </label>
                 <label className="flex flex-col gap-2 text-sm text-gray-700 dark:text-gray-300">
-                  垂直位置
+                  {t('agents.crop.vertical')}
                   <input
                     type="range"
                     min={-avatarPreviewLayout.maxOffsetY}
@@ -2901,7 +2939,13 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   />
                 </label>
                 <div className="rounded-2xl border border-black/5 bg-black/[0.03] px-4 py-3 text-xs text-gray-500 dark:border-white/5 dark:bg-white/[0.03] dark:text-gray-400">
-                  当前头像框：{avatarShape === AGENT_AVATAR_SHAPE_CIRCLE ? '圆形' : '圆角方形'}
+                  {t('agents.crop.avatarFrameLabel', {
+                    shape: t(
+                      avatarShape === AGENT_AVATAR_SHAPE_CIRCLE
+                        ? 'agents.general.avatarShapeCircle'
+                        : 'agents.general.avatarShapeRounded',
+                    ),
+                  })}
                 </div>
               </div>
             </div>
@@ -2915,7 +2959,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                 }}
                 className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-black/5 dark:text-gray-400 dark:hover:bg-white/10"
               >
-                取消
+                {t('agents.actions.cancel')}
               </button>
               <button
                 type="button"
@@ -2923,7 +2967,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                 disabled={isAvatarCropping}
                 className="bg-primary-500 hover:bg-primary-600 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors disabled:opacity-50"
               >
-                {isAvatarCropping ? '处理中...' : '应用裁剪'}
+                {isAvatarCropping ? t('agents.actions.processing') : t('agents.crop.applyAvatar')}
               </button>
             </div>
           </div>
@@ -2934,9 +2978,11 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
           <div className="w-full max-w-6xl rounded-[28px] border border-white/10 bg-white/95 p-5 shadow-2xl dark:bg-zinc-950/95">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Banner 预览</h4>
+                <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  {t('agents.preview.bannerPreviewTitle')}
+                </h4>
                 <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                  对比桌面端与移动端的实际会话显示效果。
+                  {t('agents.preview.bannerPreviewDescription')}
                 </p>
               </div>
               <button
@@ -2951,14 +2997,14 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
             <div className="mt-5 grid gap-4 lg:grid-cols-2">
               <section className="rounded-2xl border border-black/8 bg-black/[0.03] p-4 dark:border-white/10 dark:bg-white/[0.03]">
                 <div className="mb-2 text-xs font-semibold tracking-[0.08em] text-gray-500 uppercase dark:text-gray-400">
-                  桌面端
+                  {t('agents.preview.desktop')}
                 </div>
                 <div className="rounded-xl bg-slate-100 p-3 dark:bg-zinc-900">
                   <AgentBannerSurface
                     imageSrc={bannerImage}
-                    imageAlt={displayName || 'Agent banner'}
+                    imageAlt={displayName || t('agents.preview.bannerImageFallback')}
                     agent={previewAgent}
-                    displayName={displayName || 'Agent'}
+                    displayName={displayName || t('agents.preview.agentFallback')}
                     providerId={previewProviderId}
                     providerLabel={previewProviderLabel}
                     providerFallback={previewProviderFallback}
@@ -2968,15 +3014,15 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
               </section>
               <section className="rounded-2xl border border-black/8 bg-black/[0.03] p-4 dark:border-white/10 dark:bg-white/[0.03]">
                 <div className="mb-2 text-xs font-semibold tracking-[0.08em] text-gray-500 uppercase dark:text-gray-400">
-                  移动端
+                  {t('agents.preview.mobile')}
                 </div>
                 <div className="rounded-xl bg-slate-100 px-2 py-4 dark:bg-zinc-900">
                   <div className="mx-auto w-full max-w-[390px]">
                     <AgentBannerSurface
                       imageSrc={bannerImage}
-                      imageAlt={displayName || 'Agent banner'}
+                      imageAlt={displayName || t('agents.preview.bannerImageFallback')}
                       agent={previewAgent}
-                      displayName={displayName || 'Agent'}
+                      displayName={displayName || t('agents.preview.agentFallback')}
                       providerId={previewProviderId}
                       providerLabel={previewProviderLabel}
                       providerFallback={previewProviderFallback}
@@ -2994,9 +3040,11 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
           <div className="w-full max-w-5xl rounded-[28px] border border-white/10 bg-white/95 p-5 shadow-2xl dark:bg-zinc-950/95">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h4 className="text-lg font-semibold text-gray-900 dark:text-white">裁剪 Banner</h4>
+                <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  {t('agents.crop.bannerTitle')}
+                </h4>
                 <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                  调整横幅构图，预览中会显示信息卡遮挡后的最终效果。
+                  {t('agents.crop.bannerDescription')}
                 </p>
               </div>
               <button
@@ -3031,11 +3079,11 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   }}
                 >
                   <AgentBannerSurface
-                    imageAlt="Banner crop source"
+                    imageAlt={t('agents.crop.bannerSourceAlt')}
                     backgroundNode={
                       <img
                         src={bannerCropSource}
-                        alt="Banner crop source"
+                        alt={t('agents.crop.bannerSourceAlt')}
                         className="pointer-events-none absolute max-w-none select-none"
                         style={{
                           width: bannerPreviewLayout.renderedWidth,
@@ -3047,7 +3095,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                       />
                     }
                     agent={previewAgent}
-                    displayName={displayName || 'Agent'}
+                    displayName={displayName || t('agents.preview.agentFallback')}
                     providerId={previewProviderId}
                     providerLabel={previewProviderLabel}
                     providerFallback={previewProviderFallback}
@@ -3060,7 +3108,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
 
               <div className="flex min-w-0 flex-1 flex-col gap-4">
                 <label className="flex flex-col gap-2 text-sm text-gray-700 dark:text-gray-300">
-                  缩放
+                  {t('agents.crop.zoom')}
                   <input
                     type="range"
                     min="1"
@@ -3087,7 +3135,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   />
                 </label>
                 <label className="flex flex-col gap-2 text-sm text-gray-700 dark:text-gray-300">
-                  水平位置
+                  {t('agents.crop.horizontal')}
                   <input
                     type="range"
                     min={-bannerPreviewLayout.maxOffsetX}
@@ -3102,7 +3150,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   />
                 </label>
                 <label className="flex flex-col gap-2 text-sm text-gray-700 dark:text-gray-300">
-                  垂直位置
+                  {t('agents.crop.vertical')}
                   <input
                     type="range"
                     min={-bannerPreviewLayout.maxOffsetY}
@@ -3117,8 +3165,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   />
                 </label>
                 <div className="rounded-2xl border border-black/5 bg-black/[0.03] px-4 py-3 text-xs text-gray-500 dark:border-white/5 dark:bg-white/[0.03] dark:text-gray-400">
-                  可以直接拖拽图片调整构图。横幅会按会话中的 Banner
-                  信息卡样式进行展示，左下角会保留信息区空间。
+                  {t('agents.crop.bannerHint')}
                 </div>
               </div>
             </div>
@@ -3132,7 +3179,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                 }}
                 className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-black/5 dark:text-gray-400 dark:hover:bg-white/10"
               >
-                取消
+                {t('agents.actions.cancel')}
               </button>
               <button
                 type="button"
@@ -3140,7 +3187,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                 disabled={isBannerCropping}
                 className="bg-primary-500 hover:bg-primary-600 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors disabled:opacity-50"
               >
-                {isBannerCropping ? '处理中...' : '应用裁剪'}
+                {isBannerCropping ? t('agents.actions.processing') : t('agents.crop.applyBanner')}
               </button>
             </div>
           </div>

@@ -27,6 +27,12 @@ import { fetchMcpToolsViaBackend } from '../lib/backendClient'
 import { getBackendUrl } from '../lib/settings'
 import clsx from 'clsx'
 import { useTranslation } from 'react-i18next'
+import {
+  MODAL_INPUT_CLASS,
+  MODAL_INPUT_WITH_ICON_CLASS,
+  MODAL_SELECT_TRIGGER_CLASS,
+  MODAL_TEXTAREA_CLASS,
+} from '../lib/modalFieldStyles'
 
 const ToolsModal = ({ isOpen, onClose }) => {
   const { t } = useTranslation()
@@ -604,29 +610,42 @@ const ToolsModal = ({ isOpen, onClose }) => {
   if (!isOpen) return null
 
   const showForm = isCreating || editingTool || isEditingServerUrl
+  const detailTitle = isEditingServerUrl
+    ? t('customTools.mcp.updateServerUrl')
+    : showForm
+      ? isCreating
+        ? t('customTools.createTitle')
+        : t('customTools.editTitle')
+      : t('customTools.selectTool')
+  const detailDescription = isEditingServerUrl
+    ? t('customTools.mcp.updateUrlTooltip')
+    : showForm
+      ? isCreating
+        ? t('customTools.create')
+        : t('customTools.editTitle')
+      : t('customTools.searchPlaceholder')
 
   return (
-    <div className="animate-in fade-in fixed inset-0 z-100 flex items-center justify-center bg-black/60 backdrop-blur-sm duration-200 md:p-4">
-      <div className="glass-elite-panel relative flex h-dvh w-full flex-col overflow-hidden border-0 md:h-[85vh] md:max-w-5xl md:flex-row md:rounded-3xl">
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 z-30 rounded-full bg-gray-100/50 p-2 text-gray-500 backdrop-blur-sm transition-colors hover:bg-gray-200 dark:bg-zinc-800/50 dark:hover:bg-zinc-700"
-        >
-          <X size={20} />
-        </button>
-
+    <div className="animate-in fade-in fixed inset-0 z-200 flex items-center justify-center bg-black/60 backdrop-blur-sm duration-200 md:p-4">
+      <div className="glass-elite-panel relative flex h-dvh w-full flex-col overflow-hidden border-0 md:h-[88vh] md:max-w-[1440px] md:flex-row md:rounded-[28px]">
         {/* LEFT PANE: List */}
         <div
           className={clsx(
-            'flex h-full w-full shrink-0 flex-col border-r border-gray-200 bg-gray-50/50 md:w-80 dark:border-zinc-800 dark:bg-zinc-900/50',
+            'flex h-full w-full shrink-0 flex-col border-r border-black/5 bg-transparent md:w-[320px] dark:border-white/5',
             showForm ? 'hidden md:flex' : 'flex',
           )}
         >
-          <div className="mt-8 flex flex-col gap-4 border-b border-gray-200 p-6 md:mt-0 dark:border-zinc-800">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+          <div className="mt-8 flex flex-col gap-4 border-b border-black/5 px-4 py-5 md:mt-0 dark:border-white/5">
+            <div className="flex items-center justify-between px-2">
+              <h2 className="text-[2rem] font-semibold tracking-tight text-gray-900 dark:text-white">
                 {t('customTools.title')}
               </h2>
+              <button
+                onClick={onClose}
+                className="absolute top-5 right-4 rounded-full p-2 text-gray-500 transition-colors hover:bg-black/5 sm:hidden dark:hover:bg-white/10"
+              >
+                <X size={20} />
+              </button>
             </div>
             <div className="group relative">
               <Search
@@ -638,7 +657,7 @@ const ToolsModal = ({ isOpen, onClose }) => {
                 placeholder={t('customTools.searchPlaceholder')}
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="focus:ring-primary-500/20 focus:border-primary-500/50 w-full rounded-xl border-none bg-black/5 py-2 pr-4 pl-9 text-sm transition-all focus:ring-2 focus:outline-none dark:bg-white/5"
+                className={MODAL_INPUT_WITH_ICON_CLASS}
               />
             </div>
             <button
@@ -787,7 +806,7 @@ const ToolsModal = ({ isOpen, onClose }) => {
             !showForm && 'hidden md:flex',
           )}
         >
-          <div className="z-10 flex h-16 shrink-0 items-center justify-between border-b border-black/5 bg-transparent px-4 sm:px-8 dark:border-white/5">
+          <div className="relative z-10 shrink-0 border-b border-black/5 bg-transparent px-4 py-5 sm:px-10 dark:border-white/5">
             <div className="flex items-center gap-3">
               {showForm && (
                 <button
@@ -802,15 +821,12 @@ const ToolsModal = ({ isOpen, onClose }) => {
                 </button>
               )}
               <div className="flex flex-col">
-                <h3 className="font-bold text-gray-900 dark:text-white">
-                  {isEditingServerUrl
-                    ? t('customTools.mcp.updateServerUrl')
-                    : showForm
-                      ? isCreating
-                        ? t('customTools.createTitle')
-                        : t('customTools.editTitle')
-                      : t('customTools.selectTool')}
+                <h3 className="mt-2 text-4xl font-semibold tracking-tight text-gray-900 dark:text-white">
+                  {detailTitle}
                 </h3>
+                <p className="mt-2 text-sm leading-7 text-gray-500 dark:text-gray-400">
+                  {detailDescription}
+                </p>
                 {isEditingServerUrl && (
                   <span className="mt-0.5 font-mono text-[10px] text-gray-500 dark:text-gray-400">
                     {editingServerUrl}
@@ -818,12 +834,18 @@ const ToolsModal = ({ isOpen, onClose }) => {
                 )}
               </div>
             </div>
+            <button
+              onClick={onClose}
+              className="absolute top-5 right-4 hidden rounded-full p-2 text-gray-500 transition-colors hover:bg-black/5 md:block dark:hover:bg-white/10"
+            >
+              <X size={20} />
+            </button>
           </div>
 
           {showForm ? (
             <div className="flex min-h-0 flex-1 flex-col">
-              <div className="no-scrollbar flex-1 overflow-y-auto px-4 py-4 sm:px-8 sm:py-8">
-                <div className="mx-auto max-w-2xl space-y-8">
+              <div className="no-scrollbar flex-1 overflow-y-auto px-4 py-5 sm:px-10 sm:py-8">
+                <div className="w-full space-y-8">
                   {/* Edit Server URL Mode */}
                   {isEditingServerUrl ? (
                     <>
@@ -1487,7 +1509,6 @@ const ToolsModal = ({ isOpen, onClose }) => {
                       onClick={handleSave}
                       className="bg-primary-500 flex cursor-pointer items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-all hover:opacity-90"
                     >
-                      <Save size={16} />
                       {isCreating ? t('customTools.form.save') : t('customTools.form.saveChanges')}
                     </button>
                   </>
@@ -1502,7 +1523,7 @@ const ToolsModal = ({ isOpen, onClose }) => {
               <h3 className="mb-1 text-lg font-medium text-gray-900 dark:text-gray-100">
                 {t('customTools.selectTool')}
               </h3>
-              <p className="mx-auto max-w-xs text-sm">{t('customTools.selectToolHelp')}</p>
+              <p className="max-w-md text-sm">{t('customTools.selectToolHelp')}</p>
             </div>
           )}
         </div>
@@ -1520,7 +1541,7 @@ const CustomSelect = ({ value, onChange, options, renderLabel }) => {
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="focus:ring-primary-500/20 group flex w-full items-center justify-between rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-2.5 text-center font-mono text-sm transition-all focus:ring-2 focus:outline-none md:text-left dark:border-zinc-800 dark:bg-zinc-900"
+        className={`${MODAL_SELECT_TRIGGER_CLASS} group flex items-center justify-between text-center font-mono md:text-left`}
       >
         <span>{getLabel(value)}</span>
         <div className="rounded bg-gray-200 p-0.5 dark:bg-zinc-700">
@@ -1541,7 +1562,7 @@ const CustomSelect = ({ value, onChange, options, renderLabel }) => {
                   setIsOpen(false)
                 }}
                 className={clsx(
-                  'w-full px-3 py-2 text-left font-mono text-sm transition-colors hover:bg-gray-50 dark:hover:bg-zinc-700',
+                  'w-full rounded-md px-3 py-2 text-left font-mono text-sm transition-colors hover:bg-black/5 dark:hover:bg-white/5',
                   value === option &&
                     'text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20',
                 )}
@@ -1573,12 +1594,7 @@ const FormInput = ({ label, value, onChange, placeholder, type = 'text', icon, r
           onChange={e => onChange(e.target.value)}
           placeholder={placeholder}
           rows={rows || 3}
-          className={clsx(
-            'w-full resize-none rounded-xl border-none bg-black/5 px-4 py-2.5 text-sm transition-all disabled:bg-gray-50/10 dark:bg-white/5',
-            'focus:ring-primary-500/20 focus:border-primary-500/50 focus:ring-2 focus:outline-none',
-            'placeholder:text-gray-400 dark:placeholder:text-zinc-600',
-            icon && 'pl-11',
-          )}
+          className={clsx(MODAL_TEXTAREA_CLASS, icon && 'pl-11')}
         />
       ) : (
         <input
@@ -1586,12 +1602,7 @@ const FormInput = ({ label, value, onChange, placeholder, type = 'text', icon, r
           value={value}
           onChange={e => onChange(e.target.value)}
           placeholder={placeholder}
-          className={clsx(
-            'w-full rounded-xl border-none bg-black/5 px-4 py-2.5 text-sm transition-all disabled:bg-gray-50/10 dark:bg-white/5',
-            'focus:ring-primary-500/20 focus:border-primary-500/50 focus:ring-2 focus:outline-none',
-            'placeholder:text-gray-400 dark:placeholder:text-zinc-600',
-            icon && 'pl-11',
-          )}
+          className={clsx(MODAL_INPUT_CLASS, icon && 'pl-11')}
         />
       )}
     </div>

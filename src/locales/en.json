@@ -342,6 +342,7 @@
   },
   "settings": {
     "title": "Settings",
+    "sectionLabel": "Settings",
     "modelConfig": "Model Configuration",
     "modelConfigDesc": "Configure AI models for Scrapbook tasks like summarization and title generation.",
     "selectFromList": "Select from list",
@@ -447,6 +448,17 @@
       "email": "Email",
       "advanced": "Advanced",
       "about": "About"
+    },
+    "menuDescriptions": {
+      "general": "Manage core app configuration, language, and service connections.",
+      "model": "Configure chat, embedding, and provider-specific model selection.",
+      "chat": "Tune how conversations behave, including suggestions and context handling.",
+      "memory": "Set up long-term memory, embeddings, and retrieval testing.",
+      "interface": "Adjust theme, density, and interface-level display preferences.",
+      "account": "Manage remote sync, credentials, and database-related account settings.",
+      "email": "Connect mailboxes and control notification sync behavior.",
+      "advanced": "Developer-facing and lower-level runtime options.",
+      "about": "View product information, version details, and supporting links."
     },
     "interfaceLanguage": "Interface Language",
     "interfaceLanguageHint": "Only English and Chinese are supported right now.",
@@ -854,6 +866,9 @@
       "create": "Create Agent",
       "edit": "Edit Agent"
     },
+    "sidebarDescription": "Configure identity, models, response behavior, tool access, and skills from one place.",
+    "sectionLabel": "Configuration",
+    "overviewLabel": "Overview",
     "tabs": {
       "general": "General",
       "model": "Model",
@@ -861,14 +876,53 @@
       "tools": "Tools",
       "skills": "Skills"
     },
+    "tabDescriptions": {
+      "general": "Define the agent's identity, visual surface, and system instructions.",
+      "model": "Choose the production and lightweight models the agent relies on.",
+      "personalization": "Shape tone, language, and advanced generation behavior.",
+      "tools": "Control which tools this agent can call during execution.",
+      "skills": "Attach reusable skills that extend this agent's workflow."
+    },
     "general": {
       "avatar": "Avatar",
+      "avatarSettings": "Identity and Avatar",
+      "avatarType": "Type",
+      "avatarTypeEmoji": "Emoji",
+      "avatarTypeImage": "Image",
+      "avatarShape": "Shape",
+      "avatarShapeRounded": "Rounded square",
+      "avatarShapeCircle": "Circle",
+      "emojiAvatar": "Emoji Avatar",
+      "imageAvatar": "Image Avatar",
+      "chooseEmoji": "Choose Emoji",
+      "uploadImage": "Upload Image",
+      "recrop": "Re-crop",
+      "remove": "Remove",
+      "avatarHelp": "Upload an image, crop it to 1:1, and choose a circular or rounded frame.",
       "name": "Name",
       "namePlaceholder": "Agent name",
       "description": "Description",
       "descriptionPlaceholder": "Brief description of your agent",
+      "bannerTitle": "Conversation Banner",
+      "bannerDisplayMode": "Display mode",
+      "bannerModeNone": "Off",
+      "bannerModeManual": "Manual",
+      "bannerHelp": "A persistent top banner for normal conversations, inspired by Notion's cover treatment. Manual upload is supported for now.",
+      "selectBanner": "Select Banner",
+      "previewBanner": "Preview",
+      "removeBanner": "Remove Banner",
+      "bannerImageAlt": "Banner source image",
+      "bannerEmpty": "Choose a banner image that stays visible across the conversation.",
+      "designPrinciplesLabel": "Layout Logic",
+      "designPrinciplesTitle": "A cleaner editor, organized around decisions instead of fields.",
+      "designPrinciplesBody": "The primary surface summarizes the agent first, then groups settings into identity, appearance, and instruction blocks so the configuration feels predictable.",
       "systemPrompt": "System Prompt",
       "systemPromptPlaceholder": "You are a helpful assistant..."
+    },
+    "generalHighlights": {
+      "identity": "Clarify role, name, and positioning before tuning anything else.",
+      "appearance": "Keep avatar and banner decisions lightweight but visually consistent.",
+      "instructions": "Use the system prompt for durable behavioral rules, not temporary requests."
     },
     "defaults": {
       "name": "Default Agent",
@@ -935,6 +989,7 @@
     "actions": {
       "delete": "Delete Agent",
       "cancel": "Cancel",
+      "processing": "Processing...",
       "saving": "Saving...",
       "save": "Save Agent",
       "create": "Create Agent"
@@ -942,9 +997,11 @@
     "tools": {
       "title": "Tool Access",
       "hint": "Select which local tools this agent can call.",
+      "httpCustomGroup": "HTTP Custom Tools",
       "apiRequiredHint": "Requires {{provider}} API key in Settings.",
       "loading": "Loading tools...",
       "empty": "No tools available.",
+      "unknownServer": "Unknown Server",
       "categories": {
         "math": "Math",
         "time": "Time",
@@ -962,7 +1019,57 @@
       "nameDuplicate": "An agent with this name already exists"
     },
     "errors": {
-      "saveFailed": "Failed to save agent"
+      "saveFailed": "Failed to save agent",
+      "loadImageFailed": "Failed to load image.",
+      "unknownError": "Unknown error",
+      "avatarImageProcessFailed": "Failed to process avatar image.",
+      "bannerImageProcessFailed": "Failed to process banner image.",
+      "avatarCropFailed": "Failed to crop avatar.",
+      "bannerCropFailed": "Failed to crop banner."
+    },
+    "preview": {
+      "untitled": "Untitled agent",
+      "emptyDescription": "Add a short summary so users can immediately understand what this agent is for.",
+      "identity": "Identity",
+      "surface": "Surface",
+      "banner": "Banner",
+      "bannerPreviewTitle": "Banner Preview",
+      "bannerPreviewDescription": "Compare how the conversation banner reads on desktop and mobile layouts.",
+      "desktop": "Desktop",
+      "mobile": "Mobile",
+      "providerFallback": "Provider",
+      "defaultModelFallback": "Default model",
+      "agentFallback": "Agent",
+      "bannerImageFallback": "Agent banner"
+    },
+    "crop": {
+      "avatarTitle": "Crop Avatar",
+      "avatarDescription": "Adjust scale and position. The exported avatar will be 1:1.",
+      "bannerTitle": "Crop Banner",
+      "bannerDescription": "Tune the banner composition while previewing the final card overlap used in conversations.",
+      "zoom": "Zoom",
+      "horizontal": "Horizontal Position",
+      "vertical": "Vertical Position",
+      "avatarFrameLabel": "Current frame: {{shape}}",
+      "avatarSourceAlt": "Avatar crop source",
+      "bannerSourceAlt": "Banner crop source",
+      "bannerHint": "You can drag the image directly to reframe it. The preview reserves space for the agent info card in the lower-left area.",
+      "applyAvatar": "Apply Crop",
+      "applyBanner": "Apply Crop"
+    },
+    "personalization": {
+      "languageOptions": {
+        "English": "English",
+        "Chinese (Simplified)": "Chinese (Simplified)",
+        "Chinese (Traditional)": "Chinese (Traditional)",
+        "Japanese": "Japanese",
+        "Korean": "Korean",
+        "Spanish": "Spanish",
+        "French": "French",
+        "German": "German",
+        "Portuguese": "Portuguese",
+        "Italian": "Italian"
+      }
     },
     "skills": {
       "title": "Available Skills",

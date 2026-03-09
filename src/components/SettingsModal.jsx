@@ -348,7 +348,12 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
   ]
 
   const menuItems = useMemo(
-    () => MENU_ITEM_KEYS.map(item => ({ ...item, label: t(`settings.menu.${item.id}`) })),
+    () =>
+      MENU_ITEM_KEYS.map(item => ({
+        ...item,
+        label: t(`settings.menu.${item.id}`),
+        description: t(`settings.menuDescriptions.${item.id}`),
+      })),
     [t],
   )
 
@@ -424,6 +429,10 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
         label: t(`settings.language.${key}`),
       })),
     [t],
+  )
+  const activeMenuItem = useMemo(
+    () => menuItems.find(item => item.id === activeTab) || menuItems[0],
+    [activeTab, menuItems],
   )
   const embeddingModelCount = useMemo(
     () => Object.values(embeddingGroupedModels).reduce((sum, models) => sum + models.length, 0),
@@ -1942,8 +1951,8 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
   }
 
   return (
-    <div className="fixed inset-0 z-100 flex items-start justify-center overflow-y-auto bg-black/50 p-0 backdrop-blur-sm md:items-center md:overflow-hidden md:p-4">
-      <div className="glass-elite-panel relative flex h-dvh w-full flex-col overflow-hidden rounded-none border-0 md:h-[85vh] md:max-w-5xl md:flex-row md:rounded-3xl">
+    <div className="fixed inset-0 z-200 flex items-start justify-center overflow-y-auto bg-black/50 p-0 backdrop-blur-sm md:items-center md:overflow-hidden md:p-4">
+      <div className="glass-elite-panel relative flex h-dvh w-full flex-col overflow-hidden rounded-none border-0 md:h-[88vh] md:max-w-[1440px] md:flex-row md:rounded-[28px]">
         {/* Mobile Header */}
         <div className="flex h-14 shrink-0 items-center justify-between border-b border-black/5 bg-transparent px-4 md:hidden dark:border-white/5">
           <h2 className="text-base font-semibold text-gray-900 dark:text-white">
@@ -1958,8 +1967,8 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
         </div>
 
         {/* Sidebar */}
-        <div className="no-scrollbar flex w-full shrink-0 flex-row gap-2 overflow-x-auto border-b border-black/5 bg-transparent px-1 py-1 sm:px-4 sm:py-4 md:w-64 md:flex-col md:overflow-visible md:border-r md:border-b-0 dark:border-white/5">
-          <h2 className="mb-0 hidden px-2 text-xl font-bold text-gray-900 md:mb-6 md:block dark:text-white">
+        <div className="no-scrollbar flex w-full shrink-0 flex-row gap-2 overflow-x-auto border-b border-black/5 bg-transparent px-2 py-2 sm:px-4 sm:py-4 md:w-[280px] md:flex-col md:overflow-visible md:border-r md:border-b-0 md:px-4 md:py-5 dark:border-white/5">
+          <h2 className="mb-0 hidden px-2 text-[2rem] font-semibold text-gray-900 md:mb-6 md:block dark:text-white">
             {t('settings.title')}
           </h2>
           <nav className="flex w-full flex-row gap-1 md:w-auto md:flex-col">
@@ -1968,14 +1977,14 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
                 className={clsx(
-                  'flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-semibold whitespace-nowrap transition-colors sm:gap-3',
+                  'flex min-h-10 items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium whitespace-nowrap transition-all sm:gap-3 md:min-h-11 md:px-3.5',
                   activeTab === item.id
-                    ? 'text-primary-600 dark:text-primary-400 bg-black/5 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:bg-white/10'
-                    : 'text-gray-600 hover:bg-black/5 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-white',
+                    ? 'bg-black/6 text-gray-950 dark:bg-white/10 dark:text-white'
+                    : 'text-gray-500 hover:bg-black/4 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/6 dark:hover:text-white',
                 )}
               >
-                <item.icon size={18} />
-                {item.label}
+                <item.icon size={17} className="shrink-0" />
+                <span className="truncate">{item.label}</span>
               </button>
             ))}
           </nav>
@@ -1983,26 +1992,31 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
 
         {/* Content Area */}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-transparent">
-          {/* Header */}
-          {/* <div className="h-16 border-b border-gray-200 dark:border-zinc-800 hidden md:flex items-center justify-between px-6 sm:px-8">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white capitalize">
-              {activeTab}
-            </h3>
-            <button
-              onClick={onClose}
-              className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-500 transition-colors"
-            >
-              <X size={20} />
-            </button>
-          </div> */}
+          <div className="hidden border-b border-black/5 px-4 py-5 sm:block sm:px-10 dark:border-white/5">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <h3 className="mt-2 text-4xl font-semibold tracking-tight text-gray-900 dark:text-white">
+                  {activeMenuItem?.label || t('settings.title')}
+                </h3>
+                <p className="mt-2 max-w-3xl text-sm leading-7 text-gray-500 dark:text-gray-400">
+                  {activeMenuItem?.description || ''}
+                </p>
+              </div>
+              <button
+                onClick={onClose}
+                className="hidden rounded-full p-2 text-gray-500 transition-colors hover:bg-black/5 md:block dark:hover:bg-white/10"
+              >
+                <X size={20} />
+              </button>
+            </div>
+          </div>
 
-          {/* Scrollable Content */}
           <div
-            className="no-scrollbar modal-content-scrollbar min-h-0 flex-1 overflow-y-auto px-4 py-4 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] sm:px-8 sm:py-8"
+            className="no-scrollbar modal-content-scrollbar min-h-0 flex-1 overflow-y-auto px-4 py-5 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] sm:px-10 sm:py-8"
             style={{ scrollbarGutter: 'stable' }}
           >
             {activeTab === 'general' && (
-              <div className="flex max-w-2xl flex-col gap-8">
+              <div className="flex w-full max-w-5xl flex-col gap-8">
                 {/* ... existing general settings ... */}
                 <div className="flex flex-col gap-2">
                   <label className="text-sm font-medium text-gray-900 dark:text-white">
@@ -3090,7 +3104,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
             )}
 
             {activeTab === 'memory' && (
-              <div className="flex max-w-3xl flex-col gap-6">
+              <div className="flex w-full max-w-5xl flex-col gap-6">
                 <div className="flex gap-3 rounded-lg bg-blue-50 p-4 text-sm text-blue-700 dark:bg-blue-900/10 dark:text-blue-300">
                   <Info size={18} className="mt-0.5 shrink-0" />
                   <div>
@@ -3170,7 +3184,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
             )}
 
             {activeTab === 'personalization' && (
-              <div className="flex max-w-2xl flex-col gap-8">
+              <div className="flex w-full max-w-5xl flex-col gap-8">
                 <div className="flex flex-col gap-4">
                   <div className="flex flex-col gap-1">
                     <label className="text-sm font-medium text-gray-900 dark:text-white">
@@ -3431,7 +3445,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
             )}
 
             {activeTab === 'interface' && (
-              <div className="flex max-w-2xl flex-col gap-8">
+              <div className="flex w-full max-w-5xl flex-col gap-8">
                 <div className="flex flex-col gap-1">
                   <label className="text-sm font-medium text-gray-900 dark:text-white">
                     {t('settings.themeColor')}
@@ -3516,7 +3530,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
             )}
 
             {activeTab === 'chat' && (
-              <div className="flex max-w-2xl flex-col gap-8">
+              <div className="flex w-full max-w-5xl flex-col gap-8">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex flex-col gap-1">
                     <label className="text-sm font-semibold text-gray-900 dark:text-white">
@@ -3622,7 +3636,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
             )}
 
             {activeTab === 'advanced' && (
-              <div className="flex max-w-2xl flex-col gap-8">
+              <div className="flex w-full max-w-5xl flex-col gap-8">
                 <div className="flex flex-col gap-6">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex flex-col gap-1">

@@ -12,6 +12,11 @@ import {
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useTranslation } from 'react-i18next'
+import {
+  MODAL_INPUT_CLASS,
+  MODAL_INPUT_WITH_ICON_CLASS,
+  MODAL_TEXTAREA_CLASS,
+} from '../lib/modalFieldStyles'
 
 const KnowledgeBaseModal = ({ isOpen, onClose }) => {
   const { t } = useTranslation()
@@ -79,26 +84,18 @@ const KnowledgeBaseModal = ({ isOpen, onClose }) => {
   const showForm = isCreating || editingKb
 
   return (
-    <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm duration-200 md:p-4">
-      <div className="relative flex h-dvh w-full flex-col overflow-hidden border-gray-200 bg-white shadow-2xl md:h-[85vh] md:max-w-5xl md:flex-row md:rounded-2xl md:border dark:border-zinc-800 dark:bg-[#191a1a]">
-        {/* Close Button */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 z-30 rounded-full bg-gray-100/50 p-2 text-gray-500 backdrop-blur-sm transition-colors hover:bg-gray-200 dark:bg-zinc-800/50 dark:hover:bg-zinc-700"
-        >
-          <X size={20} />
-        </button>
-
+    <div className="animate-in fade-in fixed inset-0 z-200 flex items-center justify-center bg-black/60 backdrop-blur-sm duration-200 md:p-4">
+      <div className="glass-elite-panel relative flex h-dvh w-full flex-col overflow-hidden border-0 shadow-2xl md:h-[88vh] md:max-w-[1440px] md:flex-row md:rounded-[28px]">
         {/* LEFT PANE: List */}
         <div
           className={clsx(
-            'bg-primary-50 dark:bg-background/70 flex h-full w-full shrink-0 flex-col border-r border-gray-200 md:w-72 dark:border-zinc-800',
+            'flex h-full w-full shrink-0 flex-col border-r border-black/5 bg-transparent md:w-[320px] dark:border-white/5',
             showForm ? 'hidden md:flex' : 'flex',
           )}
         >
           {/* Header */}
-          <div className="mt-8 flex flex-col gap-4 border-b border-gray-200 p-4 sm:p-6 md:mt-0 dark:border-zinc-800">
-            <h2 className="flex items-center gap-2 px-1 text-xl font-bold text-gray-900 dark:text-white">
+          <div className="mt-8 flex flex-col gap-4 border-b border-black/5 px-4 py-5 md:mt-0 dark:border-white/5">
+            <h2 className="flex items-center gap-2 px-1 text-[2rem] font-semibold tracking-tight text-gray-900 dark:text-white">
               <Database size={24} className="text-primary-600 dark:text-primary-400" />
               {t('knowledgeBase.title') || 'Knowledge Base'}
             </h2>
@@ -112,7 +109,7 @@ const KnowledgeBaseModal = ({ isOpen, onClose }) => {
                 placeholder={t('common.search') || 'Search...'}
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="focus:ring-primary-500/20 w-full rounded-lg border border-gray-200 bg-white py-2 pr-4 pl-9 text-sm focus:ring-2 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900"
+                className={MODAL_INPUT_WITH_ICON_CLASS}
               />
             </div>
             <button
@@ -178,12 +175,11 @@ const KnowledgeBaseModal = ({ isOpen, onClose }) => {
         {/* RIGHT PANE: Details */}
         <div
           className={clsx(
-            'flex h-full w-full flex-1 flex-col overflow-hidden bg-white dark:bg-[#191a1a]',
+            'flex h-full w-full flex-1 flex-col overflow-hidden bg-transparent',
             !showForm && 'hidden md:flex',
           )}
         >
-          {/* Header */}
-          <div className="flex h-16 items-center justify-between border-b border-gray-200 px-4 sm:px-8 dark:border-zinc-800">
+          <div className="relative hidden border-b border-black/5 px-4 py-5 sm:block sm:px-10 dark:border-white/5">
             <div className="flex items-center gap-3">
               {showForm && (
                 <button
@@ -196,20 +192,30 @@ const KnowledgeBaseModal = ({ isOpen, onClose }) => {
                   <ChevronRight size={20} className="rotate-180" />
                 </button>
               )}
-              <h3 className="font-semibold text-gray-900 capitalize dark:text-white">
-                {showForm
-                  ? isCreating
-                    ? t('knowledgeBase.createTitle') || 'Create Collection'
-                    : t('knowledgeBase.editTitle') || 'Edit Collection'
-                  : t('knowledgeBase.selectPrompt') || 'Select a collection'}
-              </h3>
+              <div>
+                <div className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                  {t('knowledgeBase.title') || 'Knowledge Base'}
+                </div>
+                <h3 className="mt-2 text-4xl font-semibold tracking-tight text-gray-900 dark:text-white">
+                  {showForm
+                    ? isCreating
+                      ? t('knowledgeBase.createTitle') || 'Create Collection'
+                      : t('knowledgeBase.editTitle') || 'Edit Collection'
+                    : t('knowledgeBase.selectPrompt') || 'Select a collection'}
+                </h3>
+              </div>
             </div>
-            <div className="hidden h-10 w-10 md:block" />
+            <button
+              onClick={onClose}
+              className="absolute top-5 right-4 hidden rounded-full p-2 text-gray-500 transition-colors hover:bg-black/5 md:block dark:hover:bg-white/10"
+            >
+              <X size={20} />
+            </button>
           </div>
 
           {showForm ? (
-            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] sm:px-8 sm:py-8">
-              <div className="mx-auto max-w-2xl space-y-8">
+            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] sm:px-10 sm:py-8">
+              <div className="w-full max-w-4xl space-y-8">
                 {/* Basic Info */}
                 <div className="space-y-4">
                   <FormInput
@@ -269,7 +275,7 @@ const KnowledgeBaseModal = ({ isOpen, onClose }) => {
               <h3 className="mb-1 text-lg font-medium text-gray-900 dark:text-gray-100">
                 {t('knowledgeBase.selectPrompt') || 'Select a collection'}
               </h3>
-              <p className="mx-auto mb-6 max-w-xs text-sm">
+              <p className="mb-6 max-w-md text-sm">
                 {t('knowledgeBase.selectPromptHelp') ||
                   'Manage your documents and embedding indexes from here.'}
               </p>
@@ -298,12 +304,7 @@ const FormInput = ({ label, value, onChange, placeholder, type = 'text', icon, r
           onChange={e => onChange(e.target.value)}
           placeholder={placeholder}
           rows={rows || 3}
-          className={clsx(
-            'w-full resize-none rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm transition-all disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900',
-            'focus:ring-primary-500/20 focus:border-primary-500 focus:ring-2 focus:outline-none',
-            'placeholder:text-gray-400 dark:placeholder:text-zinc-600',
-            icon && 'pl-9',
-          )}
+          className={clsx(MODAL_TEXTAREA_CLASS, icon && 'pl-9')}
         />
       ) : (
         <input
@@ -311,12 +312,7 @@ const FormInput = ({ label, value, onChange, placeholder, type = 'text', icon, r
           value={value}
           onChange={e => onChange(e.target.value)}
           placeholder={placeholder}
-          className={clsx(
-            'w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm transition-all disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900',
-            'focus:ring-primary-500/20 focus:border-primary-500 focus:ring-2 focus:outline-none',
-            'placeholder:text-gray-400 dark:placeholder:text-zinc-600',
-            icon && 'pl-9',
-          )}
+          className={clsx(MODAL_INPUT_CLASS, icon && 'pl-9')}
         />
       )}
     </div>

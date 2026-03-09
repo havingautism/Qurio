@@ -11,6 +11,7 @@ import {
   Pencil,
   Plus,
   RefreshCw,
+  X,
   XCircle,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -24,19 +25,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  MODAL_INPUT_CLASS,
+  MODAL_INPUT_WITH_ICON_CLASS,
+  MODAL_SELECT_TRIGGER_CLASS,
+} from '../lib/modalFieldStyles'
 
 const isElectronRuntime = () =>
   typeof window !== 'undefined' &&
   (window.location.protocol === 'file:' || navigator.userAgent.includes('Electron'))
 
 const buildSqlitePath = (directory, providerLabel) => {
-  const trimmedDir = String(directory || '').trim().replace(/[\\/]+$/, '')
-  if (!trimmedDir) return ''
-  const slug = String(providerLabel || 'qurio-local')
+  const trimmedDir = String(directory || '')
     .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9-]+/g, '-')
-    .replace(/^-+|-+$/g, '') || 'qurio-local'
+    .replace(/[\\/]+$/, '')
+  if (!trimmedDir) return ''
+  const slug =
+    String(providerLabel || 'qurio-local')
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9-]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'qurio-local'
   const fileName = `${slug}.db`
   const separator = trimmedDir.includes('\\') ? '\\' : '/'
   return `${trimmedDir}${separator}${fileName}`
@@ -54,11 +63,11 @@ const extractSqliteDirectory = sqlitePath => {
 }
 
 const isLikelySqliteFilePath = value => {
-  const normalized = String(value || '').trim().toLowerCase()
+  const normalized = String(value || '')
+    .trim()
+    .toLowerCase()
   return (
-    normalized.endsWith('.db') ||
-    normalized.endsWith('.sqlite') ||
-    normalized.endsWith('.sqlite3')
+    normalized.endsWith('.db') || normalized.endsWith('.sqlite') || normalized.endsWith('.sqlite3')
   )
 }
 
@@ -264,12 +273,10 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
       setError(t('settings.databaseSetup.errors.sqliteDirectoryRequired'))
       return
     }
-    if (
-      providerType !== 'supabase' &&
-      providerType !== 'sqlite' &&
-      !databaseUrl.trim()
-    ) {
-      setError(t('settings.databaseSetup.errors.databaseUrlRequired') || 'Please enter database URL.')
+    if (providerType !== 'supabase' && providerType !== 'sqlite' && !databaseUrl.trim()) {
+      setError(
+        t('settings.databaseSetup.errors.databaseUrlRequired') || 'Please enter database URL.',
+      )
       return
     }
 
@@ -285,19 +292,19 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
           }
         : providerType === 'sqlite'
           ? {
-            id: 'default',
-            type: 'sqlite',
-            label: providerLabel.trim(),
-            path: sqliteImportFile.trim() || buildSqlitePath(sqliteDirectory, providerLabel),
-            accessKey: providerAccessKey.trim() || undefined,
-          }
+              id: 'default',
+              type: 'sqlite',
+              label: providerLabel.trim(),
+              path: sqliteImportFile.trim() || buildSqlitePath(sqliteDirectory, providerLabel),
+              accessKey: providerAccessKey.trim() || undefined,
+            }
           : {
-            id: 'default',
-            type: providerType,
-            label: providerLabel.trim(),
-            url: databaseUrl.trim(),
-            accessKey: providerAccessKey.trim() || undefined,
-          }
+              id: 'default',
+              type: providerType,
+              label: providerLabel.trim(),
+              url: databaseUrl.trim(),
+              accessKey: providerAccessKey.trim() || undefined,
+            }
 
     setIsAdding(true)
     setError('')
@@ -349,9 +356,12 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
     setIsDeleting(true)
     setError('')
     try {
-      const response = await fetch(`${getBackendUrl()}/api/db/providers/${encodeURIComponent(targetId)}`, {
-        method: 'DELETE',
-      })
+      const response = await fetch(
+        `${getBackendUrl()}/api/db/providers/${encodeURIComponent(targetId)}`,
+        {
+          method: 'DELETE',
+        },
+      )
       const payload = await response.json().catch(() => ({}))
       if (!response.ok) {
         throw new Error(payload.detail || t('settings.databaseSetup.errors.deleteProviderFailed'))
@@ -436,24 +446,34 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-200 flex items-center justify-center bg-black/80 px-4 backdrop-blur-sm">
-      <div className="animate-in zoom-in-95 w-full max-w-xl max-h-[90vh] space-y-6 overflow-y-auto rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl duration-200 md:p-8 dark:border-zinc-800 dark:bg-[#191a1a]">
-        <div className="space-y-2 text-center">
-          <div className="bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl">
-            <Database size={24} />
+    <div className="fixed inset-0 z-200 flex items-start justify-center overflow-y-auto bg-black/80 px-0 backdrop-blur-sm md:items-center md:px-4">
+      <div className="glass-elite-panel animate-in zoom-in-95 w-full max-w-3xl overflow-hidden rounded-none border-0 shadow-2xl duration-200 md:max-h-[88vh] md:rounded-[28px]">
+        <div className="hidden border-b border-black/5 px-4 py-5 sm:block sm:px-10 dark:border-white/5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <div className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                {t('settings.sectionLabel', 'Settings')}
+              </div>
+              <h2 className="mt-2 text-4xl font-semibold tracking-tight text-gray-900 dark:text-white">
+                {t('settings.databaseSetup.title') || 'Database Setup'}
+              </h2>
+              <p className="mt-2 max-w-3xl text-sm leading-7 text-gray-500 dark:text-gray-400">
+                {electron
+                  ? t('settings.databaseSetup.electronDescription')
+                  : t('settings.databaseSetup.description') ||
+                    'Configure the active database and enter the access key if required.'}
+              </p>
+            </div>
+            <button
+              onClick={onClose}
+              className="rounded-full p-2 text-gray-500 transition-colors hover:bg-black/5 dark:hover:bg-white/10"
+            >
+              <X size={20} />
+            </button>
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-            {t('settings.databaseSetup.title') || 'Database Setup'}
-          </h2>
-          <p className="mx-auto max-w-xs text-sm text-gray-500 dark:text-gray-400">
-            {electron
-              ? t('settings.databaseSetup.electronDescription')
-              : t('settings.databaseSetup.description') ||
-                'Configure the active database and enter the access key if required.'}
-          </p>
         </div>
 
-        <div className="space-y-4">
+        <div className="max-h-[calc(100dvh-7rem)] space-y-4 overflow-y-auto px-4 py-6 sm:px-10 sm:py-8 md:max-h-[calc(88vh-6.5rem)]">
           {healthStatus !== 'idle' && (
             <div
               className={clsx(
@@ -493,7 +513,7 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
                         {t('settings.databaseSetup.type')}
                       </label>
                       <Select value={providerType} onValueChange={setProviderType}>
-                        <SelectTrigger className="h-9 w-full text-xs">
+                        <SelectTrigger className={MODAL_SELECT_TRIGGER_CLASS}>
                           <SelectValue placeholder={t('settings.databaseSetup.selectType')} />
                         </SelectTrigger>
                         <SelectContent>
@@ -520,7 +540,7 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
                             ? t('settings.databaseSetup.labelPlaceholderSqlite')
                             : 'Production PostgreSQL'
                       }
-                      className="h-9 w-full rounded-md border border-gray-200 px-2 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                      className={MODAL_INPUT_CLASS}
                     />
                   </div>
 
@@ -534,7 +554,7 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
                           value={supabaseUrl}
                           onChange={e => setSupabaseUrl(e.target.value)}
                           placeholder="https://xxx.supabase.co"
-                          className="h-9 w-full rounded-md border border-gray-200 px-2 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                          className={MODAL_INPUT_CLASS}
                         />
                       </div>
                       <div className="space-y-1">
@@ -545,7 +565,7 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
                           value={supabaseAnonKey}
                           onChange={e => setSupabaseAnonKey(e.target.value)}
                           placeholder="eyJ..."
-                          className="h-9 w-full rounded-md border border-gray-200 px-2 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                          className={MODAL_INPUT_CLASS}
                         />
                       </div>
                     </>
@@ -572,7 +592,7 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
                               ? 'C:\\Users\\you\\QurioData\\existing.db'
                               : 'C:\\Users\\you\\QurioData'
                           }
-                          className="h-9 w-full rounded-md border border-gray-200 px-2 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                          className={MODAL_INPUT_CLASS}
                         />
                         <button
                           type="button"
@@ -602,10 +622,8 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
                         </button>
                       </div>
                       <p className="text-[11px] leading-relaxed text-gray-500 dark:text-gray-400">
-                        {t('settings.databaseSetup.sqliteUsageHint')}
-                        {' '}
-                        {t('settings.databaseSetup.sqliteUsageHintCreate')}
-                        {' '}
+                        {t('settings.databaseSetup.sqliteUsageHint')}{' '}
+                        {t('settings.databaseSetup.sqliteUsageHintCreate')}{' '}
                         {t('settings.databaseSetup.sqliteUsageHintImport')}
                       </p>
                     </div>
@@ -637,7 +655,7 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
                       value={providerAccessKey}
                       onChange={e => setProviderAccessKey(e.target.value)}
                       placeholder={t('settings.databaseSetup.providerAccessKeyPlaceholder')}
-                      className="h-9 w-full rounded-md border border-gray-200 px-2 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                      className={MODAL_INPUT_CLASS}
                     />
                   </div>
 
@@ -720,7 +738,7 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
                 </button>
               )}
             </div>
-            <div className="flex min-h-10 items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900/50">
+            <div className="flex min-h-10 items-center gap-3 rounded-xl border border-black/10 bg-black/[0.03] px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]">
               {selectedProvider ? (
                 <>
                   {renderProviderIcon(selectedProvider.type || selectedProvider.id, {
@@ -769,38 +787,39 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
                     ? t('settings.databaseSetup.accessKeyPlaceholder') || 'Enter backend access key'
                     : t('settings.databaseSetup.accessKeyOptional')
                 }
-                className="focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border border-gray-200 bg-gray-50 py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:disabled:bg-zinc-800"
+                className={MODAL_INPUT_WITH_ICON_CLASS}
               />
             </div>
           </div>
         </div>
 
-        {error && (
-          <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
-            <XCircle size={16} className="mt-0.5 shrink-0" />
-            <span>{error}</span>
+        <div className="border-t border-black/5 px-4 py-4 sm:px-10 dark:border-white/5">
+          <div className="flex flex-col gap-3">
+            {error && (
+              <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50/90 px-4 py-3 text-sm text-red-600 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
+                <XCircle size={16} className="mt-0.5 shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
+            <button
+              onClick={handleSave}
+              disabled={!selectedProvider || isSaving || noProvidersInElectron}
+              className="bg-primary-600 hover:bg-primary-700 shadow-primary-500/20 flex h-12 w-full items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold text-white shadow-lg transition-all disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <span>
+                {isSaving
+                  ? t('settings.databaseSetup.saving') || 'Validating...'
+                  : t('settings.databaseSetup.saveAndReload') || 'Save & Reload'}
+              </span>
+              <Check size={16} />
+            </button>
+            <button
+              onClick={onClose}
+              className="flex h-11 w-full items-center justify-center gap-2 rounded-xl text-sm font-medium text-gray-600 transition-colors hover:bg-black/5 dark:text-gray-400 dark:hover:bg-white/5"
+            >
+              {t('common.close') || 'Close'}
+            </button>
           </div>
-        )}
-
-        <div className="flex flex-col gap-3">
-          <button
-            onClick={handleSave}
-            disabled={!selectedProvider || isSaving || noProvidersInElectron}
-            className="bg-primary-600 hover:bg-primary-700 shadow-primary-500/20 flex w-full items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold text-white shadow-lg transition-all disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <span>
-              {isSaving
-                ? t('settings.databaseSetup.saving') || 'Validating...'
-                : t('settings.databaseSetup.saveAndReload') || 'Save & Reload'}
-            </span>
-            <Check size={16} />
-          </button>
-          <button
-            onClick={onClose}
-            className="flex w-full items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-zinc-800"
-          >
-            {t('common.close') || 'Close'}
-          </button>
         </div>
       </div>
     </div>

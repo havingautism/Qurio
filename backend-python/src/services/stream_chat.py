@@ -1316,12 +1316,8 @@ class StreamChatService:
                                 f"[TEAM] >>> Active Agent Switch: {active_name} ({active_role}) "
                                 f"| Model: {active_model} | Provider: {active_provider}"
                             )
-                        
+
                         # Apply current tracked status to info for text/thought events
-                        if current_agent_info.get("agent_role") == "leader":
-                            # If leader is back, ensure they are active (resumed from waiting)
-                            agent_statuses[current_id] = "active"
-                        
                         current_agent_info["status"] = agent_statuses.get(current_id, "active")
 
                     if current_agent_info.get("agent_role") == "member":

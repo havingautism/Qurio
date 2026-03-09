@@ -866,6 +866,10 @@
       "create": "Create Agent",
       "edit": "Edit Agent"
     },
+    "role": {
+      "leader": "Leader",
+      "member": "Member"
+    },
     "sidebarDescription": "Configure identity, models, response behavior, tool access, and skills from one place.",
     "sectionLabel": "Configuration",
     "overviewLabel": "Overview",

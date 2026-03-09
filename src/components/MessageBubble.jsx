@@ -444,6 +444,7 @@ const MessageBubble = ({
         agentId: String(item?.agentId || ''),
         agentName: String(item?.agentName || ''),
         agentEmoji: String(item?.agentEmoji || ''),
+        agentRole: String(item?.agentRole || ''),
         task: String(item?.task || ''),
         content: String(item?.content || ''),
         status: String(item?.status || 'pending'),
@@ -2919,16 +2920,16 @@ const MessageBubble = ({
             isDeepResearchContext ? 'justify-center' : 'justify-end',
           )}
         >
-              <div
-                className={clsx(
-                  'flex flex-col gap-2',
-                  // For Deep Research: centered and wide
-                  // For Standard: right-aligned (user) or left-aligned (AI) but constrained width
-                  isDeepResearchContext
-                    ? 'w-full max-w-full items-center'
-                    : 'max-w-[85%] items-end sm:max-w-[42rem]',
-                )}
-              >
+          <div
+            className={clsx(
+              'flex flex-col gap-2',
+              // For Deep Research: centered and wide
+              // For Standard: right-aligned (user) or left-aligned (AI) but constrained width
+              isDeepResearchContext
+                ? 'w-full max-w-full items-center'
+                : 'max-w-[85%] items-end sm:max-w-[42rem]',
+            )}
+          >
             {/* Message Content */}
             {(() => {
               if (isDeepResearchContext) {
@@ -3187,7 +3188,19 @@ const MessageBubble = ({
                       />
                       <span className="text-sm font-medium">{item.agentName || item.agentId}</span>
                     </span>
-                    <span className="flex shrink-0 items-center gap-1.5">
+                    <span className="ml-auto flex shrink-0 items-center gap-1.5">
+                      <span
+                        className={clsx(
+                          'rounded px-1.5 py-0.5 text-[10px] font-bold tracking-wider uppercase',
+                          item.agentRole === 'leader'
+                            ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400'
+                            : 'bg-gray-100 text-gray-500 dark:bg-zinc-800 dark:text-zinc-400',
+                        )}
+                      >
+                        {item.agentRole === 'leader'
+                          ? t('agents.role.leader')
+                          : t('agents.role.member')}
+                      </span>
                       {item.status !== 'done' && (
                         <span
                           className={clsx(
@@ -3237,6 +3250,22 @@ const MessageBubble = ({
                 size="1.05em"
               />
               <span className="min-w-0 truncate">{item.agentName || item.agentId}</span>
+              {/* Debug log */}
+              {console.log('[Debug] Rendering agent tab:', {
+                agentId: item.agentId,
+                agentRole: item.agentRole,
+                agentName: item.agentName,
+              })}
+              <span
+                className={clsx(
+                  'ml-1 shrink-0 rounded-[4px] px-1 text-[8px] font-bold tracking-tight uppercase sm:text-[9px]',
+                  item.agentRole === 'leader'
+                    ? 'bg-amber-100/80 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400'
+                    : 'bg-gray-200/50 text-gray-500 dark:bg-zinc-800/80 dark:text-zinc-500',
+                )}
+              >
+                {item.agentRole === 'leader' ? t('agents.role.leader') : t('agents.role.member')}
+              </span>
               {/* Status Dot */}
               {item.status !== 'done' && (
                 <span

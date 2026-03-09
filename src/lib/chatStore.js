@@ -1346,6 +1346,8 @@ const useChatStore = create((set, get) => ({
         // Expert mode defaults to reasoning-enabled execution per-agent.
         next.thinking = true
       }
+      // Debug: log toggles
+      console.log('[Debug] resolvedToggles:', { leaderAgentId: next.leaderAgentId, memberAgentIds: next.memberAgentIds })
       const fallbackAgent = agents?.find(agent => agent.isDefault)
       const modelConfig = getModelConfigForAgent(
         resolvedAgent || fallbackAgent,
@@ -1382,12 +1384,6 @@ const useChatStore = create((set, get) => ({
     const isExpertMode = Boolean(resolvedToggles?.expertMode)
     const selectedSpaceId = resolvedSpaceInfo?.selectedSpace?.id
 
-    console.log('[Debug] Expert Mode Check:', {
-      isExpertMode,
-      selectedSpaceId,
-      hasSpace: !!selectedSpaceId,
-    })
-
     if (isExpertMode && selectedSpaceId) {
       try {
         let expertAgents = []
@@ -1408,7 +1404,6 @@ const useChatStore = create((set, get) => ({
 
         if (expertAgents.length >= 0) {
           // Allow 0 members if leader only (though UI usually forces team)
-          console.log('[Debug] Starting Expert Mode (Team) execution...')
           const expertMessageLocalId = `expert-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
           appendAIPlaceholder(resolvedAgent, resolvedToggles, [], set)
           set(state => {
@@ -1451,17 +1446,23 @@ const useChatStore = create((set, get) => ({
           const userMessageForSend = { ...userMessage, content: payloadContent }
           const fallbackAgent = agents.find(agent => agent.isDefault)
 
+          // Get leader agent from toggles.leaderAgentId (not resolvedAgent which may be wrong)
+          const leaderAgent = resolvedToggles?.leaderAgentId
+            ? (agents || []).find(a => String(a.id) === String(resolvedToggles.leaderAgentId))
+            : null
+
           updateExpertMessage(current => ({
             ...current,
-            expertActiveAgentId: 'leader',
+            expertActiveAgentId: leaderAgent?.id || resolvedAgent?.id || 'leader',
             expertResponses: [
               {
-                agentId: 'leader',
-                agentName: 'Team',
-                agentEmoji: '🤝',
+                agentId: leaderAgent?.id || resolvedAgent?.id || 'leader',
+                agentName: leaderAgent?.name || resolvedAgent?.name || 'Team',
+                agentEmoji: leaderAgent?.emoji || resolvedAgent?.emoji || '🤝',
+                agentRole: 'leader',
                 task: 'Leader Correlation',
-                provider: null,
-                model: null,
+                provider: leaderAgent?.provider || null,
+                model: leaderAgent?.defaultModel || null,
                 status: 'pending',
                 content: '',
                 thought: '',
@@ -1481,9 +1482,10 @@ const useChatStore = create((set, get) => ({
                 agentId: agent.id,
                 agentName: agent.name || '',
                 agentEmoji: agent.emoji || '',
+                agentRole: 'member',
                 task: 'Expert Task',
-                provider: null,
-                model: null,
+                provider: agent.provider || null,
+                model: agent.defaultModel || null,
                 status: 'pending',
                 content: '',
                 thought: '',
@@ -1657,7 +1659,7 @@ const useChatStore = create((set, get) => ({
                   ),
                   signal: controller.signal,
                   onChunk: chunk => {
-                    const chunkAgentId = chunk?.agentId || 'leader' // Fallback to leader
+                    const chunkAgentId = chunk?.agentId || resolvedAgent?.id || 'leader'
 
                     // Always try to make the streaming agent active
                     if (chunkAgentId) {
@@ -1884,7 +1886,10 @@ const useChatStore = create((set, get) => ({
                         ),
                       }
 
-                      if (chunkAgentId === 'leader') {
+                      if (
+                        String(chunkAgentId) === String(resolvedAgent?.id) ||
+                        chunkAgentId === 'leader'
+                      ) {
                         updated.content = `${current.content || ''}${cleanText}`
                         updated.streamBlocks = [
                           ...(current.streamBlocks || []),

@@ -143,6 +143,7 @@ class StreamChatRequest(BaseModel):
     # Internal use only: Agent identification (set by resolve_agent_config)
     agent_id: str | None = Field(default=None, exclude=True)
     agent_name: str | None = Field(default=None, exclude=True)
+    agent_emoji: str | None = Field(default=None, exclude=True)
     agent_description: str | None = Field(default=None, exclude=True)
 
     # Context and Session
@@ -171,6 +172,8 @@ class TextEvent(BaseModel):
     # Agent identification for Team mode (identifies which agent generated this content)
     agent_id: str | None = Field(default=None, alias="agentId")
     agent_name: str | None = Field(default=None, alias="agentName")
+    agent_role: str | None = Field(default=None, alias="agentRole")
+    agent_emoji: str | None = Field(default=None, alias="agentEmoji")
 
 
 class ThoughtEvent(BaseModel):
@@ -183,6 +186,8 @@ class ThoughtEvent(BaseModel):
     # Agent identification for Team mode (identifies which agent generated this thought)
     agent_id: str | None = Field(default=None, alias="agentId")
     agent_name: str | None = Field(default=None, alias="agentName")
+    agent_role: str | None = Field(default=None, alias="agentRole")
+    agent_emoji: str | None = Field(default=None, alias="agentEmoji")
 
 
 class ToolCallEvent(BaseModel):
@@ -197,6 +202,8 @@ class ToolCallEvent(BaseModel):
     # Agent identification for Team mode
     agent_id: str | None = Field(default=None, alias="agentId")
     agent_name: str | None = Field(default=None, alias="agentName")
+    agent_role: str | None = Field(default=None, alias="agentRole")
+    agent_emoji: str | None = Field(default=None, alias="agentEmoji")
 
 
 class ToolResultEvent(BaseModel):
@@ -213,6 +220,8 @@ class ToolResultEvent(BaseModel):
     # Agent identification for Team mode
     agent_id: str | None = Field(default=None, alias="agentId")
     agent_name: str | None = Field(default=None, alias="agentName")
+    agent_role: str | None = Field(default=None, alias="agentRole")
+    agent_emoji: str | None = Field(default=None, alias="agentEmoji")
 
 
 class SourceEvent(BaseModel):

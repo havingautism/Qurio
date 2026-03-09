@@ -802,6 +802,7 @@ export const streamChatViaBackend = async params => {
     isEditing,
     expertMode,
     teamMode,
+    leaderAgentId,
     teamAgentIds,
   } = params
 
@@ -869,6 +870,7 @@ export const streamChatViaBackend = async params => {
           isEditing,
           expertMode,
           teamMode,
+          leaderAgentId,
           teamAgentIds,
         }),
         signal,

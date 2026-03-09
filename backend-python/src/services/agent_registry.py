@@ -245,6 +245,11 @@ def _collect_enabled_tool_names(request: Any) -> list[str]:
             names.append(str(user_tool.name))
         elif isinstance(user_tool, dict) and user_tool.get("name"):
             names.append(str(user_tool["name"]))
+    # Disable interactive forms in expert mode (team mode)
+    is_expert = getattr(request, "expert_mode", False) or bool(getattr(request, "team_agent_ids", []))
+    if is_expert:
+        names = [n for n in names if n != "interactive_form"]
+    
     return names
 
 
@@ -842,6 +847,7 @@ def resolve_agent_config(agent_id: str, base_request: Any) -> Any:
         # Store agent name and description for proper identification in Teams
         new_req.agent_id = agent_id  # Store the original agent_id
         new_req.agent_name = agent_data.get("name")
+        new_req.agent_emoji = agent_data.get("emoji")
         new_req.agent_description = agent_data.get("description")
         logger.info(f"[resolve_agent_config] Resolved agent: id={agent_id}, name={new_req.agent_name}, provider={agent_provider}")
 
@@ -932,8 +938,8 @@ def build_team(request: Any, members: list[Agent]) -> Any:
     if leader_agent.instructions:
         instructions = f"{leader_agent.instructions}\n\n{instructions}"
 
-    return Team(
-        name="Expert Team",
+    team = Team(
+        name=getattr(request, "agent_name", "Expert Team"),
         members=members,
         model=leader_agent.model,
         tools=leader_agent.tools,
@@ -942,4 +948,7 @@ def build_team(request: Any, members: list[Agent]) -> Any:
         markdown=True,
         stream_member_events=True,  # Ensure member events are streamed
     )
+    # Set agent_id manually as Team constructor might not support it directly
+    team.agent_id = getattr(request, "agent_id", None)
+    return team
 

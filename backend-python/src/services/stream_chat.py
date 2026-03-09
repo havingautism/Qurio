@@ -146,7 +146,13 @@ def _squash_whitespace(text: Any) -> str:
     return re.sub(r"\s+", "", str(text or ""))
 
 
-def _extract_agent_info_from_event(run_event: Any) -> dict[str, str | None]:
+def _extract_agent_info_from_event(
+    run_event: Any,
+    leader_id: str | None = None,
+    leader_name: str | None = None,
+    leader_emoji: str | None = None,
+    agent_metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """
     Extract agent identification from a run event.
 
@@ -154,18 +160,73 @@ def _extract_agent_info_from_event(run_event: Any) -> dict[str, str | None]:
     If these are set, it's a member event; otherwise it's from the leader.
 
     Returns:
-        dict with 'agent_id' and 'agent_name' keys (values may be None)
+        dict with 'agent_id', 'agent_name', 'agent_role', 'agent_emoji', 'model', 'provider' keys
     """
-    # Events from member agents have agent_id and agent_name set directly
     agent_id = getattr(run_event, "agent_id", None)
     agent_name = getattr(run_event, "agent_name", None)
+    agent_emoji = getattr(run_event, "agent_emoji", None)
 
+    # Check if this matches the leader. 
+    # Important: some providers might use slightly different names, but if IDs match it's definitely leader.
+    is_leader = False
+    if leader_id and agent_id == leader_id:
+        is_leader = True
+    elif not agent_id and not agent_name:
+        # Default to leader if no info is present
+        is_leader = True
+    elif not leader_id and agent_name == leader_name:
+        is_leader = True
+    # If the ID starts with 'qurio-' (default Agno IDs often follow this pattern) 
+    # and we are in team mode, and it's not explicitly a member ID in our metadata, 
+    # it's highly likely the leader's initialization event.
+    elif str(agent_id or "").startswith("qurio-") and agent_metadata:
+        is_leader = agent_id not in agent_metadata
+
+    if is_leader:
+        res = {
+            "agent_id": leader_id,
+            "agent_name": leader_name,
+            "agent_role": "leader",
+            "agent_emoji": leader_emoji,
+            "model": None,
+            "provider": None,
+        }
+        if agent_metadata and leader_id in agent_metadata:
+            res.update(agent_metadata[leader_id])
+        return res
+
+    # Otherwise treat as member
     if agent_id or agent_name:
-        logger.info(f"[TEAM] Member event detected: agent_id={agent_id}, agent_name={agent_name}")
-        return {"agent_id": agent_id, "agent_name": agent_name}
+        # Log at DEBUG level to reduce main stream noise, as switch logs will provide context.
+        logger.debug(f"[TEAM] Member event detected: agent_id={agent_id}, agent_name={agent_name}")
+        res = {
+            "agent_id": agent_id,
+            "agent_name": agent_name,
+            "agent_role": "member",
+            "agent_emoji": agent_emoji,
+            "model": None,
+            "provider": None,
+        }
+        # Enrich from metadata if possible
+        if agent_metadata:
+            if agent_id in agent_metadata:
+                res.update(agent_metadata[agent_id])
+            elif agent_name in agent_metadata:
+                res.update(agent_metadata[agent_name])
+        return res
 
-    # This is a leader event (or single agent mode)
-    return {"agent_id": None, "agent_name": None}
+    # Fallback to leader if totally ambiguous
+    res = {
+        "agent_id": leader_id,
+        "agent_name": leader_name,
+        "agent_role": "leader",
+        "agent_emoji": leader_emoji,
+        "model": None,
+        "provider": None,
+    }
+    if agent_metadata and leader_id in agent_metadata:
+        res.update(agent_metadata[leader_id])
+    return res
 
 
 def _is_reasoning_duplicate_of_content(reasoning: str, content: str) -> bool:
@@ -673,6 +734,8 @@ def _build_tool_result_event(
         durationMs=duration_ms,
         agent_id=agent_info.get("agent_id") if agent_info else None,
         agent_name=agent_info.get("agent_name") if agent_info else None,
+        agent_role=agent_info.get("agent_role") if agent_info else None,
+        agent_emoji=agent_info.get("agent_emoji") if agent_info else None,
     ).model_dump(by_alias=True, exclude_none=True)
     return event, output
 
@@ -690,6 +753,8 @@ def _build_tool_call_event(
         text_index=text_index,
         agent_id=agent_info.get("agent_id") if agent_info else None,
         agent_name=agent_info.get("agent_name") if agent_info else None,
+        agent_role=agent_info.get("agent_role") if agent_info else None,
+        agent_emoji=agent_info.get("agent_emoji") if agent_info else None,
     )
     if include_none:
         return payload.model_dump(by_alias=True, exclude_none=False)
@@ -842,6 +907,7 @@ class StreamChatService:
             request.enable_skills = True
 
             # Build standard agent or Team
+            agent_metadata: dict[str, Any] = {}
             if request.expert_mode and getattr(request, "team_agent_ids", []):
                 # Log leader configuration for debugging
                 logger.info(f"[TEAM] Building team - leader_agent_id: {getattr(request, 'leader_agent_id', None)}, team_agent_ids: {request.team_agent_ids}")
@@ -850,6 +916,11 @@ class StreamChatService:
                 if getattr(request, "leader_agent_id", None):
                     request = resolve_agent_config(request.leader_agent_id, request)
                     logger.info(f"[TEAM] Leader resolved - agent_id: {getattr(request, 'agent_id', None)}, agent_name: {getattr(request, 'agent_name', None)}")
+                    if request.agent_id:
+                        agent_metadata[request.agent_id] = {
+                            "model": request.model,
+                            "provider": request.provider,
+                        }
 
                 # 2. Resolve Member Agents
                 members = []
@@ -860,6 +931,17 @@ class StreamChatService:
                     # Fetch actual member config from DB
                     member_req = resolve_agent_config(a_id, sub_req)
                     members.append(get_agent_for_provider(member_req))
+                    # Capture member metadata
+                    if member_req.agent_id:
+                        agent_metadata[member_req.agent_id] = {
+                            "model": member_req.model,
+                            "provider": member_req.provider,
+                        }
+                    if member_req.agent_name:
+                        agent_metadata[member_req.agent_name] = {
+                            "model": member_req.model,
+                            "provider": member_req.provider,
+                        }
 
                 # 3. Build the Team with resolved leader (request) and members
                 agent = build_team(request, members)
@@ -879,7 +961,8 @@ class StreamChatService:
             inline_protocol_tail = ""
             stream_trace = _is_stream_trace_enabled()
             # Current agent info for Team mode (updated per event)
-            current_agent_info: dict[str, str | None] = {"agent_id": None, "agent_name": None}
+            current_agent_info: dict[str, Any] = {"agent_id": None, "agent_name": None}
+            last_active_agent_id = None
 
             def trace_stream(stage: str, **kwargs: Any) -> None:
                 if not stream_trace:
@@ -1190,8 +1273,29 @@ class StreamChatService:
                 # Check if this is a detailed event (from stream_events=True)
                 if hasattr(run_event, 'event'):
                     # Extract agent info for Team mode (member vs leader identification)
-                    current_agent_info = _extract_agent_info_from_event(run_event)
-                    if current_agent_info.get("agent_name"):
+                    current_agent_info = _extract_agent_info_from_event(
+                        run_event,
+                        leader_id=request.agent_id,
+                        leader_name=request.agent_name,
+                        leader_emoji=request.agent_emoji,
+                        agent_metadata=agent_metadata,
+                    )
+                    
+                    # Log active agent switch in Team mode
+                    if is_team_mode:
+                        current_id = current_agent_info.get("agent_id")
+                        if current_id != last_active_agent_id:
+                            last_active_agent_id = current_id
+                            active_name = current_agent_info.get("agent_name")
+                            active_role = current_agent_info.get("agent_role")
+                            active_model = current_agent_info.get("model")
+                            active_provider = current_agent_info.get("provider")
+                            logger.info(
+                                f"[TEAM] >>> Active Agent Switch: {active_name} ({active_role}) "
+                                f"| Model: {active_model} | Provider: {active_provider}"
+                            )
+
+                    if current_agent_info.get("agent_role") == "member":
                         trace_stream(
                             "member_event",
                             agent_id=current_agent_info.get("agent_id"),
@@ -1199,6 +1303,18 @@ class StreamChatService:
                         )
 
                     match run_event.event:
+                        case RunEvent.run_started.value | TeamRunEvent.run_started:
+                            if is_team_mode:
+                                active_name = current_agent_info.get("agent_name")
+                                active_role = current_agent_info.get("agent_role")
+                                active_model = current_agent_info.get("model")
+                                active_provider = current_agent_info.get("provider")
+                                logger.info(
+                                    f"[TEAM] >>> run_started: {active_name} ({active_role}) "
+                                    f"| Model: {active_model} | Provider: {active_provider}"
+                                )
+                            continue
+
                         # Handle both Agent RunEvent and Team TeamRunEvent for content streaming
                         case RunEvent.run_content.value | TeamRunEvent.run_content:
                             raw_content_chunk = _extract_text_chunk(run_event)
@@ -1396,13 +1512,26 @@ class StreamChatService:
 
                         case RunEvent.run_completed.value | TeamRunEvent.run_completed:
                             # Extract agent info to check if this is a member or leader
-                            event_agent_info = _extract_agent_info_from_event(run_event)
-                            is_member_completion = bool(event_agent_info.get("agent_id") or event_agent_info.get("agent_name"))
+                            event_agent_info = _extract_agent_info_from_event(
+                                run_event,
+                                leader_id=request.agent_id,
+                                leader_name=request.agent_name,
+                                leader_emoji=request.agent_emoji,
+                                agent_metadata=agent_metadata,
+                            )
+                            is_member_completion = event_agent_info.get("agent_role") == "member"
 
                             # In Team Mode, only terminate when the LEADER (no agent_id on event) completes.
                             # Member completions should just let the main loop continue.
                             if is_team_mode and is_member_completion:
-                                logger.info(f"[TEAM] Member {event_agent_info.get('agent_name')} completed. Continuing stream...")
+                                active_name = event_agent_info.get("agent_name")
+                                active_model = event_agent_info.get("model")
+                                active_provider = event_agent_info.get("provider")
+                                logger.info(
+                                    f"[TEAM] Member {active_name} completed "
+                                    f"(Model: {active_model} | Provider: {active_provider}). "
+                                    "Continuing stream..."
+                                )
                                 continue
 
                             final_content, output = _extract_completed_content_and_output(
@@ -1613,7 +1742,7 @@ class StreamChatService:
             last_event_type: str | None = None
             last_event_run_id: str | None = None
             # Current agent info for Team mode (updated per event)
-            current_agent_info: dict[str, str | None] = {"agent_id": None, "agent_name": None}
+            current_agent_info: dict[str, Any] = {"agent_id": request.agent_id, "agent_name": request.agent_name}
 
             def trace_stream(stage: str, **kwargs: Any) -> None:
                 if not stream_trace:
@@ -1653,7 +1782,6 @@ class StreamChatService:
                         agent_id=current_agent_info.get("agent_id"),
                         agent_name=current_agent_info.get("agent_name"),
                     ).model_dump(by_alias=True, exclude_none=True)
-
             async def _iterate_run_stream(stream: Any):
                 """
                 Normalize both async and sync Agno run streams into an async iterator.
@@ -1689,8 +1817,13 @@ class StreamChatService:
                     last_event_name = str(getattr(run_event, "event", None) or last_event_type)
                     last_event_run_id = str(raw_event_run_id) if raw_event_run_id else None
 
-                    # Extract agent info for Team mode
-                    current_agent_info = _extract_agent_info_from_event(run_event)
+                    # Extract agent info for Team mode (though Team HITL is currently disabled)
+                    current_agent_info = _extract_agent_info_from_event(
+                        run_event,
+                        leader_id=request.agent_id,
+                        leader_name=request.agent_name,
+                        leader_emoji=request.agent_emoji,
+                    )
 
                     # When yield_run_output=True, acontinue_run may yield the final RunOutput object.
                     # Capture its canonical content as a robust fallback for providers that emit sparse events.

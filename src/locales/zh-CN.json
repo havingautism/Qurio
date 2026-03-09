@@ -851,6 +851,10 @@
       "create": "创建",
       "edit": "编辑"
     },
+    "role": {
+      "leader": "负责人",
+      "member": "成员"
+    },
     "sidebarDescription": "在一个面板里统一管理智能体的身份、模型、回复方式、工具权限和技能。",
     "sectionLabel": "配置区",
     "overviewLabel": "总览",

@@ -51,6 +51,7 @@ import { FALLBACK_MODEL_OPTIONS, PROVIDER_KEYS } from '../lib/modelConstants'
 import EmailSettingsPanel from './EmailSettingsPanel'
 import { useToast } from '../contexts/ToastContext'
 import INIT_SQL_SCRIPT from '../assets/init-schema.sql'
+import DotLoader from './DotLoader'
 
 const ENV_VARS = {
   supabaseUrl: getPublicEnv('PUBLIC_SUPABASE_URL'),
@@ -2837,8 +2838,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
 
                   {isChatModelsLoading ? (
                     <div className="flex items-center justify-center gap-2 py-8 text-gray-500">
-                      <RefreshCw className="animate-spin" size={20} />
-                      <span>{t('settings.loadingModels')}</span>
+                      <DotLoader />
                     </div>
                   ) : configuredChatProviders.length === 0 ? (
                     <div className="rounded-lg border border-dashed border-gray-200 p-6 text-center text-sm text-gray-500 dark:border-zinc-700 dark:text-gray-400">
@@ -2904,8 +2904,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
 
                 {embeddingModelsLoading ? (
                   <div className="flex items-center justify-center gap-2 py-8 text-gray-500">
-                    <RefreshCw className="animate-spin" size={20} />
-                    <span>{t('settings.loadingModels')}</span>
+                    <DotLoader />
                   </div>
                 ) : embeddingAvailableProviders.length === 0 ? (
                   <div className="rounded-lg border border-dashed border-gray-200 p-6 text-center text-sm text-gray-500 dark:border-zinc-700 dark:text-gray-400">

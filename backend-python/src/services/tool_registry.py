@@ -8,6 +8,8 @@ from typing import Any
 
 TOOL_ALIASES: dict[str, str] = {
     "web_search_using_tavily": "Tavily_web_search",
+    "get_top_hackernews_stories": "hackernews_tools",
+    "get_user_details": "hackernews_tools",
     "get_current_stock_price": "yfinance_tools",
     "get_company_info": "yfinance_tools",
     "get_stock_fundamentals": "yfinance_tools",
@@ -416,6 +418,16 @@ AGNO_TOOLS: list[dict[str, Any]] = [
         "name": "yfinance_tools",
         "category": "agno",
         "description": "Yahoo Finance toolkit for stock price, company profile, fundamentals, news, and historical data.",
+        "parameters": {
+            "type": "object",
+            "properties": {},
+        },
+    },
+    {
+        "id": "hackernews_tools",
+        "name": "hackernews_tools",
+        "category": "news",
+        "description": "Hacker News toolkit for top stories and user profile lookups.",
         "parameters": {
             "type": "object",
             "properties": {},

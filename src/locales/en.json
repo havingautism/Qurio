@@ -81,6 +81,12 @@
     "wikipediaSearchInfo": "Search Wikipedia and return a summary.",
     "yfinanceTools": "Yahoo Finance Toolkit",
     "yfinanceToolsInfo": "Enable Yahoo Finance tools for stock price, company profile, fundamentals, news, and historical data.",
+    "hackerNewsTools": "Hacker News Toolkit",
+    "hackerNewsToolsInfo": "Enable Hacker News tools for top stories and user profile lookups.",
+    "hackerNewsTopStories": "Hacker News Top Stories",
+    "hackerNewsTopStoriesInfo": "Fetch top stories from Hacker News.",
+    "hackerNewsUserDetails": "Hacker News User Details",
+    "hackerNewsUserDetailsInfo": "Fetch public profile details for a Hacker News user.",
     "stockPrice": "Stock Price",
     "stockPriceInfo": "Get the current stock price from Yahoo Finance.",
     "companyInfo": "Company Info",
@@ -767,7 +773,7 @@
     "about": {
       "title": "About",
       "beta": "Beta",
-      "description": "An advanced AI assistant interface designed for clarity, speed, and precision. Built with the latest web technologies for a seamless experience.",
+      "description": "Qurio is not just a chat wrapper. It is an AI workstation for research, execution, and delivery, combining multi-model routing, custom agents, deep research, document retrieval, long-term memory, MCP, and tool orchestration in one high-leverage workspace.",
       "designedAndBuiltBy": "Designed & Built by",
       "version": "v0.1.0 • © 2025 All rights reserved"
     },
@@ -874,7 +880,7 @@
       "leader": "Leader",
       "member": "Member"
     },
-    "sidebarDescription": "Configure identity, models, response behavior, tool access, and skills from one place.",
+    "sidebarDescription": "Build agents that can actually operate: define identity and style, pair production and lightweight models, lock down tool access, attach reusable skills, and turn a prompt into a real execution unit.",
     "sectionLabel": "Configuration",
     "overviewLabel": "Overview",
     "tabs": {
@@ -1017,6 +1023,7 @@
         "json": "JSON",
         "web": "Web",
         "search": "Search",
+        "news": "News",
         "agno": "Agno Tools",
         "custom": "MCPs",
         "other": "Other"

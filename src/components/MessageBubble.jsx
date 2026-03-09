@@ -32,6 +32,8 @@ import {
   BrainCircuit,
   Image as ImageIcon,
   ChevronLeft,
+  Newspaper,
+  User,
 } from 'lucide-react'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
@@ -139,6 +141,8 @@ const TOOL_ICON_COMPONENTS = {
   Brain,
   BrainCircuit,
   ImageIcon,
+  Newspaper,
+  User,
 }
 
 const SKILL_TOOL_NAMES = new Set([

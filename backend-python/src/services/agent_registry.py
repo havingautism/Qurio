@@ -38,6 +38,11 @@ try:
 except Exception:
     ExaTools = None
 
+try:
+    from agno.tools.hackernews import HackerNewsTools
+except Exception:
+    HackerNewsTools = None
+
 EXA_SEARCH_TOOL_SET = {"search_exa"}
 EXA_ALLOWED_CATEGORIES = {
     "company",
@@ -448,6 +453,14 @@ def _build_agno_toolkits(request: Any, include_agno: list[str]) -> list[Any]:
             # Some SDK versions expose different subsets/names, which can make
             # include_tools fail with "tool not present in toolkit".
             toolkits.append(YFinanceTools())
+
+    hackernews_tools = {
+        "hackernews_tools",
+        "get_top_hackernews_stories",
+        "get_user_details",
+    }
+    if include_set.intersection(hackernews_tools) and HackerNewsTools:
+        toolkits.append(HackerNewsTools())
 
     image_search_tools = {
         "duckduckgo_image_search",
@@ -951,4 +964,3 @@ def build_team(request: Any, members: list[Agent]) -> Any:
     # Set agent_id manually as Team constructor might not support it directly
     team.agent_id = getattr(request, "agent_id", None)
     return team
-

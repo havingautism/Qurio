@@ -81,6 +81,12 @@
     "wikipediaSearchInfo": "搜索维基百科并返回摘要。",
     "yfinanceTools": "Yahoo Finance 工具包",
     "yfinanceToolsInfo": "启用 Yahoo Finance 工具，支持股价、公司概况、基本面、新闻和历史数据。",
+    "hackerNewsTools": "Hacker News 工具包",
+    "hackerNewsToolsInfo": "启用 Hacker News 工具，用于获取热门帖子和用户公开资料。",
+    "hackerNewsTopStories": "Hacker News 热门帖子",
+    "hackerNewsTopStoriesInfo": "获取 Hacker News 当前热门帖子。",
+    "hackerNewsUserDetails": "Hacker News 用户资料",
+    "hackerNewsUserDetailsInfo": "获取 Hacker News 用户的公开资料信息。",
     "stockPrice": "股价",
     "stockPriceInfo": "从 Yahoo Finance 获取当前股价。",
     "companyInfo": "公司信息",
@@ -751,7 +757,7 @@
     "about": {
       "title": "关于",
       "beta": "测试版",
-      "description": "一个专为清晰、速度和精确性而设计的高级 AI 助手界面。采用最新的网络技术构建，带来无缝体验。",
+      "description": "Qurio 不是普通聊天壳，而是一台面向研究、执行与交付的 AI 工作站：多模型协同、Agent 编排、Deep Research、文档检索、长期记忆、MCP 与工具调用，全部收进一个高密度工作流里。",
       "designedAndBuiltBy": "设计与构建",
       "version": "v0.1.0 • © 2025 版权所有"
     },
@@ -859,7 +865,7 @@
       "leader": "负责人",
       "member": "成员"
     },
-    "sidebarDescription": "在一个面板里统一管理智能体的身份、模型、回复方式、工具权限和技能。",
+    "sidebarDescription": "在这里打造真正能干活的 Agent：定义身份与风格，指定主模型与轻量模型，收紧工具权限，挂载技能，把一个提示词升级成完整执行单元。",
     "sectionLabel": "配置区",
     "overviewLabel": "总览",
     "tabs": {
@@ -1002,6 +1008,7 @@
         "json": "JSON",
         "web": "网页",
         "search": "搜索",
+        "news": "新闻",
         "agno": "Agno 工具",
         "custom": "MCPs",
         "other": "其他"

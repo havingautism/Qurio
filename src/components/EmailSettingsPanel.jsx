@@ -438,7 +438,7 @@ const EmailSettingsPanel = ({ backendUrl }) => {
   }
 
   return (
-    <div className="flex max-w-2xl flex-col gap-6">
+    <div className="flex w-full flex-col gap-6">
       {/* Header */}
       <div className="flex flex-col gap-1">
         <h3 className="flex items-center gap-2 text-base font-semibold text-gray-900 dark:text-white">

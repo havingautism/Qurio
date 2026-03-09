@@ -20,6 +20,7 @@ import {
   FormInput,
   Globe,
   LineChart,
+  Newspaper,
   Video,
   Youtube,
   Settings,
@@ -72,6 +73,7 @@ import {
   MODAL_TEXTAREA_CLASS,
   MODAL_TEXTAREA_MONO_CLASS,
 } from '../lib/modalFieldStyles'
+import DotLoader from './DotLoader'
 
 // Personalization Constants
 const LLM_ANSWER_LANGUAGE_KEYS = [
@@ -1329,7 +1331,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
               </label>
 
               {/* Desktop: Inline Segmented Control */}
-              <div className="hidden rounded-[18px] bg-black/5 p-1 sm:flex dark:bg-white/5">
+              <div className="hidden rounded-[18px] bg-black/5 p-1 sm:flex sm:gap-1.5 dark:bg-white/5">
                 <button
                   type="button"
                   disabled={disabled}
@@ -1385,7 +1387,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
             </div>
 
             {/* Mobile: Full Width Segmented Control */}
-            <div className="flex w-full rounded-[18px] bg-black/5 p-1 sm:hidden dark:bg-white/5">
+            <div className="flex w-full gap-1.5 rounded-[18px] bg-black/5 p-1 sm:hidden dark:bg-white/5">
               <button
                 type="button"
                 disabled={disabled}
@@ -1684,7 +1686,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
     name: displayName,
   }
   const compactSegmentGroupClassName =
-    'grid grid-cols-2 gap-1 rounded-xl bg-black/5 p-1 dark:bg-white/5'
+    'grid grid-cols-2 gap-1 rounded-lg bg-black/5 p-1 dark:bg-white/5'
   const compactSegmentButtonClassName =
     'inline-flex h-10 items-center justify-center rounded-lg px-3.5 text-[13px] font-medium transition-all'
   const compactActionButtonClassName =
@@ -2167,8 +2169,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
 
                 {isLoadingModels ? (
                   <div className="flex items-center justify-center gap-2 py-8 text-gray-500">
-                    <RefreshCw className="animate-spin" size={20} />
-                    <span>{t('agents.model.loading')}</span>
+                    <DotLoader />
                   </div>
                 ) : availableProviders.length === 0 ? (
                   <div className="rounded-lg border border-dashed border-gray-200 p-6 text-center text-sm text-gray-500 dark:border-zinc-700 dark:text-gray-400">
@@ -2550,8 +2551,10 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                           FormInput,
                                           Globe,
                                           LineChart,
+                                          Newspaper,
                                           Video,
                                           Youtube,
+                                          User,
                                         }[iconName]
                                       : Code
                                     const infoKey = TOOL_INFO_KEYS[tool.name]
@@ -2635,8 +2638,10 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                     FormInput,
                                     Globe,
                                     LineChart,
+                                    Newspaper,
                                     Video,
                                     Youtube,
+                                    User,
                                   }[iconName]
                                 : Code
                               const infoKey = TOOL_INFO_KEYS[tool.name]

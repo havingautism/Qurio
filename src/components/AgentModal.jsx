@@ -1754,7 +1754,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
           <div className="hidden border-b border-black/5 px-4 py-5 sm:block sm:px-10 dark:border-white/5">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <h3 className="mt-2 text-4xl font-semibold tracking-tight text-gray-900 dark:text-white">
+                <h3 className="mt-2 text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">
                   {t(`agents.tabs.${activeTabMeta.id}`)}
                 </h3>
                 <p className="mt-2 max-w-3xl text-sm leading-7 text-gray-500 dark:text-gray-400">
@@ -1782,7 +1782,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
             {activeTab === 'general' && (
               <div className="flex min-h-full flex-col gap-10">
                 <div className="flex flex-col gap-2">
-                  <label className="mb-2 text-[1.75rem] font-semibold tracking-tight text-gray-900 dark:text-white">
+                  <label className="mb-2 text-base font-semibold tracking-tight text-gray-900 dark:text-white">
                     {t('agents.general.avatarSettings')}
                   </label>
                   <div className="border-t border-black/5 pt-6 dark:border-white/5">
@@ -1983,7 +1983,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                 </div>
 
                 <div className="flex flex-col gap-2">
-                  <label className="mb-2 text-[1.75rem] font-semibold tracking-tight text-gray-900 dark:text-white">
+                  <label className="mb-2 text-base font-semibold tracking-tight text-gray-900 dark:text-white">
                     {t('agents.general.description')}
                   </label>
                   <div className="border-t border-black/5 pt-6 dark:border-white/5">
@@ -1998,7 +1998,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                 </div>
 
                 <div className="flex flex-col gap-2">
-                  <label className="mb-2 text-[1.75rem] font-semibold tracking-tight text-gray-900 dark:text-white">
+                  <label className="mb-2 text-base font-semibold tracking-tight text-gray-900 dark:text-white">
                     {t('agents.general.bannerTitle')}
                   </label>
                   <div className="border-t border-black/5 pt-6 dark:border-white/5">
@@ -2122,7 +2122,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                 </div>
 
                 <div className="flex min-h-[16rem] flex-1 flex-col gap-2">
-                  <label className="mb-2 text-[1.75rem] font-semibold tracking-tight text-gray-900 dark:text-white">
+                  <label className="mb-2 text-base font-semibold tracking-tight text-gray-900 dark:text-white">
                     {t('agents.general.systemPrompt')}
                   </label>
                   <div className="border-t border-black/5 pt-6 dark:border-white/5">

@@ -1085,6 +1085,7 @@
       "deleteError": "Failed to delete skill",
       "deleteConfirmTitle": "Delete Skill?",
       "deleteConfirmMessage": "Are you sure you want to delete this skill? Default agents may break if relying on it.",
+      "backToFiles": "Back to Files",
       "idRequired": "Skill ID is required",
       "nameRequired": "Display Name is required",
       "descriptionRequired": "Short Description is required",
@@ -1153,7 +1154,11 @@
       "installDependencyConfirmMessage": "This will create or reuse an isolated virtual environment for the skill and install the requested package.",
       "installDependencySuccess": "Dependency installed successfully.",
       "installDependencyCreated": "Dependency installed and isolated environment created.",
-      "installDependencyError": "Failed to install dependency"
+      "installDependencyError": "Failed to install dependency",
+      "scriptsLabel": "Scripts",
+      "referencesLabel": "References",
+      "noScripts": "No scripts added",
+      "noReferences": "No references added"
     }
   },
   "deepResearch": {

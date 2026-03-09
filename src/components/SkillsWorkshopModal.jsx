@@ -102,6 +102,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
   const [aiModel, setAiModel] = useState('')
   const [aiModelSource, setAiModelSource] = useState('list') // 'list' | 'custom'
   const [aiCustomModel, setAiCustomModel] = useState('')
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
 
   useEffect(() => {
     if (isAIMode && availableProviders.length === 0) {
@@ -614,6 +615,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
 
     if (path === 'SKILL.md') {
       setActiveFile(path)
+      setIsMobileSidebarOpen(false) // Close sidebar on mobile
       return
     }
 
@@ -621,10 +623,12 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
     if (latestStaged[path] !== undefined) {
       setFileContent(latestStaged[path])
       setActiveFile(path)
+      setIsMobileSidebarOpen(false) // Close sidebar on mobile
       return
     }
 
     setIsLoadingFile(true)
+    setIsMobileSidebarOpen(false) // Close sidebar on mobile
     try {
       const res = await fetch(
         `${getBackendUrl()}/api/skills/${skillId}/file?path=${encodeURIComponent(path)}`,
@@ -930,7 +934,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
         {/* Header */}
         <div className="flex shrink-0 items-start justify-between border-b border-black/5 px-4 py-5 sm:px-10 dark:border-white/5">
           <div>
-            <h2 className="mt-2 text-4xl font-semibold tracking-tight text-gray-900 dark:text-white">
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">
               {modalTitle}
             </h2>
             <p className="mt-2 max-w-3xl text-sm leading-7 text-gray-500 dark:text-gray-400">
@@ -948,9 +952,14 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
         {/* Content Area */}
         <div className="no-scrollbar flex-1 overflow-y-auto bg-transparent">
           {isEditing ? (
-            <div className="flex h-full min-h-[500px]">
+            <div className="flex h-full min-h-[500px] flex-col md:flex-row">
               {/* Left Sidebar for Files */}
-              <div className="no-scrollbar flex w-[280px] shrink-0 flex-col overflow-y-auto border-r border-black/5 bg-transparent p-4 dark:border-white/5">
+              <div
+                className={clsx(
+                  'no-scrollbar shrink-0 flex-col overflow-y-auto border-r border-black/5 bg-transparent p-4 md:flex md:w-[280px] dark:border-white/5',
+                  isMobileSidebarOpen ? 'flex w-full' : 'hidden',
+                )}
+              >
                 {/* General Header (SKILL.md) */}
                 <div className="mb-6">
                   <button
@@ -971,7 +980,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                 <div className="mb-6">
                   <div className="mb-2 flex items-center justify-between px-2">
                     <h3 className="text-xs font-bold tracking-wider text-gray-400 uppercase dark:text-zinc-500">
-                      Scripts
+                      {t('agents.skills.scriptsLabel', 'Scripts')}
                     </h3>
                     <button
                       onClick={() => {
@@ -1040,7 +1049,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                     ))}
                     {scripts.length === 0 && !isCreatingFile && (
                       <p className="px-2 py-1 text-[10px] text-gray-400 dark:text-zinc-600">
-                        No scripts added
+                        {t('agents.skills.noScripts', 'No scripts added')}
                       </p>
                     )}
                   </ul>
@@ -1050,7 +1059,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                 <div className="mb-6">
                   <div className="mb-2 flex items-center justify-between px-2">
                     <h3 className="text-xs font-bold tracking-wider text-gray-400 uppercase dark:text-zinc-500">
-                      References
+                      {t('agents.skills.referencesLabel', 'References')}
                     </h3>
                     <button
                       onClick={() => {
@@ -1119,7 +1128,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                     ))}
                     {references.length === 0 && !isCreatingFile && (
                       <p className="px-2 py-1 text-[10px] text-gray-400 dark:text-zinc-600">
-                        No references added
+                        {t('agents.skills.noReferences', 'No references added')}
                       </p>
                     )}
                   </ul>
@@ -1127,7 +1136,22 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
               </div>
 
               {/* Main Content Area */}
-              <div className="flex flex-1 flex-col overflow-y-auto px-4 py-5 sm:px-10 sm:py-8">
+              <div
+                className={clsx(
+                  'flex-1 flex-col overflow-y-auto px-4 py-5 sm:px-10 sm:py-8',
+                  isMobileSidebarOpen ? 'hidden md:flex' : 'flex',
+                )}
+              >
+                {/* Mobile Sidebar Toggle */}
+                {isEditing && (
+                  <button
+                    onClick={() => setIsMobileSidebarOpen(true)}
+                    className="mb-4 flex items-center gap-2 text-xs font-medium text-gray-500 md:hidden"
+                  >
+                    <ArrowLeft size={14} />
+                    {t('agents.skills.backToFiles', 'Back to Files')}
+                  </button>
+                )}
                 {activeFile === 'SKILL.md' ? (
                   <form
                     id="skill-form"
@@ -1604,7 +1628,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                   </div>
 
                   {/* Actions */}
-                  <div className="flex gap-3">
+                  <div className="flex flex-col gap-3 sm:flex-row">
                     <button
                       onClick={() => {
                         setIsAIMode(false)
@@ -1622,7 +1646,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                         setAiPrompt('')
                         handleEdit(aiResult.skill_id)
                       }}
-                      className="bg-primary-500 hover:bg-primary-600 flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:shadow-md"
+                      className="bg-primary-500 hover:bg-primary-600 flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:shadow-md"
                     >
                       <Pencil size={14} />
                       {t('agents.skills.aiGenerateOpenEditor', 'Open in Editor')}
@@ -1796,7 +1820,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
           ) : (
             <div className="px-4 py-5 sm:px-10 sm:py-8">
               {/* Header Action */}
-              <div className="mb-6 flex justify-end gap-3">
+              <div className="mb-6 flex flex-col items-stretch gap-3 sm:flex-row sm:justify-end">
                 <button
                   onClick={() => {
                     setIsAIMode(true)
@@ -1804,7 +1828,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                     setAiResult(null)
                     setAiPrompt('')
                   }}
-                  className="bg-primary-500 hover:bg-primary-600 flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:shadow-md active:scale-95"
+                  className="bg-primary-500 hover:bg-primary-600 flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:shadow-md active:scale-95"
                 >
                   <Sparkles size={16} />
                   {t('agents.skills.aiGenerate', '✨ AI Generate')}
@@ -1814,14 +1838,14 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                     setIsAIMode(false)
                     setIsGitImportMode(true)
                   }}
-                  className="flex items-center gap-2 rounded-xl border border-black/10 bg-black/5 px-4 py-2.5 text-sm font-medium text-gray-700 transition-all hover:bg-black/10 dark:border-white/10 dark:bg-white/5 dark:text-gray-200 dark:hover:bg-white/10"
+                  className="flex items-center justify-center gap-2 rounded-xl border border-black/10 bg-black/5 px-4 py-2.5 text-sm font-medium text-gray-700 transition-all hover:bg-black/10 dark:border-white/10 dark:bg-white/5 dark:text-gray-200 dark:hover:bg-white/10"
                 >
                   <Github size={16} />
                   {t('agents.skills.gitImportAction', 'Import from Git')}
                 </button>
                 <button
                   onClick={handleCreateNew}
-                  className="bg-primary-500 hover:bg-primary-600 flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:shadow-md active:scale-95"
+                  className="bg-primary-500 hover:bg-primary-600 flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:shadow-md active:scale-95"
                 >
                   <Plus size={16} />
                   {t('agents.skills.createButton', 'Create Skill')}
@@ -1899,18 +1923,18 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
 
         {/* Footer Actions when Editing */}
         {isEditing && (
-          <div className="flex shrink-0 items-center justify-end gap-3 border-t border-black/5 bg-transparent px-4 py-4 sm:px-10 dark:border-white/5">
+          <div className="flex shrink-0 flex-col items-stretch gap-3 border-t border-black/5 bg-transparent px-4 py-4 sm:flex-row sm:items-center sm:justify-end sm:px-10 dark:border-white/5">
             <button
               type="button"
               onClick={() => setIsEditing(false)}
-              className="rounded-xl px-4 py-2.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-zinc-800"
+              className="flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-zinc-800"
             >
               {t('agents.actions.cancel', 'Cancel')}
             </button>
             <button
               onClick={saveCombined}
               disabled={isSaving}
-              className="bg-primary-500 hover:bg-primary-600 flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:shadow-md active:scale-95 disabled:opacity-50"
+              className="bg-primary-500 hover:bg-primary-600 flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:shadow-md active:scale-95 disabled:opacity-50"
             >
               {isSaving ? (
                 <>

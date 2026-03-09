@@ -1070,6 +1070,7 @@
       "deleteError": "删除技能失败",
       "deleteConfirmTitle": "删除技能？",
       "deleteConfirmMessage": "确定要删除此技能吗？依赖此技能的默认智能体可能会出现问题。",
+      "backToFiles": "返回文件列表",
       "idRequired": "技能 ID 为必填项",
       "nameRequired": "显示名称为必填项",
       "descriptionRequired": "简短描述为必填项",
@@ -1138,7 +1139,11 @@
       "installDependencyConfirmMessage": "这会为该 Skill 创建或复用隔离虚拟环境，并安装指定依赖包。",
       "installDependencySuccess": "依赖安装成功。",
       "installDependencyCreated": "依赖安装成功，已创建隔离环境。",
-      "installDependencyError": "依赖安装失败"
+      "installDependencyError": "依赖安装失败",
+      "scriptsLabel": "脚本",
+      "referencesLabel": "参考文件",
+      "noScripts": "尚未添加脚本",
+      "noReferences": "尚未添加参考文件"
     }
   },
   "deepResearch": {

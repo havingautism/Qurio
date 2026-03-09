@@ -3,7 +3,7 @@ Data models for stream chat API.
 Defines request/response schemas compatible with the Node.js backend.
 """
 
-from typing import Any, Literal
+from typing import Any, Literal, Union
 
 from pydantic import BaseModel, Field
 
@@ -79,6 +79,7 @@ class StreamChatRequest(BaseModel):
     team_agent_ids: list[str] = Field(default_factory=list, alias="teamAgentIds")
 
     # Response format
+    # Response format
     response_format: dict[str, Any] | None = Field(default=None, alias="responseFormat")
 
     # Thinking mode - supports boolean (enabled/disabled) or dict (specific config)
@@ -147,6 +148,7 @@ class StreamChatRequest(BaseModel):
     agent_description: str | None = Field(default=None, exclude=True)
 
     # Context and Session
+    # Context and Session
     conversation_id: str | None = Field(default=None, alias="conversationId", description="Unique identifier for the conversation")
     model_config = {"populate_by_name": True}
 
@@ -159,9 +161,9 @@ class StreamChatRequest(BaseModel):
     field_values: dict[str, Any] | None = Field(default=None, alias="fieldValues", description="User-submitted form field values")
 
 
-# ================================================================================
-# Response Event Models
-# ================================================================================
+# Status of an agent in a team run
+AgentStatus = Literal["active", "waiting", "ready", "error", "idle"]
+
 
 class TextEvent(BaseModel):
     """Text content event."""
@@ -174,6 +176,7 @@ class TextEvent(BaseModel):
     agent_name: str | None = Field(default=None, alias="agentName")
     agent_role: str | None = Field(default=None, alias="agentRole")
     agent_emoji: str | None = Field(default=None, alias="agentEmoji")
+    agent_status: AgentStatus | None = Field(default=None, alias="agentStatus")
 
 
 class ThoughtEvent(BaseModel):
@@ -188,6 +191,7 @@ class ThoughtEvent(BaseModel):
     agent_name: str | None = Field(default=None, alias="agentName")
     agent_role: str | None = Field(default=None, alias="agentRole")
     agent_emoji: str | None = Field(default=None, alias="agentEmoji")
+    agent_status: AgentStatus | None = Field(default=None, alias="agentStatus")
 
 
 class ToolCallEvent(BaseModel):
@@ -204,6 +208,7 @@ class ToolCallEvent(BaseModel):
     agent_name: str | None = Field(default=None, alias="agentName")
     agent_role: str | None = Field(default=None, alias="agentRole")
     agent_emoji: str | None = Field(default=None, alias="agentEmoji")
+    agent_status: AgentStatus | None = Field(default=None, alias="agentStatus")
 
 
 class ToolResultEvent(BaseModel):
@@ -222,6 +227,7 @@ class ToolResultEvent(BaseModel):
     agent_name: str | None = Field(default=None, alias="agentName")
     agent_role: str | None = Field(default=None, alias="agentRole")
     agent_emoji: str | None = Field(default=None, alias="agentEmoji")
+    agent_status: AgentStatus | None = Field(default=None, alias="agentStatus")
 
 
 class SourceEvent(BaseModel):
@@ -255,10 +261,26 @@ class FormRequestEvent(BaseModel):
     fields: list[dict[str, Any]] = Field(..., description="Form field definitions for frontend rendering")
 
 
+class AgentStatusEvent(BaseModel):
+    """Event for signaling agent status transitions in Team mode."""
+    model_config = {"populate_by_name": True}
+
+    type: Literal["agent_status"] = "agent_status"
+    agent_id: str = Field(..., alias="agentId")
+    status: AgentStatus
+
+
 # Union type for all SSE events
-StreamEvent = (
-    TextEvent | ThoughtEvent | ToolCallEvent | ToolResultEvent | DoneEvent | ErrorEvent | FormRequestEvent
-)
+StreamEvent = Union[
+    TextEvent,
+    ThoughtEvent,
+    ToolCallEvent,
+    ToolResultEvent,
+    DoneEvent,
+    ErrorEvent,
+    FormRequestEvent,
+    AgentStatusEvent,
+]
 
 
 # ================================================================================

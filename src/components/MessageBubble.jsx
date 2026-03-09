@@ -3201,13 +3201,17 @@ const MessageBubble = ({
                           ? t('agents.role.leader')
                           : t('agents.role.member')}
                       </span>
-                      {item.status !== 'done' && (
-                        <span
-                          className={clsx(
-                            'h-2 w-2 rounded-full',
-                            item.status === 'error' ? 'bg-red-500' : 'animate-pulse bg-amber-500',
-                          )}
-                        />
+                      {item.status === 'error' && (
+                        <span className="h-2 w-2 rounded-full bg-red-500" />
+                      )}
+                      {item.status === 'ready' && (
+                        <span className="h-2 w-2 rounded-full bg-green-500" />
+                      )}
+                      {item.status === 'active' && (
+                        <span className="bg-primary-500 h-2 w-2 animate-pulse rounded-full" />
+                      )}
+                      {item.status === 'waiting' && (
+                        <Clock size={12} className="animate-spin-slow text-amber-500" />
                       )}
                       {isActive && <Check size={14} className="text-primary-500" />}
                     </span>
@@ -3234,10 +3238,11 @@ const MessageBubble = ({
                 setActiveExpertAgentId(item.agentId)
               }}
               className={clsx(
-                'flex min-w-0 flex-1 basis-[calc(50%-0.125rem)] items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all duration-200 sm:basis-auto sm:justify-start sm:gap-2 sm:px-3 sm:py-1.5 sm:text-sm md:min-h-10 md:flex-none md:px-4 md:py-2 md:text-sm',
+                'relative flex min-w-0 flex-1 basis-[calc(50%-0.125rem)] items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all duration-200 sm:basis-auto sm:justify-start sm:gap-2 sm:px-3 sm:py-1.5 sm:text-sm md:min-h-10 md:flex-none md:px-4 md:py-2 md:text-sm',
                 isActive
                   ? 'bg-white text-gray-900 shadow-sm ring-1 ring-black/5 dark:bg-zinc-700 dark:text-gray-100 dark:ring-white/10'
                   : 'text-gray-500 hover:bg-gray-200/70 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-zinc-700/60 dark:hover:text-gray-300',
+                item.status === 'active' && 'ring-primary-500/50 ring-2',
               )}
             >
               <AgentAvatar
@@ -3250,12 +3255,6 @@ const MessageBubble = ({
                 size="1.05em"
               />
               <span className="min-w-0 truncate">{item.agentName || item.agentId}</span>
-              {/* Debug log */}
-              {console.log('[Debug] Rendering agent tab:', {
-                agentId: item.agentId,
-                agentRole: item.agentRole,
-                agentName: item.agentName,
-              })}
               <span
                 className={clsx(
                   'ml-1 shrink-0 rounded-[4px] px-1 text-[8px] font-bold tracking-tight uppercase sm:text-[9px]',
@@ -3266,14 +3265,24 @@ const MessageBubble = ({
               >
                 {item.agentRole === 'leader' ? t('agents.role.leader') : t('agents.role.member')}
               </span>
-              {/* Status Dot */}
-              {item.status !== 'done' && (
-                <span
-                  className={clsx(
-                    'hidden h-1.5 w-1.5 rounded-full sm:inline-block sm:h-2 sm:w-2',
-                    item.status === 'error' ? 'bg-red-500' : 'animate-pulse bg-amber-500',
-                  )}
-                />
+
+              {/* Status Indicators */}
+              {item.status === 'active' && (
+                <div className="animate-status-halo ring-primary-500/50 pointer-events-none absolute inset-[-1px] z-10 rounded-lg ring-1" />
+              )}
+              {item.status === 'ready' && (
+                <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75"></span>
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500"></span>
+                </span>
+              )}
+              {item.status === 'error' && (
+                <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500"></span>
+                </span>
+              )}
+              {item.status === 'waiting' && item.agentRole === 'leader' && (
+                <Clock size={12} className="animate-spin-slow ml-1 text-amber-500" />
               )}
             </button>
           )

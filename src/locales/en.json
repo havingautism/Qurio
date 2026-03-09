@@ -245,6 +245,10 @@
     "bookmarks": "Bookmarks",
     "spaces": "Spaces",
     "agents": "Agents",
+    "role": {
+      "leader": "Leader",
+      "member": "Member"
+    },
     "seeAll": "See all",
     "pin": "Pin sidebar",
     "unpin": "Unpin sidebar",

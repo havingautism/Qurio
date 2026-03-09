@@ -1347,7 +1347,10 @@ const useChatStore = create((set, get) => ({
         next.thinking = true
       }
       // Debug: log toggles
-      console.log('[Debug] resolvedToggles:', { leaderAgentId: next.leaderAgentId, memberAgentIds: next.memberAgentIds })
+      console.log('[Debug] resolvedToggles:', {
+        leaderAgentId: next.leaderAgentId,
+        memberAgentIds: next.memberAgentIds,
+      })
       const fallbackAgent = agents?.find(agent => agent.isDefault)
       const modelConfig = getModelConfigForAgent(
         resolvedAgent || fallbackAgent,
@@ -1672,6 +1675,33 @@ const useChatStore = create((set, get) => ({
                     const st = getAgentStreamState(chunkAgentId)
                     const reasoningText = extractReasoningText(chunk)
 
+                    // Handle Agent Status Event
+                    if (chunk?.type === 'agent_status' && chunk?.status) {
+                      const newStatus = chunk.status
+                      const targetId = chunk.agentId || chunkAgentId
+                      updateExpertMessage(current => ({
+                        ...current,
+                        expertResponses: (current.expertResponses || []).map(item =>
+                          String(item.agentId) === String(targetId)
+                            ? { ...item, status: newStatus }
+                            : item,
+                        ),
+                      }))
+                      return
+                    }
+
+                    // Update agent status from other events if provided
+                    if (chunk?.agent_status) {
+                      updateExpertMessage(current => ({
+                        ...current,
+                        expertResponses: (current.expertResponses || []).map(item =>
+                          String(item.agentId) === String(chunkAgentId)
+                            ? { ...item, status: chunk.agent_status }
+                            : item,
+                        ),
+                      }))
+                    }
+
                     if (reasoningText) {
                       const cleanThought = sanitizeExpertStreamChunk(reasoningText)
                       if (!cleanThought) return
@@ -1946,7 +1976,7 @@ const useChatStore = create((set, get) => ({
             content: fallbackText,
             expertPlanLoading: false,
             expertActiveAgentId: 'leader',
-            expertResponses: finalResponses,
+            expertResponses: finalResponses.map(r => ({ ...r, status: 'idle' })),
           }))
 
           const expertThinkingPayload = JSON.stringify({

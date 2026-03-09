@@ -288,7 +288,11 @@
       "streaming": "正在传输",
       "complete": "已完成"
     },
-    "agents": "智能体"
+    "agents": "智能体",
+    "role": {
+      "leader": "组长 (Leader)",
+      "member": "专家 (Member)"
+    }
   },
   "notificationCenter": {
     "title": "邮件通知",

@@ -23,6 +23,7 @@ from agno.run.team import TeamRunEvent
 from agno.utils.log import logger
 
 from ..models.stream_chat import (
+    AgentStatusEvent,
     DoneEvent,
     ErrorEvent,
     FormRequestEvent,  # New: HITL form request event
@@ -213,6 +214,12 @@ def _extract_agent_info_from_event(
                 res.update(agent_metadata[agent_id])
             elif agent_name in agent_metadata:
                 res.update(agent_metadata[agent_name])
+            elif not agent_id and agent_name: # Fallback lookup by name if ID missing on event
+                for meta_id, meta in agent_metadata.items():
+                    if meta.get("name") == agent_name:
+                        res.update(meta)
+                        res["agent_id"] = meta_id
+                        break
         return res
 
     # Fallback to leader if totally ambiguous
@@ -986,6 +993,7 @@ class StreamChatService:
                     text_index=current_text_index,
                     agent_id=current_agent_info.get("agent_id"),
                     agent_name=current_agent_info.get("agent_name"),
+                    agent_status=current_agent_info.get("status"),
                 ).model_dump(by_alias=True, exclude_none=True)
 
             def process_text(text: str):
@@ -1002,7 +1010,21 @@ class StreamChatService:
                         content=clean_text,
                         agent_id=current_agent_info.get("agent_id"),
                         agent_name=current_agent_info.get("agent_name"),
+                        agent_status=current_agent_info.get("status"),
                     ).model_dump(by_alias=True, exclude_none=True)
+
+            # Agent status tracking for Team mode
+            agent_statuses: dict[str, str] = {}
+            def set_agent_status(agent_id: str | None, status: str):
+                if not agent_id: return
+                if agent_statuses.get(agent_id) == status: return
+                agent_statuses[agent_id] = status
+                return AgentStatusEvent(agentId=agent_id, status=status).model_dump(by_alias=True)
+
+            async def update_status_and_yield(agent_id: str | None, status: str):
+                event = set_agent_status(agent_id, status)
+                if event:
+                    yield event
 
             # Context management now handled by Agno's num_history_runs parameter
             messages = request.messages
@@ -1294,6 +1316,13 @@ class StreamChatService:
                                 f"[TEAM] >>> Active Agent Switch: {active_name} ({active_role}) "
                                 f"| Model: {active_model} | Provider: {active_provider}"
                             )
+                        
+                        # Apply current tracked status to info for text/thought events
+                        if current_agent_info.get("agent_role") == "leader":
+                            # If leader is back, ensure they are active (resumed from waiting)
+                            agent_statuses[current_id] = "active"
+                        
+                        current_agent_info["status"] = agent_statuses.get(current_id, "active")
 
                     if current_agent_info.get("agent_role") == "member":
                         trace_stream(
@@ -1305,6 +1334,7 @@ class StreamChatService:
                     match run_event.event:
                         case RunEvent.run_started.value | TeamRunEvent.run_started:
                             if is_team_mode:
+                                active_id = current_agent_info.get("agent_id")
                                 active_name = current_agent_info.get("agent_name")
                                 active_role = current_agent_info.get("agent_role")
                                 active_model = current_agent_info.get("model")
@@ -1313,6 +1343,28 @@ class StreamChatService:
                                     f"[TEAM] >>> run_started: {active_name} ({active_role}) "
                                     f"| Model: {active_model} | Provider: {active_provider}"
                                 )
+                                
+                                # Member starts -> Leader waits, Member active
+                                if active_role == "member":
+                                    # Ensure leader is set to waiting when member starts
+                                    async for e in update_status_and_yield(request.agent_id, "waiting"):
+                                        yield e
+                                    async for e in update_status_and_yield(active_id, "active"):
+                                        yield e
+                                else:
+                                    # Leader starts -> Leader active
+                                    async for e in update_status_and_yield(active_id, "active"):
+                                        yield e
+                            continue
+
+                        case TeamRunEvent.run_completed:
+                            if is_team_mode:
+                                active_id = current_agent_info.get("agent_id")
+                                active_role = current_agent_info.get("agent_role")
+                                if active_role == "member":
+                                    # Member finished -> Leader still waiting (until it resumes), Member ready
+                                    async for e in update_status_and_yield(active_id, "ready"):
+                                        yield e
                             continue
 
                         # Handle both Agent RunEvent and Team TeamRunEvent for content streaming
@@ -1381,11 +1433,6 @@ class StreamChatService:
                             if content_chunk:
                                 for e in process_text(content_chunk):
                                     yield e
-                                trace_stream(
-                                    "emit_content",
-                                    reasoning_closed=reasoning_closed_for_current_cycle,
-                                    content_preview=_preview(content_chunk),
-                                )
 
                         case RunEvent.reasoning_content_delta.value | TeamRunEvent.reasoning_content_delta:
                             raw_content_chunk = _extract_text_chunk(run_event)
@@ -1451,12 +1498,6 @@ class StreamChatService:
                             if content_chunk:
                                 for e in process_text(content_chunk):
                                     yield e
-                                trace_stream(
-                                    "emit_content",
-                                    reasoning_closed=reasoning_closed_for_current_cycle,
-                                    content_preview=_preview(content_chunk),
-                                )
-
                         case RunEvent.tool_call_started.value | TeamRunEvent.tool_call_started:
                             tool_event: ToolCallStartedEvent = run_event  # type: ignore[assignment]
                             tool = tool_event.tool
@@ -1467,19 +1508,25 @@ class StreamChatService:
                                 in_content_think_block = False
                                 inline_tool_trace_depth = 0
                                 inline_protocol_tail = ""
-                                if tool.tool_call_id:
+                                if getattr(tool, "tool_call_id", None):
                                     tool_start_times[tool.tool_call_id] = time.time()
+                                
+                                current_id = current_agent_info.get("agent_id")
+                                # If leader calls a tool, it's either an internal tool (code, etc) or delegation.
+                                # During the tool call itself, the agent is "active".
+                                async for e in update_status_and_yield(current_id, "active"):
+                                    yield e
+
                                 trace_stream(
                                     "tool_call_started",
-                                    tool_name=tool.tool_name or "",
-                                    tool_call_id=tool.tool_call_id,
+                                    tool_name=getattr(tool, "tool_name", ""),
+                                    tool_call_id=getattr(tool, "tool_call_id", None),
                                 )
                                 current_text_index = len(full_content)
                                 yield _build_tool_call_event(
-                                    tool,
+                                    tool, 
                                     current_text_index,
-                                    include_none=True,
-                                    agent_info=current_agent_info,
+                                    agent_info=current_agent_info
                                 )
 
                         case RunEvent.tool_call_completed.value | TeamRunEvent.tool_call_completed:
@@ -1524,6 +1571,7 @@ class StreamChatService:
                             # In Team Mode, only terminate when the LEADER (no agent_id on event) completes.
                             # Member completions should just let the main loop continue.
                             if is_team_mode and is_member_completion:
+                                active_id = event_agent_info.get("agent_id")
                                 active_name = event_agent_info.get("agent_name")
                                 active_model = event_agent_info.get("model")
                                 active_provider = event_agent_info.get("provider")
@@ -1532,7 +1580,15 @@ class StreamChatService:
                                     f"(Model: {active_model} | Provider: {active_provider}). "
                                     "Continuing stream..."
                                 )
+                                # Ensure member is marked as ready if not already handled by TeamRunEvent.run_completed
+                                async for e in update_status_and_yield(active_id, "ready"):
+                                    yield e
                                 continue
+
+                            # Leader completed
+                            if is_team_mode:
+                                async for e in update_status_and_yield(request.agent_id, "idle"):
+                                    yield e
 
                             final_content, output = _extract_completed_content_and_output(
                                 run_event,
@@ -1589,6 +1645,10 @@ class StreamChatService:
 
                         case RunEvent.run_error.value | TeamRunEvent.run_error:
                             error_msg = _extract_best_error_message(run_event)
+                            active_id = current_agent_info.get("agent_id")
+                            if active_id:
+                                async for e in update_status_and_yield(active_id, "error"):
+                                    yield e
                             yield ErrorEvent(error=error_msg).model_dump()
                             return
                 else:

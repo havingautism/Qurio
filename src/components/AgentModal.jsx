@@ -2478,8 +2478,8 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                 </div>
 
                 {toolsLoading ? (
-                  <div className="text-sm text-gray-500 dark:text-gray-400">
-                    {t('agents.tools.loading')}
+                  <div className="flex items-center justify-center gap-2 py-8 text-gray-500">
+                    <DotLoader />
                   </div>
                 ) : toolsByCategory.length === 0 ? (
                   <div className="text-sm text-gray-500 dark:text-gray-400">

@@ -1,9 +1,9 @@
 [project]
 name = "qurio-backend"
-version = "0.1.0"
+version = "1.0.0"
 description = "Qurio Backend with FastAPI + Agno"
 authors = [
-    {name = "Qurio", email = "info@qur.io"}
+    {name = "havingautism", email = "havingautism@outlook.com"}
 ]
 requires-python = ">=3.11"
 dependencies = [

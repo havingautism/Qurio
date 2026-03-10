@@ -44,9 +44,11 @@ import {
 } from 'lucide-react'
 import { Notebook as NotebookIcon } from '@phosphor-icons/react'
 import clsx from 'clsx'
+import AgentModal from '../components/AgentModal'
 import {
   createScrapbookEntry,
   deleteScrapbookEntry,
+  ensureScrapbookAgent,
   getPlatformLabel,
   listScrapbookEntries,
   PLATFORM_LABELS,
@@ -55,12 +57,13 @@ import {
 import { checkEnvStatus, installScraperEngine } from '../lib/services/envService'
 import { useNavigate } from '@tanstack/react-router'
 import { useAppContext } from '../App'
-import { loadSettings, saveSettings } from '../lib/settings'
+import { createAgent, updateAgent } from '../lib/agentsService'
+import { loadSettings } from '../lib/settings'
 import { PROVIDER_KEYS, FALLBACK_MODEL_OPTIONS } from '../lib/modelConstants'
 import { getModelsForProvider } from '../lib/models_api'
 import { getPublicEnv } from '../lib/publicEnv'
-import { saveRemoteSettings } from '../lib/supabase'
 import { Streamdown } from 'streamdown'
+import { buildScrapbookSystemAgentPayload, SCRAPBOOK_AGENT_ID } from '../lib/systemAgents'
 
 import ColorBendsBackground from '../components/ui/ColorBendsBackground'
 import { Button } from '@/components/ui/button'
@@ -82,6 +85,13 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { getModelIcon, getModelIconClassName, renderProviderIcon } from '../lib/modelIcons'
+
+const STYLE_BASE_TONE_KEYS = ['technical', 'friendly', 'professional', 'academic', 'creative', 'casual']
+const STYLE_TRAIT_KEYS = ['default', 'concise', 'structured', 'detailed', 'actionable', 'analytical']
+const STYLE_WARMTH_KEYS = ['default', 'gentle', 'empathetic', 'direct', 'supportive']
+const STYLE_ENTHUSIASM_KEYS = ['default', 'low', 'medium', 'high']
+const STYLE_HEADINGS_KEYS = ['default', 'minimal', 'structured', 'detailed']
+const STYLE_EMOJI_KEYS = ['default', 'none', 'light', 'moderate', 'expressive']
 
 // Same as AgentModal, used for API key availability checks.
 const ENV_VARS = {
@@ -160,290 +170,53 @@ const getCardSummarySnippet = (summary, maxLen = 170) => {
 }
 
 const ModelConfigPanel = ({ isOpen, onClose }) => {
-  const { t } = useTranslation()
-  const initSettings = loadSettings()
-
-  const [provider, setProvider] = useState(
-    initSettings.scrapbookProvider || initSettings.defaultModelProvider || '',
-  )
-  const [model, setModel] = useState(initSettings.scrapbookModel || initSettings.defaultModel || '')
-  const [modelSource, setModelSource] = useState('list')
-  const [customModel, setCustomModel] = useState('')
-  const [groupedModels, setGroupedModels] = useState({})
-  const [availableProviders, setAvailableProviders] = useState([])
-  const [isLoadingModels, setIsLoadingModels] = useState(false)
+  const [scrapbookAgent, setScrapbookAgent] = useState(null)
 
   useEffect(() => {
-    if (isOpen) {
-      const s = loadSettings()
-      const keys = {
-        gemini: s.googleApiKey,
-        openai_compatibility: s.OpenAICompatibilityKey,
-        siliconflow: s.SiliconFlowKey,
-        glm: s.GlmKey,
-        deepseek: s.DeepSeekKey,
-        volcengine: s.VolcengineKey,
-        modelscope: s.ModelScopeKey,
-        kimi: s.KimiKey,
-        nvidia: s.NvidiaKey,
-        minimax: s.MinimaxKey,
-      }
-      const enabledProviders = PROVIDER_KEYS.filter(key => {
-        const hasApiKey =
-          keys[key] ||
-          ENV_VARS[`${key}Key`] ||
-          ENV_VARS[`${key}ApiKey`] ||
-          (key === 'gemini' && ENV_VARS.googleApiKey) ||
-          (key === 'openai_compatibility' && ENV_VARS.openAIKey)
-        return hasApiKey
-      })
-      setAvailableProviders(enabledProviders)
+    if (!isOpen) return
+    let cancelled = false
 
-      setProvider(s.scrapbookProvider || s.defaultModelProvider || '')
-      setModel(s.scrapbookModel || s.defaultModel || '')
-      setModelSource(s.scrapbookModelSource || 'list')
-      setCustomModel(s.scrapbookModelSource === 'custom' ? s.scrapbookModel || '' : '')
+    const loadAgent = async () => {
+      const settings = loadSettings()
+      const fallbackAgent = buildScrapbookSystemAgentPayload(settings)
+      const { data, error } = await ensureScrapbookAgent(settings)
+      if (cancelled) return
+      setScrapbookAgent(!error && data ? data : fallbackAgent)
+    }
+
+    loadAgent()
+    return () => {
+      cancelled = true
     }
   }, [isOpen])
 
-  useEffect(() => {
-    if (isOpen && provider && provider !== '__none__' && !groupedModels[provider]) {
-      const fetchProviderModels = async () => {
-        setIsLoadingModels(true)
-        const s = loadSettings()
-        const keys = {
-          gemini: s.googleApiKey,
-          openai_compatibility: s.OpenAICompatibilityKey,
-          openai_compatibility_url: s.OpenAICompatibilityUrl,
-          siliconflow: s.SiliconFlowKey,
-          glm: s.GlmKey,
-          deepseek: s.DeepSeekKey,
-          volcengine: s.VolcengineKey,
-          modelscope: s.ModelScopeKey,
-          kimi: s.KimiKey,
-          nvidia: s.NvidiaKey,
-          minimax: s.MinimaxKey,
-        }
-        const providerCreds = {
-          gemini: { apiKey: keys.gemini },
-          openai_compatibility: {
-            apiKey: keys.openai_compatibility,
-            baseUrl: keys.openai_compatibility_url,
-          },
-          siliconflow: { apiKey: keys.siliconflow, baseUrl: 'https://api.siliconflow.cn/v1' },
-          glm: { apiKey: keys.glm },
-          deepseek: { apiKey: keys.deepseek, baseUrl: 'https://api.deepseek.com/v1' },
-          volcengine: {
-            apiKey: keys.volcengine,
-            baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
-          },
-          modelscope: { apiKey: keys.modelscope },
-          kimi: { apiKey: keys.kimi },
-          nvidia: { apiKey: keys.nvidia, baseUrl: 'https://integrate.api.nvidia.com/v1' },
-          minimax: { apiKey: keys.minimax, baseUrl: 'https://api.minimax.io/v1' },
-        }
-        try {
-          const models = await getModelsForProvider(provider, providerCreds[provider] || {})
-          setGroupedModels(prev => ({
-            ...prev,
-            [provider]: models?.length ? models : FALLBACK_MODEL_OPTIONS[provider] || [],
-          }))
-        } catch {
-          setGroupedModels(prev => ({
-            ...prev,
-            [provider]: FALLBACK_MODEL_OPTIONS[provider] || [],
-          }))
-        }
-        setIsLoadingModels(false)
-      }
-      fetchProviderModels()
+  const handleSave = async payload => {
+    const settings = loadSettings()
+    const basePayload = buildScrapbookSystemAgentPayload(settings)
+    const nextPayload = {
+      ...basePayload,
+      ...payload,
+      id: SCRAPBOOK_AGENT_ID,
+      isHidden: true,
     }
-  }, [isOpen, provider, groupedModels])
-
-  const handleProviderChange = p => {
-    setProvider(p)
-    setModel('')
-    setCustomModel('')
-    setModelSource('list')
-  }
-
-  const modelsForProvider = groupedModels[provider] || []
-
-  const handleSave = () => {
-    const finalModel = modelSource === 'custom' ? customModel : model
-    const newSettings = {
-      scrapbookProvider: provider,
-      scrapbookModel: finalModel,
-      scrapbookModelSource: modelSource,
+    const { data: existingAgent } = await ensureScrapbookAgent(settings)
+    if (existingAgent) {
+      const { data } = await updateAgent(existingAgent.id, nextPayload)
+      setScrapbookAgent(data || nextPayload)
+    } else {
+      const { data } = await createAgent(nextPayload)
+      setScrapbookAgent(data || nextPayload)
     }
-    saveSettings(newSettings)
-    saveRemoteSettings(newSettings)
-    onClose()
-  }
-
-  const handleReset = () => {
-    const newSettings = { scrapbookProvider: '', scrapbookModel: '', scrapbookModelSource: 'list' }
-    saveSettings(newSettings)
-    saveRemoteSettings(newSettings)
-    onClose()
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={open => !open && onClose()}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>{t('settings.modelConfig')}</DialogTitle>
-          <DialogDescription>{t('settings.modelConfigDesc')}</DialogDescription>
-        </DialogHeader>
-
-        <div className="py-2">
-          <div className="space-y-4">
-            {/* Provider */}
-            <div className="flex flex-col gap-2">
-              <span className="text-xs font-semibold tracking-wide text-[var(--color-text-secondary)] uppercase">
-                {t('settings.email.provider')}
-              </span>
-              {availableProviders.length === 0 ? (
-                <p className="py-1 text-xs text-amber-600 dark:text-amber-400">
-                  {t('settings.noProvidersHint')}
-                </p>
-              ) : (
-                <Select
-                  value={provider || '__none__'}
-                  onValueChange={val => handleProviderChange(val === '__none__' ? '' : val)}
-                >
-                  <SelectTrigger className="w-full rounded-xl border-none bg-black/5 focus-visible:ring-1 focus-visible:ring-black/10 dark:bg-white/5 dark:focus-visible:ring-white/10">
-                    <SelectValue placeholder={t('settings.inheritGlobal')}>
-                      {provider ? (
-                        <div className="flex items-center gap-3">
-                          {renderProviderIcon(provider, { size: 16 })}
-                          <span>{provider}</span>
-                        </div>
-                      ) : (
-                        <span>{t('settings.inheritGlobal')}</span>
-                      )}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">
-                      <span className="text-[var(--color-text-secondary)]">
-                        {t('settings.inheritGlobal')}
-                      </span>
-                    </SelectItem>
-                    {availableProviders.map(p => (
-                      <SelectItem key={p} value={p}>
-                        <div className="flex items-center gap-3">
-                          {renderProviderIcon(p, { size: 16 })}
-                          <span>{p}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
-
-            {/* Model */}
-            {provider && (
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold tracking-wide text-[var(--color-text-secondary)] uppercase">
-                    {t('settings.email.model')}
-                  </span>
-                  <button
-                    onClick={() => setModelSource(s => (s === 'custom' ? 'list' : 'custom'))}
-                    className="text-xs text-[var(--color-accent)] hover:underline"
-                  >
-                    {modelSource === 'custom'
-                      ? t('settings.selectFromList')
-                      : t('settings.manualInput')}
-                  </button>
-                </div>
-                {modelSource === 'custom' ? (
-                  <Input
-                    value={customModel}
-                    onChange={e => setCustomModel(e.target.value)}
-                    placeholder={t('settings.inputModelName')}
-                    className="w-full rounded-xl border-none bg-black/5 px-4 focus-visible:ring-1 focus-visible:ring-black/10 dark:bg-white/5 dark:focus-visible:ring-white/10"
-                  />
-                ) : isLoadingModels ? (
-                  <div className="flex items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-3 py-2 text-sm text-[var(--color-text-secondary)] shadow-sm">
-                    <Loader2 size={16} className="animate-spin text-[var(--color-accent)]" />
-                    {t('settings.loadingModels')}
-                  </div>
-                ) : modelsForProvider.length === 0 ? (
-                  <p className="py-2 text-xs text-[var(--color-text-tertiary)]">
-                    {t('settings.noModelsAvailableHint')}
-                  </p>
-                ) : (
-                  <Select
-                    value={model || '__none__'}
-                    onValueChange={val => setModel(val === '__none__' ? '' : val)}
-                  >
-                    <SelectTrigger className="w-full rounded-xl border-none bg-black/5 focus-visible:ring-1 focus-visible:ring-black/10 dark:bg-white/5 dark:focus-visible:ring-white/10">
-                      <SelectValue placeholder={t('settings.selectModel')}>
-                        {model ? (
-                          <div className="flex items-center gap-2 truncate">
-                            {getModelIcon(model) && (
-                              <img
-                                src={getModelIcon(model)}
-                                alt=""
-                                className={clsx('h-4 w-4 shrink-0', getModelIconClassName(model))}
-                              />
-                            )}
-                            <span className="truncate">
-                              {modelsForProvider.find(m => m.value === model)?.label || model}
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="text-[var(--color-text-secondary)]">
-                            {t('settings.selectModel')}
-                          </span>
-                        )}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">
-                        <span className="text-[var(--color-text-secondary)]">
-                          {t('settings.selectModel')}
-                        </span>
-                      </SelectItem>
-                      {modelsForProvider.map(m => (
-                        <SelectItem key={m.value} value={m.value}>
-                          <div className="flex items-center gap-2 truncate">
-                            {getModelIcon(m.value) && (
-                              <img
-                                src={getModelIcon(m.value)}
-                                alt=""
-                                className={clsx('h-4 w-4', getModelIconClassName(m.value))}
-                              />
-                            )}
-                            <span className="truncate">{m.label || m.value}</span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-
-        <DialogFooter className="mt-4 flex w-full items-center gap-2 sm:justify-between">
-          <Button variant="outline" onClick={handleReset} className="flex-1 rounded-xl">
-            {t('settings.resetToGlobal')}
-          </Button>
-          <Button
-            onClick={handleSave}
-            disabled={isLoadingModels}
-            className="flex-1 rounded-xl bg-zinc-900 text-white shadow-md hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
-          >
-            {t('sidebar.save')}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <AgentModal
+      isOpen={isOpen}
+      onClose={onClose}
+      editingAgent={scrapbookAgent}
+      onSave={handleSave}
+      onDelete={null}
+    />
   )
 }
 
@@ -453,6 +226,7 @@ const ModelConfigPanel = ({ isOpen, onClose }) => {
 
 const AddModal = ({ isOpen, onClose, onAdded }) => {
   const { t } = useTranslation()
+  const { defaultAgent } = useAppContext()
   const navigate = useNavigate()
   const [tab, setTab] = useState('url') // 'url' | 'manual'
   const [url, setUrl] = useState('')
@@ -505,7 +279,7 @@ const AddModal = ({ isOpen, onClose, onAdded }) => {
     setError('')
     setLoadingMsg(t('scrapbook.modal.fetching'))
 
-    const modelConfig = resolveScrapbookModelConfig()
+    const modelConfig = await resolveScrapbookModelConfig(defaultAgent)
     if (!modelConfig.apiKey) {
       setError(t('scrapbook.generate.missingApiKey'))
       setIsLoading(false)
@@ -981,6 +755,31 @@ export default function ScrapbookView() {
 
   useEffect(() => {
     fetchEntries()
+  }, [fetchEntries])
+
+  useEffect(() => {
+    const handleScrapbookChanged = event => {
+      const detail = event?.detail || {}
+      const type = String(detail.type || '')
+      const changedEntry = detail.entry
+
+      if (type === 'deleted' && changedEntry?.id) {
+        setEntries(prev => prev.filter(item => item.id !== changedEntry.id))
+        return
+      }
+
+      if (type === 'updated' && changedEntry?.id) {
+        setEntries(prev =>
+          prev.map(item => (item.id === changedEntry.id ? { ...item, ...changedEntry } : item)),
+        )
+        return
+      }
+
+      fetchEntries()
+    }
+
+    window.addEventListener('scrapbook-changed', handleScrapbookChanged)
+    return () => window.removeEventListener('scrapbook-changed', handleScrapbookChanged)
   }, [fetchEntries])
 
   const filteredEntries = useMemo(() => {

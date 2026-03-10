@@ -21,6 +21,7 @@ SCHEMA_STATEMENTS: list[str] = [
     CREATE TABLE IF NOT EXISTS agents (
       id TEXT PRIMARY KEY,
       is_default INTEGER NOT NULL DEFAULT 0,
+      is_hidden INTEGER NOT NULL DEFAULT 0,
       emoji TEXT NOT NULL DEFAULT '',
       avatar_type TEXT NOT NULL DEFAULT 'emoji',
       avatar_image TEXT,
@@ -320,12 +321,36 @@ SCHEMA_STATEMENTS: list[str] = [
     """,
     """
     INSERT OR IGNORE INTO agents (
-      id, is_default, emoji, name, description, prompt, is_deep_research,
+      id, is_default, is_hidden, emoji, name, description, prompt, is_deep_research,
       base_tone, traits, warmth, enthusiasm, headings, emojis, tool_ids, skill_ids,
       created_at, updated_at
     ) VALUES
       (
-        'agent-life-assistant', 0, '🏠', 'Life Assistant',
+        '11111111-1111-1111-1111-111111111111', 1, 0, '',
+        'Default Agent',
+        'Fallback agent (non-editable).',
+        '', 0, 'technical', 'default', 'default', 'default', 'default', 'default',
+        '[]', '[]',
+        CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+      ),
+      (
+        '22222222-2222-2222-2222-222222222222', 0, 0, '🔬',
+        'Deep Research Agent',
+        'Deep research agent (deep-research)',
+        '', 1, 'academic', 'detailed', 'direct', 'low', 'detailed', 'none',
+        '[]', '[]',
+        CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+      ),
+      (
+        '33333333-3333-3333-3333-333333333333', 0, 1, '📒',
+        'Scrapbook Agent',
+        'Hidden system agent for Scrapbook generation settings.',
+        '', 0, 'technical', 'default', 'default', 'default', 'default', 'default',
+        '[]', '[]',
+        CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+      ),
+      (
+        'agent-life-assistant', 0, 0, '🏠', 'Life Assistant',
         'Helps with routines, tasks, and daily decisions.',
         'You are a practical life assistant. Give actionable steps, ask for constraints, and keep responses concise and useful.',
         0, 'friendly', 'practical', 'gentle', 'medium', 'structured', 'light',
@@ -333,7 +358,7 @@ SCHEMA_STATEMENTS: list[str] = [
         CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
       ),
       (
-        'agent-code-assistant', 0, '💻', 'Code Assistant',
+        'agent-code-assistant', 0, 0, '💻', 'Code Assistant',
         'Engineering-focused coding and debugging assistant.',
         'You are a senior coding assistant. Clarify requirements, provide correct runnable solutions, and include testing advice.',
         0, 'technical', 'concise', 'direct', 'low', 'structured', 'none',
@@ -341,7 +366,7 @@ SCHEMA_STATEMENTS: list[str] = [
         CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
       ),
       (
-        'agent-travel-planner', 0, '✈️', 'Travel Planner',
+        'agent-travel-planner', 0, 0, '✈️', 'Travel Planner',
         'Plans routes, schedules, and budgets for trips.',
         'You are a travel planner. Confirm origin, budget, duration, and preferences, then return a clear itinerary with options.',
         0, 'professional', 'detailed', 'supportive', 'medium', 'structured', 'light',
@@ -349,7 +374,7 @@ SCHEMA_STATEMENTS: list[str] = [
         CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
       ),
       (
-        'agent-movie-music-curator', 0, '🎬', 'Movie & Music Curator',
+        'agent-movie-music-curator', 0, 0, '🎬', 'Movie & Music Curator',
         'Curates movie and music recommendations by taste.',
         'You are a recommendation curator. Identify user taste and provide tiered suggestions with short reasons.',
         0, 'creative', 'detailed', 'friendly', 'medium', 'structured', 'expressive',
@@ -357,7 +382,7 @@ SCHEMA_STATEMENTS: list[str] = [
         CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
       ),
       (
-        'agent-study-coach', 0, '📚', 'Study Coach',
+        'agent-study-coach', 0, 0, '📚', 'Study Coach',
         'Builds learning plans and review strategies.',
         'You are a study coach. Create phased plans, daily tasks, and review loops based on goals and available time.',
         0, 'professional', 'structured', 'supportive', 'medium', 'structured', 'light',
@@ -365,7 +390,7 @@ SCHEMA_STATEMENTS: list[str] = [
         CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
       ),
       (
-        'agent-health-wellness', 0, '💪', 'Health Coach',
+        'agent-health-wellness', 0, 0, '💪', 'Health Coach',
         'Supports healthy habits and lifestyle routines.',
         'You are a health coach. Focus on habit-level advice for sleep, exercise, and nutrition. Avoid diagnosis and suggest professional care when needed.',
         0, 'calm', 'practical', 'gentle', 'low', 'structured', 'none',
@@ -373,7 +398,7 @@ SCHEMA_STATEMENTS: list[str] = [
         CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
       ),
       (
-        'agent-finance-planner', 0, '💰', 'Finance Planner',
+        'agent-finance-planner', 0, 0, '💰', 'Finance Planner',
         'Helps with budget, savings, and spending decisions.',
         'You are a finance planner. Ask for cashflow context and provide conservative, practical allocation suggestions.',
         0, 'professional', 'analytical', 'neutral', 'low', 'structured', 'none',
@@ -381,7 +406,7 @@ SCHEMA_STATEMENTS: list[str] = [
         CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
       ),
       (
-        'agent-writing-assistant', 0, '✍️', 'Writing Assistant',
+        'agent-writing-assistant', 0, 0, '✍️', 'Writing Assistant',
         'Improves drafts, structure, and tone.',
         'You are a writing assistant. Clarify audience and style, then provide strong structure and polished alternatives.',
         0, 'friendly', 'detailed', 'gentle', 'medium', 'structured', 'light',
@@ -389,7 +414,7 @@ SCHEMA_STATEMENTS: list[str] = [
         CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
       ),
       (
-        'agent-career-coach', 0, '🚀', 'Career Coach',
+        'agent-career-coach', 0, 0, '🚀', 'Career Coach',
         'Supports resume quality and interview preparation.',
         'You are a career coach. Provide concrete resume edits, interview prep questions, and role-fit guidance.',
         0, 'professional', 'direct', 'supportive', 'medium', 'structured', 'light',

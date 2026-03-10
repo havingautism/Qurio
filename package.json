@@ -19,6 +19,7 @@
     "build:electron": "bun run build:web && bun run build:backend:exe && bunx electron-builder --win nsis",
     "start": "rsbuild preview",
     "start:electron": "bunx electron electron/main.cjs",
+    "test": "bun test",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "lint:py": "cd backend-python && uv run ruff check src",

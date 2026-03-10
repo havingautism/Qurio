@@ -1691,6 +1691,16 @@
       "failed": "生成失败",
       "missingApiKey": "未配置 API Key，请先在 Scrapbook 设置中配置模型。"
     },
+    "settings": {
+      "title": "随手记 AI 设置",
+      "description": "配置用于随手记标题生成、摘要整理和内容归纳的模型与风格。",
+      "modelSection": "模型",
+      "modelHint": "选择用于随手记生成任务的模型。这里不使用 lite model。",
+      "globalDefaultHint": "开启后，随手记将直接跟随全局 Default Model。关闭后可单独指定随手记模型。",
+      "personalizationSection": "个性化",
+      "personalizationHint": "这些设置目前只影响随手记输出，不影响后续追问对话。",
+      "customInstructionPlaceholder": "补充你对随手记标题、摘要和整理方式的额外要求..."
+    },
     "modal": {
       "addSuccess": "添加成功！",
       "updateSuccess": "更新成功！",

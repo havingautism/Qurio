@@ -345,6 +345,11 @@ class SQLiteAdapter:
                     "ALTER TABLE agents "
                     "ADD COLUMN skill_ids TEXT NOT NULL DEFAULT '[]'"
                 )
+            if "is_hidden" not in agent_columns:
+                cursor.execute(
+                    "ALTER TABLE agents "
+                    "ADD COLUMN is_hidden INTEGER NOT NULL DEFAULT 0"
+                )
             # Forward migration: ensure scrapbook table exists for pre-existing DBs.
             cursor.execute(
                 "CREATE TABLE IF NOT EXISTS scrapbook ("

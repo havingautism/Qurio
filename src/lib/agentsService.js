@@ -1,4 +1,5 @@
 import { getSupabaseClient } from './supabase'
+import { annotateSystemAgent, filterVisibleAgents } from './systemAgents'
 
 const table = 'agents'
 
@@ -10,13 +11,14 @@ const toBoolWithDefault = (value, fallback) => {
 
 const mapAgent = agent => {
   if (!agent) return agent
-  return {
+  return annotateSystemAgent({
     id: agent.id,
     isDefault: agent.is_default ?? agent.isDefault ?? false,
     name: agent.name,
     description: agent.description,
     prompt: agent.prompt,
     isDeepResearch: agent.is_deep_research ?? agent.isDeepResearch ?? false,
+    isHidden: agent.is_hidden ?? agent.isHidden ?? false,
     emoji: agent.emoji,
     avatarType: agent.avatar_type ?? agent.avatarType ?? 'emoji',
     avatarImage: agent.avatar_image ?? agent.avatarImage ?? '',
@@ -50,10 +52,10 @@ const mapAgent = agent => {
     skillIds: agent.skill_ids ?? agent.skillIds ?? [],
     createdAt: agent.created_at ?? agent.createdAt ?? null,
     updatedAt: agent.updated_at ?? agent.updatedAt ?? null,
-  }
+  })
 }
 
-export const listAgents = async () => {
+export const listAgents = async ({ includeHidden = false } = {}) => {
   const supabase = getSupabaseClient()
   if (!supabase) return { data: [], error: new Error('Supabase not configured') }
 
@@ -62,10 +64,21 @@ export const listAgents = async () => {
     .select('*')
     .order('created_at', { ascending: true })
 
-  return { data: (data || []).map(mapAgent), error }
+  const mapped = (data || []).map(mapAgent)
+  return { data: includeHidden ? mapped : filterVisibleAgents(mapped), error }
+}
+
+export const getAgentById = async id => {
+  const supabase = getSupabaseClient()
+  if (!supabase) return { data: null, error: new Error('Supabase not configured') }
+  if (!id) return { data: null, error: new Error('Agent id is required') }
+
+  const { data, error } = await supabase.from(table).select('*').eq('id', id).maybeSingle()
+  return { data: mapAgent(data), error }
 }
 
 export const createAgent = async ({
+  id,
   name,
   description = '',
   prompt = '',
@@ -77,6 +90,7 @@ export const createAgent = async ({
   bannerMode = 'none',
   bannerImage = '',
   isDefault = false,
+  isHidden = false,
   provider = '',
   defaultModelProvider = '',
   liteModelProvider = '',
@@ -105,6 +119,7 @@ export const createAgent = async ({
   if (!name) return { data: null, error: new Error('Name is required') }
 
   const payload = {
+    ...(id ? { id } : {}),
     name,
     description,
     prompt,
@@ -116,6 +131,7 @@ export const createAgent = async ({
     banner_mode: bannerMode,
     banner_image: bannerImage,
     is_default: isDefault,
+    is_hidden: isHidden,
     provider,
     default_model_provider: defaultModelProvider,
     lite_model_provider: liteModelProvider,
@@ -185,6 +201,7 @@ export const updateAgent = async (id, payload) => {
   if (payload.customInstruction !== undefined)
     updatePayload.custom_instruction = payload.customInstruction
   if (payload.isDefault !== undefined) updatePayload.is_default = payload.isDefault
+  if (payload.isHidden !== undefined) updatePayload.is_hidden = payload.isHidden
   if (payload.temperature !== undefined) updatePayload.temperature = payload.temperature
   if (payload.topP !== undefined) updatePayload.top_p = payload.topP
   if (payload.frequencyPenalty !== undefined)

@@ -16,9 +16,11 @@ import {
 import clsx from 'clsx'
 import { useAppContext } from '../App'
 import {
+  buildScrapbookStylePrompt,
   getScrapbookEntryById,
   deleteScrapbookEntry,
   getPlatformLabel,
+  notifyScrapbookChanged,
   resolveScrapbookModelConfig,
 } from '../lib/scrapbookService'
 import { createConversation, notifyConversationsChanged } from '../lib/conversationsService'
@@ -54,7 +56,7 @@ const stripGeneratedTitlePrefix = value => {
 
 export default function ScrapbookDetailView() {
   const { t } = useTranslation()
-  const { isSidebarPinned, showConfirmation } = useAppContext()
+  const { defaultAgent, isSidebarPinned, showConfirmation } = useAppContext()
   const { entryId } = useParams({ strict: false })
   const navigate = useNavigate()
 
@@ -86,7 +88,7 @@ export default function ScrapbookDetailView() {
   const handleRegenerateTitle = async () => {
     if (!entry || isRegeneratingTitle) return
 
-    const modelConfig = resolveScrapbookModelConfig()
+    const modelConfig = await resolveScrapbookModelConfig(defaultAgent, 'generateTitle')
     if (!modelConfig.apiKey) return
 
     const provider = modelConfig.provider || 'gemini'
@@ -100,6 +102,9 @@ export default function ScrapbookDetailView() {
       '',
       'Content excerpt:',
       String(entry.content || entry.summary || entry.title || '').slice(0, 3000),
+      '',
+      'Scrapbook style instructions:',
+      buildScrapbookStylePrompt('title', modelConfig.scrapbookAgent || modelConfig.scrapbookStyle),
     ]
       .filter(Boolean)
       .join('\n')
@@ -147,6 +152,14 @@ export default function ScrapbookDetailView() {
             title: nextTitle,
             emoji: nextEmoji || null,
           }),
+        })
+        notifyScrapbookChanged({
+          type: 'updated',
+          entry: {
+            ...entry,
+            title: nextTitle,
+            emoji: nextEmoji || null,
+          },
         })
       } catch (patchErr) {
         console.error('[Scrapbook] Failed to persist regenerated title:', patchErr)
@@ -265,7 +278,7 @@ export default function ScrapbookDetailView() {
 
     try {
       // 1. Resolve Provider models
-      const modelConfig = resolveScrapbookModelConfig()
+      const modelConfig = await resolveScrapbookModelConfig(defaultAgent, 'streamChatCompletion')
       if (!modelConfig.apiKey) {
         setGenerationError(t('scrapbook.generate.missingApiKey'))
         setIsGenerating(false)
@@ -287,9 +300,7 @@ Feel free to organize the content into logical sections, bullet points, or table
 
 If the original content contains image links (e.g. \`![alt](url)\`), please embed 1-3 of the most relevant and important images within your summary.
 
-## Response Style
-- Use a professional, business-appropriate tone.
-- Feel free to use emojis to add warmth and clarity.`
+${buildScrapbookStylePrompt('summary', modelConfig.scrapbookAgent || modelConfig.scrapbookStyle)}`
 
       const userPrompt = `Content Platform: ${entry.platform}
 Source URL: ${entry.source_url}
@@ -366,8 +377,10 @@ ${entry.content}`
             })
             console.log('[Scrapbook] PATCH status:', resp.status)
             // Update local state so re-entry check sees the summary
+            const nextEntry = { ...entry, summary: finalSummary }
             setEntry(prev => ({ ...prev, summary: finalSummary }))
             setStreamedSummary('')
+            notifyScrapbookChanged({ type: 'updated', entry: nextEntry })
           } catch (patchErr) {
             console.error('[Scrapbook] Failed to persist summary:', patchErr)
           }

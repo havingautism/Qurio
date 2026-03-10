@@ -610,6 +610,39 @@ const Sidebar = ({
     }
   }, [activeTab, deepResearchSpaceId])
 
+  useEffect(() => {
+    const handleScrapbookChanged = event => {
+      const detail = event?.detail || {}
+      const type = String(detail.type || '')
+      const changedEntry = detail.entry
+
+      if (type === 'deleted' && changedEntry?.id) {
+        setScrapbookEntries(prev => prev.filter(item => item.id !== changedEntry.id))
+        return
+      }
+
+      if (type === 'updated' && changedEntry?.id) {
+        let found = false
+        setScrapbookEntries(prev =>
+          prev.map(item => {
+            if (item.id !== changedEntry.id) return item
+            found = true
+            return { ...item, ...changedEntry }
+          }),
+        )
+        if (!found) {
+          setScrapbookDirty(true)
+        }
+        return
+      }
+
+      setScrapbookDirty(true)
+    }
+
+    window.addEventListener('scrapbook-changed', handleScrapbookChanged)
+    return () => window.removeEventListener('scrapbook-changed', handleScrapbookChanged)
+  }, [])
+
   const sidebarLoadTab = isMobile ? activeTab : displayTab
 
   useEffect(() => {

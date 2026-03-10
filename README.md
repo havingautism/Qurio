@@ -1,4 +1,4 @@
-# Qurio - The AI Workstation for Research, Agents, and Real Execution
+# Qurio
 
 ![Bun](https://img.shields.io/badge/Bun-1.3+-000?logo=bun&logoColor=fff)
 ![React](https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=000)
@@ -8,252 +8,138 @@
 ![Supabase](https://img.shields.io/badge/Supabase-backend-3ecf8e?logo=supabase&logoColor=fff)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/havingautism/Qurio)
 
-> Qurio is not a chatbot skin. It is an operating surface for serious AI work.
+> ⚙️ An AI workspace for people who need more than chat.
 
-**Qurio** is where chat turns into systems.
+There is a point where chat stops being useful on its own.
 
-It combines multi-provider models, custom agents, arbitrary skills, MCP, HTTP tools, document retrieval, long-term memory, Deep Research, and Scrapbook into a single product. Instead of asking an LLM to "please remember this, maybe use this tool, maybe read this doc", you give it an actual operating environment.
+It happens when one conversation is no longer enough. You need one agent to research, another to operate tools, a place to keep documents and memory in play, and a workflow that does not fall apart the moment the task becomes real.
 
-You can route across Gemini, OpenAI-compatible providers, SiliconFlow, Kimi, MiniMax, GLM, NVIDIA NIM, ModelScope, and more. You can create agents with their own prompts, model pairings, tool permissions, visual identity, and reusable skills. You can import or create skills, attach MCP servers, wire in custom HTTP tools, save material into Scrapbook, run deep research workflows, inspect tool calls, and keep the whole thing grounded inside one workspace instead of scattering your workflow across five different products.
+Qurio is built for that point. It brings multi-provider models, custom agents, reusable skills, MCP servers, HTTP tools, retrieval, long-term memory, Deep Research, and Scrapbook into one operating surface.
 
-**Short version:** Qurio turns AI from "a place to ask questions" into "a place to run work."
+🧭 The goal is simple: turn AI from something you ask into something you can run work through.
 
-## ✨ In Practice
+## 🚩 Why It Exists
 
-Qurio is for the moments when plain chat starts to break down:
+Qurio is for workflows that outgrow ordinary chat:
 
-- You need an agent with its own tools, personality, and model strategy
-- You need research with sources instead of confident guesswork
-- You need documents, memory, and web results to show up in the same workflow
-- You need tools that actually do things, not just get mentioned in a prompt
-- You need reusable skills that can be attached to any agent instead of buried inside one giant prompt
-- You need a place to throw links, notes, and references fast without losing them
-- You want one interface for ideation, execution, retrieval, and follow-through
+- You want one agent to research, another to operate tools, and a third to write without collapsing them into one giant prompt.
+- You need evidence, citations, and visible tool activity instead of polished guesswork.
+- You want MCP, HTTP tools, search, documents, and memory in the same loop.
+- You want reusable skills that can move across agents instead of living inside one brittle system prompt.
+- You need a fast place to capture links, notes, and source material before they disappear into chat history.
 
-It is equally comfortable being a fast personal AI console, a research cockpit, or the control surface for more operational agent workflows.
+This is not a chatbot skin. It is a workspace for running AI-assisted work with structure, boundaries, and follow-through.
 
-## ⚔️ The Sharp Edge
+## ✨ What Makes Qurio Different
 
-Most AI products stop at "pick a model and chat."
-
-Qurio pushes much further:
-
-- **Any Agent can become a real operator** with a prompt, a model strategy, a bounded toolbelt, and attached skills
-- **Any Skill can be mounted into Agent context** so behavior is modular, reusable, and not trapped inside one mega prompt
-- **Any MCP or HTTP tool can become part of the workspace** and be exposed selectively through the UI
-- **Scrapbook gives you a fast capture loop** for URLs, references, and raw material that should not vanish into chat history
-- **Research, retrieval, memory, and action live together** instead of being split across separate apps and tabs
-
-That combination is the product.
+- **Agents are execution profiles, not saved prompts.** Each agent can have its own prompt, identity, model pair, tool permissions, and attached skills.
+- **Skills are first-class.** You can create them, import them, bundle references and scripts with them, and mount them across agents.
+- **Tools have structure.** MCP servers, HTTP tools, and built-in tools can be grouped, surfaced, restricted, and inspected from the UI.
+- **Research is treated as a workflow.** Plan, search, inspect sources, synthesize, and keep the evidence attached.
+- **Memory and retrieval stay selective.** Pull in what matters instead of flooding every run with context.
+- **Scrapbook closes the loop.** Save useful material quickly, then bring it back when it is time to continue.
 
 ## 🖼️ Screenshots
 
-### Home
+### 🏠 Home
 
 ![Home](./docs/screenshots/homeview.png)
 
-### Conversation + Tool Calls
+### 💬 Conversation + Tool Calls
 
 ![Conversation + Tool Calls](./docs/screenshots/conversation-tools.png)
 
-### Deep Research Workflow
+### 🔎 Deep Research Workflow
 
 ![Deep Research Workflow](./docs/screenshots/deep-research.png)
 
-### MCP Tool Groups
+### 🧰 MCP Tool Groups
 
 ![MCP Tool Groups](./docs/screenshots/mcp_tools.png)
 
-## 🚀 Why Qurio Hits Different
+## 🧠 Core Capabilities
 
-- **One workspace, many model brains**: Mix and match providers instead of getting locked into one stack.
-- **Agents with actual operational boundaries**: Per-agent prompts, tools, skills, style, models, and workspace bindings.
-- **Skills are first-class, not an afterthought**: Create them, import them, attach them, and reuse them across agents.
-- **MCP is treated like infrastructure**: Grouped, manageable, and ready to become part of everyday workflows.
-- **Scrapbook is a real product surface**: not a demo note pad, but a fast lane for saving links, references, and source material.
-- **Research that behaves like a pipeline**: Plan, search, cite, synthesize, export.
-- **Memory that is selective instead of bloated**: Inject only what matters instead of stuffing every prompt.
-- **Tools that move beyond demos**: MCP servers, HTTP tools, web search, finance, image/video search, Wikipedia, arXiv, Hacker News, and more.
-- **A UI built for power users**: Streaming, reasoning, citations, timeline, source panels, responsive layouts, and rich rendering.
+### 🔎 Deep Research
 
-## 🧠 What You Can Do
-
-### 🔬 Deep Research
-
-- Break a complex goal into steps, execute searches, gather sources, and assemble a structured report.
-- Track source-backed claims with direct links and visible evidence.
-- Run iterative research loops instead of one-shot "search and pray" prompts.
-- Keep the whole process inspectable, from planning to evidence collection to final synthesis.
-- Use it for market scans, technical investigations, academic research, product comparisons, and open-ended problem framing.
+- Break a broad question into steps, run search loops, gather evidence, and produce a structured report.
+- Keep source-backed claims visible instead of hiding them behind a final answer.
+- Inspect the path from planning to evidence collection to synthesis.
 
 ### 🤖 Custom Agents
 
-- Create specialized agents with distinct prompts, identity, tone, and model strategy.
-- Assign each agent a `Default` model for quality and a `Lite` model for routing, summaries, or planning.
-- Bind agents to spaces so each workspace keeps a consistent operational style.
-- Give one agent a strict analytical tone, another a warm support tone, and another a tool-heavy operator role without those behaviors bleeding into each other.
-- Turn agents into durable workflow units instead of disposable chat presets.
+- Create agents with distinct prompts, tone, identity, model strategy, and tool access.
+- Use a stronger `Default` model for final output and a cheaper `Lite` model for routing, summaries, or planning.
+- Bind agents to spaces so each workspace keeps a clear operating style.
 
-### 🧩 Skills You Can Actually Reuse
+### 🧩 Skills
 
-- Create skills inside Qurio and attach them to any agent context.
-- Import third-party skills from Git when you want to extend capability fast.
-- Keep skill instructions, references, and scripts modular instead of stuffing every rule into one system prompt.
-- Use skills to encode reusable behaviors, domain methods, operating checklists, or tool-usage discipline.
+- Author skills inside Qurio or import them from Git.
+- Package instructions, scripts, and references together.
+- Reuse the same capability layer across multiple agents.
 
-This is one of Qurio's most underrated advantages: capability can be packaged once and mounted many times.
-
-### 🧰 Tooling and Execution
+### 🧰 Tools and MCP
 
 - Connect MCP servers over SSE or Streamable HTTP.
-- Build custom HTTP tools from URLs and parameter templates.
-- Enable or disable tools per agent so capabilities stay focused and safe.
-- Use built-in tools for web/news search, Wikipedia, arXiv, Yahoo Finance, image search, video search, and Hacker News.
-- Mix retrieval, search, scraping, and action tools in the same agent workflow instead of treating everything like a plain text completion.
+- Build custom HTTP tools from endpoint URLs and parameter templates.
+- Combine built-in search, finance, image, video, Wikipedia, arXiv, and Hacker News tooling with your own tool stack.
+- Expose only the tools an agent should see.
 
-### 🔌 MCP and Tool Ops
+### 📚 Documents, Retrieval, and Memory
 
-- Bring in remote MCP servers and manage them as grouped capabilities.
-- Keep user tools, MCP tools, and built-in tools in one operational surface.
-- Expose only the tools a given agent should see.
-- Treat tool access like product design, not an all-or-nothing backend switch.
-
-Qurio does not just "support tools." It gives them structure, visibility, and boundaries.
-
-### 📚 Documents and Retrieval
-
-- Upload documents, parse them into chunks, index them, and retrieve relevant context during chat.
-- Combine embedding retrieval with keyword search for stronger recall in messy real-world corpora.
-- Scope retrieval to selected files so context remains controllable.
-- Use spaces and document selection to keep project context tight instead of flooding every conversation with irrelevant text.
-
-### 🧷 Long-Term Memory
-
-- Store durable user or workspace knowledge as structured memory summaries.
-- Let lightweight routing decide when memory should be fetched.
-- Keep prompts lean by injecting only relevant memory domains.
-- Preserve useful personal or project context without turning every run into a giant, expensive prompt dump.
+- Upload documents, chunk them, index them, and retrieve relevant context during chat.
+- Use hybrid retrieval to improve recall in real-world material.
+- Store long-term memory as structured summaries and inject it selectively.
 
 ### 📌 Scrapbook
 
-- Save URLs and source material quickly into a dedicated surface instead of losing them in chat scrollback.
+- Save URLs and source material quickly.
 - Generate summaries and titles around saved items.
-- Re-open saved material as conversation context when you want to keep working from it.
-- Treat captured links as reusable assets, not temporary clipboard clutter.
-
-Scrapbook is one of the most product-defining parts of Qurio because it closes the loop between discovery, storage, and follow-up.
-
-### 💬 Productivity UX
-
-- Inspect tool calls and outputs without losing the conversation thread.
-- Use structured message rendering with code, tables, citations, images, and sources.
-- Switch between desktop and mobile without losing core capability.
-- Run as a web app or desktop app workflow.
-- Keep the interface readable during long sessions, with history, source views, and agent controls close at hand.
+- Bring saved material back into the next conversation instead of losing it in scrollback.
 
 ## 🧭 Product Principles
 
-- **Execution over vibes**: The product is built to act, not just to answer.
-- **Routing matters**: Fast models decide what to fetch and which expensive models should speak.
-- **Grounding first**: Retrieval, memory, and tool outputs exist to make answers more trustworthy.
-- **Agent boundaries are a feature**: An agent should not see every tool, every document, or every instruction by default.
-- **Real workflows beat toy demos**: Research, planning, retrieval, and output structure are first-class citizens.
+- **Execution over theatrics.** The product should help complete work, not just generate plausible text.
+- **Boundaries matter.** Agents should not see every instruction, document, or tool by default.
+- **Grounding comes first.** Retrieval, memory, and tool outputs exist to make answers more reliable.
+- **Good routing saves money and time.** Fast models should decide what to fetch and when stronger models are worth it.
+- **Real workflows beat demo flows.** Research, planning, capture, retrieval, and follow-through need to live in the same system.
 
-## 🌟 Feature Highlights
+## 🌐 Provider Support
 
-### 🌐 Multi-Provider by Default
+Qurio is designed for mixed-model environments rather than single-vendor lock-in.
+
+Current provider paths include:
 
 - Google Gemini
 - OpenAI and OpenAI-compatible endpoints
 - SiliconFlow
-- Kimi (Moonshot)
+- Kimi
 - MiniMax
-- GLM (Zhipu)
+- GLM
 - ModelScope
 - NVIDIA NIM
 
-Qurio is designed so provider choice feels like infrastructure, not a product fork. You can keep a fast model for routing, a stronger model for final answers, and still swap vendors as needs or pricing change.
-
-### 🎛️ Agent Control Surface
-
-- Identity, avatar, banner, tone, warmth, language, and advanced generation controls
-- Global and per-agent model configuration
-- Tool permissions and reusable skills
-- Space-agent binding and automatic agent selection flows
-- Enough structure to shape behavior intentionally, without turning configuration into a backend-only exercise
-
-An agent in Qurio is not just a saved prompt. It is a configurable execution profile.
-
-### 🧩 Skills as a Product Surface
-
-- Internal skills can be mounted directly into agent context
-- New skills can be authored from inside the app
-- Skill references and scripts can be bundled with the skill itself
-- Skill behavior remains portable across agents and workflows
-
-This makes Qurio much more than a chat client with presets. It gives the system a real capability layer.
-
-### 🔧 Tool Stack
-
-- MCP tools with grouped management
-- Custom HTTP tools with auto-generated schemas
-- Tavily search and extraction
-- Web search and news search
-- Exa category search
-- Wikipedia and arXiv
-- Yahoo Finance
-- DuckDuckGo image and video search
-- SerpApi-backed Google/Bing image search and YouTube search
-- Hacker News toolkit
-- Interactive forms for structured input collection
-
-The important part is not the raw number of tools. It is that tools can be surfaced, grouped, restricted, and attached to specific agents from the Qurio UI.
-
-### 📎 Scrapbook + Memory Flywheel
-
-- Capture interesting material fast
-- Turn it into structured reference
-- Pull it back into the right conversation later
-- Let memory and retrieval keep compounding the value of saved work
-
-That is the kind of loop that makes a workspace sticky.
-
-### 🗂️ Knowledge and Memory
-
-- Document upload, parsing, chunking, embedding, and retrieval
-- Hybrid retrieval strategy
-- Long-term memory with selective injection
-- Research flows with source-aware output
-
-This keeps answers closer to the user's actual material and makes the workspace more useful over time instead of resetting to zero every session.
-
-### 🖥️ Polished Runtime Experience
-
-- Streaming responses
-- Visible tool activity
-- Rich Markdown and code rendering
-- Inline media
-- Theme, language, and personalization settings
-- Responsive UI for desktop and mobile
+The point is not just provider count. It is the ability to route differently for planning, retrieval, and final output without changing products.
 
 ## 🏗️ Tech Stack
 
-- **Frontend**: React 19, TanStack Router v1, Zustand, Tailwind CSS v4
-- **Backend**: FastAPI + Agno
-- **Data**: Supabase, SQLite, PostgreSQL, MySQL, MariaDB support paths
-- **Runtime**: Bun + Python 3.11+
-- **Retrieval**: Embeddings + keyword hybrid search
-- **Integration Layer**: Multi-provider model adapters, tool registry, streaming SSE
+- **Frontend:** React 19, TanStack Router v1, Zustand, Tailwind CSS v4
+- **Backend:** FastAPI + Agno
+- **Runtime:** Bun + Python 3.11+
+- **Data:** Supabase, SQLite, PostgreSQL, MySQL, MariaDB support paths
+- **Retrieval:** Embeddings + keyword hybrid search
+- **Integration Layer:** Multi-provider model adapters, tool registry, streaming SSE
 
 ## ⚡ Getting Started
 
-1. **Prerequisites**
-   - [Bun](https://bun.sh/) 1.3+
-   - [Python](https://www.python.org/) 3.11+
-   - [uv](https://docs.astral.sh/uv/)
-   - A [Supabase](https://supabase.com/) project if you want hosted persistence
+### ✅ Prerequisites
 
-2. **Install**
+- [Bun](https://bun.sh/) 1.3+
+- [Python](https://www.python.org/) 3.11+
+- [uv](https://docs.astral.sh/uv/)
+- A [Supabase](https://supabase.com/) project if you want hosted persistence
+
+### 📦 Install
 
 ```bash
 git clone <your-repo-url>
@@ -264,11 +150,11 @@ uv sync
 cd ..
 ```
 
-3. **Configure environment**
+### 🔐 Configure Environment
 
-- Copy `.env.example` to `.env`
-- Add the keys you actually plan to use
-- Typical variables include:
+- Copy `.env.example` to `.env`.
+- Add only the keys you plan to use.
+- Common variables include:
   - `PUBLIC_SUPABASE_URL`
   - `PUBLIC_SUPABASE_KEY`
   - `PUBLIC_TAVILY_API_KEY`
@@ -282,7 +168,7 @@ cd ..
   - `PUBLIC_MODELSCOPE_API_KEY`
   - `PUBLIC_NVIDIA_API_KEY`
 
-4. **Run**
+### ▶️ Run
 
 ```bash
 # Frontend + Python backend
@@ -300,35 +186,33 @@ bun run dev:web
 bun run dev:py
 ```
 
-5. **Build**
+### 🛠️ Build
 
 ```bash
 bun run build
 ```
 
-6. **Build Windows installer**
+### 🪟 Build Windows Installer
 
 ```bash
 bun run build:electron
 ```
 
-## 🛠️ Usage Notes
+## 📝 Usage Notes
 
-- Configure providers in Settings before testing agents across multiple vendors.
-- Use Deep Research when the task needs iteration, evidence, and structured synthesis.
-- Use Spaces to isolate different projects, contexts, and document sets.
-- Give specialized agents narrower tool access. Better boundaries produce better behavior.
-- Keep a fast `Lite` model configured. It improves routing and lowers cost where full power is unnecessary.
-- Start simple: one strong general agent, one research agent, one tool-heavy operator agent. That setup already covers most serious use.
-- If you want to feel Qurio's real shape, try this stack: one research agent, one MCP-heavy operator, one writing agent, and Scrapbook as the shared capture layer.
+- Configure providers in Settings before testing cross-vendor routing.
+- Use Deep Research for tasks that need iteration, evidence, and structured synthesis.
+- Keep agent tool access narrow. Better boundaries usually produce better behavior.
+- Keep a fast `Lite` model configured to lower cost and improve routing.
+- A practical starting setup is one general agent, one research agent, one tool-heavy operator, and Scrapbook as the shared capture layer.
 
-## 🗃️ Project Structure
+## 🗂️ Project Structure
 
 - `/src`: Frontend application
-- `/src/components`: UI surfaces including chat, settings, agents, documents, and research
+- `/src/components`: UI surfaces for chat, settings, agents, documents, and research
 - `/src/lib`: Providers, backend client, search tools, agent utilities, and app state helpers
 - `/backend-python/src`: FastAPI routes, Agno agent assembly, tool registry, memory, and research services
 
 ## 📄 License
 
-**Non-commercial**. Provided for personal and educational use. See [LICENSE](./LICENSE).
+**Non-commercial.** Provided for personal and educational use. See [LICENSE](./LICENSE).

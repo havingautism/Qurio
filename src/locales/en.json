@@ -1699,6 +1699,16 @@
       "failed": "Generation failed",
       "missingApiKey": "API Key is missing. Please configure a model in Scrapbook settings first."
     },
+    "settings": {
+      "title": "Scrapbook AI Settings",
+      "description": "Configure the model and writing style used for Scrapbook title generation, summaries, and note organization.",
+      "modelSection": "Model",
+      "modelHint": "Choose the model used for Scrapbook generation tasks. Lite model is not used here.",
+      "globalDefaultHint": "When enabled, Scrapbook follows the global Default Model. Turn it off to use a dedicated Scrapbook model.",
+      "personalizationSection": "Personalization",
+      "personalizationHint": "These settings shape Scrapbook outputs only. They do not affect follow-up chat yet.",
+      "customInstructionPlaceholder": "Add any extra guidance for Scrapbook titles, summaries, and organization..."
+    },
     "modal": {
       "addSuccess": "Added successfully!",
       "updateSuccess": "Updated successfully!",

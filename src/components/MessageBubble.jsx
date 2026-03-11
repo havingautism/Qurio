@@ -1,4 +1,4 @@
-﻿import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { useShallow } from 'zustand/react/shallow'
@@ -3188,14 +3188,14 @@ const MessageBubble = ({
                           }
                         }
                         emoji={item.agentEmoji}
-                        size="1.15rem"
+                        size="1.3rem"
                       />
-                      <span className="text-sm font-medium">{item.agentName || item.agentId}</span>
+                      <span className="text-base font-semibold">{item.agentName || item.agentId}</span>
                     </span>
                     <span className="ml-auto flex shrink-0 items-center gap-1.5">
                       <span
                         className={clsx(
-                          'rounded px-1.5 py-0.5 text-[10px] font-bold tracking-wider uppercase',
+                          'rounded px-1.5 py-0.5 text-[11px] font-bold tracking-wider uppercase',
                           item.agentRole === 'leader'
                             ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400'
                             : 'bg-gray-100 text-gray-500 dark:bg-zinc-800 dark:text-zinc-400',
@@ -3242,7 +3242,7 @@ const MessageBubble = ({
                 setActiveExpertAgentId(item.agentId)
               }}
               className={clsx(
-                'relative flex min-w-0 flex-1 basis-[calc(50%-0.125rem)] items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all duration-200 sm:basis-auto sm:justify-start sm:gap-2 sm:px-3 sm:py-1.5 sm:text-sm md:min-h-10 md:flex-none md:px-4 md:py-2 md:text-sm',
+                'relative flex min-w-0 flex-1 basis-[calc(50%-0.125rem)] items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition-all duration-200 sm:basis-auto sm:justify-start sm:gap-2 sm:px-4 sm:py-2 sm:text-[15px] md:min-h-11 md:flex-none md:px-5 md:py-2 md:text-base',
                 isActive
                   ? 'bg-white text-gray-900 shadow-sm ring-1 ring-black/5 dark:bg-zinc-700 dark:text-gray-100 dark:ring-white/10'
                   : 'text-gray-500 hover:bg-gray-200/70 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-zinc-700/60 dark:hover:text-gray-300',
@@ -3256,12 +3256,12 @@ const MessageBubble = ({
                   }
                 }
                 emoji={item.agentEmoji}
-                size="1.05em"
+                size="1.35em"
               />
               <span className="min-w-0 truncate">{item.agentName || item.agentId}</span>
               <span
                 className={clsx(
-                  'ml-1 shrink-0 rounded-[4px] px-1 text-[8px] font-bold tracking-tight uppercase sm:text-[9px]',
+                  'ml-1.5 shrink-0 rounded-[4px] px-1.5 py-[3px] text-[9px] font-bold tracking-wide uppercase sm:text-[10px] md:text-[11px]',
                   item.agentRole === 'leader'
                     ? 'bg-amber-100/80 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400'
                     : 'bg-gray-200/50 text-gray-500 dark:bg-zinc-800/80 dark:text-zinc-500',
@@ -3275,13 +3275,13 @@ const MessageBubble = ({
                 <div className="animate-status-halo ring-primary-500/50 pointer-events-none absolute inset-[-1px] z-10 rounded-lg ring-1" />
               )}
               {item.status === 'ready' && (
-                <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                <span className="absolute top-0.5 right-0.5 flex h-2 w-2">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75"></span>
                   <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500"></span>
                 </span>
               )}
               {item.status === 'error' && (
-                <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                <span className="absolute top-0.5 right-0.5 flex h-2 w-2">
                   <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500"></span>
                 </span>
               )}

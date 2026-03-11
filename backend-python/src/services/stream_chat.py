@@ -1,4 +1,4 @@
-﻿"""
+"""
 Stream chat service implemented with Agno SDK (Agent + tools + DB).
 """
 
@@ -970,6 +970,10 @@ class StreamChatService:
             # Current agent info for Team mode (updated per event)
             current_agent_info: dict[str, Any] = {"agent_id": None, "agent_name": None}
             last_active_agent_id = None
+            # Tracks the last member agent that started (run_started), so we can correctly
+            # attribute content that flows through the leader stream (e.g. Route mode).
+            # Cleared on member run_completed. None in non-team mode.
+            active_member_agent_info: dict[str, Any] | None = None
 
             def trace_stream(stage: str, **kwargs: Any) -> None:
                 if not stream_trace:
@@ -1006,11 +1010,26 @@ class StreamChatService:
                         should_break_next_thought = True
                         reasoning_closed_for_current_cycle = True
                     full_content += clean_text
+
+                    # In team mode, if the event-level attribution says "leader" but we know
+                    # a member is still active, the content is likely flowing through the leader
+                    # stream (e.g. Route mode). Fall back to the active member so the content
+                    # is attributed to the correct tab. This does NOT affect broadcast mode
+                    # because in broadcast each member's events carry their own agent_id,
+                    # so current_agent_info.agent_role will already be 'member'.
+                    effective_agent = current_agent_info
+                    if (
+                        is_team_mode
+                        and active_member_agent_info is not None
+                        and current_agent_info.get("agent_role") == "leader"
+                    ):
+                        effective_agent = active_member_agent_info
+
                     yield TextEvent(
                         content=clean_text,
-                        agent_id=current_agent_info.get("agent_id"),
-                        agent_name=current_agent_info.get("agent_name"),
-                        agent_status=current_agent_info.get("status"),
+                        agent_id=effective_agent.get("agent_id"),
+                        agent_name=effective_agent.get("agent_name"),
+                        agent_status=effective_agent.get("status"),
                     ).model_dump(by_alias=True, exclude_none=True)
 
             # Agent status tracking for Team mode
@@ -1342,13 +1361,16 @@ class StreamChatService:
                                 
                                 # Member starts -> Leader waits, Member active
                                 if active_role == "member":
+                                    # Lock content attribution to this member until it completes
+                                    active_member_agent_info = dict(current_agent_info)
                                     # Ensure leader is set to waiting when member starts
                                     async for e in update_status_and_yield(request.agent_id, "waiting"):
                                         yield e
                                     async for e in update_status_and_yield(active_id, "active"):
                                         yield e
                                 else:
-                                    # Leader starts -> Leader active
+                                    # Leader starts -> clear member lock, Leader active
+                                    active_member_agent_info = None
                                     async for e in update_status_and_yield(active_id, "active"):
                                         yield e
                             continue
@@ -1358,7 +1380,8 @@ class StreamChatService:
                                 active_id = current_agent_info.get("agent_id")
                                 active_role = current_agent_info.get("agent_role")
                                 if active_role == "member":
-                                    # Member finished -> Leader still waiting (until it resumes), Member ready
+                                    # Member finished -> clear content lock, Member ready
+                                    active_member_agent_info = None
                                     async for e in update_status_and_yield(active_id, "ready"):
                                         yield e
                             continue

@@ -869,10 +869,6 @@ export default function ScrapbookView() {
                   >
                     <Settings2 size={20} strokeWidth={2.5} />
                   </button>
-                  <ModelConfigPanel
-                    isOpen={showModelConfig}
-                    onClose={() => setShowModelConfig(false)}
-                  />
                 </div>
               </div>
             </div>
@@ -1000,11 +996,16 @@ export default function ScrapbookView() {
           </div>
         </button>
 
-        {/* Add modal */}
         <AddModal
           isOpen={showAddModal}
           onClose={() => setShowAddModal(false)}
           onAdded={handleAdded}
+        />
+
+        {/* Model Config Panel */}
+        <ModelConfigPanel
+          isOpen={showModelConfig}
+          onClose={() => setShowModelConfig(false)}
         />
       </div>
       {/* End of z-10 relative flex h-full flex-col */}

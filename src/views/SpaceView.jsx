@@ -25,31 +25,32 @@ import FancyLoader from '../components/FancyLoader'
 import ColorBendsBackground from '../components/ui/ColorBendsBackground'
 import ConversationCard from '../components/ConversationCard'
 import { useToast } from '../contexts/ToastContext'
+import useSettings from '../hooks/useSettings'
 import {
   listConversationsBySpace,
   notifyConversationsChanged,
   toggleFavorite,
 } from '../lib/conversationsService'
 import {
-  extractTextFromFile,
   getFileTypeLabel,
-  normalizeExtractedText,
 } from '../lib/documentParser'
-import { chunkDocumentWithHierarchy } from '../lib/documentStructure'
-import {
-  DOCUMENT_CHUNK_OVERLAP,
-  DOCUMENT_CHUNK_SIZE,
-  DOCUMENT_MAX_CHUNKS,
-} from '../lib/documentConstants'
 import {
   createSpaceDocument,
   deleteSpaceDocument,
   listSpaceDocuments,
 } from '../lib/documentsService'
-import { persistDocumentChunks, persistDocumentSections } from '../lib/documentIndexService'
-import { fetchEmbeddingVector, resolveEmbeddingConfig } from '../lib/embeddingService'
-import { computeSha256 } from '../lib/hash'
+import {
+  cancelDocumentUploadJob,
+  clearPendingDocumentUploadJob,
+  createDocumentUploadJob,
+  deleteDocumentKnowledge,
+  getPendingDocumentUploadJob,
+  getDocumentUploadJob,
+  getDocumentUploadMessageKey,
+  savePendingDocumentUploadJob,
+} from '../lib/documentKnowledgeService'
 import { deleteConversation } from '../lib/supabase'
+import { getProvider } from '../lib/providers'
 import { spaceRoute } from '../router'
 
 const FileIcon = ({ fileType, className }) => {
@@ -143,10 +144,20 @@ const SpaceView = () => {
   const fileInputRef = useRef(null)
   const [isDragging, setIsDragging] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
+  const isViewActiveRef = useRef(true)
+  const resumeUploadLockRef = useRef(false)
 
   const { error: toastError, success: toastSuccess } = useToast()
+  const settings = useSettings()
 
   // Reset pagination when space changes
+  useEffect(() => {
+    isViewActiveRef.current = true
+    return () => {
+      isViewActiveRef.current = false
+    }
+  }, [])
+
   useEffect(() => {
     setCurrentPage(1)
   }, [spaceId])
@@ -272,14 +283,168 @@ const SpaceView = () => {
     return text ? text.toUpperCase() : 'FILE'
   }
 
+  const syncUploadStateFromJob = useCallback(
+    (job, fileName) => {
+      if (!isViewActiveRef.current) return
+      const result = job?.result || {}
+      const nextProgress = Number(job?.progress || 0)
+      setUploadProgress(Math.max(10, Math.min(100, nextProgress)))
+      setDocumentUploadState({
+        status: 'loading',
+        stage: job?.stage || '',
+        message: t(getDocumentUploadMessageKey(job)),
+        fileName,
+        characters: Number(result.character_count || 0),
+        sections: Number(result.section_count || 0),
+        chunks: Number(result.chunk_count || 0),
+      })
+    },
+    [t],
+  )
+
+  const waitForDocumentUploadJob = useCallback(
+    async (jobId, fileName) => {
+      const maxAttempts = 240
+      for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+        if (!isViewActiveRef.current) {
+          return null
+        }
+        const job = await getDocumentUploadJob(jobId)
+        if (!isViewActiveRef.current) {
+          return null
+        }
+        if (job?.status === 'completed') {
+          syncUploadStateFromJob(job, fileName)
+          return job
+        }
+        if (job?.status === 'cancelled') {
+          throw new Error(job?.error || job?.message || t('views.spaceView.documentUploadFailed'))
+        }
+        if (job?.status === 'failed') {
+          throw new Error(job?.error || job?.message || t('views.spaceView.documentUploadFailed'))
+        }
+        syncUploadStateFromJob(job, fileName)
+        if (!isViewActiveRef.current) {
+          return null
+        }
+        await new Promise(resolve => setTimeout(resolve, 1200))
+      }
+      throw new Error(t('views.spaceView.documentUploadTimeout'))
+    },
+    [syncUploadStateFromJob, t],
+  )
+
+  const finalizeCompletedUpload = useCallback(
+    async ({ completedJob, fileName }) => {
+      const result = completedJob?.result
+      if (!result?.content_text || !result?.document_id) {
+        throw new Error(t('views.spaceView.documentUploadFailed'))
+      }
+
+      const finalFileType = result.file_type || ''
+      const { error: createError } = await createSpaceDocument({
+        id: result.document_id,
+        spaceId: activeSpace.id,
+        name: fileName,
+        fileType: finalFileType,
+        contentText: result.content_text,
+      })
+
+      if (createError) {
+        try {
+          await deleteDocumentKnowledge({
+            spaceId: activeSpace.id,
+            documentId: result.document_id,
+          })
+        } catch (cleanupError) {
+          console.error('Failed to cleanup knowledge after document insert failure:', cleanupError)
+        }
+        throw createError
+      }
+
+      clearPendingDocumentUploadJob(activeSpace.id)
+      if (!isViewActiveRef.current) return
+      setUploadProgress(100)
+      setDocumentUploadState({
+        status: 'success',
+        stage: '',
+        message: t('views.spaceView.documentUploaded'),
+        fileName,
+        characters: Number(result.character_count || 0),
+        sections: Number(result.section_count || 0),
+        chunks: Number(result.chunk_count || 0),
+      })
+      await loadSpaceDocuments()
+
+      setTimeout(() => {
+        if (!isViewActiveRef.current) return
+        setDocumentUploadState(prev => ({ ...prev, status: 'idle', message: '' }))
+        setUploadProgress(0)
+      }, 3000)
+    },
+    [activeSpace?.id, loadSpaceDocuments, t],
+  )
+
+  useEffect(() => {
+    if (!activeSpace?.id || resumeUploadLockRef.current) return
+    const pendingUpload = getPendingDocumentUploadJob(activeSpace.id)
+    if (!pendingUpload?.jobId) return
+
+    resumeUploadLockRef.current = true
+    setDocumentUploadState({
+      status: 'loading',
+      stage: 'uploading',
+      message: t('views.spaceView.documentUploading'),
+      fileName: pendingUpload.fileName,
+      characters: 0,
+      sections: 0,
+      chunks: 0,
+    })
+    setUploadProgress(10)
+
+    ;(async () => {
+      try {
+        const completedJob = await waitForDocumentUploadJob(
+          pendingUpload.jobId,
+          pendingUpload.fileName,
+        )
+        if (!completedJob) return
+        await finalizeCompletedUpload({
+          completedJob,
+          fileName: pendingUpload.fileName,
+        })
+      } catch (err) {
+        try {
+          await cancelDocumentUploadJob(pendingUpload.jobId)
+        } catch (cancelError) {
+          console.error('Failed to cancel timed-out document upload job:', cancelError)
+        }
+        clearPendingDocumentUploadJob(activeSpace.id)
+        if (!isViewActiveRef.current) return
+        setUploadProgress(0)
+        setDocumentUploadState({
+          status: 'error',
+          stage: '',
+          message: err?.message || t('views.spaceView.documentUploadFailed'),
+          fileName: pendingUpload.fileName,
+          characters: 0,
+          sections: 0,
+          chunks: 0,
+        })
+      } finally {
+        resumeUploadLockRef.current = false
+      }
+    })()
+  }, [activeSpace?.id, finalizeCompletedUpload, t, waitForDocumentUploadJob])
+
   const handleDocumentUpload = async (event, droppedFile = null) => {
     const file = droppedFile || event.target.files?.[0]
     if (!file || !activeSpace?.id) return
 
     setDocumentUploadState({
       status: 'loading',
-      stage: 'chunking',
-      message: t('views.spaceView.documentChunking'),
+      stage: 'uploading',
+      message: t('views.spaceView.documentUploading'),
       fileName: file.name,
       characters: 0,
       sections: 0,
@@ -288,105 +453,47 @@ const SpaceView = () => {
     setUploadProgress(10)
 
     try {
-      const rawText = await extractTextFromFile(file, {
-        unsupportedMessage: t('views.spaceView.documentUnsupportedType'),
+      const providerId = settings?.defaultModelProvider || settings?.apiProvider || ''
+      const provider = providerId ? getProvider(providerId) : null
+      const credentials = provider?.getCredentials ? provider.getCredentials(settings) : {}
+      const model = settings?.defaultModel || settings?.liteModel || ''
+
+      const uploadJob = await createDocumentUploadJob({
+        file,
+        spaceId: activeSpace.id,
+        title: file.name,
+        provider: providerId,
+        model,
+        baseUrl: credentials?.baseUrl,
+        apiKey: credentials?.apiKey,
       })
-      const normalized = normalizeExtractedText(rawText)
-      if (!normalized) {
-        throw new Error(t('views.spaceView.documentEmpty'))
+
+      savePendingDocumentUploadJob({
+        spaceId: activeSpace.id,
+        jobId: uploadJob.job_id,
+        fileName: file.name,
+      })
+      syncUploadStateFromJob(uploadJob, file.name)
+
+      const completedJob = await waitForDocumentUploadJob(uploadJob.job_id, file.name)
+      if (!completedJob) {
+        return
       }
-
-      const { sections, chunks } = chunkDocumentWithHierarchy(normalized, {
-        chunkSize: DOCUMENT_CHUNK_SIZE,
-        chunkOverlap: DOCUMENT_CHUNK_OVERLAP,
-        maxChunks: DOCUMENT_MAX_CHUNKS,
-      })
-      setUploadProgress(45)
-      setDocumentUploadState(prev => ({
-        ...prev,
-        sections: sections.length,
-        chunks: chunks.length,
-        stage: 'embedding',
-        message: t('views.spaceView.documentEmbedding'),
-      }))
-
-      const enrichedChunks = []
-      const sanitizeChunkText = text =>
-        String(text || '')
-          .replace(/<[^>]+>/g, '')
-          .replace(/\[.*?\]/g, '')
-          .replace(/\n+/g, ' ')
-          .trim()
-
-      if (chunks.length > 0) {
-        for (let index = 0; index < chunks.length; index += 1) {
-          const chunk = chunks[index]
-          const sanitizedText = sanitizeChunkText(chunk.text)
-          const chunkPrompt = `passage: ${sanitizedText}`
-          const embedding = await fetchEmbeddingVector({
-            text: sanitizedText,
-            taskType: 'RETRIEVAL_DOCUMENT',
-            prompt: chunkPrompt,
-          })
-          const chunkHash = await computeSha256(chunk.text)
-          enrichedChunks.push({ ...chunk, embedding, chunkHash })
-          const progress = Math.min(85, 45 + Math.round(((index + 1) / chunks.length) * 35))
-          setUploadProgress(progress)
-          setDocumentUploadState(prev => ({
-            ...prev,
-            message: t('views.spaceView.documentEmbeddingProgress', {
-              current: index + 1,
-              total: chunks.length,
-            }),
-          }))
+      await finalizeCompletedUpload({ completedJob, fileName: file.name })
+    } catch (err) {
+      const pendingUpload = getPendingDocumentUploadJob(activeSpace.id)
+      if (pendingUpload?.jobId) {
+        try {
+          await cancelDocumentUploadJob(pendingUpload.jobId)
+        } catch (cancelError) {
+          console.error('Failed to cancel document upload job:', cancelError)
         }
       }
-
-      const fileType = getFileTypeLabel(file)
-      const { provider: embeddingProvider, model: embeddingModel } = resolveEmbeddingConfig()
-      const { error: createError, data: doc } = await createSpaceDocument({
-        spaceId: activeSpace.id,
-        name: file.name,
-        fileType,
-        contentText: normalized,
-        embeddingProvider,
-        embeddingModel,
-      })
-
-      if (createError || !doc) {
-        throw createError || new Error('Failed to create document record')
-      }
-
-      const { sectionMap, error: sectionsError } = await persistDocumentSections(doc.id, sections)
-      if (sectionsError) {
-        await deleteSpaceDocument(doc.id, activeSpace.id)
-        throw sectionsError
-      }
-
-      const { error: chunksError } = await persistDocumentChunks(doc.id, enrichedChunks, sectionMap)
-      if (chunksError) {
-        await deleteSpaceDocument(doc.id, activeSpace.id)
-        throw chunksError
-      }
-
-      setUploadProgress(100)
-      setDocumentUploadState({
-        status: 'success',
-        stage: '',
-        message: t('views.spaceView.documentUploaded'),
-        fileName: file.name,
-        characters: normalized.length,
-        sections: sections.length,
-        chunks: enrichedChunks.length,
-      })
-      await loadSpaceDocuments()
-
-      setTimeout(() => {
-        setDocumentUploadState(prev => ({ ...prev, status: 'idle', message: '' }))
-        setUploadProgress(0)
-      }, 3000)
-    } catch (err) {
+      clearPendingDocumentUploadJob(activeSpace.id)
       console.error('Document upload error details:', err)
+      if (!isViewActiveRef.current) {
+        return
+      }
       setUploadProgress(0)
       setDocumentUploadState({
         status: 'error',

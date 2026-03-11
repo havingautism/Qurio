@@ -1,4 +1,5 @@
 import { getSupabaseClient } from './supabase'
+import { deleteDocumentKnowledge } from './documentKnowledgeService'
 
 const DOCUMENTS_TABLE = 'space_documents'
 const CONVERSATION_DOCUMENTS_TABLE = 'conversation_documents'
@@ -104,6 +105,7 @@ export const listSpaceDocuments = async spaceId => {
 }
 
 export const createSpaceDocument = async ({
+  id = null,
   spaceId,
   name,
   fileType,
@@ -122,6 +124,7 @@ export const createSpaceDocument = async ({
     .from(DOCUMENTS_TABLE)
     .insert([
       {
+        ...(id ? { id } : {}),
         space_id: spaceId,
         name,
         file_type: fileType,
@@ -146,6 +149,13 @@ export const deleteSpaceDocument = async (documentId, spaceId = null) => {
 
   const { error } = await supabase.from(DOCUMENTS_TABLE).delete().eq('id', documentId)
   if (!error) {
+    if (spaceId) {
+      try {
+        await deleteDocumentKnowledge({ spaceId, documentId })
+      } catch (cleanupError) {
+        console.error('Failed to delete document knowledge:', cleanupError)
+      }
+    }
     invalidateSpaceDocumentsCache(spaceId)
     invalidateConversationDocsCache()
   }

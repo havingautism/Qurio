@@ -602,21 +602,6 @@ function App() {
             console.error('Create default agent failed:', createError)
             creatingDefaultAgentRef.current = false
           }
-        } else if (existingDefault) {
-          const patch = buildAgentPatch(existingDefault, desiredDefault)
-          if (Object.keys(patch).length > 0) {
-            const { data: updatedDefault, error: updateError } = await updateAgent(
-              existingDefault.id,
-              patch,
-            )
-            if (!updateError && updatedDefault) {
-              nextAgents = nextAgents.map(agent =>
-                agent.id === updatedDefault.id ? annotateSystemAgent(updatedDefault) : agent,
-              )
-            } else {
-              console.error('Update default agent failed:', updateError)
-            }
-          }
         }
 
         const desiredScrapbook = buildScrapbookSystemAgentPayload(settings)
@@ -712,21 +697,7 @@ function App() {
         }
 
         if (deepAgent?.id) {
-          const patch = buildAgentPatch(deepAgent, desiredDeepAgent)
-          if (Object.keys(patch).length > 0) {
-            const { data: updatedAgent, error: updateError } = await updateAgent(
-              deepAgent.id,
-              patch,
-            )
-            if (!updateError && updatedAgent) {
-              deepAgent = annotateSystemAgent(updatedAgent)
-              setAgents(prev =>
-                prev.map(agent => (agent.id === updatedAgent.id ? deepAgent : agent)),
-              )
-            } else {
-              console.error('Update deep research agent failed:', updateError)
-            }
-          }
+          deepAgent = annotateSystemAgent(deepAgent)
         }
 
         let deepSpace = existingSpace

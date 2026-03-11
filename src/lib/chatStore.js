@@ -25,8 +25,7 @@ import {
   handleEditingAndHistory,
 } from './chat/chatDataService'
 import { selectDocumentQuery } from './chat/contextService'
-import { fetchDocumentChunkContext } from './documentRetrievalService'
-import { formatDocumentAppendText } from './documentContextUtils'
+import { fetchDocumentFileContext } from './documentKnowledgeService'
 import { listSpaceAgents } from './spacesService'
 
 // Import constants
@@ -2129,7 +2128,7 @@ const useChatStore = create((set, get) => ({
         const history = Array.isArray(lastMsg.toolCallHistory) ? [...lastMsg.toolCallHistory] : []
         history.push({
           id: toolCallId,
-          name: 'document_embedding',
+          name: 'document_knowledge',
           arguments: JSON.stringify({ query: '' }),
           status: 'calling',
           durationMs: null,
@@ -2164,15 +2163,14 @@ const useChatStore = create((set, get) => ({
             DOCUMENT_RETRIEVAL_CHUNK_LIMIT * Math.max(1, selectedDocuments.length),
             2000,
           )
-          const retrieval = await fetchDocumentChunkContext({
+          const retrieval = await fetchDocumentFileContext({
             documents: selectedDocuments,
             queryText,
-            chunkLimit: dynamicChunkLimit,
-            topChunks: DOCUMENT_RETRIEVAL_TOP_CHUNKS,
+            topSections: Math.min(DOCUMENT_RETRIEVAL_TOP_CHUNKS, dynamicChunkLimit),
           })
           if (retrieval?.sources?.length) {
             resolvedDocumentSources = retrieval.sources
-            resolvedDocumentContextAppend = formatDocumentAppendText(retrieval.sources)
+            resolvedDocumentContextAppend = retrieval.appendText
           }
         } catch (error) {
           console.error('Document retrieval failed:', error)

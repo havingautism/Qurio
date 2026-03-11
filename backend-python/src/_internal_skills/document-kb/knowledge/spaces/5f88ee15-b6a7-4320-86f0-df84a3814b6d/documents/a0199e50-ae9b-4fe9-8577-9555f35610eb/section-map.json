@@ -1,0 +1,127 @@
+{
+  "doc_id": "a0199e50-ae9b-4fe9-8577-9555f35610eb",
+  "title": "面试题全集（周瑜）.pdf",
+  "sections": [
+    {
+      "section_id": "s1",
+      "title": "Java Core Fundamentals",
+      "level": 1,
+      "chunk_files": [
+        "001-java-core-fundamentals.md"
+      ],
+      "aliases": [
+        "java-core-fundamentals"
+      ]
+    },
+    {
+      "section_id": "s2",
+      "title": "JVM Troubleshooting and Threading",
+      "level": 1,
+      "chunk_files": [
+        "002-jvm-troubleshooting-and-threading.md"
+      ],
+      "aliases": [
+        "jvm-troubleshooting-and-threading"
+      ]
+    },
+    {
+      "section_id": "s3",
+      "title": "Spring Framework Concepts",
+      "level": 1,
+      "chunk_files": [
+        "003-spring-framework-concepts.md"
+      ],
+      "aliases": [
+        "spring-framework-concepts"
+      ]
+    },
+    {
+      "section_id": "s4",
+      "title": "MySQL Indexing and Query Analysis",
+      "level": 1,
+      "chunk_files": [
+        "004-mysql-indexing-and-query-analysis.md"
+      ],
+      "aliases": [
+        "mysql-indexing-and-query-analysis"
+      ]
+    },
+    {
+      "section_id": "s5",
+      "title": "Redis Features and Operations",
+      "level": 1,
+      "chunk_files": [
+        "005-redis-features-and-operations.md"
+      ],
+      "aliases": [
+        "redis-features-and-operations"
+      ]
+    },
+    {
+      "section_id": "s6",
+      "title": "Distributed Systems Concepts",
+      "level": 1,
+      "chunk_files": [
+        "006-distributed-systems-concepts.md"
+      ],
+      "aliases": [
+        "distributed-systems-concepts"
+      ]
+    },
+    {
+      "section_id": "s7",
+      "title": "分布式一致性与负载均衡",
+      "level": 1,
+      "chunk_files": [
+        "007-section.md"
+      ],
+      "aliases": [
+        ""
+      ]
+    },
+    {
+      "section_id": "s8",
+      "title": "负载均衡与会话管理",
+      "level": 1,
+      "chunk_files": [
+        "008-section.md"
+      ],
+      "aliases": [
+        ""
+      ]
+    },
+    {
+      "section_id": "s9",
+      "title": "微服务技术栈与数据策略",
+      "level": 1,
+      "chunk_files": [
+        "009-section.md"
+      ],
+      "aliases": [
+        ""
+      ]
+    },
+    {
+      "section_id": "s10",
+      "title": "微服务架构与设计原则",
+      "level": 1,
+      "chunk_files": [
+        "010-section.md"
+      ],
+      "aliases": [
+        ""
+      ]
+    },
+    {
+      "section_id": "s11",
+      "title": "消息队列原理与应用",
+      "level": 1,
+      "chunk_files": [
+        "011-section.md"
+      ],
+      "aliases": [
+        ""
+      ]
+    }
+  ]
+}

@@ -247,14 +247,12 @@ const MEMORY_SETTINGS_KEYS = [
   'scrapbookProvider',
   'scrapbookModel',
   'scrapbookModelSource',
-  'dbAccessKey',
 ]
 
 const LEGACY_LOCAL_SENSITIVE_KEYS = [
   'tavilyApiKey',
   'serpapiApiKey',
   'exaApiKey',
-  'dbAccessKey',
 ]
 
 const SESSION_SENSITIVE_KEYS = [
@@ -272,7 +270,6 @@ const SESSION_SENSITIVE_KEYS = [
   'exaApiKey',
   'NvidiaKey',
   'MinimaxKey',
-  'dbAccessKey',
 ]
 
 export const updateMemorySettings = settings => {

@@ -91,6 +91,11 @@ const SourcesModal = ({ isOpen, onClose, sources }) => {
                   <div className="truncate text-sm font-semibold text-gray-900 dark:text-white">
                     {source.title?.replace(/\.[^/.]+$/, '') || source.title}
                   </div>
+                  {Array.isArray(source.titlePath) && source.titlePath.length > 0 && (
+                    <div className="mt-0.5 truncate text-xs text-gray-500 dark:text-gray-400">
+                      {source.titlePath.join(' > ')}
+                    </div>
+                  )}
                   {source.fileType && (
                     <div className="mt-0.5 text-xs font-medium tracking-wider text-gray-500 uppercase dark:text-gray-400">
                       {formatFileType(source.fileType)}
@@ -148,6 +153,12 @@ const DocumentSourcesPanel = ({ sources = [], isOpen, onClose }) => {
                   </span>
                 )}
               </div>
+
+              {Array.isArray(source.titlePath) && source.titlePath.length > 0 && (
+                <div className="mb-2 truncate text-[11px] text-gray-400 dark:text-gray-500">
+                  {source.titlePath.join(' > ')}
+                </div>
+              )}
 
               <div className="line-clamp-2 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
                 {cleanSnippet(source.snippet)}

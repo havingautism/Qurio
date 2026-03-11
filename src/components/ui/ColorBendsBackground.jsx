@@ -185,7 +185,8 @@ export default function ColorBendsBackground({
     renderer.domElement.style.transformOrigin = 'center'
     container.appendChild(renderer.domElement)
 
-    const clock = new THREE.Clock()
+    let lastTimeMs = performance.now()
+    const startTimeMs = lastTimeMs
 
     const handleResize = () => {
       const w = container.clientWidth || 1
@@ -205,8 +206,10 @@ export default function ColorBendsBackground({
     }
 
     const loop = () => {
-      const dt = clock.getDelta()
-      const elapsed = clock.elapsedTime
+      const nowMs = performance.now()
+      const dt = Math.max(0, (nowMs - lastTimeMs) / 1000)
+      const elapsed = Math.max(0, (nowMs - startTimeMs) / 1000)
+      lastTimeMs = nowMs
       material.uniforms.uTime.value = elapsed
 
       const deg = (rotationRef.current % 360) + autoRotateRef.current * elapsed

@@ -62,6 +62,9 @@ from ..routes import (
 from ..routes import (
     skills as skills_route,
 )
+from ..routes import (
+    document_kb as document_kb_route,
+)
 from .agent_registry import build_agent
 from .email_monitor import start_email_monitor, stop_email_monitor
 
@@ -129,6 +132,7 @@ def _build_base_app() -> FastAPI:
     app.include_router(scrapbook_route.router, prefix="/api")
     app.include_router(env_route.router, prefix="/api")
     app.include_router(skills_route.router, prefix="/api")
+    app.include_router(document_kb_route.router, prefix="/api")
     return app
 
 

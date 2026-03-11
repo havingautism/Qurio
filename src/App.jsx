@@ -12,7 +12,13 @@ import SpaceModal from './components/SpaceModal'
 import DatabaseSetupModal from './components/DatabaseSetupModal'
 import { ToastProvider } from './contexts/ToastContext'
 import KnowledgeBaseModal from './components/KnowledgeBaseModal'
-import { createAgent, deleteAgent, listAgents, updateAgent } from './lib/agentsService'
+import {
+  createAgent,
+  deleteAgent,
+  getAgentById,
+  listAgents,
+  updateAgent,
+} from './lib/agentsService'
 import {
   conversationEventHasScope,
   isExpertConversation,
@@ -40,13 +46,80 @@ import {
 import { fetchRemoteSettings, initSupabase } from './lib/supabase'
 import { applyTheme } from './lib/themes'
 import { DeepResearchGuideProvider } from './contexts/DeepResearchGuideContext'
+import {
+  annotateSystemAgent,
+  buildDefaultSystemAgentPayload,
+  buildDeepResearchSystemAgentPayload,
+  buildScrapbookSystemAgentPayload,
+  DEFAULT_AGENT_DESCRIPTION,
+  DEFAULT_AGENT_ID,
+  DEEP_RESEARCH_AGENT_ID,
+  SCRAPBOOK_AGENT_ID,
+  isDeepResearchSystemAgent,
+} from './lib/systemAgents'
+import {
+  resolveDefaultAgentStartupAction,
+  resolveDeepResearchAgentStartupAction,
+} from './lib/systemAgentStartupPolicy'
 
 export const AppContext = React.createContext(null)
 export const useAppContext = () => React.useContext(AppContext)
 
 const isDeepResearchSpace = space => space?.isDeepResearch || space?.is_deep_research
 
-const isDeepResearchAgent = agent => agent?.isDeepResearch || agent?.is_deep_research
+const isDeepResearchAgent = agent => isDeepResearchSystemAgent(agent)
+
+const SYSTEM_AGENT_SYNC_KEYS = [
+  'name',
+  'description',
+  'prompt',
+  'emoji',
+  'isDefault',
+  'isDeepResearch',
+  'isHidden',
+  'provider',
+  'defaultModelProvider',
+  'liteModelProvider',
+  'defaultModelSource',
+  'liteModelSource',
+  'useGlobalModelSettings',
+  'liteModel',
+  'defaultModel',
+  'responseLanguage',
+  'baseTone',
+  'traits',
+  'warmth',
+  'enthusiasm',
+  'headings',
+  'emojis',
+  'customInstruction',
+  'temperature',
+  'topP',
+  'frequencyPenalty',
+  'presencePenalty',
+]
+
+const SCRAPBOOK_AGENT_SYNC_KEYS = ['name', 'description', 'emoji', 'isHidden']
+
+const buildAgentPatch = (currentAgent, nextAgent) => {
+  const patch = {}
+  for (const key of SYSTEM_AGENT_SYNC_KEYS) {
+    if (!Object.is(currentAgent?.[key] ?? null, nextAgent?.[key] ?? null)) {
+      patch[key] = nextAgent[key]
+    }
+  }
+  return patch
+}
+
+const buildScopedAgentPatch = (currentAgent, nextAgent, keys) => {
+  const patch = {}
+  for (const key of keys) {
+    if (!Object.is(currentAgent?.[key] ?? null, nextAgent?.[key] ?? null)) {
+      patch[key] = nextAgent[key]
+    }
+  }
+  return patch
+}
 
 const syncEmailMonitorProvider = async () => {
   try {
@@ -99,6 +172,7 @@ function App() {
   const defaultAgent = agents.find(agent => agent.isDefault) || null
   const deepResearchSpace = spaces.find(space => space.isDeepResearchSystem) || null
   const deepResearchAgent = agents.find(agent => agent.isDeepResearchSystem) || null
+  const scrapbookAgent = agents.find(agent => String(agent.id) === SCRAPBOOK_AGENT_ID) || null
 
   // Conversations Data
   const [conversations, setConversations] = useState([])
@@ -270,7 +344,7 @@ function App() {
   // Sync Remote Settings to Memory on Mount
   useEffect(() => {
     const syncRemoteSettings = async () => {
-    const localSettings = loadSettings()
+      const localSettings = loadSettings()
       const providerId = localSettings.databaseProvider
       if (!providerId) return
 
@@ -527,88 +601,66 @@ function App() {
       const { data, error } = await listAgents()
       if (!error && data) {
         const settings = loadSettings()
-        let nextAgents = data.map(agent => ({
-          ...agent,
-          isDeepResearchSystem: isDeepResearchAgent(agent),
-          isDeepResearch: isDeepResearchAgent(agent),
-        }))
-        const defaultAgents = data.filter(agent => agent.isDefault)
-        if (defaultAgents.length > 1) {
-          const keepDefault = defaultAgents[0]
-          const demoteDefaults = defaultAgents.slice(1)
-          await Promise.all(
-            demoteDefaults.map(agent => updateAgent(agent.id, { isDefault: false })),
-          )
-          nextAgents = data.map(agent =>
-            agent.id === keepDefault.id
-              ? keepDefault
-              : agent.isDefault
-                ? { ...agent, isDefault: false }
-                : agent,
-          )
-        }
-        const existingDefault = nextAgents.find(agent => agent.isDefault)
-        if (!existingDefault && !creatingDefaultAgentRef.current) {
+        let nextAgents = data.map(annotateSystemAgent)
+        const existingDefault = nextAgents.find(agent => String(agent.id) === DEFAULT_AGENT_ID)
+        const desiredDefault = buildDefaultSystemAgentPayload(settings)
+        const defaultStartupAction = resolveDefaultAgentStartupAction(existingDefault)
+        if (defaultStartupAction === 'create' && !creatingDefaultAgentRef.current) {
           creatingDefaultAgentRef.current = true
-          const { data: createdDefault, error: createError } = await createAgent({
-            name: 'Default Agent',
-            description: 'Fallback agent (non-editable).',
-            prompt: settings.systemPrompt || '',
-            emoji: '',
-            isDefault: true,
-            provider: 'gemini',
-            defaultModelProvider: 'gemini',
-            liteModelProvider: 'gemini',
-            liteModel: '',
-            defaultModel: '',
-            responseLanguage: settings.llmAnswerLanguage || '',
-            baseTone: settings.baseTone || '',
-            traits: settings.traits || '',
-            warmth: settings.warmth || '',
-            enthusiasm: settings.enthusiasm || '',
-            headings: settings.headings || '',
-            emojis: settings.emojis || '',
-            customInstruction: settings.customInstruction || '',
-            temperature: null,
-            topP: null,
-            frequencyPenalty: null,
-            presencePenalty: null,
-          })
+          const { data: createdDefault, error: createError } = await createAgent(desiredDefault)
           if (!createError && createdDefault) {
-            nextAgents = [...data, createdDefault]
+            nextAgents = [...nextAgents, annotateSystemAgent(createdDefault)]
           } else {
             console.error('Create default agent failed:', createError)
             creatingDefaultAgentRef.current = false
           }
-        } else if (existingDefault) {
-          const patch = {}
-          if (!existingDefault.description) patch.description = 'Fallback agent (non-editable).'
-          if (!existingDefault.prompt && settings.systemPrompt) patch.prompt = settings.systemPrompt
-          if (!existingDefault.responseLanguage && settings.llmAnswerLanguage)
-            patch.responseLanguage = settings.llmAnswerLanguage
-          if (!existingDefault.baseTone && settings.baseTone) patch.baseTone = settings.baseTone
-          if (!existingDefault.traits && settings.traits) patch.traits = settings.traits
-          if (!existingDefault.warmth && settings.warmth) patch.warmth = settings.warmth
-          if (!existingDefault.enthusiasm && settings.enthusiasm)
-            patch.enthusiasm = settings.enthusiasm
-          if (!existingDefault.headings && settings.headings) patch.headings = settings.headings
-          if (!existingDefault.emojis && settings.emojis) patch.emojis = settings.emojis
-          if (!existingDefault.customInstruction && settings.customInstruction)
-            patch.customInstruction = settings.customInstruction
-          if (Object.keys(patch).length > 0) {
-            const { data: updatedDefault, error: updateError } = await updateAgent(
-              existingDefault.id,
-              patch,
+        }
+
+        const desiredScrapbook = buildScrapbookSystemAgentPayload(settings)
+        let scrapbookToInject = null
+        const { data: existingScrapbook, error: scrapbookLoadError } =
+          await getAgentById(SCRAPBOOK_AGENT_ID)
+
+        if (scrapbookLoadError) {
+          console.error('Load scrapbook agent failed:', scrapbookLoadError)
+        } else if (!existingScrapbook) {
+          const { data: createdScrapbook, error: scrapbookCreateError } =
+            await createAgent(desiredScrapbook)
+          if (scrapbookCreateError) {
+            console.error('Create scrapbook agent failed:', scrapbookCreateError)
+          } else if (createdScrapbook) {
+            scrapbookToInject = annotateSystemAgent(createdScrapbook)
+          }
+        } else {
+          scrapbookToInject = existingScrapbook // already annotated by getAgentById -> mapAgent
+          const scrapbookPatch = buildScopedAgentPatch(
+            existingScrapbook,
+            desiredScrapbook,
+            SCRAPBOOK_AGENT_SYNC_KEYS,
+          )
+          if (Object.keys(scrapbookPatch).length > 0) {
+            const { data: updatedScrapbook, error: scrapbookUpdateError } = await updateAgent(
+              existingScrapbook.id,
+              scrapbookPatch,
             )
-            if (!updateError && updatedDefault) {
-              nextAgents = data.map(agent =>
-                agent.id === updatedDefault.id ? updatedDefault : agent,
-              )
+            if (!scrapbookUpdateError && updatedScrapbook) {
+              scrapbookToInject = annotateSystemAgent(updatedScrapbook)
             } else {
-              console.error('Update default agent failed:', updateError)
+              console.error('Update scrapbook agent failed:', scrapbookUpdateError)
             }
           }
         }
+
+        // Ensure Scrapbook Agent is in the final list
+        if (scrapbookToInject) {
+          const index = nextAgents.findIndex(a => String(a.id) === String(scrapbookToInject.id))
+          if (index !== -1) {
+            nextAgents[index] = scrapbookToInject
+          } else {
+            nextAgents.push(scrapbookToInject)
+          }
+        }
+
         setAgents(nextAgents)
       } else {
         console.error('Failed to fetch agents:', error)
@@ -642,7 +694,7 @@ function App() {
 
       const settings = loadSettings()
       const defaultAgent = agents.find(agent => agent.isDefault) || null
-      const candidateAgents = agents.filter(agent => isDeepResearchAgent(agent))
+      const candidateAgents = agents.filter(agent => String(agent.id) === DEEP_RESEARCH_AGENT_ID)
       const candidateSpaces = spaces.filter(space => isDeepResearchSpace(space))
       const existingAgent = candidateAgents[0] || null
       const existingSpace = candidateSpaces[0] || null
@@ -650,84 +702,31 @@ function App() {
       ensuringDeepResearchRef.current = true
       try {
         let deepAgent = existingAgent
-        if (!deepAgent) {
-          const { data: createdAgent, error: agentError } = await createAgent({
-            name: DEEP_RESEARCH_AGENT_NAME,
-            description: DEEP_RESEARCH_AGENT_DESCRIPTION,
-            prompt: DEEP_RESEARCH_AGENT_PROMPT,
-            emoji: DEEP_RESEARCH_EMOJI,
-            isDefault: false,
-            isDeepResearch: true,
-            provider: defaultAgent?.provider || 'gemini',
-            defaultModelProvider:
-              defaultAgent?.defaultModelProvider || defaultAgent?.provider || 'gemini',
-            liteModelProvider:
-              defaultAgent?.liteModelProvider || defaultAgent?.provider || 'gemini',
-            liteModel: defaultAgent?.liteModel || '',
-            defaultModel: defaultAgent?.defaultModel || '',
-            responseLanguage: settings.llmAnswerLanguage || '',
-            baseTone: DEEP_RESEARCH_PROFILE.baseTone,
-            traits: DEEP_RESEARCH_PROFILE.traits,
-            warmth: DEEP_RESEARCH_PROFILE.warmth,
-            enthusiasm: DEEP_RESEARCH_PROFILE.enthusiasm,
-            headings: DEEP_RESEARCH_PROFILE.headings,
-            emojis: DEEP_RESEARCH_PROFILE.emojis,
-            customInstruction: settings.customInstruction || '',
-            temperature: null,
-            topP: null,
-            frequencyPenalty: null,
-            presencePenalty: null,
-          })
+        const desiredDeepAgent = {
+          ...buildDeepResearchSystemAgentPayload(settings),
+          provider: defaultAgent?.provider || 'gemini',
+          defaultModelProvider:
+            defaultAgent?.defaultModelProvider || defaultAgent?.provider || 'gemini',
+          liteModelProvider: defaultAgent?.liteModelProvider || defaultAgent?.provider || 'gemini',
+          liteModel: defaultAgent?.liteModel || '',
+          defaultModel: defaultAgent?.defaultModel || '',
+        }
+        const deepResearchStartupAction = resolveDeepResearchAgentStartupAction(deepAgent)
+        if (deepResearchStartupAction === 'create') {
+          const { data: createdAgent, error: agentError } = await createAgent(desiredDeepAgent)
           if (!agentError && createdAgent) {
-            deepAgent = { ...createdAgent, isDeepResearchSystem: true }
+            deepAgent = annotateSystemAgent(createdAgent)
             setAgents(prev => [...prev, deepAgent])
           } else {
             console.error('Create deep research agent failed:', agentError)
           }
         } else {
-          if (!existingAgent.isDeepResearchSystem) {
+          if (!existingAgent?.isDeepResearchSystem || !existingAgent?.isDeepResearch) {
             setAgents(prev =>
               prev.map(agent =>
-                agent.id === existingAgent.id ? { ...agent, isDeepResearchSystem: true } : agent,
+                agent.id === existingAgent.id ? annotateSystemAgent(agent) : agent,
               ),
             )
-          }
-        }
-
-        if (deepAgent?.id) {
-          const patch = {}
-          if (deepAgent.name !== DEEP_RESEARCH_AGENT_NAME) patch.name = DEEP_RESEARCH_AGENT_NAME
-          if (deepAgent.description !== DEEP_RESEARCH_AGENT_DESCRIPTION)
-            patch.description = DEEP_RESEARCH_AGENT_DESCRIPTION
-          if (deepAgent.prompt !== DEEP_RESEARCH_AGENT_PROMPT)
-            patch.prompt = DEEP_RESEARCH_AGENT_PROMPT
-          if (deepAgent.emoji !== DEEP_RESEARCH_EMOJI) patch.emoji = DEEP_RESEARCH_EMOJI
-          if (!deepAgent.isDeepResearch) patch.isDeepResearch = true
-          if (deepAgent.baseTone !== DEEP_RESEARCH_PROFILE.baseTone)
-            patch.baseTone = DEEP_RESEARCH_PROFILE.baseTone
-          if (deepAgent.traits !== DEEP_RESEARCH_PROFILE.traits)
-            patch.traits = DEEP_RESEARCH_PROFILE.traits
-          if (deepAgent.warmth !== DEEP_RESEARCH_PROFILE.warmth)
-            patch.warmth = DEEP_RESEARCH_PROFILE.warmth
-          if (deepAgent.enthusiasm !== DEEP_RESEARCH_PROFILE.enthusiasm)
-            patch.enthusiasm = DEEP_RESEARCH_PROFILE.enthusiasm
-          if (deepAgent.headings !== DEEP_RESEARCH_PROFILE.headings)
-            patch.headings = DEEP_RESEARCH_PROFILE.headings
-          if (deepAgent.emojis !== DEEP_RESEARCH_PROFILE.emojis)
-            patch.emojis = DEEP_RESEARCH_PROFILE.emojis
-          if (Object.keys(patch).length > 0) {
-            const { data: updatedAgent, error: updateError } = await updateAgent(
-              deepAgent.id,
-              patch,
-            )
-            if (!updateError && updatedAgent) {
-              deepAgent = { ...updatedAgent, isDeepResearchSystem: true }
-              setAgents(prev =>
-                prev.map(agent => (agent.id === updatedAgent.id ? deepAgent : agent)),
-              )
-            } else {
-              console.error('Update deep research agent failed:', updateError)
-            }
           }
         }
 
@@ -816,7 +815,7 @@ function App() {
       cleaningDuplicatesRef.current = true
 
       try {
-        const defaultAgents = agents.filter(agent => agent.isDefault)
+        const defaultAgents = agents.filter(agent => String(agent.id) === DEFAULT_AGENT_ID)
         if (defaultAgents.length > 1) {
           const sortedDefaults = [...defaultAgents].sort((a, b) => {
             const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0
@@ -841,7 +840,9 @@ function App() {
           }
         }
 
-        const deepResearchAgents = agents.filter(agent => isDeepResearchAgent(agent))
+        const deepResearchAgents = agents.filter(
+          agent => String(agent.id) === DEEP_RESEARCH_AGENT_ID,
+        )
         if (deepResearchAgents.length > 1) {
           const sortedDeepAgents = [...deepResearchAgents].sort((a, b) => {
             const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0
@@ -987,6 +988,7 @@ function App() {
               defaultAgent,
               deepResearchSpace,
               deepResearchAgent,
+              scrapbookAgent,
               conversations,
               conversationsLoading,
               conversationsNextCursor,
@@ -1046,7 +1048,7 @@ function App() {
                     !location.pathname.includes('/scrapbook') &&
                     !location.pathname.includes('/library') &&
                     !location.pathname.includes('/agents') &&
-                    !location.pathname.includes('/spaces') &&
+                    !location.pathname.includes('/space') &&
                     !location.pathname.includes('/bookmarks') &&
                     !location.pathname.includes('/new_chat') && (
                       <div className="relative z-30 h-20 shrink-0 md:hidden">

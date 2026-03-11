@@ -32,6 +32,10 @@ out
 # VSCode specific extensions that should be shared
 !.vscode/extensions.json
 
+# Local-only documentation archive
+docs/archive/
+docs/plans/
+
 # System files
 .DS_Store
 *.suo

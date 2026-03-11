@@ -39,7 +39,8 @@ const SORT_OPTION_KEYS = [
 
 const ExpertView = () => {
   const { t } = useTranslation()
-  const { spaces, defaultAgent, isSidebarPinned, showConfirmation, toggleSidebar } = useAppContext()
+  const { spaces, agents, defaultAgent, isSidebarPinned, showConfirmation, toggleSidebar } =
+    useAppContext()
   const navigate = useNavigate()
   const location = useLocation()
   const toast = useToast()
@@ -172,7 +173,13 @@ const ExpertView = () => {
     })
   }
 
-  const handleStartExpertConversation = async ({ question, space }) => {
+  const handleStartExpertConversation = async ({
+    question,
+    space,
+    teamMode,
+    leaderAgentId,
+    memberAgentIds,
+  }) => {
     if (!question?.trim() || !space?.id || isCreatingConversation) return
     setIsCreatingConversation(true)
     try {
@@ -203,6 +210,9 @@ const ExpertView = () => {
             thinking: false,
             deepResearch: false,
             expertMode: true,
+            teamMode,
+            leaderAgentId,
+            memberAgentIds,
           },
           initialSpaceSelection: {
             mode: 'manual',
@@ -270,7 +280,7 @@ const ExpertView = () => {
 
           {/* Expandable Search Bar */}
           {isSearchOpen && (
-            <div className="mb-4 animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="animate-in fade-in slide-in-from-top-2 mb-4 duration-200">
               <div className="relative">
                 <Search
                   size={18}
@@ -361,7 +371,7 @@ const ExpertView = () => {
 
         {/* Scrollable Container */}
         <div className="no-scrollbar sm:scrollbar-default relative min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
-          <div className="mx-auto w-full max-w-[1400px] px-4 pb-4 sm:px-8 sm:pb-8">
+          <div className="mx-auto w-full max-w-[1400px] px-4 pt-2 pb-4 sm:px-8 sm:pt-2 sm:pb-8">
             {/* Grid Content */}
             <div className="relative pb-32">
               {loading ? (
@@ -429,6 +439,7 @@ const ExpertView = () => {
         isOpen={isGuideOpen}
         onClose={() => setIsGuideOpen(false)}
         spaces={spaces}
+        agents={agents}
         loading={isCreatingConversation}
         onStart={handleStartExpertConversation}
       />

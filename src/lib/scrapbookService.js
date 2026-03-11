@@ -1,11 +1,19 @@
 /**
  * Scrapbook Service
  * Wraps the backend /api/scrapbook REST endpoints.
- * Model config is read from global settings (defaultModelProvider / defaultModel)
- * and can be overridden by scrapbookProvider / scrapbookModel.
+ * Model config and personalization are stored on a hidden system scrapbook agent.
  */
-import { getBackendUrl, loadSettings } from './settings'
+import {
+  buildScrapbookResponseStylePrompt,
+  getBackendUrl,
+  loadSettings,
+  resolveScrapbookStyleSettings,
+} from './settings'
+import { createAgent, getAgentById, updateAgent } from './agentsService'
+import { getModelConfigForAgent } from './chat/modelConfig'
+import { getLanguageInstruction } from './chat/prompts'
 import { getPublicEnv } from './publicEnv'
+import { buildScrapbookSystemAgentPayload, SCRAPBOOK_AGENT_ID } from './systemAgents'
 
 const ENV_VARS = {
   openAIKey: getPublicEnv('PUBLIC_OPENAI_API_KEY'),
@@ -29,18 +37,124 @@ const buildSecretHeaders = secrets => {
   return headers
 }
 
-/** Resolve the effective AI model config for Scrapbook. */
-export const resolveScrapbookModelConfig = () => {
-  const settings = loadSettings()
-  return {
-    provider: settings.scrapbookProvider || settings.defaultModelProvider || '',
-    model: settings.scrapbookModel || settings.defaultModel || '',
-    apiKey: _getApiKey(settings.scrapbookProvider || settings.defaultModelProvider || '', settings),
-    baseUrl: _getBaseUrl(
-      settings.scrapbookProvider || settings.defaultModelProvider || '',
-      settings,
-    ),
+export const notifyScrapbookChanged = detail => {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new CustomEvent('scrapbook-changed', { detail: detail || {} }))
+}
+
+const SCRAPBOOK_AGENT_SYNC_KEYS = [
+  'name',
+  'description',
+  'emoji',
+  'isHidden',
+]
+
+const isAgentStyleSource = source =>
+  Boolean(
+    source &&
+      typeof source === 'object' &&
+      ('useGlobalModelSettings' in source ||
+        'baseTone' in source ||
+        'base_tone' in source ||
+        'defaultModelProvider' in source ||
+        'default_model_provider' in source),
+  )
+
+const buildScrapbookAgentPatch = (currentAgent, nextAgent) => {
+  const patch = {}
+  for (const key of SCRAPBOOK_AGENT_SYNC_KEYS) {
+    if (!Object.is(currentAgent?.[key] ?? null, nextAgent?.[key] ?? null)) {
+      patch[key] = nextAgent[key]
+    }
   }
+  return patch
+}
+
+export const ensureScrapbookAgent = async (settings = loadSettings()) => {
+  const desiredAgent = buildScrapbookSystemAgentPayload(settings)
+  const { data: currentAgent, error } = await getAgentById(SCRAPBOOK_AGENT_ID)
+  if (error) return { data: null, error }
+
+  if (!currentAgent) {
+    return createAgent(desiredAgent)
+  }
+
+  const patch = buildScrapbookAgentPatch(currentAgent, desiredAgent)
+  if (Object.keys(patch).length === 0) {
+    return { data: currentAgent, error: null }
+  }
+
+  return updateAgent(currentAgent.id, patch)
+}
+
+export const resolveScrapbookStyleSettingsFromAgent = (agent, settings = loadSettings()) => {
+  if (!agent) return resolveScrapbookStyleSettings(settings)
+  return {
+    baseTone: agent.baseTone || settings.baseTone || 'technical',
+    traits: agent.traits || settings.traits || 'default',
+    warmth: agent.warmth || settings.warmth || 'default',
+    enthusiasm: agent.enthusiasm || settings.enthusiasm || 'default',
+    headings: agent.headings || settings.headings || 'default',
+    emojis: agent.emojis || settings.emojis || 'default',
+    customInstruction: agent.customInstruction || settings.customInstruction || '',
+  }
+}
+
+/** Resolve the effective AI model config for Scrapbook. */
+export const resolveScrapbookModelConfig = async (
+  defaultAgent,
+  task = 'streamChatCompletion',
+) => {
+  const settings = loadSettings()
+  const { data: scrapbookAgent, error } = await ensureScrapbookAgent(settings)
+  const resolvedAgent = error ? null : scrapbookAgent
+  const modelConfig = getModelConfigForAgent(resolvedAgent, settings, task, defaultAgent)
+  const isLiteTask =
+    task === 'generateTitle' || task === 'generateEmoji' || task === 'generateTitleAndSpace'
+  const provider = modelConfig.provider || settings.defaultModelProvider || ''
+  const model = modelConfig.model || (isLiteTask ? settings.liteModel : settings.defaultModel) || ''
+  const scrapbookStyle = resolveScrapbookStyleSettingsFromAgent(resolvedAgent, settings)
+  const taskType = isLiteTask ? 'title' : 'summary'
+
+  return {
+    provider,
+    model,
+    apiKey: _getApiKey(provider, settings),
+    baseUrl: _getBaseUrl(provider, settings),
+    scrapbookAgent: resolvedAgent,
+    scrapbookStyle,
+    stylePrompt: buildScrapbookStylePrompt(taskType, resolvedAgent || scrapbookStyle),
+  }
+}
+
+export const buildScrapbookStylePrompt = (taskType = 'summary', settings = null) => {
+  const globalSettings = loadSettings()
+  const languageInstruction = isAgentStyleSource(settings)
+    ? getLanguageInstruction(settings, globalSettings)
+    : ''
+  const resolvedSettings = isAgentStyleSource(settings)
+    ? resolveScrapbookStyleSettingsFromAgent(settings, globalSettings)
+    : settings && typeof settings === 'object'
+      ? settings
+      : globalSettings
+  const taskMap = {
+    title:
+      'You are generating a title for a Scrapbook entry. Prefer specific, retrievable titles that help the user find the note later.',
+    summary:
+      'You are generating a structured Scrapbook summary. Focus on preserving key ideas, decisions, examples, and useful takeaways.',
+    organize:
+      'You are organizing content into a reusable Scrapbook note. Prioritize clarity, information density, and easy scanning.',
+  }
+  const stylePrompt = buildScrapbookResponseStylePrompt(resolvedSettings)
+  return [
+    taskMap[taskType] || taskMap.summary,
+    'Do not invent facts, quotes, steps, or conclusions that are not supported by the source content.',
+    'Keep the output useful for later review, retrieval, and action.',
+    languageInstruction ? `## Language\n${languageInstruction}` : '',
+    stylePrompt,
+  ]
+    .filter(Boolean)
+    .join('\n\n')
 }
 
 const _getApiKey = (provider, settings) => {
@@ -111,13 +225,17 @@ export const getScrapbookEntryById = async id => {
  */
 export const createScrapbookEntry = async (entry, modelConfig = {}) => {
   try {
-    const resolved = resolveScrapbookModelConfig()
+    const resolved = modelConfig.provider
+      ? modelConfig
+      : await resolveScrapbookModelConfig(modelConfig.defaultAgent, 'generateTitle')
     const payload = {
       ...entry,
       // AI model config — frontend resolves the key and passes it to backend
       provider: modelConfig.provider || resolved.provider,
       base_url: modelConfig.baseUrl || resolved.baseUrl || null,
       model: modelConfig.model || resolved.model || null,
+      style_prompt:
+        modelConfig.stylePrompt || buildScrapbookStylePrompt('title', resolved.scrapbookStyle),
     }
     const res = await fetch(`${getBackendUrl()}/api/scrapbook`, {
       method: 'POST',

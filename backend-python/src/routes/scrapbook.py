@@ -298,6 +298,7 @@ async def create_scrapbook_entry(request: Request) -> JSONResponse:
     api_key = get_llm_api_key(request)
     base_url = body.get("base_url") or body.get("baseUrl")
     model = body.get("model")
+    style_prompt = (body.get("style_prompt") or body.get("stylePrompt") or "").strip()
 
     # ── Step 1: Detect platform and fetch content via x-reader if needed ────
     fetched_title = ""
@@ -350,6 +351,12 @@ async def create_scrapbook_entry(request: Request) -> JSONResponse:
             "Content excerpt:",
             str(content or title or source_url or "")[:3000]
         ])
+        if style_prompt:
+            prompt_lines.extend([
+                "",
+                "Scrapbook style instructions:",
+                style_prompt,
+            ])
         prompt_text = "\n".join(prompt_lines)
 
         title_coro = (

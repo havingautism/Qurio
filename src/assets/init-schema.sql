@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS public.spaces (
 CREATE TABLE IF NOT EXISTS public.agents (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   is_default BOOLEAN NOT NULL DEFAULT FALSE,
+  is_hidden BOOLEAN NOT NULL DEFAULT FALSE,
   emoji TEXT NOT NULL DEFAULT '',
   avatar_type TEXT NOT NULL DEFAULT 'emoji',
   avatar_image TEXT,
@@ -352,6 +353,9 @@ INSERT INTO public.agents (
   base_tone, traits, warmth, enthusiasm, headings, emojis, tool_ids
 )
 VALUES
+  ('11111111-1111-1111-1111-111111111111', TRUE, '', 'Default Agent', 'Fallback agent (non-editable).', '', FALSE, 'technical', 'default', 'default', 'default', 'default', 'default', '[]'::jsonb),
+  ('22222222-2222-2222-2222-222222222222', FALSE, '🔬', 'Deep Research Agent', 'Deep research agent (deep-research)', '', TRUE, 'academic', 'detailed', 'direct', 'low', 'detailed', 'none', '[]'::jsonb),
+  ('33333333-3333-3333-3333-333333333333', FALSE, '📒', 'Scrapbook Agent', 'Hidden system agent for Scrapbook generation settings.', '', FALSE, 'technical', 'default', 'default', 'default', 'default', 'default', '[]'::jsonb),
   ('agent-life-assistant', FALSE, '🏠', 'Life Assistant', 'Helps with routines, tasks, and daily decisions.', 'You are a practical life assistant. Give actionable steps, ask for constraints, and keep responses concise and useful.', FALSE, 'friendly', 'practical', 'gentle', 'medium', 'structured', 'light', '["local_time", "web_search", "calculator", "interactive_form"]'::jsonb),
   ('agent-code-assistant', FALSE, '💻', 'Code Assistant', 'Engineering-focused coding and debugging assistant.', 'You are a senior coding assistant. Clarify requirements, provide correct runnable solutions, and include testing advice.', FALSE, 'technical', 'concise', 'direct', 'low', 'structured', 'none', '["web_search", "json_repair", "extract_text", "summarize_text"]'::jsonb),
   ('agent-travel-planner', FALSE, '✈️', 'Travel Planner', 'Plans routes, schedules, and budgets for trips.', 'You are a travel planner. Confirm origin, budget, duration, and preferences, then return a clear itinerary with options.', FALSE, 'professional', 'detailed', 'supportive', 'medium', 'structured', 'light', '["web_search", "search_news", "search_wikipedia", "local_time", "interactive_form"]'::jsonb),
@@ -362,6 +366,10 @@ VALUES
   ('agent-writing-assistant', FALSE, '✍️', 'Writing Assistant', 'Improves drafts, structure, and tone.', 'You are a writing assistant. Clarify audience and style, then provide strong structure and polished alternatives.', FALSE, 'friendly', 'detailed', 'gentle', 'medium', 'structured', 'light', '["interactive_form", "summarize_text", "extract_text", "json_repair"]'::jsonb),
   ('agent-career-coach', FALSE, '🚀', 'Career Coach', 'Supports resume quality and interview preparation.', 'You are a career coach. Provide concrete resume edits, interview prep questions, and role-fit guidance.', FALSE, 'professional', 'direct', 'supportive', 'medium', 'structured', 'light', '["interactive_form", "web_search", "summarize_text", "extract_text"]'::jsonb)
 ON CONFLICT (id) DO NOTHING;
+
+UPDATE public.agents
+SET is_hidden = FALSE
+WHERE id = '33333333-3333-3333-3333-333333333333';
 
 INSERT INTO public.space_agents (space_id, agent_id, sort_order, is_primary)
 VALUES

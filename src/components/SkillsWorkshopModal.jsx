@@ -42,6 +42,12 @@ import {
   DialogFooter,
   DialogDescription,
 } from '@/components/ui/dialog'
+import {
+  MODAL_INPUT_CLASS,
+  MODAL_SELECT_TRIGGER_CLASS,
+  MODAL_TEXTAREA_CLASS,
+  MODAL_TEXTAREA_MONO_CLASS,
+} from '../lib/modalFieldStyles'
 
 const SkillsWorkshopModal = ({ isOpen, onClose }) => {
   const { t } = useTranslation()
@@ -96,6 +102,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
   const [aiModel, setAiModel] = useState('')
   const [aiModelSource, setAiModelSource] = useState('list') // 'list' | 'custom'
   const [aiCustomModel, setAiCustomModel] = useState('')
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
 
   useEffect(() => {
     if (isAIMode && availableProviders.length === 0) {
@@ -608,6 +615,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
 
     if (path === 'SKILL.md') {
       setActiveFile(path)
+      setIsMobileSidebarOpen(false) // Close sidebar on mobile
       return
     }
 
@@ -615,10 +623,12 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
     if (latestStaged[path] !== undefined) {
       setFileContent(latestStaged[path])
       setActiveFile(path)
+      setIsMobileSidebarOpen(false) // Close sidebar on mobile
       return
     }
 
     setIsLoadingFile(true)
+    setIsMobileSidebarOpen(false) // Close sidebar on mobile
     try {
       const res = await fetch(
         `${getBackendUrl()}/api/skills/${skillId}/file?path=${encodeURIComponent(path)}`,
@@ -902,41 +912,38 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
 
   if (!isOpen) return null
 
+  const modalTitle = isEditing
+    ? isNew
+      ? t('agents.skills.createNew', 'Create New Skill')
+      : t('agents.skills.editSkill', 'Edit Skill')
+    : t('agents.tabs.skills', 'Skills Workshop')
+  const modalDescription = isEditing
+    ? t('agents.skills.editDesc', 'Define the system instructions and capabilities for this skill')
+    : t(
+        'agents.skills.workshopDesc',
+        'Create macro-skills that can be attached to any Agent context',
+      )
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-200 flex items-start justify-center overflow-y-auto bg-black/50 p-0 backdrop-blur-sm md:items-center md:overflow-hidden md:p-4">
       {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
-        onClick={onClose}
-      />
+      <div className="fixed inset-0 transition-opacity" onClick={onClose} />
 
       {/* Modal */}
-      <div className="glass-elite-panel relative z-10 flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-[28px] border-none shadow-2xl">
+      <div className="glass-elite-panel relative z-10 flex h-dvh w-full max-w-[1440px] flex-col overflow-hidden rounded-none border-0 shadow-2xl md:h-[88vh] md:rounded-[28px]">
         {/* Header */}
-        <div className="flex shrink-0 items-center justify-between border-b border-black/5 px-6 py-4 dark:border-white/5">
+        <div className="flex shrink-0 items-start justify-between border-b border-black/5 px-4 py-5 sm:px-10 dark:border-white/5">
           <div>
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-              {isEditing
-                ? isNew
-                  ? t('agents.skills.createNew', 'Create New Skill')
-                  : t('agents.skills.editSkill', 'Edit Skill')
-                : t('agents.tabs.skills', 'Skills Workshop')}
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">
+              {modalTitle}
             </h2>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              {isEditing
-                ? t(
-                    'agents.skills.editDesc',
-                    'Define the system instructions and capabilities for this skill',
-                  )
-                : t(
-                    'agents.skills.workshopDesc',
-                    'Create macro-skills that can be attached to any Agent context',
-                  )}
+            <p className="mt-2 max-w-3xl text-sm leading-7 text-gray-500 dark:text-gray-400">
+              {modalDescription}
             </p>
           </div>
           <button
             onClick={onClose}
-            className="rounded-xl p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-zinc-800 dark:hover:text-gray-300"
+            className="rounded-full p-2 text-gray-500 transition-colors hover:bg-black/5 dark:hover:bg-white/10"
           >
             <X size={20} />
           </button>
@@ -945,9 +952,14 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
         {/* Content Area */}
         <div className="no-scrollbar flex-1 overflow-y-auto bg-transparent">
           {isEditing ? (
-            <div className="flex h-full min-h-[500px]">
+            <div className="flex h-full min-h-[500px] flex-col md:flex-row">
               {/* Left Sidebar for Files */}
-              <div className="no-scrollbar flex w-64 shrink-0 flex-col overflow-y-auto border-r border-black/5 bg-transparent p-4 dark:border-white/5">
+              <div
+                className={clsx(
+                  'no-scrollbar shrink-0 flex-col overflow-y-auto border-r border-black/5 bg-transparent p-4 md:flex md:w-[280px] dark:border-white/5',
+                  isMobileSidebarOpen ? 'flex w-full' : 'hidden',
+                )}
+              >
                 {/* General Header (SKILL.md) */}
                 <div className="mb-6">
                   <button
@@ -968,7 +980,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                 <div className="mb-6">
                   <div className="mb-2 flex items-center justify-between px-2">
                     <h3 className="text-xs font-bold tracking-wider text-gray-400 uppercase dark:text-zinc-500">
-                      Scripts
+                      {t('agents.skills.scriptsLabel', 'Scripts')}
                     </h3>
                     <button
                       onClick={() => {
@@ -1037,7 +1049,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                     ))}
                     {scripts.length === 0 && !isCreatingFile && (
                       <p className="px-2 py-1 text-[10px] text-gray-400 dark:text-zinc-600">
-                        No scripts added
+                        {t('agents.skills.noScripts', 'No scripts added')}
                       </p>
                     )}
                   </ul>
@@ -1047,7 +1059,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                 <div className="mb-6">
                   <div className="mb-2 flex items-center justify-between px-2">
                     <h3 className="text-xs font-bold tracking-wider text-gray-400 uppercase dark:text-zinc-500">
-                      References
+                      {t('agents.skills.referencesLabel', 'References')}
                     </h3>
                     <button
                       onClick={() => {
@@ -1116,7 +1128,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                     ))}
                     {references.length === 0 && !isCreatingFile && (
                       <p className="px-2 py-1 text-[10px] text-gray-400 dark:text-zinc-600">
-                        No references added
+                        {t('agents.skills.noReferences', 'No references added')}
                       </p>
                     )}
                   </ul>
@@ -1124,7 +1136,22 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
               </div>
 
               {/* Main Content Area */}
-              <div className="flex flex-1 flex-col overflow-y-auto p-6">
+              <div
+                className={clsx(
+                  'flex-1 flex-col overflow-y-auto px-4 py-5 sm:px-10 sm:py-8',
+                  isMobileSidebarOpen ? 'hidden md:flex' : 'flex',
+                )}
+              >
+                {/* Mobile Sidebar Toggle */}
+                {isEditing && (
+                  <button
+                    onClick={() => setIsMobileSidebarOpen(true)}
+                    className="mb-4 flex items-center gap-2 text-xs font-medium text-gray-500 md:hidden"
+                  >
+                    <ArrowLeft size={14} />
+                    {t('agents.skills.backToFiles', 'Back to Files')}
+                  </button>
+                )}
                 {activeFile === 'SKILL.md' ? (
                   <form
                     id="skill-form"
@@ -1148,7 +1175,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                             }
                           }}
                           placeholder="e.g. pirate-greeter"
-                          className="focus:ring-primary-500/20 w-full rounded-xl border-none bg-black/5 px-4 py-2.5 text-sm transition-all outline-none placeholder:text-gray-400 focus:ring-2 disabled:bg-gray-50/10 disabled:opacity-50 dark:bg-white/5 dark:placeholder:text-zinc-600"
+                          className={MODAL_INPUT_CLASS}
                         />
                         {isNew && (
                           <p className="text-[10px] text-gray-500">
@@ -1167,7 +1194,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                           value={formData.name}
                           onChange={e => setFormData({ ...formData, name: e.target.value })}
                           placeholder="e.g. Pirate Greeter"
-                          className="focus:ring-primary-500/20 w-full rounded-xl border-none bg-black/5 px-4 py-2.5 text-sm transition-all outline-none placeholder:text-gray-400 focus:ring-2 dark:bg-white/5"
+                          className={MODAL_INPUT_CLASS}
                         />
                       </div>
                     </div>
@@ -1223,7 +1250,10 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                             </span>
                             {skillEnvironment?.scripts_dir_exists && (
                               <span className="rounded-full bg-blue-50 px-2.5 py-1 font-medium text-blue-700 dark:bg-blue-500/10 dark:text-blue-300">
-                                {t('agents.skills.environmentScriptsPresent', 'Scripts folder found')}
+                                {t(
+                                  'agents.skills.environmentScriptsPresent',
+                                  'Scripts folder found',
+                                )}
                               </span>
                             )}
                           </div>
@@ -1235,7 +1265,10 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                             </span>
                             <span className="font-mono break-all">
                               {skillEnvironment?.python_path ||
-                                t('agents.skills.environmentPythonPending', 'Will be created on first install')}
+                                t(
+                                  'agents.skills.environmentPythonPending',
+                                  'Will be created on first install',
+                                )}
                             </span>
                           </div>
 
@@ -1248,7 +1281,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                                 'agents.skills.installDependencyPlaceholder',
                                 'e.g. requests',
                               )}
-                              className="focus:ring-primary-500/20 h-10 flex-1 rounded-xl border-none bg-white/80 px-4 text-sm outline-none placeholder:text-gray-400 focus:ring-2 dark:bg-black/10 dark:text-white dark:placeholder:text-zinc-500"
+                              className={MODAL_INPUT_CLASS}
                             />
                             <button
                               type="button"
@@ -1287,7 +1320,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                           }
                         }}
                         placeholder="Describes what this skill does briefly"
-                        className="focus:ring-primary-500/20 w-full rounded-xl border-none bg-black/5 px-4 py-2.5 text-sm transition-all outline-none placeholder:text-gray-400 focus:ring-2 dark:bg-white/5"
+                        className={MODAL_INPUT_CLASS}
                       />
                       <p className="text-right text-[10px] text-gray-400">
                         {formData.description.length}/1024
@@ -1305,7 +1338,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                         value={formData.instructions}
                         onChange={e => setFormData({ ...formData, instructions: e.target.value })}
                         placeholder="You are an expert at..."
-                        className="focus:ring-primary-500/20 min-h-[300px] w-full flex-1 resize-none rounded-xl border-none bg-black/5 p-4 font-mono text-sm transition-all outline-none placeholder:text-gray-400 focus:ring-2 dark:bg-white/5"
+                        className={`min-h-[300px] flex-1 ${MODAL_TEXTAREA_MONO_CLASS}`}
                       />
                     </div>
                   </form>
@@ -1322,7 +1355,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                       <textarea
                         value={fileContent}
                         onChange={e => setFileContent(e.target.value)}
-                        className="focus:ring-primary-500/20 w-full flex-1 resize-none rounded-xl border-none bg-black/5 p-4 font-mono text-sm transition-all outline-none focus:ring-2 dark:bg-white/5"
+                        className={`flex-1 ${MODAL_TEXTAREA_MONO_CLASS}`}
                       />
                     )}
                   </div>
@@ -1331,7 +1364,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
             </div>
           ) : isAIMode ? (
             /* ── AI Skill Creator Panel ─────────────────────────────────────── */
-            <div className="flex flex-1 flex-col p-6">
+            <div className="flex flex-1 flex-col px-4 py-5 sm:px-10 sm:py-8">
               {/* Panel Header */}
               <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
                 <div className="flex items-center gap-3">
@@ -1405,7 +1438,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                             value={aiProvider || '__none__'}
                             onValueChange={handleAIProviderChange}
                           >
-                            <SelectTrigger className="h-10 w-full rounded-xl border-none bg-black/5 focus-visible:ring-1 focus-visible:ring-black/10 dark:bg-white/5 dark:focus-visible:ring-white/10">
+                            <SelectTrigger className={MODAL_SELECT_TRIGGER_CLASS}>
                               <SelectValue
                                 placeholder={t('settings.inheritGlobal', 'Inherit Global')}
                               >
@@ -1461,11 +1494,11 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                               value={aiCustomModel}
                               onChange={e => setAiCustomModel(e.target.value)}
                               placeholder={t('settings.inputModelName', 'Input model name...')}
-                              className="h-10 w-full rounded-xl border-none bg-black/5 px-4 text-sm outline-none focus-visible:ring-1 focus-visible:ring-black/10 dark:bg-white/5 dark:focus-visible:ring-white/10"
+                              className={MODAL_INPUT_CLASS}
                             />
                           ) : (
                             <Select value={aiModel} onValueChange={val => setAiModel(val)}>
-                              <SelectTrigger className="h-10 w-full rounded-xl border-none bg-black/5 focus-visible:ring-1 focus-visible:ring-black/10 dark:bg-white/5 dark:focus-visible:ring-white/10">
+                              <SelectTrigger className={MODAL_SELECT_TRIGGER_CLASS}>
                                 <SelectValue
                                   placeholder={t('settings.selectModel', 'Select Model')}
                                 >
@@ -1595,7 +1628,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                   </div>
 
                   {/* Actions */}
-                  <div className="flex gap-3">
+                  <div className="flex flex-col gap-3 sm:flex-row">
                     <button
                       onClick={() => {
                         setIsAIMode(false)
@@ -1613,7 +1646,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                         setAiPrompt('')
                         handleEdit(aiResult.skill_id)
                       }}
-                      className="bg-primary-500 hover:bg-primary-600 flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:shadow-md"
+                      className="bg-primary-500 hover:bg-primary-600 flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:shadow-md"
                     >
                       <Pencil size={14} />
                       {t('agents.skills.aiGenerateOpenEditor', 'Open in Editor')}
@@ -1635,7 +1668,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                         'e.g. Create a skill that makes the agent always give a 3-point summary',
                       )}
                       rows={6}
-                      className="focus:ring-primary-500/20 w-full resize-none rounded-xl border-none bg-black/5 p-4 text-sm transition-all outline-none placeholder:text-gray-400 focus:ring-2 dark:bg-white/5 dark:text-white dark:placeholder:text-zinc-500"
+                      className={MODAL_TEXTAREA_CLASS}
                     />
                     <p className="text-xs text-gray-400 dark:text-zinc-500">
                       {t(
@@ -1666,7 +1699,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
               )}
             </div>
           ) : isGitImportMode ? (
-            <div className="flex flex-1 flex-col p-6">
+            <div className="flex flex-1 flex-col px-4 py-5 sm:px-10 sm:py-8">
               <div className="mb-6 flex items-center gap-3">
                 <button
                   onClick={() => setIsGitImportMode(false)}
@@ -1714,7 +1747,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                     value={gitRepoUrl}
                     onChange={e => setGitRepoUrl(e.target.value)}
                     placeholder="https://github.com/owner/repo"
-                    className="focus:ring-primary-500/20 h-10 w-full rounded-xl border-none bg-black/5 px-4 text-sm outline-none placeholder:text-gray-400 focus:ring-2 dark:bg-white/5 dark:text-white dark:placeholder:text-zinc-500"
+                    className={MODAL_INPUT_CLASS}
                   />
                 </div>
 
@@ -1728,7 +1761,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                       value={gitRef}
                       onChange={e => setGitRef(e.target.value)}
                       placeholder="main"
-                      className="focus:ring-primary-500/20 h-10 w-full rounded-xl border-none bg-black/5 px-4 text-sm outline-none placeholder:text-gray-400 focus:ring-2 dark:bg-white/5 dark:text-white dark:placeholder:text-zinc-500"
+                      className={MODAL_INPUT_CLASS}
                     />
                   </div>
 
@@ -1741,7 +1774,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                       value={gitSkillPath}
                       onChange={e => setGitSkillPath(e.target.value)}
                       placeholder="skills/my-skill"
-                      className="focus:ring-primary-500/20 h-10 w-full rounded-xl border-none bg-black/5 px-4 text-sm outline-none placeholder:text-gray-400 focus:ring-2 dark:bg-white/5 dark:text-white dark:placeholder:text-zinc-500"
+                      className={MODAL_INPUT_CLASS}
                     />
                   </div>
                 </div>
@@ -1755,7 +1788,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                     value={gitSkillId}
                     onChange={e => setGitSkillId(e.target.value)}
                     placeholder="my-imported-skill"
-                    className="focus:ring-primary-500/20 h-10 w-full rounded-xl border-none bg-black/5 px-4 text-sm outline-none placeholder:text-gray-400 focus:ring-2 dark:bg-white/5 dark:text-white dark:placeholder:text-zinc-500"
+                    className={MODAL_INPUT_CLASS}
                   />
                   <p className="text-xs text-gray-400 dark:text-zinc-500">
                     {t(
@@ -1785,9 +1818,9 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
               </div>
             </div>
           ) : (
-            <div className="p-6">
+            <div className="px-4 py-5 sm:px-10 sm:py-8">
               {/* Header Action */}
-              <div className="mb-6 flex justify-end gap-3">
+              <div className="mb-6 flex flex-col items-stretch gap-3 sm:flex-row sm:justify-end">
                 <button
                   onClick={() => {
                     setIsAIMode(true)
@@ -1795,7 +1828,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                     setAiResult(null)
                     setAiPrompt('')
                   }}
-                  className="bg-primary-500 hover:bg-primary-600 flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:shadow-md active:scale-95"
+                  className="bg-primary-500 hover:bg-primary-600 flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:shadow-md active:scale-95"
                 >
                   <Sparkles size={16} />
                   {t('agents.skills.aiGenerate', '✨ AI Generate')}
@@ -1805,14 +1838,14 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                     setIsAIMode(false)
                     setIsGitImportMode(true)
                   }}
-                  className="flex items-center gap-2 rounded-xl border border-black/10 bg-black/5 px-4 py-2.5 text-sm font-medium text-gray-700 transition-all hover:bg-black/10 dark:border-white/10 dark:bg-white/5 dark:text-gray-200 dark:hover:bg-white/10"
+                  className="flex items-center justify-center gap-2 rounded-xl border border-black/10 bg-black/5 px-4 py-2.5 text-sm font-medium text-gray-700 transition-all hover:bg-black/10 dark:border-white/10 dark:bg-white/5 dark:text-gray-200 dark:hover:bg-white/10"
                 >
                   <Github size={16} />
                   {t('agents.skills.gitImportAction', 'Import from Git')}
                 </button>
                 <button
                   onClick={handleCreateNew}
-                  className="bg-primary-500 hover:bg-primary-600 flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:shadow-md active:scale-95"
+                  className="bg-primary-500 hover:bg-primary-600 flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:shadow-md active:scale-95"
                 >
                   <Plus size={16} />
                   {t('agents.skills.createButton', 'Create Skill')}
@@ -1890,18 +1923,18 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
 
         {/* Footer Actions when Editing */}
         {isEditing && (
-          <div className="flex shrink-0 items-center justify-end gap-3 border-t border-black/5 bg-transparent px-6 py-4 dark:border-white/5">
+          <div className="flex shrink-0 flex-col items-stretch gap-3 border-t border-black/5 bg-transparent px-4 py-4 sm:flex-row sm:items-center sm:justify-end sm:px-10 dark:border-white/5">
             <button
               type="button"
               onClick={() => setIsEditing(false)}
-              className="rounded-xl px-4 py-2.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-zinc-800"
+              className="flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-zinc-800"
             >
               {t('agents.actions.cancel', 'Cancel')}
             </button>
             <button
               onClick={saveCombined}
               disabled={isSaving}
-              className="bg-primary-500 hover:bg-primary-600 flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:shadow-md active:scale-95 disabled:opacity-50"
+              className="bg-primary-500 hover:bg-primary-600 flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:shadow-md active:scale-95 disabled:opacity-50"
             >
               {isSaving ? (
                 <>

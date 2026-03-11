@@ -1,4 +1,4 @@
-# Qurio - Multi-Provider AI Knowledge Workspace
+# Qurio
 
 ![Bun](https://img.shields.io/badge/Bun-1.3+-000?logo=bun&logoColor=fff)
 ![React](https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=000)
@@ -8,224 +8,211 @@
 ![Supabase](https://img.shields.io/badge/Supabase-backend-3ecf8e?logo=supabase&logoColor=fff)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/havingautism/Qurio)
 
-> Not another chat UI. Qurio is a research-grade cockpit for real work.
+> ⚙️ An AI workspace for people who need more than chat.
 
-**Qurio** is a high-velocity AI knowledge workspace built for teams that demand more than basic chat. It supports generic OpenAI-compatible providers, Gemini, SiliconFlow, Kimi (Moonshot), MiniMax, GLM (Zhipu), NVIDIA NIM, and more. Highlights include **Deep Research** for complex tasks, **Custom Agents** for specialized workflows, rich tool orchestration (MCP + HTTP), and structured reasoning views with export-ready outputs. The stack is designed around **separation of concerns**: lightweight models for routing/planning, stronger models for answers, and structured storage for memory and documents.
+There is a point where chat stops being useful on its own.
 
-**In one line:** plan, tool, and deliver from a single workspace without switching apps.
+It happens when one conversation is no longer enough. You need one agent to research, another to operate tools, a place to keep documents and memory in play, and a workflow that does not fall apart the moment the task becomes real.
 
-## Screenshots
+Qurio is built for that point. It brings multi-provider models, custom agents, reusable skills, MCP servers, HTTP tools, retrieval, long-term memory, Deep Research, and Scrapbook into one operating surface.
 
-<!--
-Add screenshots by replacing the placeholders below.
-Recommended size: 1600x900 or 1920x1080.
--->
+🧭 The goal is simple: turn AI from something you ask into something you can run work through.
 
-### Home
+## 🚩 Why It Exists
+
+Qurio is for workflows that outgrow ordinary chat:
+
+- You want one agent to research, another to operate tools, and a third to write without collapsing them into one giant prompt.
+- You need evidence, citations, and visible tool activity instead of polished guesswork.
+- You want MCP, HTTP tools, search, documents, and memory in the same loop.
+- You want reusable skills that can move across agents instead of living inside one brittle system prompt.
+- You need a fast place to capture links, notes, and source material before they disappear into chat history.
+
+This is not a chatbot skin. It is a workspace for running AI-assisted work with structure, boundaries, and follow-through.
+
+## ✨ What Makes Qurio Different
+
+- **Agents are execution profiles, not saved prompts.** Each agent can have its own prompt, identity, model pair, tool permissions, and attached skills.
+- **Skills are first-class.** You can create them, import them, bundle references and scripts with them, and mount them across agents.
+- **Tools have structure.** MCP servers, HTTP tools, and built-in tools can be grouped, surfaced, restricted, and inspected from the UI.
+- **Research is treated as a workflow.** Plan, search, inspect sources, synthesize, and keep the evidence attached.
+- **Memory and retrieval stay selective.** Pull in what matters instead of flooding every run with context.
+- **Scrapbook closes the loop.** Save useful material quickly, then bring it back when it is time to continue.
+
+## 🖼️ Screenshots
+
+### 🏠 Home
 
 ![Home](./docs/screenshots/homeview.png)
 
-### Conversation + Tool Calls
+### 💬 Conversation + Tool Calls
 
 ![Conversation + Tool Calls](./docs/screenshots/conversation-tools.png)
 
-### Deep Research Workflow
+### 🔎 Deep Research Workflow
 
 ![Deep Research Workflow](./docs/screenshots/deep-research.png)
 
-### MCP Tool Groups
+### 🧰 MCP Tool Groups
 
 ![MCP Tool Groups](./docs/screenshots/mcp_tools.png)
 
-## Why Qurio
+## 🧠 Core Capabilities
 
-- **Multi-Provider Powerhouse**: Connect to almost any model (Gemini, OpenAI, Claude via compatible endpoints, SiliconFlow, Kimi, MiniMax, GLM, NIM, etc.) with dual model slots (Lite + Default).
-- **Tool Orchestration Beyond LLM Chat**: Built-in MCP + HTTP tooling, tool grouping, and per-tool enable/disable controls so agents only see what you want them to use.
-- **Deep Research, Not Just Search**: Dedicated research workflow that plans, executes, and reports with structured steps, citations, and export-ready outputs.
-- **Agent System That Scales**: Per-agent prompts, model preferences, and toolsets with clean switching and workspace binding.
-- **Document Intelligence**: Parse, embed, and retrieve across uploaded documents with hybrid search (vector + keyword) for grounded answers.
-- **Long-Term Memory That Stays Useful**: Domain-indexed summaries with Lite routing so only relevant preferences/background get injected.
-- **Premium UX**: Streaming, rich Markdown/Code rendering, inline images, reasoning visibility, and thoughtful UI for research/think/tool panels.
-- **Production-Grade**: Light/Dark/System themes, secure API key handling, i18n (en/zh), responsive design, Supabase persistence.
+### 🔎 Deep Research
 
-## Design Philosophy
+- Break a broad question into steps, run search loops, gather evidence, and produce a structured report.
+- Keep source-backed claims visible instead of hiding them behind a final answer.
+- Inspect the path from planning to evidence collection to synthesis.
 
-- **Route first, retrieve second**: Lite models decide if memory/docs are needed; only then inject relevant snippets.
-- **Separation of models**: Fast models handle planning/routing; stronger models handle final answers.
-- **Structured memory over keyword lists**: Domain-indexed summaries keep personalization usable and controllable.
-- **Hybrid retrieval**: Vector + keyword search balances recall with precision for real-world docs.
-- **Tool governance**: MCP groups, HTTP tools, and per-tool visibility keep agents safe and focused.
+### 🤖 Custom Agents
 
-## Highlights
+- Create agents with distinct prompts, tone, identity, model strategy, and tool access.
+- Use a stronger `Default` model for final output and a cheaper `Lite` model for routing, summaries, or planning.
+- Bind agents to spaces so each workspace keeps a clear operating style.
 
-### 📱 Mobile PWA Support
+### 🧩 Skills
 
-- **Installable**: Add Qurio to your home screen on iOS/Android for an app-like experience.
-- **Responsive UX**: Optimized layouts for mobile, tablets, and desktops with touch-friendly controls.
-- **Seamless Sessions**: Stay signed in and continue where you left off with persistent conversations.
+- Author skills inside Qurio or import them from Git.
+- Package instructions, scripts, and references together.
+- Reuse the same capability layer across multiple agents.
 
-### 🔬 Academic Research Reports
+### 🧰 Tools and MCP
 
-- **Automated Research Pipeline**: Deep Research mode breaks down complex research goals into structured plans, conducts iterative web searches, and synthesizes comprehensive academic-style reports with proper citations.
-- **Source Tracking**: All claims are backed by timestamped sources with direct links, ensuring research integrity and easy verification.
-- **Export-Ready**: Generate polished reports in Markdown format, ready for academic or professional use.
+- Connect MCP servers over SSE or Streamable HTTP.
+- Build custom HTTP tools from endpoint URLs and parameter templates.
+- Combine built-in search, finance, image, video, Wikipedia, arXiv, and Hacker News tooling with your own tool stack.
+- Expose only the tools an agent should see.
 
-### 🤖 Intelligent Agent System
+### 📚 Documents, Retrieval, and Memory
 
-- **Custom Agents**: Create specialized AI personas with unique system prompts, model preferences, and personality traits (tone, warmth, enthusiasm).
-- **Automatic Agent Selection**: The system can intelligently select the best agent for your task based on context, or you can manually choose from your agent library.
-- **Multi-Model Support**: Each agent can have dual model slots (Default + Lite) from different providers, optimizing for quality vs. speed.
-- **Space-Agent Binding**: Assign specific agents to workspaces for consistent behavior across related conversations.
+- Upload documents, chunk them, index them, and retrieve relevant context during chat.
+- Use hybrid retrieval to improve recall in real-world material.
+- Store long-term memory as structured summaries and inject it selectively.
 
-### 🧰 MCP + HTTP Tooling
+### 📌 Scrapbook
 
-- **MCP Tool Groups**: Connect external MCP servers (SSE or Streamable HTTP) and manage tools as groups.
-- **Per-Tool Enable/Disable**: Keep tools saved while selectively hiding them from agents.
-- **HTTP API Tools**: Define custom tools by URL, method, and JSON params; schemas are auto-generated from templates.
-- **Interactive Forms**: Tools can request structured user input inline before execution.
+- Save URLs and source material quickly.
+- Generate summaries and titles around saved items.
+- Bring saved material back into the next conversation instead of losing it in scrollback.
 
-### 🧾 Interactive Forms
+## 🧭 Product Principles
 
-- **Dynamic Form Generation**: AI agents can request structured input through beautifully rendered forms with various field types (text, number, select, textarea, etc.).
-- **Real-time Validation**: Form inputs are validated before submission, ensuring data quality.
-- **Seamless UX**: Forms appear inline in the conversation flow, maintaining context while collecting detailed information.
+- **Execution over theatrics.** The product should help complete work, not just generate plausible text.
+- **Boundaries matter.** Agents should not see every instruction, document, or tool by default.
+- **Grounding comes first.** Retrieval, memory, and tool outputs exist to make answers more reliable.
+- **Good routing saves money and time.** Fast models should decide what to fetch and when stronger models are worth it.
+- **Real workflows beat demo flows.** Research, planning, capture, retrieval, and follow-through need to live in the same system.
 
-### Document Embeddings & Hybrid Search
+## 🌐 Provider Support
 
-- **Upload & Parse**: Add documents to a space; text is parsed and chunked automatically.
-- **Hybrid Retrieval**: Combines embeddings with keyword search for stronger recall.
-- **Context Controls**: Only selected documents are retrieved and injected per conversation.
+Qurio is designed for mixed-model environments rather than single-vendor lock-in.
 
-### Long-Term Memory (Domain Routing)
+Current provider paths include:
 
-- **Domain Index + Summary**: Memory is stored as domain cards with concise summaries.
-- **Lite Gating**: A lightweight model decides if memory is needed and which domains to inject.
-- **Selective Injection**: Only hit domains are appended, keeping prompts tight and relevant.
+- Google Gemini
+- OpenAI and OpenAI-compatible endpoints
+- SiliconFlow
+- Kimi
+- MiniMax
+- GLM
+- ModelScope
+- NVIDIA NIM
 
-### 🌐 Extended Provider Support
+The point is not just provider count. It is the ability to route differently for planning, retrieval, and final output without changing products.
 
-Out-of-the-box support for:
+## 🏗️ Tech Stack
 
-- **Google Gemini** (Native SDK with Thinking mode)
-- **SiliconFlow** (DeepSeek-R1, Qwen, etc.)
-- **Kimi (Moonshot)**
-- **MiniMax**
-- **GLM (Zhipu AI)**
-- **ModelScope**
-- **NVIDIA NIM**
-- **OpenAI & Compatibles** (Any standard endpoint)
+- **Frontend:** React 19, TanStack Router v1, Zustand, Tailwind CSS v4
+- **Backend:** FastAPI + Agno
+- **Runtime:** Bun + Python 3.11+
+- **Data:** Supabase, SQLite, PostgreSQL, MySQL, MariaDB support paths
+- **Retrieval:** Embeddings + keyword hybrid search
+- **Integration Layer:** Multi-provider model adapters, tool registry, streaming SSE
 
-### 🖼️ Automatic Image Search & Rendering
+## ⚡ Getting Started
 
-- **Zero-Config Search**: Powered by DuckDuckGo, agents can search for images to illustrate concepts without any API keys or extra deployment steps.
-- **Premium Google Images**: Supports `SerpApi` for high-quality Google Image results; simply add `SERP_API_KEY` to your environment.
-- **Markdown Rendering**: AI automatically inserts `![caption](url)` images into its responses where appropriate (e.g., explaining species, logos, or diagrams).
-- **Default Enabled**: No buttons to toggle; the agent intelligently decides when a visual aid is helpful.
+### ✅ Prerequisites
 
-### 🧩 Production-Grade Features
+- [Bun](https://bun.sh/) 1.3+
+- [Python](https://www.python.org/) 3.11+
+- [uv](https://docs.astral.sh/uv/)
+- A [Supabase](https://supabase.com/) project if you want hosted persistence
 
-- **Question Timeline**: Interactive history cards grouped by time (Today, Yesterday, Past 7 Days) with instant search.
-- **Security & Privacy**: API keys stored securely in Supabase or kept in-memory (never in LocalStorage for sensitive keys).
-- **Personalization**: Adjust font sizes, interface language (en/zh), AI response styles, and theme (Light/Dark/System).
-- **Media Support**: Drag & drop images, paste screenshots, and render inline media with vision-capable models.
+### 📦 Install
 
-## Tech Stack
+```bash
+git clone <your-repo-url>
+cd Qurio
+bun install
+cd backend-python
+uv sync
+cd ..
+```
 
-- **Frontend**: React 19, TanStack Router v1, Zustand (State), Tailwind CSS v4, Lucide Icons — componentized UI with predictable state.
-- **Build**: RSBuild + Bun — fast dev loops and reproducible builds.
-- **Data**: Supabase (PostgreSQL) — structured persistence for spaces, messages, documents, and long-term memory.
-- **AI Integration**: Custom adapter layer that normalizes providers and enforces model routing (Lite vs Default).
-- **Retrieval**: Embeddings + keyword hybrid search to reduce misses and hallucinations.
-- **Rendering**: `react-markdown`, `remark-gfm`, `react-syntax-highlighter` for reliable output UX.
+### 🔐 Configure Environment
 
-## Getting Started
+- Copy `.env.example` to `.env`.
+- Add only the keys you plan to use.
+- Common variables include:
+  - `PUBLIC_SUPABASE_URL`
+  - `PUBLIC_SUPABASE_KEY`
+  - `PUBLIC_TAVILY_API_KEY`
+  - `PUBLIC_OPENAI_API_KEY`
+  - `PUBLIC_OPENAI_BASE_URL`
+  - `PUBLIC_GOOGLE_API_KEY`
+  - `PUBLIC_SILICONFLOW_API_KEY`
+  - `PUBLIC_KIMI_API_KEY`
+  - `PUBLIC_MINIMAX_API_KEY`
+  - `PUBLIC_GLM_API_KEY`
+  - `PUBLIC_MODELSCOPE_API_KEY`
+  - `PUBLIC_NVIDIA_API_KEY`
 
-1. **Prerequisites**
-   - [Bun](https://bun.sh/) 1.3+
-   - [Python](https://www.python.org/) 3.11+
-   - [uv](https://docs.astral.sh/uv/) (Python package manager)
-   - A [Supabase](https://supabase.com/) project (for persistence)
-   - [Tavily](https://tavily.com/) API Key (essential for Web Search & Deep Research)
+### ▶️ Run
 
-2. **Install**
+```bash
+# Frontend + Python backend
+bun run dev:electron
+```
 
-   ```bash
-   git clone <your-repo-url>
-   cd qurio
-   bun install
-   cd backend-python
-   uv sync
-   cd ..
-   ```
+Frontend: `http://localhost:3000`  
+Backend: `http://127.0.0.1:3002`
 
-3. **Environment**
-   Copy `.env.example` to `.env` and configure your keys. Key variables include:
-   - `PUBLIC_SUPABASE_URL`, `PUBLIC_SUPABASE_KEY`
-   - `PUBLIC_TAVILY_API_KEY` (Required for Search/Deep Research)
+```bash
+# Frontend only
+bun run dev:web
 
-   **Provider Keys (Optional depending on usage):**
-   - `PUBLIC_GOOGLE_API_KEY`
-   - `PUBLIC_OPENAI_API_KEY` & `PUBLIC_OPENAI_BASE_URL`
-   - `PUBLIC_SILICONFLOW_API_KEY`
-   - `PUBLIC_KIMI_API_KEY`
-   - `PUBLIC_MINIMAX_API_KEY`
-   - `PUBLIC_GLM_API_KEY`
-   - `PUBLIC_MODELSCOPE_API_KEY`
-   - `PUBLIC_NVIDIA_API_KEY`
+# Python backend only
+bun run dev:py
+```
 
-4. **Database Setup**
-   In your Supabase dashboard, open the SQL Editor and run the contents of `supabase/schema.sql`. This creates the necessary tables (spaces, conversations, messages, settings, etc.) and Row Level Security (RLS) policies.
+### 🛠️ Build
 
-5. **Run (Frontend + Python Backend)**
+```bash
+bun run build
+```
 
-   ```bash
-   # Web + Python backend
-   bun run dev:electron
-   ```
+### 🪟 Build Windows Installer
 
-   Frontend: `http://localhost:3000`  
-   Backend: `http://127.0.0.1:3002`
+```bash
+bun run build:electron
+```
 
-   ```bash
-   # Frontend only
-   bun run dev:web
+## 📝 Usage Notes
 
-   # Python backend only
-   bun run dev:py
-   ```
+- Configure providers in Settings before testing cross-vendor routing.
+- Use Deep Research for tasks that need iteration, evidence, and structured synthesis.
+- Keep agent tool access narrow. Better boundaries usually produce better behavior.
+- Keep a fast `Lite` model configured to lower cost and improve routing.
+- A practical starting setup is one general agent, one research agent, one tool-heavy operator, and Scrapbook as the shared capture layer.
 
-6. **Build**
-   ```bash
-   bun run build
-   ```
+## 🗂️ Project Structure
 
-7. **Build Windows Installer (.exe)**
-   ```bash
-   bun run build:electron
-   ```
+- `/src`: Frontend application
+- `/src/components`: UI surfaces for chat, settings, agents, documents, and research
+- `/src/lib`: Providers, backend client, search tools, agent utilities, and app state helpers
+- `/backend-python/src`: FastAPI routes, Agno agent assembly, tool registry, memory, and research services
 
-## Usage Tips
+## 📄 License
 
-- **Settings**: Click the gear icon to set up providers. You can verify your Supabase connection and input API keys directly in the UI if you didn't set them in `.env`.
-- **Deep Research**: Navigate to the "Deep Research" tab (Microscope icon) to start a comprehensive research task. This mode automatically browses the web and aggregates information.
-- **Agents**: Use the "Agents" menu to create specialized personas. Assign a "Coding God" agent to use a high-reasoning model like `DeepSeek-R1` or `o1`, and a "Casual Chat" agent to use `Gemini Flash`.
-- **Search**: The "Web Search" toggle uses Tavily to fetch real-time info. It's automatically invoked by Deep Research but can be toggled manually in normal chat.
-- **Shortcuts**:
-  - `Enter` to send, `Shift+Enter` for newline.
-  - `Cmd/Ctrl + K` (if implemented) or UI buttons to switch agents/models quickly.
-- **Styling**: Go to Settings -> Appearance to toggle Dark Mode or adjust Font Size.
-
-## Project Structure
-
-- `/src/lib/providers.js`: Core logic for adapting different AI APIs.
-- `/src/components/chat`: Chat interface components (Input, Bubble, Header).
-- `/src/views`: Top-level route views (Home, Conversation, DeepResearch, Spaces).
-- `/supabase`: SQL migrations and schema definitions.
-
-## Contributing
-
-Pull requests are welcome for improvements (UI polish, new providers, bug fixes). Please open an issue for major feature requests.
-
-## License
-
-**Non-commercial**: Provided for personal and educational use. See [LICENSE](./LICENSE).
+**Non-commercial.** Provided for personal and educational use. See [LICENSE](./LICENSE).

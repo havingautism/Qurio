@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
+import { computeFrameTiming } from '../../lib/frameTiming'
 import { cn } from '../../lib/utils'
 
 const MAX_COLORS = 8
@@ -185,7 +186,7 @@ export default function ColorBendsBackground({
     renderer.domElement.style.transformOrigin = 'center'
     container.appendChild(renderer.domElement)
 
-    const clock = new THREE.Clock()
+    const frameRef = { lastFrameAtMs: null, startedAtMs: null }
 
     const handleResize = () => {
       const w = container.clientWidth || 1
@@ -204,9 +205,18 @@ export default function ColorBendsBackground({
       window.addEventListener('resize', handleResize)
     }
 
-    const loop = () => {
-      const dt = clock.getDelta()
-      const elapsed = clock.elapsedTime
+    const loop = nowMs => {
+      const { deltaSeconds: dt, elapsedSeconds: elapsed, startedAtMs } = computeFrameTiming(
+        frameRef.lastFrameAtMs === null
+          ? null
+          : {
+              lastFrameAtMs: frameRef.lastFrameAtMs,
+              startedAtMs: frameRef.startedAtMs,
+            },
+        nowMs,
+      )
+      frameRef.lastFrameAtMs = nowMs
+      frameRef.startedAtMs = startedAtMs
       material.uniforms.uTime.value = elapsed
 
       const deg = (rotationRef.current % 360) + autoRotateRef.current * elapsed

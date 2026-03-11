@@ -1,9 +1,18 @@
 import React, { useState, useEffect } from 'react'
-import { Key, Link as LinkIcon, AlertTriangle, Check, Loader2, Database } from 'lucide-react'
+import {
+  Key,
+  Link as LinkIcon,
+  AlertTriangle,
+  Check,
+  Loader2,
+  Database,
+  XCircle,
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { clsx } from 'clsx'
 import { saveSettings, loadSettings } from '../lib/settings'
 import { testConnection } from '../lib/supabase'
+import { MODAL_INPUT_WITH_ICON_CLASS } from '../lib/modalFieldStyles'
 
 // isManual: true if opened from settings (cancellable/clearable), false if initial setup (mandatory)
 export default function SupabaseSetupModal({ isOpen, onConfigured, isManual = false }) {
@@ -60,22 +69,31 @@ export default function SupabaseSetupModal({ isOpen, onConfigured, isManual = fa
   }
 
   return (
-    <div className="fixed inset-0 z-200 flex items-center justify-center bg-black/80 px-4 backdrop-blur-sm">
-      <div className="animate-in zoom-in-95 w-full max-w-md space-y-8 rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl duration-200 md:p-8 dark:border-zinc-800 dark:bg-[#191a1a]">
-        <div className="space-y-2 text-center">
-          <div className="bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl">
-            <Database size={24} />
+    <div className="fixed inset-0 z-200 flex items-start justify-center overflow-y-auto bg-black/80 px-0 backdrop-blur-sm md:items-center md:px-4">
+      <div className="glass-elite-panel animate-in zoom-in-95 w-full max-w-2xl rounded-none border-0 shadow-2xl duration-200 md:rounded-[28px]">
+        <div className="hidden border-b border-black/5 px-4 py-5 sm:block sm:px-10 dark:border-white/5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <h2 className="mt-2 text-4xl font-semibold tracking-tight text-gray-900 dark:text-white">
+                {t('settings.supabaseSetup.title') || 'Connect to Supabase'}
+              </h2>
+              <p className="mt-2 max-w-2xl text-sm leading-7 text-gray-500 dark:text-gray-400">
+                {t('settings.supabaseSetup.description') ||
+                  'This application requires a Supabase connection to store your data. Please enter your project credentials below.'}
+              </p>
+            </div>
+            {isManual && (
+              <button
+                onClick={onConfigured}
+                className="rounded-full p-2 text-gray-500 transition-colors hover:bg-black/5 dark:hover:bg-white/10"
+              >
+                <XCircle size={20} />
+              </button>
+            )}
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-            {t('settings.supabaseSetup.title') || 'Connect to Supabase'}
-          </h2>
-          <p className="mx-auto max-w-xs text-sm text-gray-500 dark:text-gray-400">
-            {t('settings.supabaseSetup.description') ||
-              'This application requires a Supabase connection to store your data. Please enter your project credentials below.'}
-          </p>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-6 px-4 py-6 sm:px-10 sm:py-8">
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
               Supabase URL
@@ -89,7 +107,7 @@ export default function SupabaseSetupModal({ isOpen, onConfigured, isManual = fa
                 value={supabaseUrl}
                 onChange={e => setSupabaseUrl(e.target.value)}
                 placeholder="https://your-project.supabase.co"
-                className="focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border border-gray-200 bg-gray-50 py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100"
+                className={MODAL_INPUT_WITH_ICON_CLASS}
               />
             </div>
           </div>
@@ -107,7 +125,7 @@ export default function SupabaseSetupModal({ isOpen, onConfigured, isManual = fa
                 value={supabaseKey}
                 onChange={e => setSupabaseKey(e.target.value)}
                 placeholder="your-anon-key"
-                className="focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border border-gray-200 bg-gray-50 py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100"
+                className={MODAL_INPUT_WITH_ICON_CLASS}
               />
             </div>
           </div>

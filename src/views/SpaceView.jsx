@@ -34,21 +34,33 @@ import {
   extractTextFromFile,
   getFileTypeLabel,
   normalizeExtractedText,
+  postProcessExtractedDocumentText,
 } from '../lib/documentParser'
 import { chunkDocumentWithHierarchy } from '../lib/documentStructure'
 import {
   DOCUMENT_CHUNK_OVERLAP,
   DOCUMENT_CHUNK_SIZE,
-  DOCUMENT_MAX_CHUNKS,
 } from '../lib/documentConstants'
+import { resolveDocumentMaxChunks } from '../lib/documentChunkingPolicy'
 import {
   createSpaceDocument,
   deleteSpaceDocument,
   listSpaceDocuments,
 } from '../lib/documentsService'
 import { persistDocumentChunks, persistDocumentSections } from '../lib/documentIndexService'
-import { fetchEmbeddingVector, resolveEmbeddingConfig } from '../lib/embeddingService'
+import {
+  fetchEmbeddingVector,
+  getEmbeddingConfigIssue,
+  resolveEmbeddingConfig,
+} from '../lib/embeddingService'
 import { computeSha256 } from '../lib/hash'
+import {
+  getTrackedDocumentUploadState,
+  setTrackedDocumentUploadState,
+  subscribeToTrackedDocumentUploadState,
+} from '../lib/documentUploadTracker'
+import { getModelIcon, getModelIconClassName, renderProviderIcon } from '../lib/modelIcons'
+import { getProvider } from '../lib/providers'
 import { deleteConversation } from '../lib/supabase'
 import { spaceRoute } from '../router'
 
@@ -143,13 +155,64 @@ const SpaceView = () => {
   const fileInputRef = useRef(null)
   const [isDragging, setIsDragging] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
+  const isViewActiveRef = useRef(true)
 
   const { error: toastError, success: toastSuccess } = useToast()
 
   // Reset pagination when space changes
   useEffect(() => {
+    isViewActiveRef.current = true
+    return () => {
+      isViewActiveRef.current = false
+    }
+  }, [])
+
+  useEffect(() => {
     setCurrentPage(1)
   }, [spaceId])
+
+  useEffect(() => {
+    if (!activeSpace?.id) return undefined
+
+    const applyTrackedState = nextState => {
+      const resolved = nextState || { status: 'idle', message: '', fileName: '', characters: 0, sections: 0, chunks: 0, stage: '', progress: 0 }
+      if (!isViewActiveRef.current) return
+      setDocumentUploadState({
+        status: resolved.status || 'idle',
+        message: resolved.message || '',
+        fileName: resolved.fileName || '',
+        characters: Number(resolved.characters || 0),
+        sections: Number(resolved.sections || 0),
+        chunks: Number(resolved.chunks || 0),
+        stage: resolved.stage || '',
+      })
+      setUploadProgress(Number(resolved.progress || 0))
+    }
+
+    applyTrackedState(getTrackedDocumentUploadState(activeSpace.id))
+    const unsubscribe = subscribeToTrackedDocumentUploadState(activeSpace.id, applyTrackedState)
+    return unsubscribe
+  }, [activeSpace?.id])
+
+  const updateTrackedUploadState = useCallback(
+    nextState => {
+      if (activeSpace?.id) {
+        setTrackedDocumentUploadState(activeSpace.id, nextState)
+      }
+      if (!isViewActiveRef.current) return
+      setDocumentUploadState({
+        status: nextState?.status || 'idle',
+        message: nextState?.message || '',
+        fileName: nextState?.fileName || '',
+        characters: Number(nextState?.characters || 0),
+        sections: Number(nextState?.sections || 0),
+        chunks: Number(nextState?.chunks || 0),
+        stage: nextState?.stage || '',
+      })
+      setUploadProgress(Number(nextState?.progress || 0))
+    },
+    [activeSpace?.id],
+  )
 
   // Fetch conversations for this space
   useEffect(() => {
@@ -272,11 +335,85 @@ const SpaceView = () => {
     return text ? text.toUpperCase() : 'FILE'
   }
 
+  const formatEmbeddingMeta = doc => {
+    const provider = String(doc?.embedding_provider || '').trim()
+    const model = String(doc?.embedding_model || '').trim()
+    if (!provider && !model) return null
+    if (!provider) return model
+    if (!model) return provider
+    return `${provider} / ${model}`
+  }
+
+  const renderEmbeddingMeta = doc => {
+    const providerId = String(doc?.embedding_provider || '').trim()
+    const modelId = String(doc?.embedding_model || '').trim()
+    const provider = providerId ? getProvider(providerId) : null
+    const modelIcon = getModelIcon(modelId)
+
+    if (!providerId && !modelId) return null
+
+    return (
+      <div className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full border border-gray-200/70 bg-black/[0.03] px-2 py-0.5 text-[10.5px] font-medium text-gray-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] backdrop-blur-sm dark:border-zinc-700/70 dark:bg-white/[0.04] dark:text-zinc-200 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+        {providerId &&
+          renderProviderIcon(providerId, {
+            size: 12,
+            compact: true,
+            wrapperClassName: 'h-3.5 w-3.5',
+            imgClassName: 'h-3.5 w-3.5 object-contain',
+            alt: provider?.name || providerId,
+          })}
+        <span className="truncate font-semibold">{provider?.name || providerId}</span>
+        {modelId && (
+          <>
+            <span className="text-gray-300 dark:text-zinc-600">•</span>
+            {modelIcon ? (
+              <img
+                src={modelIcon}
+                alt={modelId}
+                width={12}
+                height={12}
+                className={clsx(
+                  'h-3.5 w-3.5 shrink-0 object-contain',
+                  getModelIconClassName(modelId),
+                )}
+                loading="lazy"
+              />
+            ) : null}
+            <span className="min-w-0 truncate text-gray-600 dark:text-zinc-300">{modelId}</span>
+          </>
+        )}
+      </div>
+    )
+  }
+
   const handleDocumentUpload = async (event, droppedFile = null) => {
     const file = droppedFile || event.target.files?.[0]
     if (!file || !activeSpace?.id) return
 
-    setDocumentUploadState({
+    const embeddingIssue = getEmbeddingConfigIssue()
+    if (embeddingIssue?.code === 'missing_config') {
+      toastError(t('views.spaceView.documentEmbeddingConfigRequired'))
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+      return
+    }
+    if (embeddingIssue?.code === 'missing_key') {
+      toastError(t('views.spaceView.documentEmbeddingKeyRequired'))
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+      return
+    }
+    if (embeddingIssue?.code === 'unsupported_provider') {
+      toastError(t('views.spaceView.documentEmbeddingProviderUnsupported'))
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+      return
+    }
+
+    updateTrackedUploadState({
       status: 'loading',
       stage: 'chunking',
       message: t('views.spaceView.documentChunking'),
@@ -284,14 +421,16 @@ const SpaceView = () => {
       characters: 0,
       sections: 0,
       chunks: 0,
+      progress: 10,
     })
-    setUploadProgress(10)
 
     try {
       const rawText = await extractTextFromFile(file, {
         unsupportedMessage: t('views.spaceView.documentUnsupportedType'),
       })
-      const normalized = normalizeExtractedText(rawText)
+      const normalized = postProcessExtractedDocumentText(normalizeExtractedText(rawText), {
+        fileType: getFileTypeLabel(file),
+      })
       if (!normalized) {
         throw new Error(t('views.spaceView.documentEmpty'))
       }
@@ -299,16 +438,22 @@ const SpaceView = () => {
       const { sections, chunks } = chunkDocumentWithHierarchy(normalized, {
         chunkSize: DOCUMENT_CHUNK_SIZE,
         chunkOverlap: DOCUMENT_CHUNK_OVERLAP,
-        maxChunks: DOCUMENT_MAX_CHUNKS,
+        maxChunks: resolveDocumentMaxChunks({
+          textLength: normalized.length,
+          chunkSize: DOCUMENT_CHUNK_SIZE,
+          chunkOverlap: DOCUMENT_CHUNK_OVERLAP,
+        }),
       })
-      setUploadProgress(45)
-      setDocumentUploadState(prev => ({
-        ...prev,
+      updateTrackedUploadState({
+        status: 'loading',
         sections: sections.length,
         chunks: chunks.length,
         stage: 'embedding',
         message: t('views.spaceView.documentEmbedding'),
-      }))
+        fileName: file.name,
+        characters: normalized.length,
+        progress: 45,
+      })
 
       const enrichedChunks = []
       const sanitizeChunkText = text =>
@@ -331,14 +476,19 @@ const SpaceView = () => {
           const chunkHash = await computeSha256(chunk.text)
           enrichedChunks.push({ ...chunk, embedding, chunkHash })
           const progress = Math.min(85, 45 + Math.round(((index + 1) / chunks.length) * 35))
-          setUploadProgress(progress)
-          setDocumentUploadState(prev => ({
-            ...prev,
+          updateTrackedUploadState({
+            status: 'loading',
+            stage: 'embedding',
             message: t('views.spaceView.documentEmbeddingProgress', {
               current: index + 1,
               total: chunks.length,
             }),
-          }))
+            fileName: file.name,
+            characters: normalized.length,
+            sections: sections.length,
+            chunks: chunks.length,
+            progress,
+          })
         }
       }
 
@@ -369,8 +519,7 @@ const SpaceView = () => {
         throw chunksError
       }
 
-      setUploadProgress(100)
-      setDocumentUploadState({
+      updateTrackedUploadState({
         status: 'success',
         stage: '',
         message: t('views.spaceView.documentUploaded'),
@@ -378,17 +527,19 @@ const SpaceView = () => {
         characters: normalized.length,
         sections: sections.length,
         chunks: enrichedChunks.length,
+        progress: 100,
       })
       await loadSpaceDocuments()
 
       setTimeout(() => {
+        setTrackedDocumentUploadState(activeSpace.id, null)
+        if (!isViewActiveRef.current) return
         setDocumentUploadState(prev => ({ ...prev, status: 'idle', message: '' }))
         setUploadProgress(0)
       }, 3000)
     } catch (err) {
       console.error('Document upload error details:', err)
-      setUploadProgress(0)
-      setDocumentUploadState({
+      updateTrackedUploadState({
         status: 'error',
         stage: '',
         message: err?.message || t('views.spaceView.documentUploadFailed'),
@@ -396,6 +547,7 @@ const SpaceView = () => {
         characters: 0,
         sections: 0,
         chunks: 0,
+        progress: 0,
       })
     } finally {
       if (fileInputRef.current) {
@@ -499,7 +651,7 @@ const SpaceView = () => {
 
         {/* Scrollable Container */}
         <div className="no-scrollbar sm:scrollbar-default relative min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
-          <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-8 px-4 pb-4 sm:px-8 sm:pb-8">
+          <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-8 px-4 pt-2 pb-4 sm:px-8 sm:pt-2 sm:pb-8">
             {/* Section: Documents */}
             <div className="flex flex-col gap-4">
               <div className="flex items-center gap-2 font-medium text-gray-900 dark:text-white">
@@ -572,7 +724,11 @@ const SpaceView = () => {
                       className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 bg-white/95 dark:bg-zinc-900/95"
                       onClick={e => {
                         e.stopPropagation()
+                        if (activeSpace?.id) {
+                          setTrackedDocumentUploadState(activeSpace.id, null)
+                        }
                         setDocumentUploadState(p => ({ ...p, status: 'idle' }))
+                        setUploadProgress(0)
                       }}
                     >
                       {documentUploadState.status === 'success' ? (
@@ -609,19 +765,19 @@ const SpaceView = () => {
                   spaceDocuments.map(doc => (
                     <div
                       key={doc.id}
-                      className="group flex items-start justify-between gap-3 rounded-xl border border-gray-100 bg-white/60 px-3 py-3 transition-colors hover:bg-white sm:items-center sm:gap-4 sm:px-4 sm:py-3 dark:border-zinc-800/60 dark:bg-zinc-900/30 dark:hover:bg-zinc-900"
+                      className="group flex items-center justify-between gap-2.5 rounded-[20px] border border-white/10 bg-black/[0.04] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] backdrop-blur-sm transition-colors hover:bg-black/[0.06] dark:border-zinc-800/80 dark:bg-zinc-900/40 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] dark:hover:bg-zinc-900/60"
                     >
-                      <div className="flex min-w-0 flex-1 items-start gap-3 sm:items-center">
-                        <div className="shrink-0 rounded-lg border border-gray-200/50 bg-gray-50 p-2 shadow-sm dark:border-zinc-700/50 dark:bg-zinc-800">
-                          <FileIcon fileType={doc.file_type} size={20} />
+                      <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                        <div className="shrink-0 self-center rounded-2xl border border-white/10 bg-white/70 p-2 shadow-sm dark:border-zinc-700/70 dark:bg-zinc-800/90">
+                          <FileIcon fileType={doc.file_type} size={18} />
                         </div>
                         <div className="flex min-w-0 flex-1 flex-col gap-1">
-                          <div className="truncate pr-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
-                            {doc.name.replace(/\.[^/.]+$/, '')}
-                          </div>
-                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-gray-500 sm:text-xs dark:text-gray-400">
-                            <div className="flex items-center gap-1">
-                              <span className="text-[10px] font-bold text-gray-400 uppercase dark:text-zinc-500">
+                          <div className="flex min-w-0 items-center gap-1.5">
+                            <div className="truncate pr-1 text-sm font-semibold leading-5 text-gray-950 dark:text-gray-100">
+                              {doc.name.replace(/\.[^/.]+$/, '')}
+                            </div>
+                            <div className="flex shrink-0 items-center gap-1.5 text-[10.5px] leading-4 text-gray-500 dark:text-gray-400">
+                              <span className="font-bold uppercase tracking-[0.08em] text-gray-400 dark:text-zinc-500">
                                 {formatFileType(doc.file_type)}
                               </span>
                               <span className="text-gray-300 dark:text-zinc-700">·</span>
@@ -632,12 +788,17 @@ const SpaceView = () => {
                               </span>
                             </div>
                           </div>
+                          {formatEmbeddingMeta(doc) && (
+                            <div className="flex min-w-0 items-center gap-1.5 overflow-hidden">
+                              {renderEmbeddingMeta(doc)}
+                            </div>
+                          )}
                         </div>
                       </div>
 
                       <button
                         onClick={e => handleDeleteDocument(doc, e)}
-                        className="shrink-0 rounded-lg p-2 text-gray-400 opacity-100 transition-all duration-200 hover:bg-red-50 hover:text-red-500 sm:opacity-0 sm:group-hover:opacity-100 dark:hover:bg-red-900/20"
+                        className="shrink-0 self-center rounded-xl p-1.5 text-gray-400 opacity-100 transition-all duration-200 hover:bg-red-50 hover:text-red-500 sm:opacity-0 sm:group-hover:opacity-100 dark:hover:bg-red-900/20"
                         title={t('views.spaceView.deleteDocument')}
                       >
                         <Trash2 size={16} />

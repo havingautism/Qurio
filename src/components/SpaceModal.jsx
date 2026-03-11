@@ -15,6 +15,7 @@ import {
   DEEP_RESEARCH_SPACE_LABEL,
 } from '../lib/deepResearchDefaults'
 import { getSpaceDisplayDescription, getSpaceDisplayLabel } from '../lib/spaceDisplay'
+import { MODAL_INPUT_CLASS, MODAL_TEXTAREA_CLASS } from '../lib/modalFieldStyles'
 
 const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) => {
   const { t } = useTranslation()
@@ -248,25 +249,28 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
     : description
 
   return (
-    <div className="fixed inset-0 z-100 flex items-start justify-center overflow-y-auto bg-black/50 p-0 backdrop-blur-sm md:items-center md:overflow-hidden md:p-4">
-      <div className="glass-elite-panel flex h-dvh w-full flex-col overflow-hidden shadow-2xl md:h-[80vh] md:max-w-2xl md:rounded-2xl">
-        {/* Header */}
-        <div className="flex h-14 shrink-0 items-center justify-between border-b border-black/5 px-4 sm:px-6 dark:border-white/5">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-            {editingSpace ? t('spaceModal.edit') : t('spaceModal.create')}
-          </h3>
-          <button
-            onClick={onClose}
-            className="rounded-full p-2 text-gray-500 transition-colors hover:bg-black/5 dark:hover:bg-white/5"
-          >
-            <X size={20} />
-          </button>
+    <div className="fixed inset-0 z-200 flex items-start justify-center overflow-y-auto bg-black/50 p-0 backdrop-blur-sm md:items-center md:overflow-hidden md:p-4">
+      <div className="glass-elite-panel flex h-dvh w-full flex-col overflow-hidden border-0 shadow-2xl md:h-[88vh] md:max-w-4xl md:rounded-[28px]">
+        <div className="hidden border-b border-black/5 px-4 py-5 sm:block sm:px-10 dark:border-white/5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <h3 className="mt-2 text-4xl font-semibold tracking-tight text-gray-900 dark:text-white">
+                {editingSpace ? t('spaceModal.edit') : t('spaceModal.create')}
+              </h3>
+            </div>
+            <button
+              onClick={onClose}
+              className="rounded-full p-2 text-gray-500 transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+            >
+              <X size={20} />
+            </button>
+          </div>
         </div>
 
         {/* Content */}
         <div className="flex min-h-0 flex-1 flex-col">
           {/* Content */}
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-6">
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-10 sm:py-8">
             <div className="flex h-full flex-col gap-4">
               {/* Icon and Name Row - Fixed height */}
               <div className="flex shrink-0 flex-col gap-2">
@@ -311,7 +315,7 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
                     onChange={e => setName(e.target.value)}
                     placeholder={t('spaceModal.namePlaceholder')}
                     disabled={isDeepResearchSpace}
-                    className="focus:ring-primary-500/20 focus:border-primary-500 h-12 flex-1 rounded-lg border-none bg-black/5 px-4 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50/20 disabled:opacity-50 dark:bg-white/5 dark:text-gray-100 dark:placeholder-zinc-600"
+                    className={`${MODAL_INPUT_CLASS} h-12 flex-1`}
                   />
                 </div>
               </div>
@@ -330,7 +334,7 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
                   placeholder={t('spaceModal.descriptionPlaceholder')}
                   rows={2}
                   disabled={isDeepResearchSpace}
-                  className="focus:ring-primary-500/20 focus:border-primary-500 w-full resize-none rounded-lg border-none bg-black/5 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50/20 disabled:opacity-50 dark:bg-white/5 dark:text-gray-100 dark:placeholder-zinc-600"
+                  className={MODAL_TEXTAREA_CLASS}
                 />
               </div>
 
@@ -447,13 +451,16 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
                 </div>
               </div>
             </div>
-
-            {error && <div className="text-sm text-red-500">{error}</div>}
+            {error && (
+              <div className="rounded-2xl border border-red-200/80 bg-red-50/90 px-4 py-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
+                {error}
+              </div>
+            )}
           </div>
         </div>
 
         {/* Footer */}
-        <div className="flex h-16 shrink-0 items-center justify-between gap-3 border-t border-black/5 bg-transparent px-4 sm:px-6 dark:border-white/5">
+        <div className="flex h-16 shrink-0 items-center justify-between gap-3 border-t border-black/5 bg-transparent px-4 sm:px-10 dark:border-white/5">
           <div className="flex items-center gap-2">
             {editingSpace && (
               <button

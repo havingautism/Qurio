@@ -64,6 +64,7 @@ FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
 CREATE TABLE IF NOT EXISTS public.agents (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   is_default BOOLEAN NOT NULL DEFAULT FALSE,
+  is_hidden BOOLEAN NOT NULL DEFAULT FALSE,
   emoji TEXT NOT NULL DEFAULT '',
   name TEXT NOT NULL,
   description TEXT,
@@ -510,7 +511,9 @@ FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
 
 -- 10) Seed: Deep Research Space + Agent
 INSERT INTO public.agents (
+  id,
   is_default,
+  is_hidden,
   emoji,
   name,
   description,
@@ -539,6 +542,74 @@ INSERT INTO public.agents (
   updated_at
 )
 SELECT
+  '11111111-1111-1111-1111-111111111111'::uuid,
+  TRUE,
+  FALSE,
+  '💭',
+  'Default Agent',
+  'Fallback agent (non-editable).',
+  '',
+  FALSE,
+  'gemini',
+  'gemini',
+  'gemini',
+  'list',
+  'list',
+  '',
+  '',
+  '',
+  'technical',
+  'default',
+  'default',
+  'default',
+  'default',
+  'default',
+  '',
+  NULL,
+  NULL,
+  NULL,
+  NULL,
+  NOW(),
+  NOW()
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.agents
+  WHERE id = '11111111-1111-1111-1111-111111111111'::uuid
+);
+
+INSERT INTO public.agents (
+  id,
+  is_default,
+  is_hidden,
+  emoji,
+  name,
+  description,
+  prompt,
+  is_deep_research,
+  provider,
+  default_model_provider,
+  lite_model_provider,
+  default_model_source,
+  lite_model_source,
+  lite_model,
+  default_model,
+  response_language,
+  base_tone,
+  traits,
+  warmth,
+  enthusiasm,
+  headings,
+  emojis,
+  custom_instruction,
+  temperature,
+  top_p,
+  frequency_penalty,
+  presence_penalty,
+  created_at,
+  updated_at
+)
+SELECT
+  '22222222-2222-2222-2222-222222222222'::uuid,
+  FALSE,
   FALSE,
   '🔬',
   'Deep Research Agent',
@@ -568,7 +639,75 @@ SELECT
   NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM public.agents
-  WHERE name = 'Deep Research Agent' OR description LIKE '%deep-research%'
+  WHERE id = '22222222-2222-2222-2222-222222222222'::uuid
+);
+
+INSERT INTO public.agents (
+  id,
+  is_default,
+  is_hidden,
+  emoji,
+  name,
+  description,
+  prompt,
+  is_deep_research,
+  provider,
+  default_model_provider,
+  lite_model_provider,
+  default_model_source,
+  lite_model_source,
+  use_global_model_settings,
+  lite_model,
+  default_model,
+  response_language,
+  base_tone,
+  traits,
+  warmth,
+  enthusiasm,
+  headings,
+  emojis,
+  custom_instruction,
+  temperature,
+  top_p,
+  frequency_penalty,
+  presence_penalty,
+  created_at,
+  updated_at
+)
+SELECT
+  '33333333-3333-3333-3333-333333333333'::uuid,
+  FALSE,
+  FALSE,
+  '📒',
+  'Scrapbook Agent',
+  'Hidden system agent for Scrapbook generation settings.',
+  '',
+  FALSE,
+  'gemini',
+  'gemini',
+  'gemini',
+  'list',
+  'list',
+  TRUE,
+  '',
+  '',
+  '',
+  'technical',
+  'default',
+  'default',
+  'default',
+  'default',
+  'default',
+  '',
+  NULL,
+  NULL,
+  NULL,
+  NULL,
+  NOW(),
+  NOW()
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.agents
+  WHERE id = '33333333-3333-3333-3333-333333333333'::uuid
 );
 
 INSERT INTO public.spaces (
@@ -606,7 +745,7 @@ SELECT
   NOW()
 FROM public.spaces s
 JOIN public.agents a
-  ON (a.name = 'Deep Research Agent' OR a.description LIKE '%deep-research%')
+  ON a.id = '22222222-2222-2222-2222-222222222222'::uuid
 WHERE (s.label = 'Deep Research' OR s.description LIKE '%deep-research%')
   AND NOT EXISTS (
     SELECT 1 FROM public.space_agents sa

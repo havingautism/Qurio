@@ -21,9 +21,19 @@ export const buildDocumentQueryPrompt = ({ question, historyForSend, documents }
   const historySection = recentHistory ? `Recent conversation:\n${recentHistory}` : ''
 
   return [
-    `You generate a single concise vector search query for document retrieval.`,
+    `You generate one high-precision retrieval query for searching inside the selected documents.`,
     `Use the same language as the user's question.`,
+    `Preserve the user's intent type when useful: definition, explanation, comparison, cause, steps, precautions, examples, parameters, or troubleshooting.`,
+    `Prefer a short natural-language search query, not a bag of tags.`,
+    `Keep the query focused: usually 4 to 12 meaningful words.`,
+    `Do not add generic filler such as "best practices", "overview", or "introduction" unless the user explicitly asks for them.`,
+    `Include concrete domain terms, aliases, abbreviations, and key nouns from the question when they improve retrieval.`,
+    `If the user asks a direct "what is/什么是" question, keep that definition intent in the query.`,
     `If no document retrieval is needed, return an empty string for "query".`,
+    `Bad example: {"query":"Java代码 编码 注意事项 最佳实践 规范"}`,
+    `Good example: {"query":"Java代码编写时的注意事项和编码规范"}`,
+    `Bad example: {"query":"JVM Java虚拟机"}`,
+    `Good example: {"query":"什么是JVM Java虚拟机的定义和作用"}`,
     `Return JSON only: {"query": string}.`,
     '',
     `User question:\n${question}`,

@@ -81,6 +81,12 @@
     "wikipediaSearchInfo": "Search Wikipedia and return a summary.",
     "yfinanceTools": "Yahoo Finance Toolkit",
     "yfinanceToolsInfo": "Enable Yahoo Finance tools for stock price, company profile, fundamentals, news, and historical data.",
+    "hackerNewsTools": "Hacker News Toolkit",
+    "hackerNewsToolsInfo": "Enable Hacker News tools for top stories and user profile lookups.",
+    "hackerNewsTopStories": "Hacker News Top Stories",
+    "hackerNewsTopStoriesInfo": "Fetch top stories from Hacker News.",
+    "hackerNewsUserDetails": "Hacker News User Details",
+    "hackerNewsUserDetailsInfo": "Fetch public profile details for a Hacker News user.",
     "stockPrice": "Stock Price",
     "stockPriceInfo": "Get the current stock price from Yahoo Finance.",
     "companyInfo": "Company Info",
@@ -245,6 +251,10 @@
     "bookmarks": "Bookmarks",
     "spaces": "Spaces",
     "agents": "Agents",
+    "role": {
+      "leader": "Leader",
+      "member": "Member"
+    },
     "seeAll": "See all",
     "pin": "Pin sidebar",
     "unpin": "Unpin sidebar",
@@ -254,6 +264,26 @@
     "noDeepResearchConversations": "No deep research conversations yet.",
     "noExpertConversations": "No expert conversations yet.",
     "noBookmarks": "No bookmarked conversations.",
+    "expertMode": {
+      "title": "Expert Mode",
+      "teamMode": "Team Mode",
+      "modes": {
+        "coordinate": "Coordinate",
+        "coordinateDesc": "All experts collaborate to solve the task via a lead agent.",
+        "route": "Route",
+        "routeDesc": "Route the task to the most appropriate expert for execution.",
+        "broadcast": "Broadcast",
+        "broadcastDesc": "Broadcast the task to all experts and consolidate responses.",
+        "tasks": "Sequential Tasks",
+        "comingSoon": "Coming Soon"
+      },
+      "teamComposition": "Team Composition",
+      "leader": "Leader",
+      "member": "Member",
+      "addMember": "Add Member",
+      "noAgents": "No experts available in this space.",
+      "expertRole": "Expert Role"
+    },
     "today": "Today",
     "yesterday": "Yesterday",
     "previous7Days": "Previous 7 Days",
@@ -322,6 +352,7 @@
   },
   "settings": {
     "title": "Settings",
+    "sectionLabel": "Settings",
     "modelConfig": "Model Configuration",
     "modelConfigDesc": "Configure AI models for Scrapbook tasks like summarization and title generation.",
     "selectFromList": "Select from list",
@@ -427,6 +458,17 @@
       "email": "Email",
       "advanced": "Advanced",
       "about": "About"
+    },
+    "menuDescriptions": {
+      "general": "Manage core app configuration, language, and service connections.",
+      "model": "Configure chat, embedding, and provider-specific model selection.",
+      "chat": "Tune how conversations behave, including suggestions and context handling.",
+      "memory": "Set up long-term memory, embeddings, and retrieval testing.",
+      "interface": "Adjust theme, density, and interface-level display preferences.",
+      "account": "Manage remote sync, credentials, and database-related account settings.",
+      "email": "Connect mailboxes and control notification sync behavior.",
+      "advanced": "Developer-facing and lower-level runtime options.",
+      "about": "View product information, version details, and supporting links."
     },
     "interfaceLanguage": "Interface Language",
     "interfaceLanguageHint": "Only English and Chinese are supported right now.",
@@ -731,7 +773,7 @@
     "about": {
       "title": "About",
       "beta": "Beta",
-      "description": "An advanced AI assistant interface designed for clarity, speed, and precision. Built with the latest web technologies for a seamless experience.",
+      "description": "Qurio is not just a chat wrapper. It is an AI workstation for research, execution, and delivery, combining multi-model routing, custom agents, deep research, document retrieval, long-term memory, MCP, and tool orchestration in one high-leverage workspace.",
       "designedAndBuiltBy": "Designed & Built by",
       "version": "v0.1.0 • © 2025 All rights reserved"
     },
@@ -834,6 +876,13 @@
       "create": "Create Agent",
       "edit": "Edit Agent"
     },
+    "role": {
+      "leader": "Leader",
+      "member": "Member"
+    },
+    "sidebarDescription": "Build agents that can actually operate: define identity and style, pair production and lightweight models, lock down tool access, attach reusable skills, and turn a prompt into a real execution unit.",
+    "sectionLabel": "Configuration",
+    "overviewLabel": "Overview",
     "tabs": {
       "general": "General",
       "model": "Model",
@@ -841,14 +890,53 @@
       "tools": "Tools",
       "skills": "Skills"
     },
+    "tabDescriptions": {
+      "general": "Define the agent's identity, visual surface, and system instructions.",
+      "model": "Choose the production and lightweight models the agent relies on.",
+      "personalization": "Shape tone, language, and advanced generation behavior.",
+      "tools": "Control which tools this agent can call during execution.",
+      "skills": "Attach reusable skills that extend this agent's workflow."
+    },
     "general": {
       "avatar": "Avatar",
+      "avatarSettings": "Identity and Avatar",
+      "avatarType": "Type",
+      "avatarTypeEmoji": "Emoji",
+      "avatarTypeImage": "Image",
+      "avatarShape": "Shape",
+      "avatarShapeRounded": "Rounded square",
+      "avatarShapeCircle": "Circle",
+      "emojiAvatar": "Emoji Avatar",
+      "imageAvatar": "Image Avatar",
+      "chooseEmoji": "Choose Emoji",
+      "uploadImage": "Upload Image",
+      "recrop": "Re-crop",
+      "remove": "Remove",
+      "avatarHelp": "Upload an image, crop it to 1:1, and choose a circular or rounded frame.",
       "name": "Name",
       "namePlaceholder": "Agent name",
       "description": "Description",
       "descriptionPlaceholder": "Brief description of your agent",
+      "bannerTitle": "Conversation Banner",
+      "bannerDisplayMode": "Display mode",
+      "bannerModeNone": "Off",
+      "bannerModeManual": "Manual",
+      "bannerHelp": "A persistent top banner for normal conversations, inspired by Notion's cover treatment. Manual upload is supported for now.",
+      "selectBanner": "Select Banner",
+      "previewBanner": "Preview",
+      "removeBanner": "Remove Banner",
+      "bannerImageAlt": "Banner source image",
+      "bannerEmpty": "Choose a banner image that stays visible across the conversation.",
+      "designPrinciplesLabel": "Layout Logic",
+      "designPrinciplesTitle": "A cleaner editor, organized around decisions instead of fields.",
+      "designPrinciplesBody": "The primary surface summarizes the agent first, then groups settings into identity, appearance, and instruction blocks so the configuration feels predictable.",
       "systemPrompt": "System Prompt",
       "systemPromptPlaceholder": "You are a helpful assistant..."
+    },
+    "generalHighlights": {
+      "identity": "Clarify role, name, and positioning before tuning anything else.",
+      "appearance": "Keep avatar and banner decisions lightweight but visually consistent.",
+      "instructions": "Use the system prompt for durable behavioral rules, not temporary requests."
     },
     "defaults": {
       "name": "Default Agent",
@@ -915,6 +1003,7 @@
     "actions": {
       "delete": "Delete Agent",
       "cancel": "Cancel",
+      "processing": "Processing...",
       "saving": "Saving...",
       "save": "Save Agent",
       "create": "Create Agent"
@@ -922,9 +1011,11 @@
     "tools": {
       "title": "Tool Access",
       "hint": "Select which local tools this agent can call.",
+      "httpCustomGroup": "HTTP Custom Tools",
       "apiRequiredHint": "Requires {{provider}} API key in Settings.",
       "loading": "Loading tools...",
       "empty": "No tools available.",
+      "unknownServer": "Unknown Server",
       "categories": {
         "math": "Math",
         "time": "Time",
@@ -932,6 +1023,7 @@
         "json": "JSON",
         "web": "Web",
         "search": "Search",
+        "news": "News",
         "agno": "Agno Tools",
         "custom": "MCPs",
         "other": "Other"
@@ -942,7 +1034,57 @@
       "nameDuplicate": "An agent with this name already exists"
     },
     "errors": {
-      "saveFailed": "Failed to save agent"
+      "saveFailed": "Failed to save agent",
+      "loadImageFailed": "Failed to load image.",
+      "unknownError": "Unknown error",
+      "avatarImageProcessFailed": "Failed to process avatar image.",
+      "bannerImageProcessFailed": "Failed to process banner image.",
+      "avatarCropFailed": "Failed to crop avatar.",
+      "bannerCropFailed": "Failed to crop banner."
+    },
+    "preview": {
+      "untitled": "Untitled agent",
+      "emptyDescription": "Add a short summary so users can immediately understand what this agent is for.",
+      "identity": "Identity",
+      "surface": "Surface",
+      "banner": "Banner",
+      "bannerPreviewTitle": "Banner Preview",
+      "bannerPreviewDescription": "Compare how the conversation banner reads on desktop and mobile layouts.",
+      "desktop": "Desktop",
+      "mobile": "Mobile",
+      "providerFallback": "Provider",
+      "defaultModelFallback": "Default model",
+      "agentFallback": "Agent",
+      "bannerImageFallback": "Agent banner"
+    },
+    "crop": {
+      "avatarTitle": "Crop Avatar",
+      "avatarDescription": "Adjust scale and position. The exported avatar will be 1:1.",
+      "bannerTitle": "Crop Banner",
+      "bannerDescription": "Tune the banner composition while previewing the final card overlap used in conversations.",
+      "zoom": "Zoom",
+      "horizontal": "Horizontal Position",
+      "vertical": "Vertical Position",
+      "avatarFrameLabel": "Current frame: {{shape}}",
+      "avatarSourceAlt": "Avatar crop source",
+      "bannerSourceAlt": "Banner crop source",
+      "bannerHint": "You can drag the image directly to reframe it. The preview reserves space for the agent info card in the lower-left area.",
+      "applyAvatar": "Apply Crop",
+      "applyBanner": "Apply Crop"
+    },
+    "personalization": {
+      "languageOptions": {
+        "English": "English",
+        "Chinese (Simplified)": "Chinese (Simplified)",
+        "Chinese (Traditional)": "Chinese (Traditional)",
+        "Japanese": "Japanese",
+        "Korean": "Korean",
+        "Spanish": "Spanish",
+        "French": "French",
+        "German": "German",
+        "Portuguese": "Portuguese",
+        "Italian": "Italian"
+      }
     },
     "skills": {
       "title": "Available Skills",
@@ -958,6 +1100,7 @@
       "deleteError": "Failed to delete skill",
       "deleteConfirmTitle": "Delete Skill?",
       "deleteConfirmMessage": "Are you sure you want to delete this skill? Default agents may break if relying on it.",
+      "backToFiles": "Back to Files",
       "idRequired": "Skill ID is required",
       "nameRequired": "Display Name is required",
       "descriptionRequired": "Short Description is required",
@@ -1026,7 +1169,11 @@
       "installDependencyConfirmMessage": "This will create or reuse an isolated virtual environment for the skill and install the requested package.",
       "installDependencySuccess": "Dependency installed successfully.",
       "installDependencyCreated": "Dependency installed and isolated environment created.",
-      "installDependencyError": "Failed to install dependency"
+      "installDependencyError": "Failed to install dependency",
+      "scriptsLabel": "Scripts",
+      "referencesLabel": "References",
+      "noScripts": "No scripts added",
+      "noReferences": "No references added"
     }
   },
   "deepResearch": {
@@ -1306,6 +1453,7 @@
     "documentsLoadFailed": "Failed to load documents",
     "documentsSelectionLoadFailed": "Failed to load selected documents",
     "documentsSelectionSaveFailed": "Failed to save document selection",
+    "documentEmbeddingMissingMetadata": "Some selected documents do not have embedding metadata. Delete and re-upload them before retrieving.",
     "documentEmbeddingMismatch": "Selected documents were indexed with {{model}}. Switch your embedding model to match before retrieving them.",
     "documentEmbeddingMixedModels": "Selected documents use multiple embedding models. Select docs that share the same model before retrieving them.",
     "capabilities": "Capabilities",
@@ -1382,6 +1530,9 @@
       "documentLoadFailed": "Failed to load documents",
       "documentUploadLabel": "Upload document",
       "documentUploadHint": "Supported: PDF, DOCX, TXT, MD, CSV, JSON.",
+      "documentEmbeddingConfigRequired": "Choose an embedding provider and model before uploading documents.",
+      "documentEmbeddingKeyRequired": "The selected embedding provider is missing its API key.",
+      "documentEmbeddingProviderUnsupported": "The selected embedding provider is not supported for document indexing.",
       "documentUploading": "Parsing and storing document...",
       "documentUploaded": "Document stored.",
       "documentChunking": "Chunking document and preparing vectors...",
@@ -1551,6 +1702,16 @@
     "generate": {
       "failed": "Generation failed",
       "missingApiKey": "API Key is missing. Please configure a model in Scrapbook settings first."
+    },
+    "settings": {
+      "title": "Scrapbook AI Settings",
+      "description": "Configure the model and writing style used for Scrapbook title generation, summaries, and note organization.",
+      "modelSection": "Model",
+      "modelHint": "Choose the model used for Scrapbook generation tasks. Lite model is not used here.",
+      "globalDefaultHint": "When enabled, Scrapbook follows the global Default Model. Turn it off to use a dedicated Scrapbook model.",
+      "personalizationSection": "Personalization",
+      "personalizationHint": "These settings shape Scrapbook outputs only. They do not affect follow-up chat yet.",
+      "customInstructionPlaceholder": "Add any extra guidance for Scrapbook titles, summaries, and organization..."
     },
     "modal": {
       "addSuccess": "Added successfully!",

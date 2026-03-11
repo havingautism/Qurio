@@ -1,4 +1,4 @@
-﻿import { useNavigate } from '@tanstack/react-router'
+import { useNavigate } from '@tanstack/react-router'
 import clsx from 'clsx'
 import {
   ArrowRight,
@@ -317,7 +317,7 @@ const DeepResearchView = () => {
 
         {/* Scrollable Container */}
         <div className="no-scrollbar sm:scrollbar-default relative min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
-          <div className="mx-auto w-full max-w-[1400px] px-4 pb-4 sm:px-8 sm:pb-8">
+          <div className="mx-auto w-full max-w-[1400px] px-4 pt-2 pb-4 sm:px-8 sm:pt-2 sm:pb-8">
             {/* Grid Content */}
             <div className="relative pb-32">
               {loading ? (

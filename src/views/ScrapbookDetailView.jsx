@@ -1,5 +1,5 @@
 import { useLoaderData, useParams, useNavigate } from '@tanstack/react-router'
-import { useCallback, useEffect, useState, useRef } from 'react'
+import { useCallback, useEffect, useState, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   ArrowLeft,
@@ -12,16 +12,31 @@ import {
   Sparkles,
   Tag,
   Trash2,
+  X,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAppContext } from '../App'
 import {
+  buildScrapbookSystemAgentPayload,
+  DEFAULT_AGENT_ID,
+  DEEP_RESEARCH_AGENT_ID,
+  SCRAPBOOK_AGENT_ID,
+  isDeepResearchSystemAgent,
+} from '../lib/systemAgents'
+import {
+  buildScrapbookStylePrompt,
   getScrapbookEntryById,
   deleteScrapbookEntry,
   getPlatformLabel,
+  notifyScrapbookChanged,
   resolveScrapbookModelConfig,
 } from '../lib/scrapbookService'
-import { createConversation, notifyConversationsChanged } from '../lib/conversationsService'
+import {
+  createConversation,
+  getConversationByScrapbookId,
+  notifyConversationsChanged,
+} from '../lib/conversationsService'
+import ChatInterface from '../components/ChatInterface'
 import ColorBendsBackground from '../components/ui/ColorBendsBackground'
 import ConversationMarkdown from '../components/markdown/ConversationMarkdown'
 import {
@@ -54,7 +69,7 @@ const stripGeneratedTitlePrefix = value => {
 
 export default function ScrapbookDetailView() {
   const { t } = useTranslation()
-  const { isSidebarPinned, showConfirmation } = useAppContext()
+  const { defaultAgent, isSidebarPinned, showConfirmation, scrapbookAgent } = useAppContext()
   const { entryId } = useParams({ strict: false })
   const navigate = useNavigate()
 
@@ -68,6 +83,19 @@ export default function ScrapbookDetailView() {
   const [generationError, setGenerationError] = useState(null)
   const [isRegeneratingTitle, setIsRegeneratingTitle] = useState(false)
 
+  // Embedded Chat states
+  const [isChatOpen, setIsChatOpen] = useState(false)
+  
+  useEffect(() => {
+    // Open by default on desktop
+    if (window.innerWidth >= 1024) {
+      setIsChatOpen(true)
+    }
+  }, [])
+  const [chatConversation, setChatConversation] = useState(null)
+  const [chatLoading, setChatLoading] = useState(false)
+  const creationInFlightRef = useRef(false)
+
   useEffect(() => {
     async function load() {
       if (!entryId) return
@@ -77,6 +105,33 @@ export default function ScrapbookDetailView() {
         setError(error)
       } else {
         setEntry(data)
+        // Also check for existing conversation or create a new one
+        setChatLoading(true)
+        try {
+          const { data: conv } = await getConversationByScrapbookId(entryId)
+          if (conv) {
+            setChatConversation(conv)
+          } else {
+            if (creationInFlightRef.current) return
+            creationInFlightRef.current = true
+            // Create a new one with fixed parameters
+            const { data: newConv } = await createConversation({
+              title: data.title || 'Untitled',
+              scrapbook_id: entryId,
+              agent_selection_mode: 'manual',
+              last_agent_id: SCRAPBOOK_AGENT_ID,
+            })
+            if (newConv) {
+              setChatConversation(newConv)
+              notifyConversationsChanged({ scopes: ['library'] })
+            }
+            creationInFlightRef.current = false
+          }
+        } catch (err) {
+          console.error('[Scrapbook] Failed to load/create conversation:', err)
+        } finally {
+          setChatLoading(false)
+        }
       }
       setLoading(false)
     }
@@ -86,7 +141,7 @@ export default function ScrapbookDetailView() {
   const handleRegenerateTitle = async () => {
     if (!entry || isRegeneratingTitle) return
 
-    const modelConfig = resolveScrapbookModelConfig()
+    const modelConfig = await resolveScrapbookModelConfig(defaultAgent, 'generateTitle')
     if (!modelConfig.apiKey) return
 
     const provider = modelConfig.provider || 'gemini'
@@ -100,6 +155,9 @@ export default function ScrapbookDetailView() {
       '',
       'Content excerpt:',
       String(entry.content || entry.summary || entry.title || '').slice(0, 3000),
+      '',
+      'Scrapbook style instructions:',
+      buildScrapbookStylePrompt('title', modelConfig.scrapbookAgent || modelConfig.scrapbookStyle),
     ]
       .filter(Boolean)
       .join('\n')
@@ -148,6 +206,14 @@ export default function ScrapbookDetailView() {
             emoji: nextEmoji || null,
           }),
         })
+        notifyScrapbookChanged({
+          type: 'updated',
+          entry: {
+            ...entry,
+            title: nextTitle,
+            emoji: nextEmoji || null,
+          },
+        })
       } catch (patchErr) {
         console.error('[Scrapbook] Failed to persist regenerated title:', patchErr)
       }
@@ -173,59 +239,26 @@ export default function ScrapbookDetailView() {
     })
   }
 
-  // Handle "Ask" — create a new conversation with this scrapbook entry as hidden context
-  const handleAskQuestion = async () => {
-    if (!entry) return
-    try {
-      const { data: conversation, error } = await createConversation({
-        title: 'New Conversation',
-        scrapbook_id: entry.id,
-      })
-      if (error || !conversation) {
-        console.error('[Scrapbook] Failed to create conversation:', error)
-        return
-      }
-      notifyConversationsChanged({ scopes: ['library'] })
+  // Calculate system context for AI
+  const scrapbookContext = useMemo(() => {
+    if (!entry) return ''
+    const contextLines = [
+      `The following is a scrapbook entry the user is reading. Please answer their follow-up questions based on this content:`,
+      ``,
+      `Title: ${entry.title || '(Untitled)'}`,
+      entry.source_url ? `Source: ${entry.source_url}` : '',
+      ``,
+      entry.summary || entry.content || '',
+    ].filter(s => s !== null && s !== undefined)
+    return contextLines.join('\n').trim()
+  }, [entry])
 
-      // Build a hidden system context block from the scrapbook entry (English prompt for AI)
-      const contextLines = [
-        `The following is a scrapbook entry the user is reading. Please answer their follow-up questions based on this content:`,
-        ``,
-        `Title: ${entry.title || '(Untitled)'}`,
-        entry.source_url ? `Source: ${entry.source_url}` : '',
-        ``,
-        entry.summary || entry.content || '',
-      ].filter(s => s !== null && s !== undefined)
-
-      const scrapbookContext = contextLines.join('\n').trim()
-
-      navigate({
-        to: '/conversation/$conversationId',
-        params: { conversationId: conversation.id },
-        state: {
-          // Hidden system prefix injected before user message
-          systemContextPrefix: scrapbookContext,
-          initialToggles: {
-            search: false,
-            searchTool: [],
-            searchBackend: null,
-            thinking: false,
-            deepResearch: false,
-            expertMode: false,
-          },
-          initialSpaceSelection: { mode: 'auto', space: null },
-          initialIsAgentAutoMode: true,
-          // Scrapbook entry card shown above input bar and pinned at top after first message
-          scrapbookEntry: {
-            title: entry.title,
-            source_url: entry.source_url || null,
-            summary: entry.summary || null,
-          },
-        },
-      })
-    } catch (err) {
-      console.error('[Scrapbook] Failed to start ask conversation:', err)
+  // Handle "Ask" — instead of navigating, just open/scroll to embedded chat
+  const handleAskQuestion = () => {
+    if (!isChatOpen) {
+      setIsChatOpen(true)
     }
+    // Mobile: we might want to scroll to top of chat or similar
   }
 
   // Auto-trigger generation
@@ -265,7 +298,7 @@ export default function ScrapbookDetailView() {
 
     try {
       // 1. Resolve Provider models
-      const modelConfig = resolveScrapbookModelConfig()
+      const modelConfig = await resolveScrapbookModelConfig(defaultAgent, 'streamChatCompletion')
       if (!modelConfig.apiKey) {
         setGenerationError(t('scrapbook.generate.missingApiKey'))
         setIsGenerating(false)
@@ -287,9 +320,7 @@ Feel free to organize the content into logical sections, bullet points, or table
 
 If the original content contains image links (e.g. \`![alt](url)\`), please embed 1-3 of the most relevant and important images within your summary.
 
-## Response Style
-- Use a professional, business-appropriate tone.
-- Feel free to use emojis to add warmth and clarity.`
+${buildScrapbookStylePrompt('summary', modelConfig.scrapbookAgent || modelConfig.scrapbookStyle)}`
 
       const userPrompt = `Content Platform: ${entry.platform}
 Source URL: ${entry.source_url}
@@ -366,8 +397,10 @@ ${entry.content}`
             })
             console.log('[Scrapbook] PATCH status:', resp.status)
             // Update local state so re-entry check sees the summary
+            const nextEntry = { ...entry, summary: finalSummary }
             setEntry(prev => ({ ...prev, summary: finalSummary }))
             setStreamedSummary('')
+            notifyScrapbookChanged({ type: 'updated', entry: nextEntry })
           } catch (patchErr) {
             console.error('[Scrapbook] Failed to persist summary:', patchErr)
           }
@@ -445,9 +478,11 @@ ${entry.content}`
         isSidebarPinned ? 'md:ml-[328px]' : 'md:ml-[72px]',
       )}
     >
-      <div className="pointer-events-none absolute inset-0 z-0 opacity-40 dark:opacity-20">
-        <ColorBendsBackground />
-      </div>
+      {/* Left Column: Content */}
+      <div className="relative flex h-full flex-1 flex-col overflow-hidden">
+        <div className="pointer-events-none absolute inset-0 z-0 opacity-40 dark:opacity-20">
+          <ColorBendsBackground />
+        </div>
 
       {/* Chat-like Header */}
       <div className="pointer-events-none absolute top-0 right-0 left-0 z-40 flex w-full shrink-0 items-center justify-between gap-4 p-4">
@@ -627,7 +662,71 @@ ${entry.content}`
             </div>
           )}
         </div>
+        </div>
       </div>
+
+      {isChatOpen && chatConversation && (
+        <div
+          className={clsx(
+            'fixed inset-0 z-[100] bg-black/20 backdrop-blur-sm lg:bg-transparent lg:backdrop-blur-none',
+            'flex items-end justify-center lg:items-stretch lg:justify-end lg:p-6',
+          )}
+          onClick={() => {
+            if (window.innerWidth < 1024) setIsChatOpen(false)
+          }}
+        >
+          <div
+            className={clsx(
+              'relative flex h-[85vh] w-full flex-col overflow-hidden bg-white/80 shadow-2xl transition-all duration-500 ease-out sm:rounded-t-[2.5rem] lg:h-full lg:w-[420px] lg:rounded-[2rem] lg:border lg:border-white/20 lg:backdrop-blur-3xl xl:w-[480px] dark:bg-zinc-950/80',
+              isChatOpen
+                ? 'translate-y-0 opacity-100 scale-100'
+                : 'translate-y-full opacity-0 scale-95',
+            )}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Overlay Header/Close */}
+            <div className="flex shrink-0 items-center justify-between border-b border-zinc-200/50 p-4 leading-none dark:border-white/5">
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 animate-pulse rounded-full bg-primary-500 shadow-[0_0_8px_rgba(var(--color-primary-500),0.8)]" />
+                <span className="text-xs font-bold tracking-widest text-zinc-500 uppercase dark:text-zinc-400">
+                  Intelligence
+                </span>
+              </div>
+              <button
+                onClick={() => setIsChatOpen(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-100 transition-colors hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700"
+              >
+                <X size={16} className="text-zinc-500" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-hidden">
+            {entry && (
+              <ChatInterface
+                isEmbedded={true}
+                activeConversation={chatConversation}
+                systemContextPrefix={scrapbookContext}
+                isSidebarPinned={false}
+                isSpaceSelectionLocked={true}
+                initialSpaceSelection={{ mode: 'manual', space: null }}
+                initialAgentSelection={scrapbookAgent}
+                initialIsAgentAutoMode={false}
+                scrapbookEntry={{
+                  id: entry.id,
+                  title: entry.title,
+                  source_url: entry.source_url || null,
+                  summary: entry.summary || null,
+                }}
+                onTitleAndSpaceGenerated={conv => {
+                  setChatConversation(conv)
+                  notifyConversationsChanged({ scopes: ['library'] })
+                }}
+              />
+            )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

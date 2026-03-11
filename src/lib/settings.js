@@ -68,6 +68,16 @@ const DEFAULT_STYLE_SETTINGS = {
   customInstruction: '',
 }
 
+const DEFAULT_SCRAPBOOK_STYLE_SETTINGS = {
+  scrapbookBaseTone: '',
+  scrapbookTraits: '',
+  scrapbookWarmth: '',
+  scrapbookEnthusiasm: '',
+  scrapbookHeadings: '',
+  scrapbookEmojis: '',
+  scrapbookCustomInstruction: '',
+}
+
 const STYLE_PROMPTS = {
   baseTone: {
     technical: 'Use a technical, precise tone suitable for developers.',
@@ -139,6 +149,28 @@ const buildResponseStylePrompt = settings => {
 
   if (rules.length === 0) return ''
   return `## Response Style\n${rules.map(rule => `- ${rule}`).join('\n')}`
+}
+
+export const resolveScrapbookStyleSettings = settings => {
+  const source = settings && typeof settings === 'object' ? settings : {}
+  return {
+    baseTone: source.scrapbookBaseTone || source.baseTone || DEFAULT_STYLE_SETTINGS.baseTone,
+    traits: source.scrapbookTraits || source.traits || DEFAULT_STYLE_SETTINGS.traits,
+    warmth: source.scrapbookWarmth || source.warmth || DEFAULT_STYLE_SETTINGS.warmth,
+    enthusiasm:
+      source.scrapbookEnthusiasm || source.enthusiasm || DEFAULT_STYLE_SETTINGS.enthusiasm,
+    headings: source.scrapbookHeadings || source.headings || DEFAULT_STYLE_SETTINGS.headings,
+    emojis: source.scrapbookEmojis || source.emojis || DEFAULT_STYLE_SETTINGS.emojis,
+    customInstruction:
+      source.scrapbookCustomInstruction ||
+      source.customInstruction ||
+      DEFAULT_STYLE_SETTINGS.customInstruction,
+  }
+}
+
+export const buildScrapbookResponseStylePrompt = settings => {
+  const resolved = resolveScrapbookStyleSettings(settings)
+  return buildResponseStylePrompt(resolved)
 }
 
 export const buildResponseStylePromptFromAgent = agent => {
@@ -215,14 +247,12 @@ const MEMORY_SETTINGS_KEYS = [
   'scrapbookProvider',
   'scrapbookModel',
   'scrapbookModelSource',
-  'dbAccessKey',
 ]
 
 const LEGACY_LOCAL_SENSITIVE_KEYS = [
   'tavilyApiKey',
   'serpapiApiKey',
   'exaApiKey',
-  'dbAccessKey',
 ]
 
 const SESSION_SENSITIVE_KEYS = [
@@ -240,7 +270,6 @@ const SESSION_SENSITIVE_KEYS = [
   'exaApiKey',
   'NvidiaKey',
   'MinimaxKey',
-  'dbAccessKey',
 ]
 
 export const updateMemorySettings = settings => {
@@ -297,6 +326,7 @@ export const loadSettings = (overrides = {}) => {
   const localDatabaseSupabaseKey = localStorage.getItem('databaseSupabaseKey')
   const localSupabaseUrl = localStorage.getItem('supabaseUrl')
   const localSupabaseKey = localStorage.getItem('supabaseKey')
+  const localDbAccessKey = localStorage.getItem('dbAccessKey')
   const localSearchProvider = localStorage.getItem('searchProvider')
   const localBackendUrl = localStorage.getItem('backendUrl')
 
@@ -318,6 +348,13 @@ export const loadSettings = (overrides = {}) => {
   const localScrapbookProvider = localStorage.getItem('scrapbookProvider')
   const localScrapbookModel = localStorage.getItem('scrapbookModel')
   const localScrapbookModelSource = localStorage.getItem('scrapbookModelSource')
+  const localScrapbookBaseTone = localStorage.getItem('scrapbookBaseTone')
+  const localScrapbookTraits = localStorage.getItem('scrapbookTraits')
+  const localScrapbookWarmth = localStorage.getItem('scrapbookWarmth')
+  const localScrapbookEnthusiasm = localStorage.getItem('scrapbookEnthusiasm')
+  const localScrapbookHeadings = localStorage.getItem('scrapbookHeadings')
+  const localScrapbookEmojis = localStorage.getItem('scrapbookEmojis')
+  const localScrapbookCustomInstruction = localStorage.getItem('scrapbookCustomInstruction')
   const localDefaultModel = localStorage.getItem('defaultModel')
   const localLiteModel = localStorage.getItem('liteModel')
   const localDefaultModelProvider = localStorage.getItem('defaultModelProvider')
@@ -409,6 +446,34 @@ export const loadSettings = (overrides = {}) => {
     scrapbookProvider: overrides.scrapbookProvider || localScrapbookProvider || '',
     scrapbookModel: overrides.scrapbookModel || localScrapbookModel || '',
     scrapbookModelSource: overrides.scrapbookModelSource || localScrapbookModelSource || 'list',
+    scrapbookBaseTone:
+      overrides.scrapbookBaseTone ||
+      localScrapbookBaseTone ||
+      DEFAULT_SCRAPBOOK_STYLE_SETTINGS.scrapbookBaseTone,
+    scrapbookTraits:
+      overrides.scrapbookTraits ||
+      localScrapbookTraits ||
+      DEFAULT_SCRAPBOOK_STYLE_SETTINGS.scrapbookTraits,
+    scrapbookWarmth:
+      overrides.scrapbookWarmth ||
+      localScrapbookWarmth ||
+      DEFAULT_SCRAPBOOK_STYLE_SETTINGS.scrapbookWarmth,
+    scrapbookEnthusiasm:
+      overrides.scrapbookEnthusiasm ||
+      localScrapbookEnthusiasm ||
+      DEFAULT_SCRAPBOOK_STYLE_SETTINGS.scrapbookEnthusiasm,
+    scrapbookHeadings:
+      overrides.scrapbookHeadings ||
+      localScrapbookHeadings ||
+      DEFAULT_SCRAPBOOK_STYLE_SETTINGS.scrapbookHeadings,
+    scrapbookEmojis:
+      overrides.scrapbookEmojis ||
+      localScrapbookEmojis ||
+      DEFAULT_SCRAPBOOK_STYLE_SETTINGS.scrapbookEmojis,
+    scrapbookCustomInstruction:
+      overrides.scrapbookCustomInstruction ||
+      localScrapbookCustomInstruction ||
+      DEFAULT_SCRAPBOOK_STYLE_SETTINGS.scrapbookCustomInstruction,
 
     // Model configuration
     liteModel: overrides.liteModel || localLiteModel || '',
@@ -467,7 +532,7 @@ export const loadSettings = (overrides = {}) => {
       localStyleCustomInstruction ||
       overrides.customInstruction ||
       DEFAULT_STYLE_SETTINGS.customInstruction,
-    dbAccessKey: overrides.dbAccessKey || envDbAccessKey || '',
+    dbAccessKey: overrides.dbAccessKey || envDbAccessKey || localDbAccessKey || '',
 
     ...overrides,
   }
@@ -588,6 +653,13 @@ export const saveSettings = async settings => {
     localStorage.setItem('databaseSupabaseKey', resolvedSupabaseKey)
     localStorage.setItem('supabaseKey', resolvedSupabaseKey)
   }
+  if (settings.dbAccessKey !== undefined) {
+    if (String(settings.dbAccessKey || '').trim()) {
+      localStorage.setItem('dbAccessKey', String(settings.dbAccessKey))
+    } else {
+      localStorage.removeItem('dbAccessKey')
+    }
+  }
 
   // CLEANUP: Remove Sensitive Keys from LocalStorage (Security)
   const SENSITIVE_KEYS = [
@@ -605,7 +677,6 @@ export const saveSettings = async settings => {
     'serpapiApiKey',
     'NvidiaKey',
     'MinimaxKey',
-    'dbAccessKey',
   ]
   SENSITIVE_KEYS.forEach(key => localStorage.removeItem(key))
 
@@ -696,6 +767,27 @@ export const saveSettings = async settings => {
   if (settings.scrapbookModelSource !== undefined) {
     localStorage.setItem('scrapbookModelSource', settings.scrapbookModelSource)
   }
+  if (settings.scrapbookBaseTone !== undefined) {
+    localStorage.setItem('scrapbookBaseTone', settings.scrapbookBaseTone)
+  }
+  if (settings.scrapbookTraits !== undefined) {
+    localStorage.setItem('scrapbookTraits', settings.scrapbookTraits)
+  }
+  if (settings.scrapbookWarmth !== undefined) {
+    localStorage.setItem('scrapbookWarmth', settings.scrapbookWarmth)
+  }
+  if (settings.scrapbookEnthusiasm !== undefined) {
+    localStorage.setItem('scrapbookEnthusiasm', settings.scrapbookEnthusiasm)
+  }
+  if (settings.scrapbookHeadings !== undefined) {
+    localStorage.setItem('scrapbookHeadings', settings.scrapbookHeadings)
+  }
+  if (settings.scrapbookEmojis !== undefined) {
+    localStorage.setItem('scrapbookEmojis', settings.scrapbookEmojis)
+  }
+  if (settings.scrapbookCustomInstruction !== undefined) {
+    localStorage.setItem('scrapbookCustomInstruction', settings.scrapbookCustomInstruction)
+  }
   if (settings.defaultModel !== undefined) {
     localStorage.setItem('defaultModel', settings.defaultModel)
   }
@@ -718,8 +810,6 @@ export const saveSettings = async settings => {
   if (settings.developerMode !== undefined) {
     localStorage.setItem('developerMode', String(!!settings.developerMode))
   }
-  localStorage.removeItem('dbAccessKey')
-
   window.dispatchEvent(new Event('settings-changed'))
-  console.log('Settings saved (Sensitive keys in memory only)')
+  console.log('Settings saved')
 }

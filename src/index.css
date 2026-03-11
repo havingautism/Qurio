@@ -96,6 +96,21 @@
     }
   }
 
+  @keyframes status-halo {
+    0%,
+    100% {
+      box-shadow: 0 0 0 0 var(--color-primary-500);
+      opacity: 0.6;
+    }
+    50% {
+      box-shadow: 0 0 0 3px var(--color-primary-500);
+      opacity: 0.9;
+    }
+  }
+
+  --animate-status-halo: status-halo 2s ease-in-out infinite;
+  --animate-spin-slow: spin 3s linear infinite;
+
   @keyframes float {
     0%,
     100% {

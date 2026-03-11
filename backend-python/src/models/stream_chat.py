@@ -3,7 +3,7 @@ Data models for stream chat API.
 Defines request/response schemas compatible with the Node.js backend.
 """
 
-from typing import Any, Literal
+from typing import Any, Literal, Union
 
 from pydantic import BaseModel, Field
 
@@ -72,6 +72,13 @@ class StreamChatRequest(BaseModel):
     user_tools: list[UserTool] = Field(default_factory=list, alias="userTools")
     skip_default_tools: bool = Field(default=False, alias="skipDefaultTools")
 
+    # Team configuration (Expert Mode)
+    expert_mode: bool = Field(default=False, alias="expertMode")
+    team_mode: Literal["coordinate", "route", "broadcast", "tasks"] | None = Field(default=None, alias="teamMode")
+    leader_agent_id: str | None = Field(default=None, alias="leaderAgentId")
+    team_agent_ids: list[str] = Field(default_factory=list, alias="teamAgentIds")
+
+    # Response format
     # Response format
     response_format: dict[str, Any] | None = Field(default=None, alias="responseFormat")
 
@@ -131,6 +138,16 @@ class StreamChatRequest(BaseModel):
     # Internal use only: Feature flags set by backend routes
     enable_skills: bool = Field(default=False, exclude=True)
 
+    # Internal use only: Personalized prompt from agent config
+    personalized_prompt: str | None = Field(default=None, exclude=True)
+
+    # Internal use only: Agent identification (set by resolve_agent_config)
+    agent_id: str | None = Field(default=None, exclude=True)
+    agent_name: str | None = Field(default=None, exclude=True)
+    agent_emoji: str | None = Field(default=None, exclude=True)
+    agent_description: str | None = Field(default=None, exclude=True)
+
+    # Context and Session
     # Context and Session
     conversation_id: str | None = Field(default=None, alias="conversationId", description="Unique identifier for the conversation")
     model_config = {"populate_by_name": True}
@@ -144,38 +161,60 @@ class StreamChatRequest(BaseModel):
     field_values: dict[str, Any] | None = Field(default=None, alias="fieldValues", description="User-submitted form field values")
 
 
-# ================================================================================
-# Response Event Models
-# ================================================================================
+# Status of an agent in a team run
+AgentStatus = Literal["active", "waiting", "ready", "error", "idle"]
+
 
 class TextEvent(BaseModel):
     """Text content event."""
+    model_config = {"populate_by_name": True}
+
     type: Literal["text"] = "text"
     content: str
+    # Agent identification for Team mode (identifies which agent generated this content)
+    agent_id: str | None = Field(default=None, alias="agentId")
+    agent_name: str | None = Field(default=None, alias="agentName")
+    agent_role: str | None = Field(default=None, alias="agentRole")
+    agent_emoji: str | None = Field(default=None, alias="agentEmoji")
+    agent_status: AgentStatus | None = Field(default=None, alias="agentStatus")
 
 
 class ThoughtEvent(BaseModel):
     """Thought/reasoning content event."""
     model_config = {"populate_by_name": True}
-    
+
     type: Literal["thought"] = "thought"
     content: str
     text_index: int | None = Field(default=None, alias="textIndex")
+    # Agent identification for Team mode (identifies which agent generated this thought)
+    agent_id: str | None = Field(default=None, alias="agentId")
+    agent_name: str | None = Field(default=None, alias="agentName")
+    agent_role: str | None = Field(default=None, alias="agentRole")
+    agent_emoji: str | None = Field(default=None, alias="agentEmoji")
+    agent_status: AgentStatus | None = Field(default=None, alias="agentStatus")
 
 
 class ToolCallEvent(BaseModel):
     """Tool call event."""
     model_config = {"populate_by_name": True}
-    
+
     type: Literal["tool_call"] = Field(default="tool_call", alias="type")
     id: str | None = None
     name: str
     arguments: str
     text_index: int | None = Field(default=None, alias="textIndex")
+    # Agent identification for Team mode
+    agent_id: str | None = Field(default=None, alias="agentId")
+    agent_name: str | None = Field(default=None, alias="agentName")
+    agent_role: str | None = Field(default=None, alias="agentRole")
+    agent_emoji: str | None = Field(default=None, alias="agentEmoji")
+    agent_status: AgentStatus | None = Field(default=None, alias="agentStatus")
 
 
 class ToolResultEvent(BaseModel):
     """Tool result event."""
+    model_config = {"populate_by_name": True}
+
     type: Literal["tool_result"] = Field(default="tool_result", alias="type")
     id: str | None = None
     name: str
@@ -183,6 +222,12 @@ class ToolResultEvent(BaseModel):
     output: Any = None
     error: str | None = None
     duration_ms: int | None = Field(default=None, alias="durationMs")
+    # Agent identification for Team mode
+    agent_id: str | None = Field(default=None, alias="agentId")
+    agent_name: str | None = Field(default=None, alias="agentName")
+    agent_role: str | None = Field(default=None, alias="agentRole")
+    agent_emoji: str | None = Field(default=None, alias="agentEmoji")
+    agent_status: AgentStatus | None = Field(default=None, alias="agentStatus")
 
 
 class SourceEvent(BaseModel):
@@ -216,10 +261,26 @@ class FormRequestEvent(BaseModel):
     fields: list[dict[str, Any]] = Field(..., description="Form field definitions for frontend rendering")
 
 
+class AgentStatusEvent(BaseModel):
+    """Event for signaling agent status transitions in Team mode."""
+    model_config = {"populate_by_name": True}
+
+    type: Literal["agent_status"] = "agent_status"
+    agent_id: str = Field(..., alias="agentId")
+    status: AgentStatus
+
+
 # Union type for all SSE events
-StreamEvent = (
-    TextEvent | ThoughtEvent | ToolCallEvent | ToolResultEvent | DoneEvent | ErrorEvent | FormRequestEvent
-)
+StreamEvent = Union[
+    TextEvent,
+    ThoughtEvent,
+    ToolCallEvent,
+    ToolResultEvent,
+    DoneEvent,
+    ErrorEvent,
+    FormRequestEvent,
+    AgentStatusEvent,
+]
 
 
 # ================================================================================

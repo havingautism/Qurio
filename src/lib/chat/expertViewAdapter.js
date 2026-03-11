@@ -5,6 +5,7 @@ export const normalizeExpertResponses = message => {
       agentId: String(item?.agentId || ''),
       agentName: String(item?.agentName || ''),
       agentEmoji: String(item?.agentEmoji || ''),
+      agentRole: String(item?.agentRole || ''),
       task: String(item?.task || ''),
       content: typeof item?.content === 'string' ? item.content : '',
       thought: typeof item?.thought === 'string' ? item.thought : '',

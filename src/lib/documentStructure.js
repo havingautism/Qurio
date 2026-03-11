@@ -16,6 +16,12 @@ const splitIntoSentences = text => {
   return text.match(regex) || [text]
 }
 
+const splitIntoParagraphs = text =>
+  String(text || '')
+    .split(/\n{2,}/)
+    .map(part => part.replace(/\s*\n\s*/g, ' ').trim())
+    .filter(Boolean)
+
 const detectHeadingTitle = line => {
   const trimmed = line.trim()
   if (!trimmed) return null
@@ -35,12 +41,32 @@ const detectHeadingTitle = line => {
 
   const chineseMatch = trimmed.match(/^第[0-9一二三四五六七八九十百千]+[章节节]\s*(.*)$/)
   if (chineseMatch) {
-    return { title: chineseMatch[1].trim(), level: 2 }
+    return { title: chineseMatch[1].trim() || trimmed, level: 2 }
   }
 
-  const dotMatch = trimmed.match(/^[\u4e00-\u9fa5A-Za-z0-9]{1,4}[、.．]\s*(.*)$/)
+  const cnListMatch = trimmed.match(/^[一二三四五六七八九十百千]+[、.．]\s*(.*)$/)
+  if (cnListMatch) {
+    return { title: cnListMatch[1].trim(), level: 3 }
+  }
+
+  const cnParenMatch = trimmed.match(/^[（(][一二三四五六七八九十百千0-9]+[）)]\s*(.*)$/)
+  if (cnParenMatch) {
+    return { title: cnParenMatch[1].trim(), level: 3 }
+  }
+
+  const dotMatch = trimmed.match(/^[\u4e00-\u9fa5A-Za-z0-9]{1,8}[、.．]\s*(.*)$/)
   if (dotMatch) {
     return { title: dotMatch[1].trim(), level: 3 }
+  }
+
+  const chapterMatch = trimmed.match(/^Chapter\s+\d+(?:\.\d+)*[:.\s-]*(.*)$/i)
+  if (chapterMatch) {
+    return { title: chapterMatch[1].trim() || trimmed.replace(/\s+/g, ' ').trim(), level: 1 }
+  }
+
+  const sectionMatch = trimmed.match(/^Section\s+\d+(?:\.\d+)*[:.\s-]*(.*)$/i)
+  if (sectionMatch) {
+    return { title: sectionMatch[1].trim() || trimmed.replace(/\s+/g, ' ').trim(), level: 2 }
   }
 
   if (
@@ -155,30 +181,53 @@ export const chunkDocumentWithHierarchy = (text, options = {}) => {
   for (const section of sections) {
     if (globalChunkCount >= opts.maxChunks) break
     if (!section.text) continue
-    const sentences = section.text
-      .split(/\n{2,}/)
-      .map(point => point.trim())
-      .filter(Boolean)
-      .flatMap(part => {
-        const pieces = splitIntoSentences(part)
-        return pieces.length > 0 ? pieces : [part]
-      })
 
-    if (sentences.length === 0) continue
+    const paragraphs = splitIntoParagraphs(section.text)
+    if (paragraphs.length === 0) continue
 
     let current = ''
     let sectionChunkIndex = 0
-    for (const sentence of sentences) {
-      const next = current ? `${current} ${sentence}` : sentence
+
+    const pushOversizedParagraph = paragraph => {
+      const sentences = splitIntoSentences(paragraph)
+      let local = ''
+      sentences.forEach(sentence => {
+        const next = local ? `${local} ${sentence}` : sentence
+        if (next.length > opts.chunkSize && local) {
+          pushChunk(section, local, sectionChunkIndex)
+          sectionChunkIndex += 1
+          const overlapSegment = opts.chunkOverlap > 0 ? local.slice(-opts.chunkOverlap) : ''
+          local = overlapSegment ? `${overlapSegment} ${sentence}` : sentence
+        } else {
+          local = next
+        }
+      })
+      if (local.trim() && globalChunkCount < opts.maxChunks) {
+        pushChunk(section, local, sectionChunkIndex)
+        sectionChunkIndex += 1
+      }
+    }
+
+    for (const paragraph of paragraphs) {
+      if (globalChunkCount >= opts.maxChunks) break
+      if (paragraph.length > opts.chunkSize) {
+        if (current.trim()) {
+          pushChunk(section, current, sectionChunkIndex)
+          sectionChunkIndex += 1
+          current = ''
+        }
+        pushOversizedParagraph(paragraph)
+        continue
+      }
+
+      const next = current ? `${current}\n\n${paragraph}` : paragraph
       if (next.length > opts.chunkSize && current) {
         pushChunk(section, current, sectionChunkIndex)
         sectionChunkIndex += 1
-        const overlapSegment = opts.chunkOverlap > 0 ? current.slice(-opts.chunkOverlap) : ''
-        current = overlapSegment ? `${overlapSegment} ${sentence}` : sentence
+        current = paragraph
       } else {
         current = next
       }
-      if (globalChunkCount >= opts.maxChunks) break
     }
 
     if (current.trim() && globalChunkCount < opts.maxChunks) {

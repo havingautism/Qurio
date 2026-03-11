@@ -1,4 +1,5 @@
 import * as mammoth from 'mammoth/mammoth.browser'
+import { extractDocumentTextViaBackend } from './backendClient'
 // import * as pdfjsLib from 'pdfjs-dist'
 
 // const { GlobalWorkerOptions, getDocument } = pdfjsLib
@@ -20,6 +21,141 @@ export const normalizeExtractedText = text =>
     .replace(/\n{3,}/g, '\n\n')
     .replace(/[ \t]{2,}/g, ' ')
     .trim()
+
+const HEADING_PATTERNS = [
+  /^(#{1,6})\s+\S+/,
+  /^第[0-9一二三四五六七八九十百千零两]+[章节篇部分]\s*\S*/,
+  /^[一二三四五六七八九十百千]+[、.．]\s*\S+/,
+  /^[（(][一二三四五六七八九十百千0-9]+[）)]\s*\S+/,
+  /^\d+(?:\.\d+){0,3}[.)、．]?\s+\S+/,
+  /^Chapter\s+\d+\b/i,
+  /^Section\s+\d+(?:\.\d+)*\b/i,
+]
+
+const isHeadingLine = line => {
+  const trimmed = String(line || '').trim()
+  if (!trimmed) return false
+  if (HEADING_PATTERNS.some(pattern => pattern.test(trimmed))) return true
+  const words = trimmed.split(/\s+/).filter(Boolean)
+  if (
+    trimmed.length <= 80 &&
+    words.length >= 2 &&
+    words.length <= 8 &&
+    words.every(word => /^[A-Z][A-Za-z0-9/&()-]*$/.test(word))
+  ) {
+    return true
+  }
+  if (
+    trimmed.length <= 80 &&
+    /^[A-Z0-9][A-Z0-9\s:./&()-]{2,80}$/.test(trimmed) &&
+    /[A-Z]/.test(trimmed)
+  ) {
+    return true
+  }
+  return false
+}
+
+const isListLine = line => {
+  const trimmed = String(line || '').trim()
+  return /^([-*•]|[0-9]+[.)]|[a-zA-Z][.)]|[一二三四五六七八九十]+[、.．])\s+\S+/.test(trimmed)
+}
+
+const isLikelyTocLine = line => {
+  const trimmed = String(line || '').trim()
+  if (!trimmed) return false
+  if (/^目录$|^contents?$/i.test(trimmed)) return true
+  return /^.{2,120}(\.{2,}|·{2,}|…{2,}|\s{2,})\s*\d+\s*$/.test(trimmed)
+}
+
+const isLikelyPageMarker = line =>
+  /^\s*(page\s*\d+|\d+\s*\/\s*\d+|第\s*\d+\s*页)\s*$/i.test(String(line || '').trim())
+
+const collectRepeatedStandaloneLines = lines => {
+  const counts = new Map()
+  lines.forEach(rawLine => {
+    const line = String(rawLine || '').trim()
+    if (!line || line.length > 120 || isLikelyTocLine(line)) return
+    if (/^#{1,6}\s+/.test(line)) return
+    if (/^第[0-9一二三四五六七八九十百千零两]+[章节篇部分]/.test(line)) return
+    if (/^(chapter|section)\s+\d+/i.test(line)) return
+    counts.set(line, (counts.get(line) || 0) + 1)
+  })
+  return new Set(
+    Array.from(counts.entries())
+      .filter(([, count]) => count >= 2)
+      .map(([line]) => line),
+  )
+}
+
+const mergeFragmentedLines = lines => {
+  const merged = []
+  let buffer = ''
+
+  const flush = () => {
+    if (buffer.trim()) merged.push(buffer.trim())
+    buffer = ''
+  }
+
+  lines.forEach(rawLine => {
+    const line = String(rawLine || '').trim()
+    if (!line) {
+      flush()
+      return
+    }
+    if (isHeadingLine(line) || isListLine(line) || isLikelyTocLine(line)) {
+      flush()
+      merged.push(line)
+      return
+    }
+
+    if (!buffer) {
+      buffer = line
+      return
+    }
+
+    const shouldMerge =
+      buffer.length < 220 &&
+      line.length < 220 &&
+      !/[。！？.!?;；:]$/.test(buffer) &&
+      !/[:：]$/.test(line)
+
+    buffer = shouldMerge ? `${buffer} ${line}` : `${buffer}\n${line}`
+  })
+
+  flush()
+  return merged
+}
+
+export const postProcessExtractedDocumentText = (text, options = {}) => {
+  const normalized = normalizeExtractedText(text)
+  if (!normalized) return ''
+
+  const { fileType = '' } = options
+  const lines = normalized.split('\n')
+  const repeatedLines = collectRepeatedStandaloneLines(lines)
+
+  const filtered = lines.filter(rawLine => {
+    const line = String(rawLine || '').trim()
+    if (!line) return true
+    if (isLikelyTocLine(line)) return false
+    if (isLikelyPageMarker(line)) return false
+    if (repeatedLines.has(line)) return false
+    return true
+  })
+
+  const merged = mergeFragmentedLines(filtered)
+  const processed = normalizeExtractedText(merged.join('\n\n'))
+
+  if (!processed) {
+    return normalized
+  }
+
+  if (String(fileType || '').toLowerCase() === 'md') {
+    return processed
+  }
+
+  return processed
+}
 
 export const getFileExtension = file => {
   const name = file?.name || ''
@@ -51,102 +187,8 @@ export const extractTextFromFile = async (file, options = {}) => {
 
   if (isPdf) {
     try {
-      const pdfjsLib = await import('pdfjs-dist')
-      const { GlobalWorkerOptions, getDocument } = pdfjsLib
-
-      if (typeof window !== 'undefined' && !GlobalWorkerOptions.workerSrc) {
-        GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`
-      }
-
-      const data = await file.arrayBuffer()
-      const pdf = await getDocument({ data }).promise
-      const pages = []
-
-      // Extract text with font information from all pages
-      for (let pageIndex = 1; pageIndex <= pdf.numPages; pageIndex += 1) {
-        const page = await pdf.getPage(pageIndex)
-        const content = await page.getTextContent()
-        pages.push(content.items)
-      }
-
-      // Analyze font sizes across the entire document to determine heading thresholds
-      const allItems = pages.flat()
-      const fontSizes = allItems.map(item => Math.abs(item.transform[0])).filter(size => size > 0)
-
-      if (fontSizes.length === 0) {
-        // Fallback: no font information, use simple text extraction
-        let text = ''
-        for (const items of pages) {
-          const pageText = items.map(item => item.str || '').join(' ')
-          text += `${pageText}\n\n`
-        }
-        return text
-      }
-
-      // Calculate font size statistics
-      const avgFontSize = fontSizes.reduce((sum, size) => sum + size, 0) / fontSizes.length
-      // const sortedSizes = [...new Set(fontSizes)].sort((a, b) => b - a)
-
-      // Determine heading thresholds (sizes significantly larger than average)
-      const headingThreshold1 = avgFontSize * 1.5 // H1: 150% of average
-      const headingThreshold2 = avgFontSize * 1.3 // H2: 130% of average
-      const headingThreshold3 = avgFontSize * 1.15 // H3: 115% of average
-
-      // Convert PDF items to markdown with heading detection
-      let markdown = ''
-      let lastY = null
-      const lineGap = avgFontSize * 0.5 // Threshold for detecting new lines
-
-      for (const items of pages) {
-        for (const item of items) {
-          const text = (item.str || '').trim()
-          if (!text) continue
-
-          const fontSize = Math.abs(item.transform[0])
-          const y = item.transform[5]
-          const fontName = item.fontName || ''
-
-          // Detect if this is a new line (significant Y position change)
-          const isNewLine = lastY === null || Math.abs(y - lastY) > lineGap
-          lastY = y
-
-          // Check if font indicates a heading (Bold, Heavy, etc.)
-          const isBoldFont = /bold|heavy|black|semibold/i.test(fontName)
-          // const isItalicFont = /italic|oblique/i.test(fontName)
-
-          // Determine heading level based on font size and style
-          let headingLevel = 0
-          if (fontSize >= headingThreshold1 || (fontSize >= avgFontSize * 1.2 && isBoldFont)) {
-            headingLevel = 1
-          } else if (
-            fontSize >= headingThreshold2 ||
-            (fontSize >= avgFontSize * 1.1 && isBoldFont)
-          ) {
-            headingLevel = 2
-          } else if (
-            fontSize >= headingThreshold3 ||
-            (fontSize >= avgFontSize && isBoldFont && text.length < 60)
-          ) {
-            headingLevel = 3
-          }
-
-          if (headingLevel > 0 && isNewLine) {
-            // Add heading with appropriate markdown syntax
-            markdown += `\n${'#'.repeat(headingLevel)} ${text}\n\n`
-          } else {
-            // Regular text
-            if (isNewLine) {
-              markdown += '\n'
-            } else {
-              markdown += ' '
-            }
-            markdown += text
-          }
-        }
-        markdown += '\n\n' // Separate pages
-      }
-
-      return markdown
+      const extracted = await extractDocumentTextViaBackend(file)
+      return extracted?.content_text || ''
     } catch (err) {
       console.error('PDF parsing error:', err)
       throw new Error(`PDF parse failed: ${err.message}`)
@@ -154,6 +196,15 @@ export const extractTextFromFile = async (file, options = {}) => {
   }
 
   if (isDocx) {
+    try {
+      const extracted = await extractDocumentTextViaBackend(file)
+      if (String(extracted?.content_text || '').trim()) {
+        return extracted.content_text
+      }
+    } catch (err) {
+      console.warn('Backend DOCX extraction failed, falling back to local parser:', err)
+    }
+
     const arrayBuffer = await file.arrayBuffer()
     const result = await mammoth.convertToMarkdown({ arrayBuffer })
     return result?.value || ''

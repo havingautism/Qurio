@@ -92,7 +92,7 @@ const ShareModal = ({ isOpen, onClose, message, conversationTitle }) => {
   if (!isOpen) return null
 
   return createPortal(
-    <div className="animate-in fade-in fixed inset-0 z-100 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm duration-200">
+    <div className="animate-in fade-in fixed inset-0 z-200 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm duration-200">
       <div className="animate-in zoom-in-95 flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-[#18181b] shadow-2xl duration-200">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-zinc-800 p-4 sm:p-5">

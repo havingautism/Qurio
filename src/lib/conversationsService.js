@@ -192,6 +192,7 @@ export const listConversations = async (options = {}) => {
         count: 'exact',
       },
     )
+    .isNull('scrapbook_id')
     .order(sortBy, { ascending })
   // Handle Search
   if (search && search.trim()) {
@@ -205,6 +206,7 @@ export const listConversations = async (options = {}) => {
       query = query.not('id', 'in', `(${normalizedExpertIds.join(',')})`)
     }
   }
+
 
   // 2. Exclude specific spaces (like Deep Research)
   if (Array.isArray(excludeSpaceIds) && excludeSpaceIds.length > 0) {
@@ -310,6 +312,7 @@ export const listBookmarkedConversations = async (options = {}) => {
       'id,title,title_emojis,created_at,updated_at,space_id,api_provider,is_favorited,last_agent_id,scrapbook_id',
     )
     .eq('is_favorited', true)
+    .isNull('scrapbook_id')
     .order(sortBy, { ascending })
     .limit(limit)
 
@@ -382,6 +385,24 @@ export const getConversation = async id => {
     )
     .eq('id', id)
     .single()
+  return { data, error }
+}
+
+export const getConversationByScrapbookId = async scrapbookId => {
+  const supabase = getSupabaseClient()
+  if (!supabase) return { data: null, error: new Error('Supabase not configured') }
+  if (!scrapbookId) return { data: null, error: null }
+  
+  const { data, error } = await supabase
+    .from(table)
+    .select(
+      'id,title,title_emojis,created_at,updated_at,space_id,api_provider,is_favorited,last_agent_id,agent_selection_mode,scrapbook_id'
+    )
+    .eq('scrapbook_id', scrapbookId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+    
   return { data, error }
 }
 
@@ -567,6 +588,7 @@ export const listExpertConversations = async (options = {}) => {
         'id,title,title_emojis,created_at,updated_at,space_id,api_provider,is_favorited,last_agent_id,scrapbook_id',
       )
       .in('id', uniqueConversationIds)
+      .isNull('scrapbook_id')
 
     if (search && search.trim()) {
       convQuery = convQuery.ilike('title', `%${search.trim()}%`)

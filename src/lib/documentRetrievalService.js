@@ -13,6 +13,26 @@ const MIN_SIMILARITY_THRESHOLD = 0.2
 const NEIGHBOR_CHUNK_WINDOW = 1
 const MAX_CHUNKS_PER_SECTION = 4
 
+export const buildNeighborChunkKey = ({ documentId, sectionId, chunkIndex }) =>
+  `${String(documentId || '')}:${String(sectionId || '')}:${Number(chunkIndex)}`
+
+export const sortRetrievedChunks = chunks =>
+  [...(chunks || [])].sort((a, b) => {
+    const docCompare = String(a.document_id || '').localeCompare(String(b.document_id || ''))
+    if (docCompare !== 0) return docCompare
+    const sectionCompare = String(a.section_id || '').localeCompare(String(b.section_id || ''))
+    if (sectionCompare !== 0) return sectionCompare
+    return Number(a.chunk_index || 0) - Number(b.chunk_index || 0)
+  })
+
+export const normalizeChunkFetchLimit = ({ requestedLimit, documentCount = 0 }) => {
+  if (Number.isFinite(requestedLimit) && requestedLimit > 0) {
+    return Number(requestedLimit)
+  }
+  const dynamic = Math.max(600, Number(documentCount || 0) * 360)
+  return Math.min(2000, dynamic)
+}
+
 const truncateText = (text, limit) => {
   const str = String(text || '').trim()
   if (!str) return ''
@@ -34,15 +54,21 @@ export const listDocumentChunksByDocumentIds = async (documentIds = [], options 
     return { data: [], error: new Error('Supabase not configured') }
   }
 
-  const { limit = DEFAULT_CHUNK_LIMIT } = options
+  const limit = normalizeChunkFetchLimit({
+    requestedLimit: options.limit,
+    documentCount: normalizedIds.length,
+  })
 
   const { data, error } = await supabase
     .from(CHUNKS_TABLE)
     .select('id,document_id,section_id,text,embedding,source_hint,chunk_index,title_path')
     .in('document_id', normalizedIds)
+    .order('document_id', { ascending: true })
+    .order('section_id', { ascending: true })
+    .order('chunk_index', { ascending: true })
     .limit(limit)
 
-  return { data: data || [], error }
+  return { data: sortRetrievedChunks(data || []), error }
 }
 
 export const listDocumentChunksByDocumentIdAndIndices = async (
@@ -78,7 +104,7 @@ export const listDocumentChunksByDocumentIdAndIndices = async (
 
   const { data, error } = await query
 
-  return { data: data || [], error }
+  return { data: sortRetrievedChunks(data || []), error }
 }
 
 export const matchDocumentChunksByEmbedding = async ({
@@ -345,7 +371,13 @@ export const fetchDocumentChunkContext = async ({
       const id = String(chunk.id)
       if (topIdSet.has(id)) return
       const doc = docMap.get(String(chunk.document_id))
-      neighborMap.set(`${chunk.document_id}:${chunk.chunk_index}`, {
+      neighborMap.set(
+        buildNeighborChunkKey({
+          documentId: chunk.document_id,
+          sectionId: chunk.section_id,
+          chunkIndex: chunk.chunk_index,
+        }),
+        {
         id,
         documentId: String(chunk.document_id),
         sectionId: chunk.section_id ? String(chunk.section_id) : null,
@@ -358,7 +390,8 @@ export const fetchDocumentChunkContext = async ({
         isNeighbor: true,
         score: null,
         similarity: null,
-      })
+      },
+      )
     })
 
     const ordered = []
@@ -367,7 +400,11 @@ export const fetchDocumentChunkContext = async ({
       const docId = String(source.documentId)
       const baseIndex = Number(source.chunkIndex)
       for (let offset = -NEIGHBOR_CHUNK_WINDOW; offset < 0; offset += 1) {
-        const key = `${docId}:${baseIndex + offset}`
+        const key = buildNeighborChunkKey({
+          documentId: docId,
+          sectionId: source.sectionId,
+          chunkIndex: baseIndex + offset,
+        })
         const neighbor = neighborMap.get(key)
         if (neighbor && !addedIds.has(neighbor.id)) {
           ordered.push(neighbor)
@@ -379,7 +416,11 @@ export const fetchDocumentChunkContext = async ({
         addedIds.add(source.id)
       }
       for (let offset = 1; offset <= NEIGHBOR_CHUNK_WINDOW; offset += 1) {
-        const key = `${docId}:${baseIndex + offset}`
+        const key = buildNeighborChunkKey({
+          documentId: docId,
+          sectionId: source.sectionId,
+          chunkIndex: baseIndex + offset,
+        })
         const neighbor = neighborMap.get(key)
         if (neighbor && !addedIds.has(neighbor.id)) {
           ordered.push(neighbor)

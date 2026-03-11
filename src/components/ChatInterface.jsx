@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useShallow } from 'zustand/react/shallow'
 import useChatStore from '../lib/chatStore'
@@ -48,8 +48,8 @@ import {
 import { listToolsViaBackend } from '../lib/backendClient'
 import { getLanguageInstruction, applyLanguageInstructionToText } from '../lib/chat/prompts'
 import { getModelConfigForConversation } from '../lib/chat/modelConfig'
-import ScrapbookContextBanner from './ScrapbookContextBanner'
 import { getScrapbookEntryById } from '../lib/scrapbookService'
+import { SCRAPBOOK_AGENT_ID } from '../lib/systemAgents'
 
 const DOCUMENT_CONTEXT_MAX_TOTAL = 12000
 const DOCUMENT_CONTEXT_MAX_PER_DOC = 4000
@@ -148,6 +148,7 @@ const ChatInterface = ({
   MessageListComponent = MessageList,
   systemContextPrefix = '',
   scrapbookEntry = null,
+  isEmbedded = false,
 }) => {
   const normalizeTitleEmojis = value => {
     if (Array.isArray(value)) {
@@ -650,6 +651,9 @@ const ChatInterface = ({
 
     // Reset the sync tracking if we're switching to a different conversation
     if (targetConversationId !== lastSyncedConversationIdRef.current) {
+      // Clear expert mode when switching conversations
+      setIsExpertMode(false)
+
       // Check if the store's conversationId is different from the target
       if (targetConversationId && targetConversationId !== conversationId) {
         setConversationId(targetConversationId)
@@ -697,10 +701,13 @@ const ChatInterface = ({
   }, [spaceAgents, defaultAgent, selectedAgentId, appAgents, displaySpace])
 
   const selectedAgent = useMemo(() => {
-    const agent =
-      selectableAgents.find(agent => String(agent.id) === String(selectedAgentId)) || null
+    // For scrapbook conversations, search all agents including hidden ones
+    // (Scrapbook Agent is isHidden: true so it won't appear in selectableAgents)
+    const isScrapbook = activeConversation?.scrapbook_id || scrapbookEntry?.id
+    const searchList = isScrapbook ? appAgents : selectableAgents
+    const agent = searchList.find(agent => String(agent.id) === String(selectedAgentId)) || null
     return agent
-  }, [selectableAgents, selectedAgentId])
+  }, [selectableAgents, selectedAgentId, appAgents, activeConversation?.scrapbook_id, scrapbookEntry?.id])
 
   const selectedDocuments = useMemo(() => {
     const idSet = new Set((selectedDocumentIds || []).map(id => String(id)))
@@ -1329,12 +1336,15 @@ const ChatInterface = ({
         const shouldSyncAgent =
           manualAgentSelectionRef.current.conversationId !== activeConversation.id
         if (shouldSyncAgent) {
+          const isScrapbook = activeConversation?.scrapbook_id || scrapbookEntry?.id
           const agentSelectionMode =
             activeConversation?.agent_selection_mode ??
             activeConversation?.agentSelectionMode ??
-            'auto'
+            (isScrapbook ? 'manual' : 'auto')
           setIsAgentAutoMode(agentSelectionMode !== 'manual')
-          const resolvedAgentId = conversationLastAgentId || null
+          const resolvedAgentId =
+            conversationLastAgentId ||
+            (isScrapbook ? SCRAPBOOK_AGENT_ID : null)
           if (resolvedAgentId) {
             setSelectedAgentId(resolvedAgentId)
             setPendingAgentId(resolvedAgentId)
@@ -1660,7 +1670,9 @@ const ChatInterface = ({
       const thinkingActive =
         thinkingModeValue === 'deep' ? true : thinkingModeValue === 'fast' ? false : false
       const relatedActive = togglesOverride ? togglesOverride.related : isRelatedEnabled
-      const expertModeActive = togglesOverride ? togglesOverride.expertMode : isExpertMode
+      // Expert mode only applies to the first message (when togglesOverride is provided)
+      // Subsequent messages are normal conversation
+      const expertModeActive = togglesOverride?.expertMode ?? false
       const searchTool = togglesOverride ? togglesOverride.searchTool : resolvedSearchToolIds
       const searchBackendValue = togglesOverride ? togglesOverride.searchBackend : searchBackend
       const exaSearchCategoryValue =
@@ -1721,6 +1733,14 @@ const ChatInterface = ({
       let skipDocumentRetrieval = false
 
       if (selectedDocuments.length > 0) {
+        const docsMissingEmbeddingMetadata = selectedDocuments.filter(
+          doc => !String(doc?.embedding_model || '').trim(),
+        )
+        if (docsMissingEmbeddingMetadata.length > 0) {
+          toast.error(t('chatInterface.documentEmbeddingMissingMetadata'))
+          skipDocumentRetrieval = true
+        }
+
         const embeddingConfig = resolveEmbeddingConfig()
         const currentModelKey = buildEmbeddingModelKey(embeddingConfig)
         const docModelKeys = selectedDocuments
@@ -1753,21 +1773,29 @@ const ChatInterface = ({
             thinking: thinkingActive,
             thinkingMode: thinkingModeValue,
             expertMode: expertModeActive,
+            teamMode: togglesOverride?.teamMode || null,
+            leaderAgentId: togglesOverride?.leaderAgentId || null,
+            memberAgentIds: togglesOverride?.memberAgentIds || null,
             related: relatedActive,
+            scrapbook_id: activeConversation?.scrapbook_id || null,
           },
           settings,
           spaceInfo: { selectedSpace: displaySpace || selectedSpace, isManualSpaceSelection },
           selectedAgent: agentForSend,
           isAgentAutoMode,
           agents: appAgents,
-          // Inject scrapbook context as hidden context on first message only (not shown in UI)
-          documentContextAppend:
-            systemContextPrefix && !systemContextUsedRef.current && messages.length === 0
-              ? (() => {
-                  systemContextUsedRef.current = true
-                  return systemContextPrefix
-                })()
-              : '',
+          // For scrapbook conversations: always inject note context so AI never forgets it.
+          // For normal conversations: inject only on first message to avoid token waste.
+          documentContextAppend: systemContextPrefix
+            ? activeConversation?.scrapbook_id
+              ? systemContextPrefix
+              : (!systemContextUsedRef.current && messages.length === 0
+                  ? (() => {
+                      systemContextUsedRef.current = true
+                      return systemContextPrefix
+                    })()
+                  : '')
+            : '',
           documentSources: baseDocumentSources,
           documentSelection: {
             documents: selectedDocuments,
@@ -1775,13 +1803,19 @@ const ChatInterface = ({
           },
           editingInfo,
           callbacks: {
-            onTitleAndSpaceGenerated,
+            // Skip title auto-generation for scrapbook conversations - title is already set to note title
+            onTitleAndSpaceGenerated: activeConversation?.scrapbook_id ? null : onTitleAndSpaceGenerated,
             onSpaceResolved: space => {
               if (isSpaceSelectionLocked) return
               setSelectedSpace(space)
               setIsManualSpaceSelection(false)
             },
             onConversationReady: async conversation => {
+              // Sync ID back to parent if this is a scrapbook entry
+              if (activeConversation?.scrapbook_id && typeof onTitleAndSpaceGenerated === 'function') {
+                onTitleAndSpaceGenerated(conversation)
+              }
+
               const pendingIds = pendingDocumentIdsRef.current || []
               if (!conversation?.id || pendingIds.length === 0) return
               const { error } = await setConversationDocuments(conversation.id, pendingIds)
@@ -1813,7 +1847,6 @@ const ChatInterface = ({
       isSearchActive,
       thinkingMode,
       isRelatedEnabled,
-      isExpertMode,
       isLoading,
       editingIndex,
       editingTargetId,
@@ -2323,12 +2356,11 @@ const ChatInterface = ({
   return (
     <div
       className={clsx(
-        'bg-background text-foreground relative isolate flex h-full flex-1 flex-col overflow-hidden transition-all duration-300 sm:px-4',
-        isSidebarPinned ? 'md:ml-78' : 'md:ml-16',
-        // Fixed left shift for large screens
-        // 'xl:-translate-x-30',
-        // Dynamic movement follows sidebar state for small screens
-        !isXLScreen && 'sidebar-shift',
+        'bg-background text-foreground relative isolate flex flex-col overflow-hidden transition-all duration-300',
+        !isEmbedded && 'h-[100dvh] sm:px-4',
+        isEmbedded && 'h-full',
+        !isEmbedded && (isSidebarPinned ? 'md:ml-78' : 'md:ml-16'),
+        !isEmbedded && !isXLScreen && 'sidebar-shift',
       )}
     >
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -2338,28 +2370,30 @@ const ChatInterface = ({
       </div>
       <div className="relative flex min-h-0 w-full flex-1 flex-col">
         {/* Title Bar */}
-        <ChatHeader
-          toggleSidebar={toggleSidebar}
-          isMetaLoading={isMetaLoading}
-          isTitleLoading={isTitleLoading}
-          displaySpace={displaySpace}
-          availableSpaces={availableSpaces}
-          selectedSpace={selectedSpace}
-          isSelectorOpen={isSelectorOpen}
-          setIsSelectorOpen={setIsSelectorOpen}
-          selectorRef={selectorRef}
-          isDeepResearchConversation={false}
-          isSpaceSelectionLocked={isSpaceSelectionLocked}
-          onSelectSpace={handleSelectSpace}
-          onClearSpaceSelection={handleClearSpaceSelection}
-          conversationTitle={conversationTitle}
-          conversationTitleEmojis={conversationTitleEmojis}
-          isRegeneratingTitle={isRegeneratingTitle}
-          onRegenerateTitle={handleRegenerateTitle}
-          messages={messages}
-          isTimelineSidebarOpen={isTimelineSidebarOpen}
-          onToggleTimeline={() => setIsTimelineSidebarOpen(true)}
-        />
+        {!isEmbedded && (
+          <ChatHeader
+            toggleSidebar={toggleSidebar}
+            isMetaLoading={isMetaLoading}
+            isTitleLoading={isTitleLoading}
+            displaySpace={displaySpace}
+            availableSpaces={availableSpaces}
+            selectedSpace={selectedSpace}
+            isSelectorOpen={isSelectorOpen}
+            setIsSelectorOpen={setIsSelectorOpen}
+            selectorRef={selectorRef}
+            isDeepResearchConversation={false}
+            isSpaceSelectionLocked={isSpaceSelectionLocked}
+            onSelectSpace={handleSelectSpace}
+            onClearSpaceSelection={handleClearSpaceSelection}
+            conversationTitle={conversationTitle}
+            conversationTitleEmojis={conversationTitleEmojis}
+            isRegeneratingTitle={isRegeneratingTitle}
+            onRegenerateTitle={handleRegenerateTitle}
+            messages={messages}
+            isTimelineSidebarOpen={isTimelineSidebarOpen}
+            onToggleTimeline={() => setIsTimelineSidebarOpen(true)}
+          />
+        )}
 
         {/* Messages Scroll Container */}
         <div
@@ -2423,10 +2457,7 @@ const ChatInterface = ({
           className="z-50 flex w-full shrink-0 justify-center rounded-b-3xl bg-transparent px-2 pt-0 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-0"
         >
           <div className="relative w-full max-w-3xl">
-            {/* Scrapbook context banner - shown above input before first message */}
-            {currentScrapbookEntry && messages.length === 0 && (
-              <ScrapbookContextBanner scrapbookEntry={currentScrapbookEntry} variant="input" />
-            )}
+            {/* Scrapbook context banner removed as redundant in embedded mode */}
 
             {/* Scroll to bottom button - positioned relative to input area */}
 
@@ -2443,128 +2474,129 @@ const ChatInterface = ({
               </button>
             )}
 
-            <ChatInputBar
-              variant="capsule"
-              isLoading={isLoading}
-              isConversationLocked={hasPendingHitlInput}
-              onStop={stopGeneration}
-              apiProvider={effectiveProvider}
-              isSearchActive={isSearchActive}
-              thinkingMode={thinkingMode}
-              isThinkingLocked={isThinkingLocked}
-              agents={selectableAgents}
-              agentsLoading={isAgentsLoading}
-              agentsLoadingLabel={agentsLoadingLabel}
-              agentsLoadingDots={agentLoadingDots}
-              selectedAgent={inputAgent}
-              isAgentAutoMode={inputAgentAutoMode}
-              onAgentSelect={agent => {
-                setSelectedAgentId(agent?.id || null)
-                setIsAgentAutoMode(false)
-                setPendingAgentId(null)
-                setIsAgentSelectorOpen(false)
-                const targetConversationId = activeConversation?.id || conversationId
-                manualAgentSelectionRef.current = {
-                  conversationId: targetConversationId || null,
-                  mode: 'manual',
-                  agentId: agent?.id || null,
-                }
-                if (targetConversationId) {
-                  updateConversation(targetConversationId, {
-                    last_agent_id: agent?.id || null,
-                    agent_selection_mode: 'manual',
-                  })
-                    .then(({ data, error }) => {
-                      if (error) throw error
-                      notifyConversationPatched(
-                        data || {
-                          id: targetConversationId,
-                          last_agent_id: agent?.id || null,
-                          agent_selection_mode: 'manual',
-                        },
-                      )
+            <div className={clsx("flex flex-col gap-2", isEmbedded ? "pb-6" : "pb-2")}>
+              <ChatInputBar
+                variant="capsule"
+                isLoading={isLoading}
+                isConversationLocked={hasPendingHitlInput}
+                onStop={stopGeneration}
+                apiProvider={effectiveProvider}
+                isSearchActive={isSearchActive}
+                thinkingMode={thinkingMode}
+                isThinkingLocked={isThinkingLocked}
+                agents={selectableAgents}
+                agentsLoading={isAgentsLoading}
+                agentsLoadingLabel={agentsLoadingLabel}
+                agentsLoadingDots={agentLoadingDots}
+                selectedAgent={inputAgent}
+                isAgentAutoMode={inputAgentAutoMode}
+                onAgentSelect={agent => {
+                  setSelectedAgentId(agent?.id || null)
+                  setIsAgentAutoMode(false)
+                  setPendingAgentId(null)
+                  setIsAgentSelectorOpen(false)
+                  const targetConversationId = activeConversation?.id || conversationId
+                  manualAgentSelectionRef.current = {
+                    conversationId: targetConversationId || null,
+                    mode: 'manual',
+                    agentId: agent?.id || null,
+                  }
+                  if (targetConversationId) {
+                    updateConversation(targetConversationId, {
+                      last_agent_id: agent?.id || null,
+                      agent_selection_mode: 'manual',
                     })
-                    .catch(err => console.error('Failed to update agent selection mode:', err))
-                }
-              }}
-              onAgentAutoModeToggle={() => {
-                setSelectedAgentId(null) // Clear selected agent when entering auto mode
-                setIsAgentAutoMode(true)
-                setPendingAgentId(null)
-                setIsAgentSelectorOpen(false)
-                const targetConversationId = activeConversation?.id || conversationId
-                manualAgentSelectionRef.current = {
-                  conversationId: targetConversationId || null,
-                  mode: 'auto',
-                  agentId: null,
-                }
-                if (targetConversationId) {
-                  updateConversation(targetConversationId, {
-                    last_agent_id: null,
-                    agent_selection_mode: 'auto',
-                  })
-                    .then(({ data, error }) => {
-                      if (error) throw error
-                      notifyConversationPatched(
-                        data || {
-                          id: targetConversationId,
-                          last_agent_id: null,
-                          agent_selection_mode: 'auto',
-                        },
-                      )
+                      .then(({ data, error }) => {
+                        if (error) throw error
+                        notifyConversationPatched(
+                          data || {
+                            id: targetConversationId,
+                            last_agent_id: agent?.id || null,
+                            agent_selection_mode: 'manual',
+                          },
+                        )
+                      })
+                      .catch(err => console.error('Failed to update agent selection mode:', err))
+                  }
+                }}
+                onAgentAutoModeToggle={() => {
+                  setSelectedAgentId(null) // Clear selected agent when entering auto mode
+                  setIsAgentAutoMode(true)
+                  setPendingAgentId(null)
+                  setIsAgentSelectorOpen(false)
+                  const targetConversationId = activeConversation?.id || conversationId
+                  manualAgentSelectionRef.current = {
+                    conversationId: targetConversationId || null,
+                    mode: 'auto',
+                    agentId: null,
+                  }
+                  if (targetConversationId) {
+                    updateConversation(targetConversationId, {
+                      last_agent_id: null,
+                      agent_selection_mode: 'auto',
                     })
-                    .catch(err => console.error('Failed to update agent selection mode:', err))
+                      .then(({ data, error }) => {
+                        if (error) throw error
+                        notifyConversationPatched(
+                          data || {
+                            id: targetConversationId,
+                            last_agent_id: null,
+                            agent_selection_mode: 'auto',
+                          },
+                        )
+                      })
+                      .catch(err => console.error('Failed to update agent selection mode:', err))
+                  }
+                }}
+                isAgentSelectorOpen={isAgentSelectorOpen}
+                onAgentSelectorToggle={() => {
+                  setIsAgentSelectorOpen(prev => !prev)
+                }}
+                agentSelectorRef={agentSelectorRef}
+                onToggleSearch={toggleSearchMenu}
+                searchBackend={searchBackend}
+                searchBackendOptions={resolvedSearchBackendOptions}
+                selectedExaSearchTools={selectedExaSearchTools}
+                exaSearchOptions={resolvedExaSearchOptions}
+                selectedSearchTools={selectedSearchTools}
+                searchOptions={ACADEMIC_SEARCH_TOOL_OPTIONS}
+                isSearchMenuOpen={isSearchMenuOpen}
+                onSearchToolSelect={handleSelectSearchTool}
+                onExaSearchToolSelect={handleSelectExaSearchTool}
+                onSearchBackendChange={handleSelectSearchBackend}
+                onSearchClear={handleClearSearchSelection}
+                onSearchMenuClose={handleSearchMenuClose}
+                onThinkingModeChange={setThinkingMode}
+                quotedText={quotedText}
+                onQuoteClear={() => {
+                  setQuotedText(null)
+                  setQuoteContext(null)
+                  quoteTextRef.current = ''
+                  quoteSourceRef.current = ''
+                }}
+                onSend={(text, attachments) =>
+                  handleSendMessage(text, attachments, null, { skipMeta: false })
                 }
-              }}
-              isAgentSelectorOpen={isAgentSelectorOpen}
-              onAgentSelectorToggle={() => {
-                setIsAgentSelectorOpen(prev => !prev)
-              }}
-              agentSelectorRef={agentSelectorRef}
-              onToggleSearch={toggleSearchMenu}
-              searchBackend={searchBackend}
-              searchBackendOptions={resolvedSearchBackendOptions}
-              selectedExaSearchTools={selectedExaSearchTools}
-              exaSearchOptions={resolvedExaSearchOptions}
-              selectedSearchTools={selectedSearchTools}
-              searchOptions={ACADEMIC_SEARCH_TOOL_OPTIONS}
-              isSearchMenuOpen={isSearchMenuOpen}
-              onSearchToolSelect={handleSelectSearchTool}
-              onExaSearchToolSelect={handleSelectExaSearchTool}
-              onSearchBackendChange={handleSelectSearchBackend}
-              onSearchClear={handleClearSearchSelection}
-              onSearchMenuClose={handleSearchMenuClose}
-              onThinkingModeChange={setThinkingMode}
-              isExpertMode={isExpertMode}
-              onToggleExpertMode={() => setIsExpertMode(prev => !prev)}
-              quotedText={quotedText}
-              onQuoteClear={() => {
-                setQuotedText(null)
-                setQuoteContext(null)
-                quoteTextRef.current = ''
-                quoteSourceRef.current = ''
-              }}
-              onSend={(text, attachments) =>
-                handleSendMessage(text, attachments, null, { skipMeta: false })
-              }
-              editingSeed={editingSeed}
-              onEditingClear={() => {
-                setEditingIndex(null)
-                setEditingSeed({ text: '', attachments: [] })
-              }}
-              showEditing={editingIndex !== null && messages[editingIndex]}
-              editingLabel={
-                editingIndex !== null ? extractUserQuestion(messages[editingIndex]) : ''
-              }
-              scrollToBottom={scrollToBottom}
-              spacePrimaryAgentId={spacePrimaryAgentId}
-              documents={spaceDocuments}
-              documentsLoading={documentsLoading}
-              selectedDocumentIds={selectedDocumentIds}
-              onToggleDocument={handleToggleDocument}
-            />
-            <div className="text-center text-[10px] text-gray-400 sm:text-xs dark:text-gray-500">
-              {t('chatInterface.warning')}
+                editingSeed={editingSeed}
+                onEditingClear={() => {
+                  setEditingIndex(null)
+                  setEditingSeed({ text: '', attachments: [] })
+                }}
+                showEditing={editingIndex !== null && messages[editingIndex]}
+                editingLabel={
+                  editingIndex !== null ? extractUserQuestion(messages[editingIndex]) : ''
+                }
+                scrollToBottom={scrollToBottom}
+                spacePrimaryAgentId={spacePrimaryAgentId}
+                documents={spaceDocuments}
+                documentsLoading={documentsLoading}
+                selectedDocumentIds={selectedDocumentIds}
+                onToggleDocument={handleToggleDocument}
+                isEmbedded={isEmbedded}
+              />
+              <div className="text-center text-[10px] text-gray-400 sm:text-xs dark:text-gray-500">
+                {t('chatInterface.warning')}
+              </div>
             </div>
           </div>
         </div>

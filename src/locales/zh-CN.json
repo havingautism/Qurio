@@ -1,4 +1,4 @@
-﻿{
+{
   "common": {
     "loading": "加载中...",
     "cancel": "取消",
@@ -81,6 +81,12 @@
     "wikipediaSearchInfo": "搜索维基百科并返回摘要。",
     "yfinanceTools": "Yahoo Finance 工具包",
     "yfinanceToolsInfo": "启用 Yahoo Finance 工具，支持股价、公司概况、基本面、新闻和历史数据。",
+    "hackerNewsTools": "Hacker News 工具包",
+    "hackerNewsToolsInfo": "启用 Hacker News 工具，用于获取热门帖子和用户公开资料。",
+    "hackerNewsTopStories": "Hacker News 热门帖子",
+    "hackerNewsTopStoriesInfo": "获取 Hacker News 当前热门帖子。",
+    "hackerNewsUserDetails": "Hacker News 用户资料",
+    "hackerNewsUserDetailsInfo": "获取 Hacker News 用户的公开资料信息。",
     "stockPrice": "股价",
     "stockPriceInfo": "从 Yahoo Finance 获取当前股价。",
     "companyInfo": "公司信息",
@@ -237,6 +243,26 @@
     "noDeepResearchConversations": "暂无深度研究会话",
     "noExpertConversations": "暂无专家模式会话",
     "noBookmarks": "暂无收藏的对话。",
+    "expertMode": {
+      "title": "专家模式",
+      "teamMode": "协作模式",
+      "modes": {
+        "coordinate": "智能协作",
+        "coordinateDesc": "所有专家共同讨论并达成共识，适合需要深度协作的复杂问题。",
+        "route": "智能路由",
+        "routeDesc": "根据问题自动分配给最合适的专家，适合方向明确的专项任务。",
+        "broadcast": "并行响应",
+        "broadcastDesc": "所有专家同时独立作答并由组长汇总，适合全方位视角的探索。",
+        "tasks": "分步执行",
+        "comingSoon": "即将开放"
+      },
+      "teamComposition": "专家团队构成",
+      "leader": "组长 (Leader)",
+      "member": "专家 (Member)",
+      "addMember": "添加专家",
+      "noAgents": "该空间暂无专家可以分派。",
+      "expertRole": "专家角色"
+    },
     "today": "今天",
     "yesterday": "昨天",
     "previous7Days": "过去 7 天",
@@ -268,7 +294,11 @@
       "streaming": "正在传输",
       "complete": "已完成"
     },
-    "agents": "智能体"
+    "agents": "智能体",
+    "role": {
+      "leader": "组长 (Leader)",
+      "member": "专家 (Member)"
+    }
   },
   "notificationCenter": {
     "title": "邮件通知",
@@ -306,6 +336,7 @@
   },
   "settings": {
     "title": "设置",
+    "sectionLabel": "设置",
     "modelConfig": "模型配置",
     "modelConfigDesc": "配置用于随手记任务（如总结和标题生成）的 AI 模型。",
     "selectFromList": "从列表选择",
@@ -411,6 +442,17 @@
       "email": "邮件通知",
       "advanced": "高级",
       "about": "关于"
+    },
+    "menuDescriptions": {
+      "general": "管理应用基础配置、语言以及服务连接。",
+      "model": "配置聊天模型、向量模型以及各厂商模型选择。",
+      "chat": "调整对话行为，包括建议问题和上下文处理方式。",
+      "memory": "设置长期记忆、向量索引和检索测试。",
+      "interface": "调整主题、界面密度和显示偏好。",
+      "account": "管理远程同步、凭证和数据库相关账户设置。",
+      "email": "连接邮箱并配置通知同步策略。",
+      "advanced": "开发者向和底层运行参数设置。",
+      "about": "查看产品信息、版本细节和相关链接。"
     },
     "interfaceLanguage": "界面语言",
     "interfaceLanguageHint": "目前仅支持英语和中文。",
@@ -715,7 +757,7 @@
     "about": {
       "title": "关于",
       "beta": "测试版",
-      "description": "一个专为清晰、速度和精确性而设计的高级 AI 助手界面。采用最新的网络技术构建，带来无缝体验。",
+      "description": "Qurio 不是普通聊天壳，而是一台面向研究、执行与交付的 AI 工作站：多模型协同、Agent 编排、Deep Research、文档检索、长期记忆、MCP 与工具调用，全部收进一个高密度工作流里。",
       "designedAndBuiltBy": "设计与构建",
       "version": "v0.1.0 • © 2025 版权所有"
     },
@@ -819,6 +861,13 @@
       "create": "创建",
       "edit": "编辑"
     },
+    "role": {
+      "leader": "负责人",
+      "member": "成员"
+    },
+    "sidebarDescription": "在这里打造真正能干活的 Agent：定义身份与风格，指定主模型与轻量模型，收紧工具权限，挂载技能，把一个提示词升级成完整执行单元。",
+    "sectionLabel": "配置区",
+    "overviewLabel": "总览",
     "tabs": {
       "general": "通用",
       "model": "模型",
@@ -826,14 +875,53 @@
       "tools": "工具",
       "skills": "技能"
     },
+    "tabDescriptions": {
+      "general": "定义智能体的身份、视觉呈现和系统指令。",
+      "model": "选择这个智能体使用的主模型和轻量模型。",
+      "personalization": "控制回复语气、语言以及高级生成参数。",
+      "tools": "管理智能体在执行过程中可调用的工具。",
+      "skills": "挂载可复用的技能，扩展智能体工作流。"
+    },
     "general": {
       "avatar": "头像",
+      "avatarSettings": "身份与头像",
+      "avatarType": "类型",
+      "avatarTypeEmoji": "Emoji",
+      "avatarTypeImage": "图片",
+      "avatarShape": "形状",
+      "avatarShapeRounded": "圆角方形",
+      "avatarShapeCircle": "圆形",
+      "emojiAvatar": "Emoji 头像",
+      "imageAvatar": "图片头像",
+      "chooseEmoji": "选择 Emoji",
+      "uploadImage": "上传图片",
+      "recrop": "重新裁剪",
+      "remove": "移除",
+      "avatarHelp": "上传图片后可裁剪为 1:1 头像，并选择圆形或圆角方形外框。",
       "name": "名称",
       "namePlaceholder": "请输入名称...",
       "description": "描述",
       "descriptionPlaceholder": "请输入描述...",
+      "bannerTitle": "会话 Banner",
+      "bannerDisplayMode": "展示方式",
+      "bannerModeNone": "关闭",
+      "bannerModeManual": "手动",
+      "bannerHelp": "普通会话顶部会展示常驻 Banner，视觉上参考 Notion 的 cover 样式。目前支持手动上传。",
+      "selectBanner": "选择 Banner",
+      "previewBanner": "预览效果",
+      "removeBanner": "移除 Banner",
+      "bannerImageAlt": "Banner 原图",
+      "bannerEmpty": "选择一张会在会话中长期显示的 Banner 图片。",
+      "designPrinciplesLabel": "布局逻辑",
+      "designPrinciplesTitle": "先总结智能体，再进入分组设置，结构更清晰。",
+      "designPrinciplesBody": "这个区域先给出身份总览，再把设置分成身份、外观和指令三类，减少跳跃式编辑带来的认知负担。",
       "systemPrompt": "系统提示词",
       "systemPromptPlaceholder": "请输入系统提示词..."
+    },
+    "generalHighlights": {
+      "identity": "先定义角色、名称和定位，再去调其他参数。",
+      "appearance": "头像和 Banner 保持轻量配置，但要有一致的视觉表达。",
+      "instructions": "系统提示词适合写长期稳定规则，不适合写一次性任务。"
     },
     "defaults": {
       "name": "默认Agent",
@@ -900,6 +988,7 @@
     "actions": {
       "delete": "删除",
       "cancel": "取消",
+      "processing": "处理中...",
       "saving": "保存中...",
       "save": "保存",
       "create": "创建"
@@ -907,9 +996,11 @@
     "tools": {
       "title": "工具权限",
       "hint": "选择该智能体可调用的本地工具。",
+      "httpCustomGroup": "HTTP 自定义工具",
       "apiRequiredHint": "需先在设置中配置 {{provider}} API Key。",
       "loading": "正在加载工具...",
       "empty": "暂无可用工具。",
+      "unknownServer": "未知服务",
       "categories": {
         "math": "数学",
         "time": "时间",
@@ -917,6 +1008,7 @@
         "json": "JSON",
         "web": "网页",
         "search": "搜索",
+        "news": "新闻",
         "agno": "Agno 工具",
         "custom": "MCPs",
         "other": "其他"
@@ -927,7 +1019,57 @@
       "nameDuplicate": "该智能体名称已存在"
     },
     "errors": {
-      "saveFailed": "保存失败"
+      "saveFailed": "保存失败",
+      "loadImageFailed": "图片加载失败。",
+      "unknownError": "未知错误",
+      "avatarImageProcessFailed": "头像图片处理失败。",
+      "bannerImageProcessFailed": "Banner 图片处理失败。",
+      "avatarCropFailed": "头像裁剪失败。",
+      "bannerCropFailed": "Banner 裁剪失败。"
+    },
+    "preview": {
+      "untitled": "未命名智能体",
+      "emptyDescription": "补充一句简短说明，让用户一眼知道这个智能体是做什么的。",
+      "identity": "身份",
+      "surface": "外观",
+      "banner": "Banner",
+      "bannerPreviewTitle": "Banner 预览",
+      "bannerPreviewDescription": "对比桌面端与移动端中的实际会话展示效果。",
+      "desktop": "桌面端",
+      "mobile": "移动端",
+      "providerFallback": "供应商",
+      "defaultModelFallback": "默认模型",
+      "agentFallback": "智能体",
+      "bannerImageFallback": "智能体 Banner"
+    },
+    "crop": {
+      "avatarTitle": "裁剪头像",
+      "avatarDescription": "调整缩放和位置，导出结果为 1:1 头像。",
+      "bannerTitle": "裁剪 Banner",
+      "bannerDescription": "调整横幅构图，预览会同步展示会话里最终的信息卡遮挡效果。",
+      "zoom": "缩放",
+      "horizontal": "水平位置",
+      "vertical": "垂直位置",
+      "avatarFrameLabel": "当前头像框：{{shape}}",
+      "avatarSourceAlt": "头像裁剪原图",
+      "bannerSourceAlt": "Banner 裁剪原图",
+      "bannerHint": "可以直接拖拽图片调整构图。预览会为左下角的信息卡保留空间。",
+      "applyAvatar": "应用裁剪",
+      "applyBanner": "应用裁剪"
+    },
+    "personalization": {
+      "languageOptions": {
+        "English": "English",
+        "Chinese (Simplified)": "简体中文",
+        "Chinese (Traditional)": "繁體中文",
+        "Japanese": "日本語",
+        "Korean": "한국어",
+        "Spanish": "Español",
+        "French": "Français",
+        "German": "Deutsch",
+        "Portuguese": "Português",
+        "Italian": "Italiano"
+      }
     },
     "skills": {
       "title": "可用技能",
@@ -943,6 +1085,7 @@
       "deleteError": "删除技能失败",
       "deleteConfirmTitle": "删除技能？",
       "deleteConfirmMessage": "确定要删除此技能吗？依赖此技能的默认智能体可能会出现问题。",
+      "backToFiles": "返回文件列表",
       "idRequired": "技能 ID 为必填项",
       "nameRequired": "显示名称为必填项",
       "descriptionRequired": "简短描述为必填项",
@@ -1011,7 +1154,11 @@
       "installDependencyConfirmMessage": "这会为该 Skill 创建或复用隔离虚拟环境，并安装指定依赖包。",
       "installDependencySuccess": "依赖安装成功。",
       "installDependencyCreated": "依赖安装成功，已创建隔离环境。",
-      "installDependencyError": "依赖安装失败"
+      "installDependencyError": "依赖安装失败",
+      "scriptsLabel": "脚本",
+      "referencesLabel": "参考文件",
+      "noScripts": "尚未添加脚本",
+      "noReferences": "尚未添加参考文件"
     }
   },
   "deepResearch": {
@@ -1298,6 +1445,7 @@
     "documentsLoadFailed": "文档加载失败",
     "documentsSelectionLoadFailed": "已选文档加载失败",
     "documentsSelectionSaveFailed": "文档选择保存失败",
+    "documentEmbeddingMissingMetadata": "所选文档缺少 embedding 元数据，请删除后重新上传再检索。",
     "documentEmbeddingMismatch": "所选文档使用 {{model}} 生成向量，请切换到相同的 embedding 模型后再检索。",
     "documentEmbeddingMixedModels": "所选文档使用了多个 embedding 模型，请只选择使用同一模型的文档或重新生成向量。",
     "capabilities": "能力",
@@ -1374,6 +1522,9 @@
       "documentLoadFailed": "加载文档失败",
       "documentUploadLabel": "上传文档",
       "documentUploadHint": "支持：PDF、DOCX、TXT、MD、CSV、JSON。",
+      "documentEmbeddingConfigRequired": "上传文档前请先选择 embedding 提供商和模型。",
+      "documentEmbeddingKeyRequired": "当前 embedding 提供商缺少 API Key。",
+      "documentEmbeddingProviderUnsupported": "当前 embedding 提供商暂不支持文档索引。",
       "documentUploading": "正在解析并保存文档...",
       "documentUploaded": "文档已保存。",
       "documentChunking": "正在分段并准备向量...",
@@ -1543,6 +1694,16 @@
     "generate": {
       "failed": "生成失败",
       "missingApiKey": "未配置 API Key，请先在 Scrapbook 设置中配置模型。"
+    },
+    "settings": {
+      "title": "随手记 AI 设置",
+      "description": "配置用于随手记标题生成、摘要整理和内容归纳的模型与风格。",
+      "modelSection": "模型",
+      "modelHint": "选择用于随手记生成任务的模型。这里不使用 lite model。",
+      "globalDefaultHint": "开启后，随手记将直接跟随全局 Default Model。关闭后可单独指定随手记模型。",
+      "personalizationSection": "个性化",
+      "personalizationHint": "这些设置目前只影响随手记输出，不影响后续追问对话。",
+      "customInstructionPlaceholder": "补充你对随手记标题、摘要和整理方式的额外要求..."
     },
     "modal": {
       "addSuccess": "添加成功！",

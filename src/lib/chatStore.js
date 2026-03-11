@@ -877,9 +877,7 @@ const useChatStore = create((set, get) => ({
               expertResponses: finalResponses,
               expertActiveAgentId: currentLast.expertActiveAgentId || '',
             })
-            const databaseProviderKey = String(
-              settings?.databaseProvider || '',
-            ).toLowerCase()
+            const databaseProviderKey = String(settings?.databaseProvider || '').toLowerCase()
             const shouldPersistStreamBlocks =
               databaseProviderKey.includes('sqlite') ||
               databaseProviderKey.includes('supabase') ||
@@ -1324,6 +1322,15 @@ const useChatStore = create((set, get) => ({
     }
 
     // Step 6: Final fallback for agent (defensive)
+    if (toggles?.expertMode && toggles?.leaderAgentId) {
+      // In Expert Mode, if a leader is explicitly specified, use it
+      const expertLeader = (agents || []).find(a => String(a.id) === String(toggles.leaderAgentId))
+      if (expertLeader) {
+        resolvedAgent = expertLeader
+        callbacks?.onAgentResolved?.(expertLeader)
+      }
+    }
+
     if (!resolvedAgent) {
       const fallbackAgent = await resolveFallbackAgent(resolvedSpaceInfo?.selectedSpace, agents)
       if (fallbackAgent) {
@@ -1339,6 +1346,11 @@ const useChatStore = create((set, get) => ({
         // Expert mode defaults to reasoning-enabled execution per-agent.
         next.thinking = true
       }
+      // Debug: log toggles
+      console.log('[Debug] resolvedToggles:', {
+        leaderAgentId: next.leaderAgentId,
+        memberAgentIds: next.memberAgentIds,
+      })
       const fallbackAgent = agents?.find(agent => agent.isDefault)
       const modelConfig = getModelConfigForAgent(
         resolvedAgent || fallbackAgent,
@@ -1375,33 +1387,26 @@ const useChatStore = create((set, get) => ({
     const isExpertMode = Boolean(resolvedToggles?.expertMode)
     const selectedSpaceId = resolvedSpaceInfo?.selectedSpace?.id
 
-    console.log('[Debug] Expert Mode Check:', {
-      isExpertMode,
-      selectedSpaceId,
-      hasSpace: !!selectedSpaceId,
-    })
-
     if (isExpertMode && selectedSpaceId) {
       try {
-        console.log('[Debug] Listing space agents for space:', selectedSpaceId)
-        const { data: spaceAgentRows, error: spaceAgentsError } =
-          await listSpaceAgents(selectedSpaceId)
-
-        if (spaceAgentsError) {
-          console.error('[Debug] Failed to list space agents:', spaceAgentsError)
+        let expertAgents = []
+        if (Array.isArray(resolvedToggles?.memberAgentIds)) {
+          // Use explicitly selected members
+          const memberIds = resolvedToggles.memberAgentIds.map(id => String(id))
+          expertAgents = (agents || []).filter(agent => memberIds.includes(String(agent.id)))
         } else {
-          console.log('[Debug] Found space agents:', spaceAgentRows?.length)
+          // Fallback: use all agents in the space
+          const { data: spaceAgentRows, error: spaceAgentsError } =
+            await listSpaceAgents(selectedSpaceId)
+
+          if (!spaceAgentsError) {
+            const spaceAgentIds = (spaceAgentRows || []).map(item => String(item.agent_id))
+            expertAgents = (agents || []).filter(agent => spaceAgentIds.includes(String(agent.id)))
+          }
         }
 
-        const spaceAgentIds = (spaceAgentRows || []).map(item => String(item.agent_id))
-        const expertAgents = (agents || []).filter(agent =>
-          spaceAgentIds.includes(String(agent.id)),
-        )
-
-        console.log('[Debug] Expert Agents count:', expertAgents.length)
-
-        if (expertAgents.length >= 1) {
-          console.log('[Debug] Starting Expert Mode execution...')
+        if (expertAgents.length >= 0) {
+          // Allow 0 members if leader only (though UI usually forces team)
           const expertMessageLocalId = `expert-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
           appendAIPlaceholder(resolvedAgent, resolvedToggles, [], set)
           set(state => {
@@ -1412,7 +1417,7 @@ const useChatStore = create((set, get) => ({
                 ...updated[lastMsgIndex],
                 localId: expertMessageLocalId,
                 expertMode: true,
-                expertPlanLoading: true,
+                expertPlanLoading: false,
                 expertPlan: '',
                 expertResponses: [],
                 expertActiveAgentId: '',
@@ -1434,141 +1439,6 @@ const useChatStore = create((set, get) => ({
             })
           }
 
-          let expertPlan = ''
-          let plannedTasks = []
-          let expertPlanError = null
-          try {
-            const fallbackAgent = agents?.find(agent => agent.isDefault)
-            const planModelConfig = getModelConfigForAgent(
-              resolvedAgent,
-              settings,
-              'lite',
-              fallbackAgent,
-            )
-            const planProvider = getProvider(planModelConfig.provider)
-            const planCredentials = planProvider.getCredentials(settings)
-            if (planProvider.generateResearchPlan && planModelConfig.model) {
-              const prompt = buildExpertPlanPrompt({
-                question: text.trim(),
-                agents: expertAgents.map(agent => ({
-                  id: String(agent.id),
-                  name: String(agent.name || ''),
-                  description: String(agent.description || ''),
-                })),
-              })
-              const rawPlan = await planProvider.generateResearchPlan(
-                prompt,
-                planCredentials.apiKey,
-                planCredentials.baseUrl,
-                planModelConfig.model,
-                'general',
-              )
-              const parsed = parseJsonObjectFromText(rawPlan)
-              if (parsed && typeof parsed === 'object') {
-                expertPlan = typeof parsed.plan === 'string' ? parsed.plan : ''
-                if (Array.isArray(parsed.tasks)) {
-                  plannedTasks = parsed.tasks
-                    .map(item => ({
-                      agentId: String(item?.agentId || ''),
-                      task: String(item?.subQuestion || item?.task || '').trim(),
-                    }))
-                    .filter(item => item.agentId && item.task)
-                }
-              } else {
-                expertPlan = typeof rawPlan === 'string' ? rawPlan : ''
-              }
-            }
-          } catch (error) {
-            console.error('Expert plan generation failed:', error)
-            expertPlanError = error
-          }
-
-          if (expertPlanError) {
-            const errorMessage =
-              expertPlanError?.message || 'Expert plan generation failed. Please retry.'
-            updateExpertMessage(current => ({
-              ...current,
-              expertPlanLoading: false,
-              expertPlan: errorMessage,
-              expertResponses: [],
-              expertActiveAgentId: '',
-              content: '',
-              isError: true,
-            }))
-            set({ abortController: null, isLoading: false })
-            return
-          }
-
-          const expertAgentMap = new Map(expertAgents.map(agent => [String(agent.id), agent]))
-          const normalizedTasks = []
-          const seenAgentIds = new Set()
-          for (const task of plannedTasks) {
-            const agentId = String(task?.agentId || '')
-            const subTask = String(task?.task || '').trim()
-            if (!agentId || !subTask) continue
-            if (!expertAgentMap.has(agentId)) continue
-            if (seenAgentIds.has(agentId)) continue
-            seenAgentIds.add(agentId)
-            normalizedTasks.push({ agentId, task: subTask })
-          }
-          plannedTasks = normalizedTasks
-
-          if (plannedTasks.length === 0) {
-            const fallbackExpert = expertAgents[0]
-            if (fallbackExpert) {
-              plannedTasks = [
-                {
-                  agentId: String(fallbackExpert.id),
-                  task: `Focus only on the highest-impact core of this request and provide an actionable answer.`,
-                },
-              ]
-            }
-          }
-
-          const executionAgents = plannedTasks
-            .map(task => expertAgentMap.get(String(task.agentId)))
-            .filter(Boolean)
-          if (!expertPlan) {
-            expertPlan = plannedTasks
-              .map(task => {
-                const agent = executionAgents.find(item => String(item.id) === String(task.agentId))
-                return `${agent?.name || task.agentId}: ${task.task}`
-              })
-              .join('\n')
-          }
-
-          updateExpertMessage(current => ({
-            ...current,
-            expertPlanLoading: false,
-            expertPlan,
-            expertActiveAgentId: String(executionAgents[0]?.id || ''),
-            expertResponses: executionAgents.map(agent => ({
-              agentId: agent.id,
-              agentName: agent.name || '',
-              agentEmoji: agent.emoji || '',
-              task:
-                plannedTasks.find(task => String(task.agentId) === String(agent.id))?.task || '',
-              provider: null,
-              model: null,
-              status: 'pending',
-              content: '',
-              thought: '',
-              thoughtHistory: [],
-              toolCallHistory: [],
-              streamBlocks: expertPlan
-                ? [{ seq: 1, type: 'workflow_text', content: expertPlan }]
-                : [],
-              searchBackend:
-                typeof resolvedToggles?.searchBackend === 'string'
-                  ? resolvedToggles.searchBackend
-                  : null,
-              searchBackends: Array.isArray(resolvedToggles?.searchBackends)
-                ? resolvedToggles.searchBackends
-                : [],
-              error: null,
-            })),
-          }))
-
           const combinedContextAppend = [documentContextAppend].filter(Boolean).join('\n\n')
           const { payloadContent } = buildUserMessage(
             text,
@@ -1578,179 +1448,210 @@ const useChatStore = create((set, get) => ({
           )
           const userMessageForSend = { ...userMessage, content: payloadContent }
           const fallbackAgent = agents.find(agent => agent.isDefault)
-          const searchToolForExpert = resolvedToggles?.search ? resolvedToggles?.searchTool : []
+
+          // Get leader agent from toggles.leaderAgentId (not resolvedAgent which may be wrong)
+          const leaderAgent = resolvedToggles?.leaderAgentId
+            ? (agents || []).find(a => String(a.id) === String(resolvedToggles.leaderAgentId))
+            : null
+
+          updateExpertMessage(current => ({
+            ...current,
+            expertActiveAgentId: leaderAgent?.id || resolvedAgent?.id || 'leader',
+            expertResponses: [
+              {
+                agentId: leaderAgent?.id || resolvedAgent?.id || 'leader',
+                agentName: leaderAgent?.name || resolvedAgent?.name || 'Team',
+                agentEmoji: leaderAgent?.emoji || resolvedAgent?.emoji || '🤝',
+                agentRole: 'leader',
+                task: 'Leader Correlation',
+                provider: leaderAgent?.provider || null,
+                model: leaderAgent?.defaultModel || null,
+                status: 'pending',
+                content: '',
+                thought: '',
+                thoughtHistory: [],
+                toolCallHistory: [],
+                streamBlocks: [],
+                searchBackend:
+                  typeof resolvedToggles?.searchBackend === 'string'
+                    ? resolvedToggles.searchBackend
+                    : null,
+                searchBackends: Array.isArray(resolvedToggles?.searchBackends)
+                  ? resolvedToggles.searchBackends
+                  : [],
+                error: null,
+              },
+              ...expertAgents.map(agent => ({
+                agentId: agent.id,
+                agentName: agent.name || '',
+                agentEmoji: agent.emoji || '',
+                agentRole: 'member',
+                task: 'Expert Task',
+                provider: agent.provider || null,
+                model: agent.defaultModel || null,
+                status: 'pending',
+                content: '',
+                thought: '',
+                thoughtHistory: [],
+                toolCallHistory: [],
+                streamBlocks: [],
+                searchBackend:
+                  typeof resolvedToggles?.searchBackend === 'string'
+                    ? resolvedToggles.searchBackend
+                    : null,
+                searchBackends: Array.isArray(resolvedToggles?.searchBackends)
+                  ? resolvedToggles.searchBackends
+                  : [],
+                error: null,
+              })),
+            ],
+          }))
 
           const controller = new AbortController()
           set({ abortController: controller })
 
-          const runAgentTask = async agent => {
-            const searchBackends = Array.isArray(resolvedToggles?.searchBackends)
-              ? resolvedToggles.searchBackends.map(item => String(item)).filter(Boolean)
-              : typeof resolvedToggles?.searchBackend === 'string' && resolvedToggles.searchBackend
-                ? [String(resolvedToggles.searchBackend)]
-                : []
-            const searchBackend = searchBackends[0] || null
-            let streamSeq = (() => {
-              const currentMessages = get().messages || []
-              const currentExpertMessage = currentMessages.find(
-                msg => msg.role === 'ai' && msg.localId === expertMessageLocalId,
+          // Initialize per-agent stream states
+          const streamStates = new Map()
+          const getAgentStreamState = agentId => {
+            const key = agentId || 'leader'
+            if (!streamStates.has(key)) {
+              streamStates.set(key, {
+                streamSeq: 0,
+                thoughtStreamOrder: 0,
+                toolStreamOrder: 0,
+                toolStartedAt: new Map(),
+                lastReasoningAtMs: null,
+              })
+            }
+            return streamStates.get(key)
+          }
+
+          const extractChunkText = chunk => {
+            if (typeof chunk === 'string') return chunk
+            if (!chunk || typeof chunk !== 'object') return ''
+            if (chunk.type === 'reasoning') return ''
+            if (chunk.type === 'thought') return ''
+            if (chunk.type === 'thinking') return ''
+            if (chunk.type === 'tool_call' || chunk.type === 'tool_result') return ''
+            if (chunk.type === 'research_step' || chunk.type === 'form_request') return ''
+            if (chunk.type === 'text' && typeof chunk.content === 'string') return chunk.content
+            if (chunk.type && chunk.type !== 'text') return ''
+            if (typeof chunk.text === 'string') return chunk.text
+            if (typeof chunk.delta === 'string') return chunk.delta
+            if (typeof chunk.delta?.reasoning_content !== 'undefined') return ''
+            if (typeof chunk.reasoning_content !== 'undefined') return ''
+            if (typeof chunk.delta?.content === 'string') return chunk.delta.content
+            if (typeof chunk.message?.content === 'string') return chunk.message.content
+            if (typeof chunk.choices?.[0]?.delta?.content === 'string') {
+              return chunk.choices[0].delta.content
+            }
+            return ''
+          }
+
+          const extractReasoningText = chunk => {
+            if (!chunk || typeof chunk !== 'object') return ''
+            if (
+              chunk.type !== 'reasoning' &&
+              chunk.type !== 'thought' &&
+              chunk.type !== 'thinking'
+            ) {
+              return ''
+            }
+            if (typeof chunk.content === 'string') return chunk.content
+            if (typeof chunk.text === 'string') return chunk.text
+            if (typeof chunk.reasoning === 'string') return chunk.reasoning
+            if (typeof chunk.reasoning_content !== 'undefined') {
+              return readReasoningField(chunk.reasoning_content)
+            }
+            if (typeof chunk.delta === 'string') return chunk.delta
+            if (typeof chunk.delta?.reasoning_content !== 'undefined') {
+              return readReasoningField(chunk.delta.reasoning_content)
+            }
+            if (typeof chunk.delta?.content === 'string') return chunk.delta.content
+            if (typeof chunk.choices?.[0]?.delta?.reasoning_content !== 'undefined') {
+              return readReasoningField(chunk.choices[0].delta.reasoning_content)
+            }
+            return ''
+          }
+
+          let finalOverallResponses = []
+
+          const modelConfig = getModelConfigForAgent(
+            resolvedAgent,
+            settings,
+            'streamChatCompletion',
+            fallbackAgent,
+          )
+          const provider = getProvider(modelConfig.provider)
+
+          const runTeamTask = async () => {
+            return new Promise(async (resolve, reject) => {
+              const credentials = provider.getCredentials(settings)
+              const searchProvider = settings.searchProvider || 'tavily'
+              const searchBackends = Array.isArray(resolvedToggles?.searchBackends)
+                ? resolvedToggles.searchBackends.map(item => String(item)).filter(Boolean)
+                : typeof resolvedToggles?.searchBackend === 'string' &&
+                    resolvedToggles.searchBackend
+                  ? [String(resolvedToggles.searchBackend)]
+                  : []
+              const searchBackend = searchBackends[0] || null
+
+              let activeUserTools = []
+              try {
+                const allUserTools = await getUserTools()
+                const resolvedToolIds = (() => {
+                  if (Array.isArray(resolvedAgent?.toolIds) && resolvedAgent.toolIds.length > 0)
+                    return resolvedAgent.toolIds
+                  if (Array.isArray(resolvedAgent?.tool_ids) && resolvedAgent.tool_ids.length > 0)
+                    return resolvedAgent.tool_ids
+                  return []
+                })()
+                if (Array.isArray(allUserTools) && resolvedToolIds.length > 0) {
+                  activeUserTools = allUserTools
+                    .filter(t => resolvedToolIds.includes(String(t.id)))
+                    .filter(t => !t.config?.disabled)
+                }
+              } catch (e) {
+                console.error('Failed to resolve user tools', e)
+              }
+
+              const conversationMessagesWithPlan = buildConversationMessages(
+                historyForSend,
+                userMessageForSend,
+                resolvedAgent,
+                settings,
               )
-              const currentResponse = Array.isArray(currentExpertMessage?.expertResponses)
-                ? currentExpertMessage.expertResponses.find(
-                    item => String(item?.agentId) === String(agent.id),
-                  )
-                : null
-              const currentBlocks = Array.isArray(currentResponse?.streamBlocks)
-                ? currentResponse.streamBlocks
-                : []
-              return currentBlocks.reduce((maxSeq, block, index) => {
-                const seq = Number.isFinite(block?.seq) ? Number(block.seq) : index + 1
-                return Math.max(maxSeq, seq)
-              }, 0)
-            })()
-            let thoughtStreamOrder = 0
-            let toolStreamOrder = 0
-            const toolStartedAt = new Map()
-            let lastReasoningAtMs = null
 
-            const extractChunkText = chunk => {
-              if (typeof chunk === 'string') return chunk
-              if (!chunk || typeof chunk !== 'object') return ''
-              if (chunk.type === 'reasoning') return ''
-              if (chunk.type === 'thought') return ''
-              if (chunk.type === 'thinking') return ''
-              if (chunk.type === 'tool_call' || chunk.type === 'tool_result') return ''
-              if (chunk.type === 'research_step' || chunk.type === 'form_request') return ''
-              if (chunk.type === 'text' && typeof chunk.content === 'string') return chunk.content
-              if (chunk.type && chunk.type !== 'text') return ''
-              if (typeof chunk.text === 'string') return chunk.text
-              if (typeof chunk.delta === 'string') return chunk.delta
-              if (typeof chunk.delta?.reasoning_content !== 'undefined') return ''
-              if (typeof chunk.reasoning_content !== 'undefined') return ''
-              if (typeof chunk.delta?.content === 'string') return chunk.delta.content
-              if (typeof chunk.message?.content === 'string') return chunk.message.content
-              if (typeof chunk.choices?.[0]?.delta?.content === 'string') {
-                return chunk.choices[0].delta.content
-              }
-              return ''
-            }
-
-            const extractReasoningText = chunk => {
-              if (!chunk || typeof chunk !== 'object') return ''
-              if (
-                chunk.type !== 'reasoning' &&
-                chunk.type !== 'thought' &&
-                chunk.type !== 'thinking'
-              ) {
-                return ''
-              }
-              if (typeof chunk.content === 'string') return chunk.content
-              if (typeof chunk.text === 'string') return chunk.text
-              if (typeof chunk.reasoning === 'string') return chunk.reasoning
-              if (typeof chunk.reasoning_content !== 'undefined') {
-                return readReasoningField(chunk.reasoning_content)
-              }
-              if (typeof chunk.delta === 'string') return chunk.delta
-              if (typeof chunk.delta?.reasoning_content !== 'undefined') {
-                return readReasoningField(chunk.delta.reasoning_content)
-              }
-              if (typeof chunk.delta?.content === 'string') return chunk.delta.content
-              if (typeof chunk.choices?.[0]?.delta?.reasoning_content !== 'undefined') {
-                return readReasoningField(chunk.choices[0].delta.reasoning_content)
-              }
-              return ''
-            }
-
-            const assignedTask = plannedTasks.find(
-              item => String(item.agentId) === String(agent.id),
-            )?.task
-            const modelConfig = getModelConfigForAgent(
-              agent,
-              settings,
-              'streamChatCompletion',
-              fallbackAgent,
-            )
-            const provider = getProvider(modelConfig.provider)
-            const credentials = provider.getCredentials(settings)
-            const searchProvider = settings.searchProvider || 'tavily'
-            const tavilyApiKey = searchProvider === 'tavily' ? settings.tavilyApiKey : undefined
-            const serpapiApiKey = settings.serpapiApiKey
-            const exaApiKey = settings.exaApiKey
-            const exaSearchCategory =
-              searchBackend === 'exa' && typeof resolvedToggles?.exaSearchCategory === 'string'
-                ? resolvedToggles.exaSearchCategory
-                : null
-            const languageInstruction = getLanguageInstruction(agent, settings)
-            const taskPrompt = assignedTask
-              ? `You are assigned this sub-question only:\n${assignedTask}\n\nConstraints:\n- Answer only this sub-question.\n- Do not cover other agents' topics.\n- Return practical, implementation-ready guidance.`
-              : text
-            const promptText = applyLanguageInstructionToText(taskPrompt, languageInstruction)
-            const taskUserMessage = { ...userMessageForSend, content: promptText }
-            const taskMessages = buildConversationMessages(
-              historyForSend,
-              taskUserMessage,
-              agent,
-              settings,
-            )
-
-            const resolvedToolIds = (() => {
-              if (Array.isArray(agent?.toolIds) && agent.toolIds.length > 0) return agent.toolIds
-              if (Array.isArray(agent?.tool_ids) && agent.tool_ids.length > 0) return agent.tool_ids
-              return []
-            })()
-            let activeUserTools = []
-            try {
-              const allUserTools = await getUserTools()
-              if (Array.isArray(allUserTools) && resolvedToolIds.length > 0) {
-                activeUserTools = allUserTools
-                  .filter(t => resolvedToolIds.includes(String(t.id)))
-                  .filter(t => !t.config?.disabled)
-              }
-            } catch (error) {
-              console.error('Failed to fetch user tools for expert mode:', error)
-            }
-
-            updateExpertMessage(current => ({
-              ...current,
-              expertActiveAgentId: String(agent.id),
-              expertResponses: (current.expertResponses || []).map(item =>
-                String(item.agentId) === String(agent.id)
-                  ? {
-                      ...item,
-                      provider: modelConfig.provider,
-                      model: modelConfig.model,
-                      status: 'running',
-                      searchBackend,
-                      searchBackends,
-                    }
-                  : item,
-              ),
-            }))
-
-            return new Promise(resolve => {
-              provider
-                .streamChatCompletion({
+              try {
+                await provider.streamChatCompletion({
                   ...credentials,
                   model: modelConfig.model,
-                  messages: taskMessages.map(message => ({
-                    role: message.role === 'ai' ? 'assistant' : message.role,
-                    content: message.content,
-                  })),
+                  messages: conversationMessagesWithPlan.map(m => {
+                    const role = m.role === 'ai' ? 'assistant' : m.role
+                    return {
+                      role,
+                      content: m.content,
+                      ...(m.tool_calls && { tool_calls: m.tool_calls }),
+                      ...(m.tool_call_id && { tool_call_id: m.tool_call_id }),
+                      ...(m.name && { name: m.name }),
+                    }
+                  }),
                   tools: provider.getTools(
                     Boolean(resolvedToggles?.search),
-                    searchToolForExpert,
+                    resolvedToggles?.search ? resolvedToggles?.searchTool : [],
                     Boolean(settings.enableLongTermMemory),
                   ),
-                  toolIds: resolvedToolIds,
+                  toolIds: resolvedAgent?.toolIds || resolvedAgent?.tool_ids || [],
                   userTools: activeUserTools,
                   enableLongTermMemory: Boolean(settings.enableLongTermMemory),
                   databaseProvider: settings.databaseProvider || '',
                   contextTurns: settings.contextTurns,
                   searchProvider,
-                  tavilyApiKey,
-                  serpapiApiKey,
-                  exaApiKey,
-                  exaSearchCategory,
+                  searchBackend,
+                  expertMode: true,
+                  teamMode: resolvedToggles?.teamMode || 'route',
+                  leaderAgentId: resolvedToggles?.leaderAgentId || null,
+                  teamAgentIds: expertAgents.map(a => String(a.id)),
                   memoryProvider: modelConfig.provider,
                   memoryModel: modelConfig.model,
                   memoryApiKey: credentials.apiKey,
@@ -1761,143 +1662,105 @@ const useChatStore = create((set, get) => ({
                   ),
                   signal: controller.signal,
                   onChunk: chunk => {
+                    const chunkAgentId = chunk?.agentId || resolvedAgent?.id || 'leader'
+
+                    // Always try to make the streaming agent active
+                    if (chunkAgentId) {
+                      updateExpertMessage(current => ({
+                        ...current,
+                        expertActiveAgentId: chunkAgentId,
+                      }))
+                    }
+
+                    const st = getAgentStreamState(chunkAgentId)
                     const reasoningText = extractReasoningText(chunk)
+
+                    // Handle Agent Status Event
+                    if (chunk?.type === 'agent_status' && chunk?.status) {
+                      const newStatus = chunk.status
+                      const targetId = chunk.agentId || chunkAgentId
+                      updateExpertMessage(current => ({
+                        ...current,
+                        expertResponses: (current.expertResponses || []).map(item =>
+                          String(item.agentId) === String(targetId)
+                            ? { ...item, status: newStatus }
+                            : item,
+                        ),
+                      }))
+                      return
+                    }
+
+                    // Update agent status from other events if provided
+                    if (chunk?.agent_status) {
+                      updateExpertMessage(current => ({
+                        ...current,
+                        expertResponses: (current.expertResponses || []).map(item =>
+                          String(item.agentId) === String(chunkAgentId)
+                            ? { ...item, status: chunk.agent_status }
+                            : item,
+                        ),
+                      }))
+                    }
+
                     if (reasoningText) {
-                      const cleanReasoning = sanitizeExpertStreamChunk(reasoningText)
-                      if (cleanReasoning) {
-                        const now = Date.now()
-                        const resolvedDurationMs =
-                          typeof chunk?.duration_ms === 'number'
-                            ? chunk.duration_ms
-                            : Number.isFinite(lastReasoningAtMs)
-                              ? Math.max(0, now - lastReasoningAtMs)
-                              : 0
-                        lastReasoningAtMs = now
-                        updateExpertMessage(current => ({
+                      const cleanThought = sanitizeExpertStreamChunk(reasoningText)
+                      if (!cleanThought) return
+                      const now = Date.now()
+                      const durationMs =
+                        typeof chunk?.duration_ms === 'number'
+                          ? chunk.duration_ms
+                          : st.lastReasoningAtMs
+                            ? Math.max(0, now - st.lastReasoningAtMs)
+                            : 0
+                      st.lastReasoningAtMs = now
+
+                      updateExpertMessage(current => {
+                        return {
                           ...current,
-                          expertActiveAgentId: String(agent.id),
+                          expertActiveAgentId:
+                            chunkAgentId === 'leader' ? current.expertActiveAgentId : chunkAgentId,
                           expertResponses: (current.expertResponses || []).map(item => {
-                            if (String(item.agentId) !== String(agent.id)) return item
-                            const contentLength = (item.content || '').length
+                            if (String(item.agentId) !== String(chunkAgentId)) return item
                             const thoughtHistory = Array.isArray(item.thoughtHistory)
                               ? [...item.thoughtHistory]
                               : []
-                            const blockId = chunk?.block_id || 'reasoning-stream'
-                            const lastEntry = thoughtHistory[thoughtHistory.length - 1]
-                            if (lastEntry && String(lastEntry.blockId) === String(blockId)) {
-                              lastEntry.content = `${lastEntry.content || ''}${cleanReasoning}`
-                              const lastDuration =
-                                typeof lastEntry.durationMs === 'number' ? lastEntry.durationMs : 0
-                              lastEntry.durationMs = Math.max(0, lastDuration + resolvedDurationMs)
+                            const existingIdx = thoughtHistory.findIndex(entry => entry.content)
+                            if (existingIdx >= 0) {
+                              thoughtHistory[thoughtHistory.length - 1].content += cleanThought
+                              thoughtHistory[thoughtHistory.length - 1].durationMs = Math.max(
+                                0,
+                                (thoughtHistory[thoughtHistory.length - 1].durationMs || 0) +
+                                  durationMs,
+                              )
                             } else {
                               thoughtHistory.push({
-                                id: `${blockId}-${Date.now()}-${thoughtHistory.length}`,
-                                blockId,
-                                textIndex: contentLength,
-                                content: cleanReasoning,
-                                streamOrder: ++thoughtStreamOrder,
-                                durationMs: resolvedDurationMs,
+                                blockId: 1,
+                                textIndex: (item.content || '').length,
+                                content: cleanThought,
+                                streamOrder: ++st.thoughtStreamOrder,
+                                durationMs,
                               })
                             }
+
                             const streamBlocks = Array.isArray(item.streamBlocks)
                               ? [...item.streamBlocks]
                               : []
                             streamBlocks.push({
-                              seq: ++streamSeq,
+                              seq: ++st.streamSeq,
                               type: 'reasoning',
-                              content: cleanReasoning,
-                              duration_ms:
-                                typeof chunk?.duration_ms === 'number' ? chunk.duration_ms : null,
+                              content: cleanThought,
+                              duration_ms: durationMs,
                             })
+
                             return {
                               ...item,
-                              thought: `${item.thought || ''}${cleanReasoning}`,
                               thoughtHistory,
                               streamBlocks,
+                              thought: (item.thought || '') + cleanThought,
                             }
                           }),
-                        }))
-                      }
-                    }
-
-                    if (chunk && typeof chunk === 'object' && chunk.type === 'form_request') {
-                      updateExpertMessage(current => ({
-                        ...current,
-                        hitlRunId: chunk.run_id || current.hitlRunId,
-                        hitlFormId: chunk.id || current.hitlFormId,
-                        hitlFormTitle: chunk.title || current.hitlFormTitle,
-                        hitlFormFields: Array.isArray(chunk.fields)
-                          ? chunk.fields
-                          : current.hitlFormFields,
-                        expertActiveAgentId: String(agent.id),
-                        expertResponses: (current.expertResponses || []).map(item => {
-                          if (String(item.agentId) !== String(agent.id)) return item
-                          const formId = chunk.id || `form-${Date.now()}`
-                          const toolCallHistory = Array.isArray(item.toolCallHistory)
-                            ? [...item.toolCallHistory]
-                            : []
-                          const existingFormIndex = toolCallHistory.findIndex(
-                            entry =>
-                              entry.name === 'interactive_form' &&
-                              entry.status !== 'done' &&
-                              (entry.id === formId ||
-                                entry.runId === chunk.run_id ||
-                                (entry.output &&
-                                  typeof entry.output === 'object' &&
-                                  (entry.output.run_id === chunk.run_id ||
-                                    entry.output.runId === chunk.run_id))),
-                          )
-
-                          const nextFormEntry = {
-                            id: formId,
-                            name: 'interactive_form',
-                            runId: chunk.run_id,
-                            arguments: JSON.stringify({
-                              id: formId,
-                              title: chunk.title || 'Please provide required information',
-                              fields: Array.isArray(chunk.fields) ? chunk.fields : [],
-                              run_id: chunk.run_id,
-                            }),
-                            status: 'pending',
-                            output: {
-                              id: formId,
-                              title: chunk.title || 'Please provide required information',
-                              fields: Array.isArray(chunk.fields) ? chunk.fields : [],
-                              run_id: chunk.run_id,
-                            },
-                            textIndex: (item.content || '').length,
-                            streamOrder: ++toolStreamOrder,
-                          }
-
-                          if (existingFormIndex >= 0) {
-                            toolCallHistory[existingFormIndex] = {
-                              ...toolCallHistory[existingFormIndex],
-                              ...nextFormEntry,
-                            }
-                          } else {
-                            toolCallHistory.push(nextFormEntry)
-                          }
-
-                          const streamBlocks = Array.isArray(item.streamBlocks)
-                            ? [...item.streamBlocks]
-                            : []
-                          streamBlocks.push({
-                            seq: ++streamSeq,
-                            type: 'tool_call',
-                            tool_call_id: formId,
-                            name: 'interactive_form',
-                            arguments: nextFormEntry.arguments,
-                            status: 'pending',
-                          })
-
-                          return {
-                            ...item,
-                            status: 'waiting_input',
-                            toolCallHistory,
-                            streamBlocks,
-                          }
-                        }),
-                      }))
+                        }
+                      })
                       return
                     }
 
@@ -1908,80 +1771,37 @@ const useChatStore = create((set, get) => ({
                     ) {
                       updateExpertMessage(current => ({
                         ...current,
-                        expertActiveAgentId: String(agent.id),
+                        expertActiveAgentId:
+                          chunkAgentId === 'leader' ? current.expertActiveAgentId : chunkAgentId,
                         expertResponses: (current.expertResponses || []).map(item => {
-                          if (String(item.agentId) !== String(agent.id)) return item
+                          if (String(item.agentId) !== String(chunkAgentId)) return item
                           const nextToolId = chunk.id || `${chunk.name || 'tool'}-${Date.now()}`
                           const toolCallHistory = Array.isArray(item.toolCallHistory)
                             ? [...item.toolCallHistory]
                             : []
                           const toolName = chunk.name || 'tool'
-                          const injectedArguments = (() => {
-                            if (toolName !== 'web_search' && toolName !== 'search_news') {
-                              return chunk.arguments || ''
-                            }
-                            if (searchBackends.length === 0) return chunk.arguments || ''
-                            const primaryBackend = searchBackends[0]
-                            if (!chunk.arguments) {
-                              return JSON.stringify(
-                                searchBackends.length > 1
-                                  ? { backend: primaryBackend, backends: searchBackends }
-                                  : { backend: primaryBackend },
-                              )
-                            }
-                            if (typeof chunk.arguments === 'object') {
-                              if (chunk.arguments.backend || chunk.arguments.backends) {
-                                return chunk.arguments
-                              }
-                              return searchBackends.length > 1
-                                ? {
-                                    ...chunk.arguments,
-                                    backend: primaryBackend,
-                                    backends: searchBackends,
-                                  }
-                                : { ...chunk.arguments, backend: primaryBackend }
-                            }
-                            if (typeof chunk.arguments !== 'string') return chunk.arguments || ''
-                            try {
-                              const parsedArgs = JSON.parse(chunk.arguments)
-                              if (!parsedArgs || typeof parsedArgs !== 'object') {
-                                return chunk.arguments
-                              }
-                              if (parsedArgs.backend || parsedArgs.backends) return chunk.arguments
-                              return JSON.stringify(
-                                searchBackends.length > 1
-                                  ? {
-                                      ...parsedArgs,
-                                      backend: primaryBackend,
-                                      backends: searchBackends,
-                                    }
-                                  : { ...parsedArgs, backend: primaryBackend },
-                              )
-                            } catch {
-                              return chunk.arguments
-                            }
-                          })()
+
                           toolCallHistory.push({
                             id: nextToolId,
                             name: toolName,
-                            arguments: injectedArguments,
+                            arguments: chunk.arguments || '',
                             status: 'calling',
                             durationMs: null,
                             textIndex: (item.content || '').length,
                             step: typeof chunk.step === 'number' ? chunk.step : undefined,
                             total: typeof chunk.total === 'number' ? chunk.total : undefined,
-                            streamOrder: ++toolStreamOrder,
+                            streamOrder: ++st.toolStreamOrder,
                           })
-                          toolStartedAt.set(nextToolId, Date.now())
+                          st.toolStartedAt.set(nextToolId, Date.now())
                           const streamBlocks = Array.isArray(item.streamBlocks)
                             ? [...item.streamBlocks]
                             : []
                           streamBlocks.push({
-                            seq: ++streamSeq,
+                            seq: ++st.streamSeq,
                             type: 'tool_call',
                             tool_call_id: nextToolId,
                             name: toolName,
-                            arguments: injectedArguments,
+                            arguments: chunk.arguments || '',
                             status: 'calling',
                           })
                           return { ...item, toolCallHistory, streamBlocks }
@@ -1997,9 +1817,10 @@ const useChatStore = create((set, get) => ({
                     ) {
                       updateExpertMessage(current => ({
                         ...current,
-                        expertActiveAgentId: String(agent.id),
+                        expertActiveAgentId:
+                          chunkAgentId === 'leader' ? current.expertActiveAgentId : chunkAgentId,
                         expertResponses: (current.expertResponses || []).map(item => {
-                          if (String(item.agentId) !== String(agent.id)) return item
+                          if (String(item.agentId) !== String(chunkAgentId)) return item
                           const toolCallHistory = Array.isArray(item.toolCallHistory)
                             ? [...item.toolCallHistory]
                             : []
@@ -2013,8 +1834,8 @@ const useChatStore = create((set, get) => ({
                           }
                           if (targetIndex >= 0) {
                             const targetId = toolCallHistory[targetIndex].id
-                            const startedAt = toolStartedAt.get(targetId)
-                            if (targetId) toolStartedAt.delete(targetId)
+                            const startedAt = st.toolStartedAt.get(targetId)
+                            if (targetId) st.toolStartedAt.delete(targetId)
                             toolCallHistory[targetIndex] = {
                               ...toolCallHistory[targetIndex],
                               status: chunk.status || 'done',
@@ -2047,14 +1868,14 @@ const useChatStore = create((set, get) => ({
                               textIndex: (item.content || '').length,
                               step: typeof chunk.step === 'number' ? chunk.step : undefined,
                               total: typeof chunk.total === 'number' ? chunk.total : undefined,
-                              streamOrder: ++toolStreamOrder,
+                              streamOrder: ++st.toolStreamOrder,
                             })
                           }
                           const streamBlocks = Array.isArray(item.streamBlocks)
                             ? [...item.streamBlocks]
                             : []
                           streamBlocks.push({
-                            seq: ++streamSeq,
+                            seq: ++st.streamSeq,
                             type: 'tool_result',
                             tool_call_id: chunk.id || null,
                             name: chunk.name || 'tool',
@@ -2074,140 +1895,57 @@ const useChatStore = create((set, get) => ({
                     if (!chunkText) return
                     const cleanText = sanitizeExpertStreamChunk(chunkText)
                     if (!cleanText) return
-                    updateExpertMessage(current => ({
-                      ...current,
-                      expertActiveAgentId: String(agent.id),
-                      expertResponses: (current.expertResponses || []).map(item =>
-                        String(item.agentId) === String(agent.id)
-                          ? {
-                              ...item,
-                              content: `${item.content || ''}${cleanText}`,
-                              streamBlocks: Array.isArray(item.streamBlocks)
-                                ? [
-                                    ...item.streamBlocks,
-                                    { seq: ++streamSeq, type: 'text', content: cleanText },
-                                  ]
-                                : [{ seq: ++streamSeq, type: 'text', content: cleanText }],
-                            }
-                          : item,
-                      ),
-                    }))
+
+                    updateExpertMessage(current => {
+                      const updated = {
+                        ...current,
+                        expertActiveAgentId: chunkAgentId,
+                        expertResponses: (current.expertResponses || []).map(item =>
+                          String(item.agentId) === String(chunkAgentId)
+                            ? {
+                                ...item,
+                                content: `${item.content || ''}${cleanText}`,
+                                streamBlocks: Array.isArray(item.streamBlocks)
+                                  ? [
+                                      ...item.streamBlocks,
+                                      { seq: ++st.streamSeq, type: 'text', content: cleanText },
+                                    ]
+                                  : [{ seq: ++st.streamSeq, type: 'text', content: cleanText }],
+                              }
+                            : item,
+                        ),
+                      }
+
+                      if (
+                        String(chunkAgentId) === String(resolvedAgent?.id) ||
+                        chunkAgentId === 'leader'
+                      ) {
+                        updated.content = `${current.content || ''}${cleanText}`
+                        updated.streamBlocks = [
+                          ...(current.streamBlocks || []),
+                          { seq: ++st.streamSeq, type: 'text', content: cleanText },
+                        ]
+                      }
+
+                      return updated
+                    })
                   },
                   onFinish: result => {
-                    const finalText =
-                      typeof result?.content === 'string'
-                        ? normalizeExpertBrokenTokenLines(result.content)
-                        : undefined
-                    const finalThought =
-                      typeof result?.thought === 'string'
-                        ? normalizeExpertBrokenTokenLines(sanitizeExpertStreamChunk(result.thought))
-                        : typeof result?.reasoning === 'string'
-                          ? normalizeExpertBrokenTokenLines(
-                              sanitizeExpertStreamChunk(result.reasoning),
-                            )
-                          : ''
-                    const finalToolCalls = Array.isArray(result?.toolCalls)
-                      ? result.toolCalls
-                      : Array.isArray(result?.tool_calls)
-                        ? result.tool_calls
-                        : []
-                    updateExpertMessage(current => ({
-                      ...current,
-                      expertActiveAgentId: String(agent.id),
-                      expertResponses: (current.expertResponses || []).map(item =>
-                        String(item.agentId) === String(agent.id)
-                          ? {
-                              ...item,
-                              status: (() => {
-                                const hasPendingForm = (item.toolCallHistory || []).some(
-                                  entry =>
-                                    entry.name === 'interactive_form' && entry.status !== 'done',
-                                )
-                                return hasPendingForm ? 'waiting_input' : 'done'
-                              })(),
-                              content: finalText ?? item.content ?? '',
-                              thought: finalThought || item.thought || '',
-                              toolCallHistory: (() => {
-                                const existing = Array.isArray(item.toolCallHistory)
-                                  ? [...item.toolCallHistory]
-                                  : []
-                                if (finalToolCalls.length === 0) return existing
-
-                                const seen = new Set(
-                                  existing.map(tc =>
-                                    String(tc?.id || `${tc?.name}:${tc?.arguments || ''}`),
-                                  ),
-                                )
-                                const mapped = finalToolCalls
-                                  .map((tc, idx) => {
-                                    const id =
-                                      tc?.id ||
-                                      `${tc?.name || tc?.function?.name || 'tool'}-finish-${idx}`
-                                    const name = tc?.name || tc?.function?.name || 'tool'
-                                    const argumentsPayload =
-                                      typeof tc?.arguments !== 'undefined'
-                                        ? tc.arguments
-                                        : tc?.function?.arguments || ''
-                                    const key = String(id || `${name}:${argumentsPayload || ''}`)
-                                    if (seen.has(key)) return null
-                                    seen.add(key)
-                                    return {
-                                      id,
-                                      name,
-                                      arguments: argumentsPayload,
-                                      status: 'done',
-                                      output: null,
-                                      durationMs: null,
-                                      textIndex: (finalText ?? item.content ?? '').length,
-                                      streamOrder: ++toolStreamOrder,
-                                    }
-                                  })
-                                  .filter(Boolean)
-
-                                return mapped.length > 0 ? [...existing, ...mapped] : existing
-                              })(),
-                            }
-                          : item,
-                      ),
-                    }))
+                    finalOverallResponses = result
                     resolve()
                   },
                   onError: error => {
-                    updateExpertMessage(current => ({
-                      ...current,
-                      expertResponses: (current.expertResponses || []).map(item =>
-                        String(item.agentId) === String(agent.id)
-                          ? {
-                              ...item,
-                              status: 'error',
-                              error: error?.message || 'Failed',
-                            }
-                          : item,
-                      ),
-                    }))
-                    resolve()
+                    reject(error)
                   },
                 })
-                .catch(error => {
-                  updateExpertMessage(current => ({
-                    ...current,
-                    expertResponses: (current.expertResponses || []).map(item =>
-                      String(item.agentId) === String(agent.id)
-                        ? {
-                            ...item,
-                            status: 'error',
-                            error: error?.message || 'Failed',
-                          }
-                        : item,
-                    ),
-                  }))
-                  resolve()
-                })
+              } catch (error) {
+                reject(error)
+              }
             })
           }
 
-          // Execute all assigned expert agents in parallel for concurrent streaming.
-          await Promise.all(executionAgents.map(agent => runAgentTask(agent)))
+          // Execute Team in backend
+          await runTeamTask()
 
           const finalMessage = (get().messages || []).find(
             msg => msg.role === 'ai' && msg.localId === expertMessageLocalId,
@@ -2217,6 +1955,7 @@ const useChatStore = create((set, get) => ({
             : []
           const finalResponses = finalResponsesRaw.map(item => ({
             ...item,
+            status: 'done',
             content:
               typeof item?.content === 'string'
                 ? normalizeExpertBrokenTokenLines(item.content)
@@ -2226,91 +1965,40 @@ const useChatStore = create((set, get) => ({
                 ? normalizeExpertBrokenTokenLines(item.thought)
                 : item?.thought || '',
           }))
-          const preferredResponse =
-            finalResponses.find(item => item.status === 'done' && item.content?.trim()) ||
-            finalResponses.find(item => item.content?.trim()) ||
-            null
-          const mergedPreferredStreamBlocks = (() => {
-            const planBlocks = expertPlan
-              ? [{ seq: 1, type: 'workflow_text', content: expertPlan }]
-              : []
-            const responseBlocks = Array.isArray(preferredResponse?.streamBlocks)
-              ? preferredResponse.streamBlocks
-              : []
-            if (responseBlocks.length === 0) return planBlocks
 
-            const normalizedResponseBlocks = responseBlocks.map((block, index) => ({
-              ...block,
-              seq: Number.isFinite(block?.seq) ? Number(block.seq) : index + 1,
-            }))
-            const hasWorkflowBlock = normalizedResponseBlocks.some(
-              block => String(block?.type || '').toLowerCase() === 'workflow_text',
-            )
-            if (hasWorkflowBlock || planBlocks.length === 0) return normalizedResponseBlocks
-
-            return [
-              ...planBlocks,
-              ...normalizedResponseBlocks.map(block => ({
-                ...block,
-                seq: Number(block.seq) + planBlocks.length,
-              })),
-            ]
-          })()
           const fallbackText = normalizeExpertBrokenTokenLines(
-            preferredResponse?.content || 'All expert agents failed to respond.',
+            finalMessage?.content || 'All expert agents finished responding.',
           )
-          const activeAgentId = String(
-            preferredResponse?.agentId ||
-              finalResponses[0]?.agentId ||
-              executionAgents[0]?.id ||
-              '',
-          )
+          const activeAgentId = String(finalResponses[0]?.agentId || expertAgents[0]?.id || '')
 
           updateExpertMessage(current => ({
             ...current,
             content: fallbackText,
             expertPlanLoading: false,
-            expertActiveAgentId: activeAgentId,
-            toolCallHistory:
-              preferredResponse && Array.isArray(preferredResponse.toolCallHistory)
-                ? preferredResponse.toolCallHistory
-                : [],
-            thoughtHistory:
-              preferredResponse && Array.isArray(preferredResponse.thoughtHistory)
-                ? preferredResponse.thoughtHistory
-                : [],
-            streamBlocks: mergedPreferredStreamBlocks,
-            expertResponses: finalResponses,
-            searchBackend:
-              preferredResponse && typeof preferredResponse.searchBackend === 'string'
-                ? preferredResponse.searchBackend
-                : null,
-            searchBackends:
-              preferredResponse && Array.isArray(preferredResponse.searchBackends)
-                ? preferredResponse.searchBackends
-                : [],
+            expertActiveAgentId: 'leader',
+            expertResponses: finalResponses.map(r => ({ ...r, status: 'idle' })),
           }))
 
           const expertThinkingPayload = JSON.stringify({
             expertMode: true,
-            expertPlan,
+            expertPlan: '',
             expertResponses: finalResponses,
             expertActiveAgentId: activeAgentId,
           })
-          const databaseProviderKey = String(
-            settings?.databaseProvider || '',
-          ).toLowerCase()
+
+          const databaseProviderKey = String(settings?.databaseProvider || '').toLowerCase()
           const shouldPersistStreamBlocks =
             databaseProviderKey.includes('sqlite') ||
             databaseProviderKey.includes('supabase') ||
             databaseProviderKey.includes('postgres')
+
           const aiPayload = {
             conversation_id: convId,
             role: 'assistant',
-            provider: resolvedAgent?.provider || fallbackAgent?.provider || '',
+            provider: modelConfig?.provider || fallbackAgent?.provider || '',
             model:
-              resolvedAgent?.defaultModel ||
-              resolvedAgent?.default_model ||
+              modelConfig?.defaultModel ||
+              modelConfig?.default_model ||
               fallbackAgent?.defaultModel ||
               '',
             agent_id: resolvedAgent?.id || null,
@@ -2319,13 +2007,9 @@ const useChatStore = create((set, get) => ({
             agent_is_default: !!resolvedAgent?.isDefault,
             content: sanitizeJson(fallbackText),
             thinking_process: expertThinkingPayload,
-            tool_call_history: sanitizeJson(
-              preferredResponse && Array.isArray(preferredResponse.toolCallHistory)
-                ? preferredResponse.toolCallHistory
-                : [],
-            ),
+            tool_call_history: sanitizeJson([]),
             ...(shouldPersistStreamBlocks && {
-              stream_blocks: sanitizeJson(mergedPreferredStreamBlocks),
+              stream_blocks: sanitizeJson(finalMessage?.streamBlocks || []),
               stream_schema_version: 1,
             }),
             document_sources: sanitizeJson(null),

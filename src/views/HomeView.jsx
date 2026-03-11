@@ -832,7 +832,13 @@ const HomeView = () => {
     }
   }
 
-  const handleStartExpertConversation = async ({ question, space }) => {
+  const handleStartExpertConversation = async ({
+    question,
+    space,
+    teamMode,
+    leaderAgentId,
+    memberAgentIds,
+  }) => {
     if (!question?.trim() || !space?.id || isCreatingExpertConversation) return
     setIsCreatingExpertConversation(true)
     try {
@@ -866,6 +872,9 @@ const HomeView = () => {
             deepResearch: false,
             expertMode: true,
             related: Boolean(settings.enableRelatedQuestions),
+            teamMode,
+            leaderAgentId,
+            memberAgentIds,
           },
           initialSpaceSelection: {
             mode: 'manual',
@@ -1949,6 +1958,7 @@ const HomeView = () => {
         isOpen={isExpertGuideOpen}
         onClose={() => setIsExpertGuideOpen(false)}
         spaces={spaces}
+        agents={appAgents}
         loading={isCreatingExpertConversation}
         onStart={handleStartExpertConversation}
       />

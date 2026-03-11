@@ -1733,6 +1733,14 @@ const ChatInterface = ({
       let skipDocumentRetrieval = false
 
       if (selectedDocuments.length > 0) {
+        const docsMissingEmbeddingMetadata = selectedDocuments.filter(
+          doc => !String(doc?.embedding_model || '').trim(),
+        )
+        if (docsMissingEmbeddingMetadata.length > 0) {
+          toast.error(t('chatInterface.documentEmbeddingMissingMetadata'))
+          skipDocumentRetrieval = true
+        }
+
         const embeddingConfig = resolveEmbeddingConfig()
         const currentModelKey = buildEmbeddingModelKey(embeddingConfig)
         const docModelKeys = selectedDocuments

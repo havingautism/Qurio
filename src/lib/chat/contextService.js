@@ -18,6 +18,19 @@ export const parseDocumentQueryResponse = content => {
   return content.replace(/^"+|"+$/g, '').trim()
 }
 
+const normalizeDocumentQuery = query => {
+  const normalized = String(query || '')
+    .replace(/\r/g, ' ')
+    .replace(/\n+/g, ' ')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim()
+
+  if (!normalized) return ''
+
+  const truncated = normalized.length > 120 ? normalized.slice(0, 120).trim() : normalized
+  return truncated.replace(/[，、,;；|/]+/g, ' ').replace(/[ ]{2,}/g, ' ').trim()
+}
+
 export const parseMemoryDomainDecisionResponse = content => {
   const raw = extractJsonObject(content)
   if (!raw) return { needMemory: false, hitDomains: [] }
@@ -197,6 +210,6 @@ export const selectDocumentQuery = async ({
     return String(question || '').trim()
   }
 
-  const resolved = parseDocumentQueryResponse(fullContent)
+  const resolved = normalizeDocumentQuery(parseDocumentQueryResponse(fullContent))
   return resolved || String(question || '').trim()
 }

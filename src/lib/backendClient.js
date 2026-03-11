@@ -283,6 +283,27 @@ export const generateDailyTipViaBackend = async (
   return response.json()
 }
 
+export const extractDocumentTextViaBackend = async file => {
+  const formData = new FormData()
+  formData.append('file', file)
+
+  const response = await fetchWithTimeout(
+    `${getBackendUrl()}/api/documents/extract`,
+    {
+      method: 'POST',
+      body: formData,
+    },
+    120000,
+  )
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Unknown error' }))
+    throw new Error(getBackendErrorMessage(error, response.status))
+  }
+
+  return response.json()
+}
+
 /**
  * Generate a structured deep research plan
  * @param {string} provider - AI provider name

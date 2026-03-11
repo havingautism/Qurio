@@ -46,6 +46,44 @@ export const resolveEmbeddingConfig = overrides => {
   }
 }
 
+export const getEmbeddingConfigIssue = overrides => {
+  const config = resolveEmbeddingConfig(overrides)
+  const provider = String(config.provider || '').trim()
+  const model = String(config.model || '').trim()
+
+  if (!provider || !model) {
+    return { code: 'missing_config', config }
+  }
+
+  if (provider === 'gemini') {
+    const apiKey = config.googleApiKey || getPublicEnv('PUBLIC_GOOGLE_API_KEY')
+    return apiKey ? null : { code: 'missing_key', provider, config }
+  }
+
+  if (provider === 'openai_compatibility') {
+    const apiKey = config.OpenAICompatibilityKey || getPublicEnv('PUBLIC_OPENAI_API_KEY')
+    return apiKey ? null : { code: 'missing_key', provider, config }
+  }
+
+  if (provider === 'siliconflow') {
+    return config.SiliconFlowKey ? null : { code: 'missing_key', provider, config }
+  }
+
+  if (provider === 'glm') {
+    return config.GlmKey ? null : { code: 'missing_key', provider, config }
+  }
+
+  if (provider === 'kimi') {
+    return config.KimiKey ? null : { code: 'missing_key', provider, config }
+  }
+
+  if (provider === 'modelscope') {
+    return { code: 'unsupported_provider', provider, config }
+  }
+
+  return null
+}
+
 export const fetchEmbeddingVector = async ({
   text,
   prompt,
@@ -60,8 +98,15 @@ export const fetchEmbeddingVector = async ({
   const config = resolveEmbeddingConfig(overrides)
   const provider = config.provider
   const model = config.model
-  if (!provider || !model) {
+  const issue = getEmbeddingConfigIssue(overrides)
+  if (issue?.code === 'missing_config') {
     throw new Error('Embedding provider and model must be configured')
+  }
+  if (issue?.code === 'missing_key') {
+    throw new Error('Missing API key for embedding provider')
+  }
+  if (issue?.code === 'unsupported_provider') {
+    throw new Error(`Embedding provider '${provider}' is not supported yet`)
   }
 
   if (provider === 'gemini') {

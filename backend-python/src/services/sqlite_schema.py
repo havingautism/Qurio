@@ -176,6 +176,57 @@ SCHEMA_STATEMENTS: list[str] = [
       ON document_chunks(document_id, chunk_hash);
     """,
     """
+    CREATE VIRTUAL TABLE IF NOT EXISTS document_chunks_fts USING fts5(
+      chunk_id UNINDEXED,
+      document_id UNINDEXED,
+      section_id UNINDEXED,
+      title_text,
+      body_text,
+      source_hint,
+      tokenize='unicode61'
+    );
+    """,
+    """
+    CREATE TRIGGER IF NOT EXISTS trg_document_chunks_fts_insert
+    AFTER INSERT ON document_chunks
+    BEGIN
+      INSERT INTO document_chunks_fts (
+        chunk_id, document_id, section_id, title_text, body_text, source_hint
+      ) VALUES (
+        NEW.id,
+        NEW.document_id,
+        COALESCE(NEW.section_id, ''),
+        trim(replace(replace(replace(COALESCE(NEW.title_path, ''), '[', ' '), ']', ' '), '\"', ' ')),
+        COALESCE(NEW.text, ''),
+        COALESCE(NEW.source_hint, '')
+      );
+    END;
+    """,
+    """
+    CREATE TRIGGER IF NOT EXISTS trg_document_chunks_fts_update
+    AFTER UPDATE ON document_chunks
+    BEGIN
+      DELETE FROM document_chunks_fts WHERE chunk_id = OLD.id;
+      INSERT INTO document_chunks_fts (
+        chunk_id, document_id, section_id, title_text, body_text, source_hint
+      ) VALUES (
+        NEW.id,
+        NEW.document_id,
+        COALESCE(NEW.section_id, ''),
+        trim(replace(replace(replace(COALESCE(NEW.title_path, ''), '[', ' '), ']', ' '), '\"', ' ')),
+        COALESCE(NEW.text, ''),
+        COALESCE(NEW.source_hint, '')
+      );
+    END;
+    """,
+    """
+    CREATE TRIGGER IF NOT EXISTS trg_document_chunks_fts_delete
+    AFTER DELETE ON document_chunks
+    BEGIN
+      DELETE FROM document_chunks_fts WHERE chunk_id = OLD.id;
+    END;
+    """,
+    """
     CREATE TABLE IF NOT EXISTS space_agents (
       space_id TEXT NOT NULL,
       agent_id TEXT NOT NULL,

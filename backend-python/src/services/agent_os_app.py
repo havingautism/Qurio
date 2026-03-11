@@ -39,6 +39,9 @@ from ..routes import (
     db as db_route,
 )
 from ..routes import (
+    documents as documents_route,
+)
+from ..routes import (
     emoji as emoji_route,
 )
 from ..routes import (
@@ -125,6 +128,7 @@ def _build_base_app() -> FastAPI:
     app.include_router(memory_route.router, prefix="/api")
     app.include_router(mcp_tools.router, prefix="/api/mcp-tools")
     app.include_router(db_route.router, prefix="/api")
+    app.include_router(documents_route.router, prefix="/api")
     app.include_router(email_route.router, prefix="/api")
     app.include_router(scrapbook_route.router, prefix="/api")
     app.include_router(env_route.router, prefix="/api")

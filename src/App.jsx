@@ -57,6 +57,10 @@ import {
   SCRAPBOOK_AGENT_ID,
   isDeepResearchSystemAgent,
 } from './lib/systemAgents'
+import {
+  resolveDefaultAgentStartupAction,
+  resolveDeepResearchAgentStartupAction,
+} from './lib/systemAgentStartupPolicy'
 
 export const AppContext = React.createContext(null)
 export const useAppContext = () => React.useContext(AppContext)
@@ -600,7 +604,8 @@ function App() {
         let nextAgents = data.map(annotateSystemAgent)
         const existingDefault = nextAgents.find(agent => String(agent.id) === DEFAULT_AGENT_ID)
         const desiredDefault = buildDefaultSystemAgentPayload(settings)
-        if (!existingDefault && !creatingDefaultAgentRef.current) {
+        const defaultStartupAction = resolveDefaultAgentStartupAction(existingDefault)
+        if (defaultStartupAction === 'create' && !creatingDefaultAgentRef.current) {
           creatingDefaultAgentRef.current = true
           const { data: createdDefault, error: createError } = await createAgent(desiredDefault)
           if (!createError && createdDefault) {
@@ -608,21 +613,6 @@ function App() {
           } else {
             console.error('Create default agent failed:', createError)
             creatingDefaultAgentRef.current = false
-          }
-        } else if (existingDefault) {
-          const patch = buildAgentPatch(existingDefault, desiredDefault)
-          if (Object.keys(patch).length > 0) {
-            const { data: updatedDefault, error: updateError } = await updateAgent(
-              existingDefault.id,
-              patch,
-            )
-            if (!updateError && updatedDefault) {
-              nextAgents = nextAgents.map(agent =>
-                agent.id === updatedDefault.id ? annotateSystemAgent(updatedDefault) : agent,
-              )
-            } else {
-              console.error('Update default agent failed:', updateError)
-            }
           }
         }
 
@@ -721,7 +711,8 @@ function App() {
           liteModel: defaultAgent?.liteModel || '',
           defaultModel: defaultAgent?.defaultModel || '',
         }
-        if (!deepAgent) {
+        const deepResearchStartupAction = resolveDeepResearchAgentStartupAction(deepAgent)
+        if (deepResearchStartupAction === 'create') {
           const { data: createdAgent, error: agentError } = await createAgent(desiredDeepAgent)
           if (!agentError && createdAgent) {
             deepAgent = annotateSystemAgent(createdAgent)
@@ -730,26 +721,12 @@ function App() {
             console.error('Create deep research agent failed:', agentError)
           }
         } else {
-          setAgents(prev =>
-            prev.map(agent => (agent.id === existingAgent.id ? annotateSystemAgent(agent) : agent)),
-          )
-        }
-
-        if (deepAgent?.id) {
-          const patch = buildAgentPatch(deepAgent, desiredDeepAgent)
-          if (Object.keys(patch).length > 0) {
-            const { data: updatedAgent, error: updateError } = await updateAgent(
-              deepAgent.id,
-              patch,
+          if (!existingAgent?.isDeepResearchSystem || !existingAgent?.isDeepResearch) {
+            setAgents(prev =>
+              prev.map(agent =>
+                agent.id === existingAgent.id ? annotateSystemAgent(agent) : agent,
+              ),
             )
-            if (!updateError && updatedAgent) {
-              deepAgent = annotateSystemAgent(updatedAgent)
-              setAgents(prev =>
-                prev.map(agent => (agent.id === updatedAgent.id ? deepAgent : agent)),
-              )
-            } else {
-              console.error('Update deep research agent failed:', updateError)
-            }
           }
         }
 

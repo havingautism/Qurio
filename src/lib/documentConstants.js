@@ -1,3 +1,5 @@
+import { DOCUMENT_BASELINE_MAX_CHUNKS } from './documentChunkingPolicy'
+
 export const DOCUMENT_CHUNK_SIZE = 1200
 export const DOCUMENT_CHUNK_OVERLAP = 200
-export const DOCUMENT_MAX_CHUNKS = 400
+export const DOCUMENT_MAX_CHUNKS = DOCUMENT_BASELINE_MAX_CHUNKS

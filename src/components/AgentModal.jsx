@@ -1,4 +1,5 @@
-﻿import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import {
   X,
@@ -1711,7 +1712,8 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
     value,
     label: t(`agents.personalization.languageOptions.${value}`, value),
   }))
-  return (
+
+  return createPortal(
     <div className="fixed inset-0 z-200 flex items-start justify-center overflow-y-auto bg-black/50 p-0 backdrop-blur-sm md:items-center md:overflow-hidden md:p-4">
       <div className="glass-elite-panel flex h-dvh w-full flex-col overflow-hidden rounded-none border-0 md:h-[88vh] md:max-w-[1440px] md:flex-row md:rounded-[28px]">
         {/* Mobile Header */}
@@ -3198,7 +3200,8 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
           </div>
         </div>
       )}
-    </div>
+    </div>,
+    document.body
   )
 }
 

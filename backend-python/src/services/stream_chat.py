@@ -1599,6 +1599,9 @@ class StreamChatService:
                                     f"(Model: {active_model} | Provider: {active_provider}). "
                                     "Continuing stream..."
                                 )
+                                # Clear the content attribution lock so leader's subsequent
+                                # synthesis text is correctly attributed to the leader tab.
+                                active_member_agent_info = None
                                 # Ensure member is marked as ready if not already handled by TeamRunEvent.run_completed
                                 async for e in update_status_and_yield(active_id, "ready"):
                                     yield e

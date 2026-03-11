@@ -275,7 +275,7 @@
         "broadcast": "Broadcast",
         "broadcastDesc": "Broadcast the task to all experts and consolidate responses.",
         "tasks": "Sequential Tasks",
-        "tasksDesc": "Break down the task into a sequence of subtasks for specific experts."
+        "comingSoon": "Coming Soon"
       },
       "teamComposition": "Team Composition",
       "leader": "Leader",

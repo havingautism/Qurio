@@ -1,4 +1,4 @@
-﻿{
+{
   "common": {
     "loading": "加载中...",
     "cancel": "取消",
@@ -254,7 +254,7 @@
         "broadcast": "并行响应",
         "broadcastDesc": "所有专家同时独立作答并由组长汇总，适合全方位视角的探索。",
         "tasks": "分步执行",
-        "tasksDesc": "将任务分解为有序序列由对应专家依次完成，适合强流程化的工作流。"
+        "comingSoon": "即将开放"
       },
       "teamComposition": "专家团队构成",
       "leader": "组长 (Leader)",

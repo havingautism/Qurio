@@ -353,16 +353,20 @@ const ExpertGuideModal = ({
             <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
               {teamModeOptions.map(option => {
                 const isActive = teamMode === option.id
+                const isDisabled = option.id === 'tasks'
                 return (
                   <button
                     key={option.id}
                     type="button"
-                    onClick={() => setTeamMode(option.id)}
+                    disabled={isDisabled}
+                    onClick={() => !isDisabled && setTeamMode(option.id)}
                     className={clsx(
                       'glass-elite-soft relative flex items-start gap-3 rounded-[20px] p-3 text-left transition-all',
-                      isActive
-                        ? 'border-primary-300/35 dark:border-primary-500/35 bg-white/82 dark:bg-white/[0.12]'
-                        : 'hover:border-white/26 hover:bg-white/18 dark:hover:border-white/10 dark:hover:bg-white/[0.05]',
+                      isDisabled
+                        ? 'cursor-not-allowed opacity-40'
+                        : isActive
+                          ? 'border-primary-300/35 dark:border-primary-500/35 bg-white/82 dark:bg-white/[0.12]'
+                          : 'hover:border-white/26 hover:bg-white/18 dark:hover:border-white/10 dark:hover:bg-white/[0.05]',
                     )}
                   >
                     <div
@@ -374,12 +378,21 @@ const ExpertGuideModal = ({
                       <option.icon size={18} />
                     </div>
                     <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                      <span className="truncate text-sm font-bold text-gray-900 dark:text-gray-100">
-                        {option.label}
-                      </span>
-                      <span className="line-clamp-2 text-[10px] leading-tight text-gray-500 dark:text-zinc-400">
-                        {option.desc}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="truncate text-sm font-bold text-gray-900 dark:text-gray-100">
+                          {option.label}
+                        </span>
+                        {isDisabled && (
+                          <span className="shrink-0 rounded px-1 py-0.5 text-[9px] font-bold tracking-wide uppercase bg-amber-100/80 text-amber-600 dark:bg-amber-900/30 dark:text-amber-500">
+                            {t('sidebar.expertMode.modes.comingSoon')}
+                          </span>
+                        )}
+                      </div>
+                      {!isDisabled && (
+                        <span className="line-clamp-2 text-[10px] leading-tight text-gray-500 dark:text-zinc-400">
+                          {option.desc}
+                        </span>
+                      )}
                     </div>
                     <div
                       className={clsx(

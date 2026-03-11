@@ -175,6 +175,12 @@ class BackendQueryBuilder {
     return this
   }
 
+  // Filter for IS NULL
+  isNull(column) {
+    this.filters.push({ op: 'is_null', column })
+    return this
+  }
+
   order(column, options = {}) {
     this.orderBy.push({ column, ascending: options.ascending !== false })
     return this

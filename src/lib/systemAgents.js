@@ -100,7 +100,7 @@ export const buildScrapbookSystemAgentPayload = settings => ({
   emoji: SCRAPBOOK_AGENT_EMOJI,
   isDefault: false,
   isDeepResearch: false,
-  isHidden: true,
+  isHidden: false,
   provider: settings?.defaultModelProvider || 'gemini',
   defaultModelProvider: settings?.defaultModelProvider || 'gemini',
   liteModelProvider: settings?.liteModelProvider || settings?.defaultModelProvider || 'gemini',

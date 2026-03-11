@@ -4,6 +4,7 @@ import { AlertTriangle, MoveLeft } from 'lucide-react'
 import App from './App'
 import { getNodeEnv, getPublicEnv } from './lib/publicEnv'
 import DotLoader from './components/DotLoader'
+import { getConversation } from './lib/conversationsService'
 
 const HomeView = React.lazy(() => import('./views/HomeView'))
 const ConversationView = React.lazy(() => import('./views/ConversationView'))
@@ -109,6 +110,21 @@ export const newChatRoute = createRoute({
 export const conversationRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: 'conversation/$conversationId',
+  beforeLoad: async ({ params }) => {
+    const { conversationId } = params
+    try {
+      const { data: conv } = await getConversation(conversationId)
+      if (conv?.scrapbook_id) {
+        throw redirect({
+          to: `/scrapbook/${conv.scrapbook_id}`,
+        })
+      }
+    } catch (err) {
+      // If it's a redirect, re-throw it
+      if (err?.isRedirect || err?.name === 'Redirect') throw err
+      console.error('[Router] Failed to check for scrapbook redirect:', err)
+    }
+  },
   component: () => (
     <SuspensePage fallback={<ConversationSuspenseFallback />}>
       <ConversationView />

@@ -333,7 +333,7 @@ INSERT INTO agents (
 SELECT
   '33333333-3333-3333-3333-333333333333',
   0,
-  1,
+  0,
   '📒',
   'emoji',
   '',
@@ -376,7 +376,7 @@ WHERE NOT EXISTS (
 
 UPDATE agents
 SET is_default = 0,
-    is_hidden = 1,
+    is_hidden = 0,
     is_deep_research = 0,
     emoji = '📒',
     name = 'Scrapbook Agent',

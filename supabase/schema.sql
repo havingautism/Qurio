@@ -390,7 +390,7 @@ VALUES
 ON CONFLICT (id) DO NOTHING;
 
 UPDATE public.agents
-SET is_hidden = TRUE
+SET is_hidden = FALSE
 WHERE id = '33333333-3333-3333-3333-333333333333';
 
 INSERT INTO public.space_agents (space_id, agent_id, sort_order, is_primary)

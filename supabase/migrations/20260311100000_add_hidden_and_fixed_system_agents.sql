@@ -224,7 +224,7 @@ BEGIN
   SELECT
     scrapbook_target,
     FALSE,
-    TRUE,
+    FALSE,
     '📒',
     'Scrapbook Agent',
     'Hidden system agent for Scrapbook generation settings.',
@@ -234,7 +234,7 @@ BEGIN
   WHERE NOT EXISTS (SELECT 1 FROM public.agents WHERE id = scrapbook_target);
 
   UPDATE public.agents
-  SET is_hidden = TRUE,
+  SET is_hidden = FALSE,
       is_default = FALSE,
       is_deep_research = FALSE,
       emoji = '📒',

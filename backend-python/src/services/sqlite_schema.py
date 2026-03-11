@@ -342,7 +342,7 @@ SCHEMA_STATEMENTS: list[str] = [
         CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
       ),
       (
-        '33333333-3333-3333-3333-333333333333', 0, 1, '📒',
+        '33333333-3333-3333-3333-333333333333', 0, 0, '📒',
         'Scrapbook Agent',
         'Hidden system agent for Scrapbook generation settings.',
         '', 0, 'technical', 'default', 'default', 'default', 'default', 'default',

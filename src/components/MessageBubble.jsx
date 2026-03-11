@@ -2911,12 +2911,7 @@ const MessageBubble = ({
           </div>
         )}
 
-        {/* Scrapbook context banner - shown only for the first message of an associated conversation */}
-        {messageIndex === 0 && scrapbookEntry && (
-          <div className="mx-auto my-2 w-full max-w-3xl px-0 sm:px-5">
-            <ScrapbookContextBanner scrapbookEntry={scrapbookEntry} variant="top" />
-          </div>
-        )}
+        {/* Scrapbook context banner removed as redundant in detailed view */}
         {/* Message Row Wrapper */}
         <div
           className={clsx(

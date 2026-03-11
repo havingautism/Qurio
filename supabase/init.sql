@@ -677,7 +677,7 @@ INSERT INTO public.agents (
 SELECT
   '33333333-3333-3333-3333-333333333333'::uuid,
   FALSE,
-  TRUE,
+  FALSE,
   '📒',
   'Scrapbook Agent',
   'Hidden system agent for Scrapbook generation settings.',

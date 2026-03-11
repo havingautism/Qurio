@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { listSpaceAgents } from '../../lib/spacesService'
+import { SCRAPBOOK_AGENT_ID } from '../../lib/systemAgents'
 
 const sameStringArray = (a, b) => {
   if (a === b) return true
@@ -32,23 +33,6 @@ const sameStringArray = (a, b) => {
  * @param {function} params.t - Translation function
  *
  * @returns {object}
- * @property {Array} spaceAgentIds - IDs of agents in the current space
- * @property {object} spacePrimaryAgentId - Primary agent ID for the current space
- * @property {boolean} isAgentsLoading - Whether agents are currently loading
- * @property {string} agentsLoadingLabel - Full loading label with animated dots
- * @property {string} agentLoadingDots - Animated dots only (for separate UI indicator)
- * @property {boolean} isAgentResolving - Whether agent is currently resolving (loading/pending/preselecting)
- * @property {string} selectedAgentId - Currently selected agent ID
- * @property {boolean} isAgentAutoMode - Whether agent auto mode is enabled
- * @property {boolean} isAgentSelectorOpen - Whether agent selector dropdown is open
- * @property {string} pendingAgentId - Pending agent ID to be set
- * @property {function} setSelectedAgentId - Set selected agent ID
- * @property {function} setIsAgentAutoMode - Set agent auto mode
- * @property {function} setIsAgentSelectorOpen - Set agent selector open state
- * @property {function} setPendingAgentId - Set pending agent ID
- * @property {function} reloadSpaceAgents - Function to reload space agents
- * @property {object} manualAgentSelectionRef - Ref to track manual agent selection
- * @property {object} agentSelectorRef - Ref for agent selector dropdown
  */
 const useAgentManagement = ({
   appAgents,
@@ -69,8 +53,13 @@ const useAgentManagement = ({
   const [spaceAgentIds, setSpaceAgentIds] = useState([])
   const [spacePrimaryAgentId, setSpacePrimaryAgentId] = useState(null)
   const [isAgentsLoading, setIsAgentsLoading] = useState(false)
-  const [selectedAgentId, setSelectedAgentId] = useState(null)
+  const [selectedAgentId, setSelectedAgentId] = useState(() => {
+    if (activeConversation?.scrapbook_id) return SCRAPBOOK_AGENT_ID
+    return initialAgentSelection?.id || null
+  })
   const [isAgentAutoMode, setIsAgentAutoMode] = useState(() => {
+    // If it's a scrapbook conversation, force manual mode
+    if (activeConversation?.scrapbook_id) return false
     if (isPlaceholderConversation) return initialIsAgentAutoMode
     return activeConversation?.agent_selection_mode !== 'manual'
   })
@@ -128,6 +117,18 @@ const useAgentManagement = ({
   useEffect(() => {
     reloadSpaceAgents()
   }, [reloadSpaceAgents])
+
+  // Agent Resolving/Locking for Scrapbook
+  useEffect(() => {
+    if (activeConversation?.scrapbook_id) {
+      if (selectedAgentId !== SCRAPBOOK_AGENT_ID) {
+        setSelectedAgentId(SCRAPBOOK_AGENT_ID)
+      }
+      if (isAgentAutoMode) {
+        setIsAgentAutoMode(false)
+      }
+    }
+  }, [activeConversation?.scrapbook_id, selectedAgentId, isAgentAutoMode])
 
   // Listen for space agents changes
   useEffect(() => {

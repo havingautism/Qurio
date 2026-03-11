@@ -12,7 +12,13 @@ import SpaceModal from './components/SpaceModal'
 import DatabaseSetupModal from './components/DatabaseSetupModal'
 import { ToastProvider } from './contexts/ToastContext'
 import KnowledgeBaseModal from './components/KnowledgeBaseModal'
-import { createAgent, deleteAgent, getAgentById, listAgents, updateAgent } from './lib/agentsService'
+import {
+  createAgent,
+  deleteAgent,
+  getAgentById,
+  listAgents,
+  updateAgent,
+} from './lib/agentsService'
 import {
   conversationEventHasScope,
   isExpertConversation,
@@ -162,6 +168,7 @@ function App() {
   const defaultAgent = agents.find(agent => agent.isDefault) || null
   const deepResearchSpace = spaces.find(space => space.isDeepResearchSystem) || null
   const deepResearchAgent = agents.find(agent => agent.isDeepResearchSystem) || null
+  const scrapbookAgent = agents.find(agent => String(agent.id) === SCRAPBOOK_AGENT_ID) || null
 
   // Conversations Data
   const [conversations, setConversations] = useState([])
@@ -620,29 +627,47 @@ function App() {
         }
 
         const desiredScrapbook = buildScrapbookSystemAgentPayload(settings)
+        let scrapbookToInject = null
         const { data: existingScrapbook, error: scrapbookLoadError } =
           await getAgentById(SCRAPBOOK_AGENT_ID)
+
         if (scrapbookLoadError) {
           console.error('Load scrapbook agent failed:', scrapbookLoadError)
         } else if (!existingScrapbook) {
-          const { error: scrapbookCreateError } = await createAgent(desiredScrapbook)
+          const { data: createdScrapbook, error: scrapbookCreateError } =
+            await createAgent(desiredScrapbook)
           if (scrapbookCreateError) {
             console.error('Create scrapbook agent failed:', scrapbookCreateError)
+          } else if (createdScrapbook) {
+            scrapbookToInject = annotateSystemAgent(createdScrapbook)
           }
         } else {
+          scrapbookToInject = existingScrapbook // already annotated by getAgentById -> mapAgent
           const scrapbookPatch = buildScopedAgentPatch(
             existingScrapbook,
             desiredScrapbook,
             SCRAPBOOK_AGENT_SYNC_KEYS,
           )
           if (Object.keys(scrapbookPatch).length > 0) {
-            const { error: scrapbookUpdateError } = await updateAgent(
+            const { data: updatedScrapbook, error: scrapbookUpdateError } = await updateAgent(
               existingScrapbook.id,
               scrapbookPatch,
             )
-            if (scrapbookUpdateError) {
+            if (!scrapbookUpdateError && updatedScrapbook) {
+              scrapbookToInject = annotateSystemAgent(updatedScrapbook)
+            } else {
               console.error('Update scrapbook agent failed:', scrapbookUpdateError)
             }
+          }
+        }
+
+        // Ensure Scrapbook Agent is in the final list
+        if (scrapbookToInject) {
+          const index = nextAgents.findIndex(a => String(a.id) === String(scrapbookToInject.id))
+          if (index !== -1) {
+            nextAgents[index] = scrapbookToInject
+          } else {
+            nextAgents.push(scrapbookToInject)
           }
         }
 
@@ -692,8 +717,7 @@ function App() {
           provider: defaultAgent?.provider || 'gemini',
           defaultModelProvider:
             defaultAgent?.defaultModelProvider || defaultAgent?.provider || 'gemini',
-          liteModelProvider:
-            defaultAgent?.liteModelProvider || defaultAgent?.provider || 'gemini',
+          liteModelProvider: defaultAgent?.liteModelProvider || defaultAgent?.provider || 'gemini',
           liteModel: defaultAgent?.liteModel || '',
           defaultModel: defaultAgent?.defaultModel || '',
         }
@@ -839,7 +863,9 @@ function App() {
           }
         }
 
-        const deepResearchAgents = agents.filter(agent => String(agent.id) === DEEP_RESEARCH_AGENT_ID)
+        const deepResearchAgents = agents.filter(
+          agent => String(agent.id) === DEEP_RESEARCH_AGENT_ID,
+        )
         if (deepResearchAgents.length > 1) {
           const sortedDeepAgents = [...deepResearchAgents].sort((a, b) => {
             const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0
@@ -985,6 +1011,7 @@ function App() {
               defaultAgent,
               deepResearchSpace,
               deepResearchAgent,
+              scrapbookAgent,
               conversations,
               conversationsLoading,
               conversationsNextCursor,

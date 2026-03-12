@@ -2446,13 +2446,15 @@ const ChatInterface = ({
         {/* </div> */}
 
         {/* New Timeline Sidebar */}
-        <QuestionTimelineController
-          messages={messages}
-          messageRefs={messageRefs}
-          messagesContainerRef={messagesContainerRef}
-          isOpen={isTimelineSidebarOpen}
-          onToggle={setIsTimelineSidebarOpen}
-        />
+        {!isEmbedded && (
+          <QuestionTimelineController
+            messages={messages}
+            messageRefs={messageRefs}
+            messagesContainerRef={messagesContainerRef}
+            isOpen={isTimelineSidebarOpen}
+            onToggle={setIsTimelineSidebarOpen}
+          />
+        )}
 
         {/* Input Area */}
         <div

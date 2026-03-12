@@ -26,7 +26,6 @@ import { isConfiguredApiSecret, loadSettings } from '../lib/settings'
 import { deleteMessageById } from '../lib/supabase'
 import ChatHeader from './chat/ChatHeader'
 import ChatInputBar from './chat/ChatInputBar'
-import { resolveEmbeddingConfig } from '../lib/embeddingService'
 import {
   ACADEMIC_SEARCH_TOOL_OPTIONS,
   DEFAULT_EXA_SEARCH_TOOL_ID,
@@ -51,53 +50,10 @@ import { getModelConfigForConversation } from '../lib/chat/modelConfig'
 import { getScrapbookEntryById } from '../lib/scrapbookService'
 import { SCRAPBOOK_AGENT_ID } from '../lib/systemAgents'
 
-const DOCUMENT_CONTEXT_MAX_TOTAL = 12000
-const DOCUMENT_CONTEXT_MAX_PER_DOC = 4000
 const truncateText = (text, limit) => {
   if (!text) return ''
   if (text.length <= limit) return text
   return `${text.slice(0, limit)}...`
-}
-
-const buildDocumentContext = documents => {
-  const items = (documents || [])
-    .map(doc => {
-      const content = String(doc?.content_text || '').trim()
-      if (!content) return null
-      const title = doc?.name || 'Document'
-      const typeLabel = doc?.file_type ? ` (${doc.file_type})` : ''
-      return `### ${title}${typeLabel}\n${truncateText(content, DOCUMENT_CONTEXT_MAX_PER_DOC)}`
-    })
-    .filter(Boolean)
-
-  if (items.length === 0) return ''
-
-  let context = `Background documents:\n\n${items.join('\n\n')}`
-  if (context.length > DOCUMENT_CONTEXT_MAX_TOTAL) {
-    context = `${context.slice(0, DOCUMENT_CONTEXT_MAX_TOTAL)}\n\n[Truncated]`
-  }
-  return context
-}
-
-const DOCUMENT_SNIPPET_MAX_CHARS = 450
-const buildDocumentSources = documents => {
-  return (documents || [])
-    .map(doc => {
-      const content = String(doc?.content_text || '').trim()
-      if (!content) return null
-      return {
-        id: String(doc.id),
-        title: doc?.name || 'Document',
-        fileType: doc?.file_type || '',
-        snippet: truncateText(content, DOCUMENT_SNIPPET_MAX_CHARS),
-      }
-    })
-    .filter(Boolean)
-}
-
-const buildEmbeddingModelKey = ({ model }) => {
-  const normalizedModel = typeof model === 'string' ? model.trim() : ''
-  return normalizedModel || null
 }
 
 const getInitialThinkingPreference = () => {
@@ -284,6 +240,8 @@ const ChatInterface = ({
   const [isDocumentSelectorOpen, setIsDocumentSelectorOpen] = useState(false)
   const documentSelectorRef = useRef(null)
   const pendingDocumentIdsRef = useRef([])
+  const selectedDocumentIdsRef = useRef([])
+  const selectedDocumentsRef = useRef([])
   const normalizedInitialDocumentIds = useMemo(
     () => (initialDocumentIds || []).map(id => String(id)).filter(Boolean),
     [initialDocumentIds],
@@ -400,6 +358,10 @@ const ChatInterface = ({
   useEffect(() => {
     pendingDocumentIdsRef.current = pendingDocumentIds
   }, [pendingDocumentIds])
+
+  useEffect(() => {
+    selectedDocumentIdsRef.current = selectedDocumentIds
+  }, [selectedDocumentIds])
 
   useEffect(() => {
     hasAppliedInitialDocumentsRef.current = false
@@ -714,10 +676,9 @@ const ChatInterface = ({
     return (spaceDocuments || []).filter(doc => idSet.has(String(doc.id)))
   }, [selectedDocumentIds, spaceDocuments])
 
-  const baseDocumentSources = useMemo(
-    () => buildDocumentSources(selectedDocuments),
-    [selectedDocuments],
-  )
+  useEffect(() => {
+    selectedDocumentsRef.current = selectedDocuments
+  }, [selectedDocuments])
 
   // Agent selection is fully user-controlled:
   // - Auto mode: updated via onAgentResolved callback (preselection before sending)
@@ -754,11 +715,13 @@ const ChatInterface = ({
   const handleToggleDocument = useCallback(
     async documentId => {
       const docKey = String(documentId)
-      const next = selectedDocumentIds.some(id => String(id) === docKey)
-        ? selectedDocumentIds.filter(id => String(id) !== docKey)
-        : [...selectedDocumentIds, docKey]
+      const currentIds = selectedDocumentIdsRef.current || []
+      const next = currentIds.some(id => String(id) === docKey)
+        ? currentIds.filter(id => String(id) !== docKey)
+        : [...currentIds, docKey]
 
       setSelectedDocumentIds(next)
+      selectedDocumentIdsRef.current = next
 
       const conversationKey =
         !isPlaceholderConversation && (activeConversation?.id || conversationId)
@@ -780,7 +743,6 @@ const ChatInterface = ({
       activeConversation?.id,
       conversationId,
       isPlaceholderConversation,
-      selectedDocumentIds,
       t,
       toast,
     ],
@@ -1729,36 +1691,12 @@ const ChatInterface = ({
 
       const agentForSend =
         selectedAgent || (!isAgentAutoMode && initialAgentSelection) || defaultAgent || null
+      const documentsForSend =
+        selectedDocumentsRef.current && selectedDocumentsRef.current.length > 0
+          ? selectedDocumentsRef.current
+          : selectedDocuments
 
-      let skipDocumentRetrieval = false
-
-      if (selectedDocuments.length > 0) {
-        const docsMissingEmbeddingMetadata = selectedDocuments.filter(
-          doc => !String(doc?.embedding_model || '').trim(),
-        )
-        if (docsMissingEmbeddingMetadata.length > 0) {
-          toast.error(t('chatInterface.documentEmbeddingMissingMetadata'))
-          skipDocumentRetrieval = true
-        }
-
-        const embeddingConfig = resolveEmbeddingConfig()
-        const currentModelKey = buildEmbeddingModelKey(embeddingConfig)
-        const docModelKeys = selectedDocuments
-          .map(doc => buildEmbeddingModelKey({ model: doc.embedding_model }))
-          .filter(Boolean)
-        const uniqueDocModels = [...new Set(docModelKeys)]
-        if (uniqueDocModels.length > 1) {
-          toast.error(t('chatInterface.documentEmbeddingMixedModels'))
-          skipDocumentRetrieval = true
-        } else if (uniqueDocModels.length === 1 && uniqueDocModels[0] !== currentModelKey) {
-          toast.error(
-            t('chatInterface.documentEmbeddingMismatch', {
-              model: uniqueDocModels[0],
-            }),
-          )
-          skipDocumentRetrieval = true
-        }
-      }
+      const skipDocumentRetrieval = false
 
       sendInFlightRef.current = true
       try {
@@ -1796,9 +1734,9 @@ const ChatInterface = ({
                     })()
                   : '')
             : '',
-          documentSources: baseDocumentSources,
+          documentSources: [],
           documentSelection: {
-            documents: selectedDocuments,
+            documents: documentsForSend,
             skipRetrieval: skipDocumentRetrieval,
           },
           editingInfo,
@@ -1856,6 +1794,7 @@ const ChatInterface = ({
       settings,
       selectedSpace,
       displaySpace,
+      selectedDocuments,
       effectiveAgent,
       isAgentAutoMode,
       defaultAgent,
@@ -1863,13 +1802,15 @@ const ChatInterface = ({
       onTitleAndSpaceGenerated,
       isSpaceSelectionLocked,
       spaces,
+      activeConversation?.scrapbook_id,
+      messages.length,
+      systemContextPrefix,
       quoteContext,
       resolvedSearchToolIds,
       searchBackend,
       appAgents,
       spaceAgentIds,
       spaceAgents,
-      baseDocumentSources,
       t,
       toast,
     ],

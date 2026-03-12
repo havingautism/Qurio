@@ -4,18 +4,11 @@ import { getProvider } from '../providers'
 import { buildMemoryDomainDecisionPrompt, buildDocumentQueryPrompt } from './prompts'
 
 export const parseDocumentQueryResponse = content => {
-  const raw = extractJsonObject(content)
-  if (!raw) return content.replace(/^"+|"+$/g, '').trim()
-  const parsed = safeJsonParse(raw)
-  if (!parsed) return content.replace(/^"+|"+$/g, '').trim()
-
-  try {
-    if (typeof parsed?.query === 'string') return parsed.query.trim()
-    if (Array.isArray(parsed?.queries)) return parsed.queries.filter(Boolean).join(' ')
-  } catch {
-    return content.replace(/^"+|"+$/g, '').trim()
-  }
-  return content.replace(/^"+|"+$/g, '').trim()
+  return String(content || '')
+    .replace(/^```[\w-]*\s*/i, '')
+    .replace(/```$/i, '')
+    .replace(/^"+|"+$/g, '')
+    .trim()
 }
 
 const normalizeDocumentQuery = query => {
@@ -181,7 +174,7 @@ export const selectDocumentQuery = async ({
     {
       role: 'system',
       content:
-        'You are a retrieval query planner. Output only JSON with a "query" string. No markdown.',
+        'You are a retrieval query planner. Output exactly one short search query as plain text. No JSON. No markdown. No quotes. No explanation.',
     },
     { role: 'user', content: prompt },
   ]
@@ -193,7 +186,6 @@ export const selectDocumentQuery = async ({
       model: modelConfig.model,
       messages,
       temperature: 0.2,
-      responseFormat: modelConfig.provider !== 'gemini' ? { type: 'json_object' } : undefined,
       onChunk: chunk => {
         if (typeof chunk === 'object' && chunk?.type === 'text' && chunk.content) {
           fullContent += chunk.content

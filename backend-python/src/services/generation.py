@@ -127,6 +127,10 @@ def _finalize_title(raw: Any, fallback: str = "New Conversation") -> str:
         "here is",
         "here's",
         "i can",
+        "i cannot",
+        "i can't",
+        "i am unable",
+        "i'm unable",
         "i would",
         "sure",
         "certainly",
@@ -134,6 +138,13 @@ def _finalize_title(raw: Any, fallback: str = "New Conversation") -> str:
         "user:",
         "assistant:",
         "system:",
+        "sorry",
+        "apologies",
+        "抱歉",
+        "对不起",
+        "无法",
+        "我目前",
+        "不能",
     )
     lowered = title.lower()
     if lowered.startswith(disallowed_starts):
@@ -146,11 +157,14 @@ def _finalize_title(raw: Any, fallback: str = "New Conversation") -> str:
 def _title_prompt(task_suffix: str = "") -> str:
     suffix = f"\n{task_suffix.strip()}" if task_suffix and task_suffix.strip() else ""
     return (
-        "Generate a short conversation title from the provided text.\n"
-        "The text may be a user message or a short transcript.\n\n"
+        "Generate a short conversation title from the user's request.\n"
+        "The provided text may be a user message or a short transcript, but the title must reflect the user's topic or intent.\n\n"
         "Rules:\n"
         "- Return only the title.\n"
         "- Maximum 5 words.\n"
+        "- Focus on the user's topic, question, or request.\n"
+        "- Do not turn the title into an answer.\n"
+        "- Do not mention apology, inability, refusal, lack of capability, or lack of real-time access.\n"
         "- Do not answer the user.\n"
         "- Do not explain.\n"
         "- Do not use quotes or markdown."

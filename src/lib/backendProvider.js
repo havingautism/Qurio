@@ -259,14 +259,48 @@ const collectGeminiSources = (metadata, sourcesList) => {
   const chunks = metadata?.groundingChunks
   if (!Array.isArray(chunks)) return
   if (!Array.isArray(sourcesList)) return
-  if (sourcesList.length === chunks.length && sourcesList.length > 0) return
-  sourcesList.length = 0
+  const chunkToSourceIndex = new Map()
+  const nextSources = []
   for (const chunk of chunks) {
+    const chunkIndex = chunkToSourceIndex.size
     const web = chunk?.web
     const url = web?.uri
-    if (!url) continue
-    sourcesList.push({ url, title: web?.title || url })
+    if (!url) {
+      chunkToSourceIndex.set(chunkIndex, null)
+      continue
+    }
+    chunkToSourceIndex.set(chunkIndex, nextSources.length)
+    nextSources.push({ url, title: web?.title || url })
   }
+  if (sourcesList.length === 0) {
+    sourcesList.push(...nextSources)
+  }
+  return chunkToSourceIndex
+}
+
+const normalizeGeminiGroundingSupports = (groundingSupports, chunkToSourceIndex, sourcesLength) => {
+  if (!Array.isArray(groundingSupports) || groundingSupports.length === 0) return undefined
+
+  const normalized = groundingSupports
+    .map(support => {
+      const rawChunkIndices = Array.isArray(support?.groundingChunkIndices)
+        ? support.groundingChunkIndices
+        : []
+
+      const mappedCitationIndices = rawChunkIndices
+        .map(index => chunkToSourceIndex?.get(Number(index)))
+        .filter(index => Number.isInteger(index) && index >= 0 && index < sourcesLength)
+
+      if (mappedCitationIndices.length === 0) return null
+
+      return {
+        ...support,
+        citations: mappedCitationIndices.map(index => ({ index })),
+      }
+    })
+    .filter(Boolean)
+
+  return normalized.length > 0 ? normalized : undefined
 }
 
 /**
@@ -1145,9 +1179,14 @@ const streamWithLangChain = async ({
       for await (const response of stream) {
         const groundingMetadata = response?.candidates?.[0]?.groundingMetadata
         if (groundingMetadata) {
-          collectGeminiSources(groundingMetadata, geminiSources)
+          const chunkToSourceIndex = collectGeminiSources(groundingMetadata, geminiSources)
           if (Array.isArray(groundingMetadata.groundingSupports)) {
-            groundingSupports = groundingMetadata.groundingSupports
+            groundingSupports =
+              normalizeGeminiGroundingSupports(
+                groundingMetadata.groundingSupports,
+                chunkToSourceIndex,
+                geminiSources.length,
+              ) || groundingSupports
           }
         }
         const parts = response?.candidates?.[0]?.content?.parts || []
@@ -2133,7 +2172,15 @@ const generateTitleAndSpace = async (provider, firstMessage, spaces, apiKey, bas
       content: `You are a helpful assistant.
 ## Task
 1. Generate a short, concise title (max 5 words) for this conversation based on the user's first message.
+   The title must reflect the user's topic or request, not the assistant's answer style.
 2. Select the most appropriate space from the following list: [${spaceLabels}]. If none fit well, return null.
+
+## Title Rules
+- Focus on the user's topic, question, or request.
+- Do not answer the user.
+- Do not use apology/refusal wording.
+- Do not mention inability, missing capability, or lack of real-time access.
+- Do not use quotes or markdown.
 
 ## Output
 Return the result as a JSON object with keys "title" and "spaceLabel".`,
@@ -2186,7 +2233,12 @@ Return the result as a JSON object with keys "title" and "spaceLabel".`,
     })
   }
   const parsed = safeJsonParse(content) || {}
-  const title = parsed.title || 'New Conversation'
+  const rawTitle = String(parsed.title || '').trim()
+  const title = /^(sorry|apologies|i can(?:not|'t)?|i am unable|i'm unable|抱歉|对不起|无法|我目前|不能)/i.test(
+    rawTitle,
+  )
+    ? 'New Conversation'
+    : rawTitle || 'New Conversation'
   const spaceLabel = parsed.spaceLabel
   const selectedSpace = (spaces || []).find(s => s.label === spaceLabel) || null
   return { title, space: selectedSpace }
@@ -2248,8 +2300,16 @@ const generateTitleSpaceAndAgent = async (
       content: `You are a helpful assistant.
 ## Task
 1. Generate a short, concise title (max 5 words) for this conversation based on the user's first message.
+   The title must reflect the user's topic or request, not the assistant's answer style.
 2. Select the most appropriate space from the list below and return its spaceLabel (the space name only, without the description).
 3. If the chosen space has agents, select the best matching agent by agentName (agent name only). Otherwise return null.
+
+## Title Rules
+- Focus on the user's topic, question, or request.
+- Do not answer the user.
+- Do not use apology/refusal wording.
+- Do not mention inability, missing capability, or lack of real-time access.
+- Do not use quotes or markdown.
 
 ## Output
 Return the result as JSON with keys "title", "spaceLabel", and "agentName".`,
@@ -2306,8 +2366,13 @@ Return the result as JSON with keys "title", "spaceLabel", and "agentName".`,
   }
 
   const parsed = safeJsonParse(content) || {}
+  const rawTitle = String(parsed.title || '').trim()
   return {
-    title: parsed.title || 'New Conversation',
+    title: /^(sorry|apologies|i can(?:not|'t)?|i am unable|i'm unable|抱歉|对不起|无法|我目前|不能)/i.test(
+      rawTitle,
+    )
+      ? 'New Conversation'
+      : rawTitle || 'New Conversation',
     spaceLabel: parsed.spaceLabel || null,
     agentName: parsed.agentName || null,
   }

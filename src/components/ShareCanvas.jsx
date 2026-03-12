@@ -435,42 +435,67 @@ const applyGroundingSupports = (content, groundingSupports = [], sources = []) =
   }
   if (/\[\d+\]/.test(content)) return content
 
-  const markersByText = new Map()
+  const resolveSourceIndices = support => {
+    const explicitCitations = Array.isArray(support?.citations)
+      ? support.citations
+          .map(citation => Number(citation?.index))
+          .filter(index => Number.isInteger(index) && index >= 0 && index < sources.length)
+      : []
+
+    if (explicitCitations.length > 0) return explicitCitations
+
+    return Array.isArray(support?.groundingChunkIndices)
+      ? support.groundingChunkIndices
+          .map(index => Number(index))
+          .filter(index => Number.isInteger(index) && index >= 0 && index < sources.length)
+      : []
+  }
+
+  const offsetBackedSupports = groundingSupports
+    .map(support => {
+      const start = Number(support?.segment?.startIndex)
+      const end = Number(support?.segment?.endIndex)
+      const segmentText = String(support?.segment?.text || '')
+      const sourceIndices = resolveSourceIndices(support)
+
+      if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end <= start) return null
+      if (sourceIndices.length === 0) return null
+
+      const slice = content.slice(start, end)
+      if (segmentText && slice && slice !== segmentText) return null
+
+      return {
+        start,
+        end,
+        sourceIndices,
+      }
+    })
+    .filter(Boolean)
+    .sort((left, right) => right.end - left.end)
+
+  if (offsetBackedSupports.length > 0) {
+    let updated = content
+    for (const support of offsetBackedSupports) {
+      const marker = ` ${support.sourceIndices.map(idx => `[${idx + 1}]`).join('')}`
+      const normalizedEnd = Math.max(0, Math.min(support.end, updated.length))
+      updated = updated.slice(0, normalizedEnd) + marker + updated.slice(normalizedEnd)
+    }
+    return updated
+  }
+
+  let updated = content
   for (const support of groundingSupports) {
     const segmentText = support?.segment?.text
     if (!segmentText || typeof segmentText !== 'string') continue
-    const chunkIndices = Array.isArray(support?.groundingChunkIndices)
-      ? support.groundingChunkIndices
-      : []
-    const sourceIndices = chunkIndices
-      .filter(idx => Number.isInteger(idx) && idx >= 0 && idx < sources.length)
-      .map(idx => idx)
+    const sourceIndices = resolveSourceIndices(support)
     if (sourceIndices.length === 0) continue
-    const set = markersByText.get(segmentText) || new Set()
-    for (const idx of sourceIndices) set.add(idx)
-    markersByText.set(segmentText, set)
-  }
-
-  if (markersByText.size === 0) return content
-
-  let updated = content
-  const supports = Array.from(markersByText.entries())
-    .map(([text, indices]) => ({
-      text,
-      indices: Array.from(indices).sort((a, b) => a - b),
-    }))
-    .sort((a, b) => b.text.length - a.text.length)
-
-  for (const support of supports) {
-    const marker = ` ${support.indices.map(idx => `[${idx + 1}]`).join('')}`
-    let searchFrom = 0
-    while (true) {
-      const matchIndex = updated.indexOf(support.text, searchFrom)
-      if (matchIndex === -1) break
-      const insertAt = matchIndex + support.text.length
-      updated = updated.slice(0, insertAt) + marker + updated.slice(insertAt)
-      searchFrom = insertAt + marker.length
-    }
+    const marker = ` ${sourceIndices.map(idx => `[${idx + 1}]`).join('')}`
+    const firstIndex = updated.indexOf(segmentText)
+    if (firstIndex === -1) continue
+    const secondIndex = updated.indexOf(segmentText, firstIndex + segmentText.length)
+    if (secondIndex !== -1) continue
+    const insertAt = firstIndex + segmentText.length
+    updated = updated.slice(0, insertAt) + marker + updated.slice(insertAt)
   }
 
   return updated

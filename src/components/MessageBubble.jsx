@@ -59,6 +59,8 @@ import DeepResearchGoalCard from './message/DeepResearchGoalCard'
 import MessageActionBar from './message/MessageActionBar'
 import {
   applyGroundingSupports,
+  buildDocumentGroundingSupports,
+  extractCitationIndicesFromContent,
   formatContentWithSources,
   getHostname,
 } from './message/messageUtils'
@@ -523,6 +525,54 @@ const MessageBubble = ({
   const formToolHistory = toolCallHistory.filter(item => item.name === 'interactive_form')
   const hasInteractiveForm = formToolHistory.length > 0
   const mainContent = isExpertMessage ? activeExpertResponse?.content || '' : parsed.content
+  const documentCitationSources = useMemo(
+    () =>
+      Array.isArray(mergedMessage.documentSources)
+        ? mergedMessage.documentSources.map(source => ({
+            ...source,
+            title: source?.title || 'Document',
+            snippet: source?.snippet || '',
+          }))
+        : [],
+    [mergedMessage.documentSources],
+  )
+  const effectiveSources = useMemo(() => {
+    const explicitSources = Array.isArray(mergedMessage.sources) ? mergedMessage.sources : []
+    if (explicitSources.length > 0) return explicitSources
+    return documentCitationSources
+  }, [mergedMessage.sources, documentCitationSources])
+  const hasExplicitWebSources = useMemo(
+    () => Array.isArray(mergedMessage.sources) && mergedMessage.sources.length > 0,
+    [mergedMessage.sources],
+  )
+  const shouldRenderInlineWebCitations = !hasExplicitWebSources || isDeepResearch
+  const hasNavigableSourceLink = useCallback(source => {
+    const candidate =
+      source?.url || source?.uri || source?.link || source?.href || source?.sourceUrl || ''
+    return typeof candidate === 'string' && candidate.trim().length > 0
+  }, [])
+  const shouldShowWorkflowSourceSummary = hasExplicitWebSources
+  const effectiveGroundingSupports = useMemo(() => {
+    const explicitSupports = Array.isArray(mergedMessage.groundingSupports)
+      ? mergedMessage.groundingSupports
+      : []
+    if (explicitSupports.length > 0) return explicitSupports
+    if (Array.isArray(mergedMessage.sources) && mergedMessage.sources.length > 0) return []
+    return buildDocumentGroundingSupports(mainContent, documentCitationSources)
+  }, [mergedMessage.groundingSupports, mergedMessage.sources, mainContent, documentCitationSources])
+  const supportSourceIndices = useMemo(() => {
+    const unique = new Set()
+    effectiveGroundingSupports.forEach(support => {
+      const citations = Array.isArray(support?.citations) ? support.citations : []
+      citations.forEach(citation => {
+        const index = Number(citation?.index)
+        if (Number.isInteger(index) && index >= 0) {
+          unique.add(index)
+        }
+      })
+    })
+    return Array.from(unique).sort((left, right) => left - right)
+  }, [effectiveGroundingSupports])
   const displayProviderId = isExpertMessage
     ? activeExpertResponse?.provider || providerId
     : providerId
@@ -922,6 +972,9 @@ const MessageBubble = ({
   const [galleryIndex, setGalleryIndex] = useState(0)
   const [failedImageUrls, setFailedImageUrls] = useState(new Set())
   const [isDocumentSourcesOpen, setIsDocumentSourcesOpen] = useState(false)
+  const [activeDocumentSources, setActiveDocumentSources] = useState(
+    Array.isArray(message?.documentSources) ? message.documentSources : [],
+  )
 
   // Use ref to store image metadata to avoid triggering markdownComponents rebuild
   const imageMetadataRef = useRef([])
@@ -1142,6 +1195,7 @@ const MessageBubble = ({
 
   useEffect(() => {
     setIsDocumentSourcesOpen(false)
+    setActiveDocumentSources(Array.isArray(message?.documentSources) ? message.documentSources : [])
   }, [message?.id])
 
   // Sync gallery index and close if empty
@@ -1796,11 +1850,21 @@ const MessageBubble = ({
 
   const handleMobileSourceClick = useCallback(
     (selectedSources, title) => {
-      setMobileDrawerSources(selectedSources || mergedMessage.sources)
+      const resolvedSources = selectedSources || effectiveSources
+      if (
+        Array.isArray(resolvedSources) &&
+        resolvedSources.length > 0 &&
+        resolvedSources.every(source => !hasNavigableSourceLink(source))
+      ) {
+        setActiveDocumentSources(resolvedSources)
+        setIsDocumentSourcesOpen(true)
+        return
+      }
+      setMobileDrawerSources(resolvedSources)
       setMobileDrawerTitle(title || t('sources.title'))
       setIsMobileDrawerOpen(true)
     },
-    [mergedMessage.sources, t],
+    [effectiveSources, hasNavigableSourceLink, t],
   )
 
   const isStreaming = isStreamingMessage
@@ -2042,7 +2106,7 @@ const MessageBubble = ({
         return (
           <CitationChip
             indices={citationIndices}
-            sources={mergedMessage.sources}
+            sources={effectiveSources}
             isMobile={isMobile}
             onMobileClick={sources =>
               handleMobileSourceClick(sources, t('sources.citationSources'))
@@ -2120,7 +2184,7 @@ const MessageBubble = ({
     LinkRenderer.displayName = 'MarkdownLinkRenderer'
     return LinkRenderer
   }, [
-    mergedMessage.sources,
+    effectiveSources,
     isMobile,
     handleMobileSourceClick,
     t,
@@ -2334,6 +2398,66 @@ const MessageBubble = ({
     }
     return merged
   }, [compactStreamingTextBlocks, interleavedContent, isExpertMessage])
+  const renderedTextPartsForCitationSelection = useMemo(() => {
+    return contentPartsOutsideWorkflow
+      .filter(part => part.type === 'text')
+      .map(part => {
+        const contentWithCitations = shouldRenderInlineWebCitations
+          ? formatContentWithSources(
+              applyGroundingSupports(part.content, effectiveGroundingSupports, effectiveSources),
+              effectiveSources,
+            )
+          : part.content
+        return isExpertMessage && typeof contentWithCitations === 'string'
+          ? normalizeExpertBrokenTokenLines(contentWithCitations)
+          : sanitizeDisplayText(contentWithCitations)
+      })
+      .filter(text => typeof text === 'string' && text.trim().length > 0)
+  }, [
+    contentPartsOutsideWorkflow,
+    effectiveGroundingSupports,
+    effectiveSources,
+    isExpertMessage,
+    shouldRenderInlineWebCitations,
+  ])
+  const renderedCitationIndices = useMemo(() => {
+    const unique = new Set()
+    renderedTextPartsForCitationSelection.forEach(text => {
+      extractCitationIndicesFromContent(text).forEach(index => unique.add(index))
+    })
+    return Array.from(unique).sort((left, right) => left - right)
+  }, [renderedTextPartsForCitationSelection])
+  const citedSourceIndices = useMemo(
+    () => (renderedCitationIndices.length > 0 ? renderedCitationIndices : supportSourceIndices),
+    [renderedCitationIndices, supportSourceIndices],
+  )
+  const citedSources = useMemo(() => {
+    if (citedSourceIndices.length === 0) return []
+    return citedSourceIndices
+      .map(index => {
+        const source = effectiveSources[index]
+        if (!source) return null
+        return {
+          ...source,
+          originalIndex: source?.originalIndex !== undefined ? source.originalIndex : index,
+        }
+      })
+      .filter(Boolean)
+  }, [citedSourceIndices, effectiveSources])
+  const allSources = useMemo(
+    () =>
+      hasExplicitWebSources && !isDeepResearch
+        ? effectiveSources
+        : citedSources.length > 0
+          ? citedSources
+          : effectiveSources,
+    [citedSources, effectiveSources, hasExplicitWebSources, isDeepResearch],
+  )
+  const allDocumentSources = useMemo(
+    () => (hasExplicitWebSources ? [] : allSources),
+    [allSources, hasExplicitWebSources],
+  )
+  const shouldShowSourcesDrawer = hasExplicitWebSources && allSources.length > 0
   const SEARCH_STEP_TOOLS = useMemo(
     () =>
       new Set([
@@ -2764,15 +2888,12 @@ const MessageBubble = ({
   )
   const renderedMainContent = contentPartsOutsideWorkflow.map((part, idx) => {
     if (part.type === 'text') {
-      const contentWithSupports = applyGroundingSupports(
-        part.content,
-        mergedMessage.groundingSupports,
-        mergedMessage.sources,
-      )
-      const contentWithCitations = formatContentWithSources(
-        contentWithSupports,
-        mergedMessage.sources,
-      )
+      const contentWithCitations = shouldRenderInlineWebCitations
+        ? formatContentWithSources(
+            applyGroundingSupports(part.content, effectiveGroundingSupports, effectiveSources),
+            effectiveSources,
+          )
+        : part.content
       const sanitizedMainText =
         isExpertMessage && typeof contentWithCitations === 'string'
           ? normalizeExpertBrokenTokenLines(contentWithCitations)
@@ -3353,10 +3474,6 @@ const MessageBubble = ({
     return isLastRenderable
   }, [messages, messageIndex, isLastRenderable])
   const workflowContainerRef = useRef(null)
-  const allSources = useMemo(
-    () => (Array.isArray(mergedMessage.sources) ? mergedMessage.sources : []),
-    [mergedMessage.sources],
-  )
   const workflowProcessSteps = useMemo(() => {
     const base = Array.isArray(processSteps) ? [...processSteps] : []
     if (isDeepResearch) return base
@@ -3610,7 +3727,7 @@ const MessageBubble = ({
               <ChevronRight size={16} className="opacity-60" />
             )}
           </div>
-          {allSources.length > 0 && (
+          {shouldShowWorkflowSourceSummary && allSources.length > 0 && (
             <button
               type="button"
               onClick={event => {
@@ -3753,11 +3870,13 @@ const MessageBubble = ({
                         </div>
 
                         {/* Sources row */}
-                        {step.sources && step.sources.length > 0 && (
+                        {Array.isArray(step.sources) &&
+                          step.sources.length > 0 &&
+                          step.sources.some(hasNavigableSourceLink) && (
                           <div className="mb-2">
                             <SearchSourcesList sources={step.sources} />
                           </div>
-                        )}
+                          )}
                       </div>
                     </div>
                   )
@@ -3882,7 +4001,7 @@ const MessageBubble = ({
                 return null
               })}
 
-              {allSources.length > 0 && (
+              {shouldShowWorkflowSourceSummary && allSources.length > 0 && (
                 <div className="relative mb-4 pt-2">
                   {(shouldShowWorkflowFinalAnswer || hasWorkflowFinalAnswerStep) && (
                     <span className="pointer-events-none absolute top-6 bottom-[-16px] -left-5 border-l border-dashed border-gray-300/90 dark:border-zinc-700/90" />
@@ -3950,14 +4069,16 @@ const MessageBubble = ({
             components={markdownComponents}
           >
             {sanitizeDisplayText(
-              formatContentWithSources(
-                applyGroundingSupports(
-                  expertPlanBlock.content,
-                  mergedMessage.groundingSupports,
-                  mergedMessage.sources,
-                ),
-                mergedMessage.sources,
-              ),
+              shouldRenderInlineWebCitations
+                ? formatContentWithSources(
+                    applyGroundingSupports(
+                      expertPlanBlock.content,
+                      effectiveGroundingSupports,
+                      effectiveSources,
+                    ),
+                    effectiveSources,
+                  )
+                : expertPlanBlock.content,
             )}
           </Streamdown>
         </div>
@@ -4624,13 +4745,14 @@ const MessageBubble = ({
         isMobile={isMobile}
         message={mergedMessage}
         isSourcesOpen={isSourcesOpen}
-        documentSources={mergedMessage.documentSources}
+        documentSources={allDocumentSources}
         isDocumentSourcesOpen={isDocumentSourcesOpen}
         onToggleSources={() => setIsSourcesOpen(prev => !prev)}
-        onToggleDocumentSources={() => setIsDocumentSourcesOpen(prev => !prev)}
-        onOpenMobileSources={() =>
-          handleMobileSourceClick(mergedMessage.sources, t('sources.allSources'))
-        }
+        onToggleDocumentSources={() => {
+          setActiveDocumentSources(allDocumentSources)
+          setIsDocumentSourcesOpen(prev => !prev)
+        }}
+        onOpenMobileSources={() => handleMobileSourceClick(allSources, t('sources.allSources'))}
         onShare={() => setIsShareModalOpen(true)}
         onRegenerate={
           onRegenerateAnswer
@@ -4669,20 +4791,20 @@ const MessageBubble = ({
       />
 
       {/* Document Sources Panel */}
-      {mergedMessage.documentSources && mergedMessage.documentSources.length > 0 && (
+      {activeDocumentSources && activeDocumentSources.length > 0 && (
         <DocumentSourcesPanel
-          sources={mergedMessage.documentSources}
+          sources={activeDocumentSources}
           isOpen={isDocumentSourcesOpen}
           onClose={() => setIsDocumentSourcesOpen(false)}
         />
       )}
 
       {/* Desktop Sources Drawer */}
-      {!isMobile && mergedMessage.sources && mergedMessage.sources.length > 0 && (
+      {!isMobile && shouldShowSourcesDrawer && (
         <DesktopSourcesSheet
           isOpen={isSourcesOpen}
           onClose={() => setIsSourcesOpen(false)}
-          sources={mergedMessage.sources}
+          sources={allSources}
           title={t('sources.citationSources', '参考资料')}
         />
       )}
@@ -4995,7 +5117,11 @@ const CitationChip = ({ indices, sources, isMobile, onMobileClick, label }) => {
       if (onMobileClick) {
         onMobileClick(drawerSources)
       }
+      return
     }
+    if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    updatePosition()
+    setIsOpen(prev => !prev)
   }
 
   // Update position on scroll/resize while open
@@ -5041,6 +5167,7 @@ const CitationChip = ({ indices, sources, isMobile, onMobileClick, label }) => {
       >
         <span
           onClick={handleClick}
+          onFocus={handleMouseEnter}
           className="bg-primary-200/50 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300 hover:bg-primary-300/50 dark:hover:bg-primary-700/50 mx-0.5 cursor-pointer rounded-lg px-1 py-0.5 text-[12px] transition-colors"
         >
           {parseChildrenWithEmojis(label)}
@@ -5073,15 +5200,12 @@ const CitationChip = ({ indices, sources, isMobile, onMobileClick, label }) => {
               const faviconUrl =
                 source.icon ||
                 (hostname ? `https://www.google.com/s2/favicons?domain=${hostname}&sz=32` : '')
-              return (
-                <a
-                  key={idx}
-                  href={url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={e => e.stopPropagation()}
-                  className="flex items-start gap-2 rounded-lg p-2 text-left transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800"
-                >
+              const titlePath = buildDocumentPath(source)
+              const metaLabel = url
+                ? hostname
+                : titlePath || source.fileType || t('sources.documentSources')
+              const body = (
+                <>
                   <span className="mt-0.5 flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border border-gray-200 bg-gray-100 text-[9px] font-medium text-gray-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-gray-400">
                     {idx + 1}
                   </span>
@@ -5091,19 +5215,42 @@ const CitationChip = ({ indices, sources, isMobile, onMobileClick, label }) => {
                     </span>
                     <span className="block truncate text-[10px]! text-gray-400 dark:text-gray-500">
                       <span className="inline-flex items-center gap-1.5">
-                        {faviconUrl && (
+                        {faviconUrl ? (
                           <img src={faviconUrl} alt="" className="h-3 w-3 rounded-sm" />
+                        ) : (
+                          <FileText size={12} className="opacity-70" />
                         )}
-                        <span className="truncate">{hostname}</span>
+                        <span className="truncate">{metaLabel}</span>
                       </span>
                     </span>
                     {snippet && (
-                      <span className="mt-1 line-clamp-2 block text-[10px] text-gray-500 dark:text-gray-400">
+                      <span className="mt-1 line-clamp-1 block text-[10px] text-gray-500 dark:text-gray-400">
                         {snippet}
                       </span>
                     )}
                   </span>
-                </a>
+                </>
+              )
+              return (
+                url ? (
+                  <a
+                    key={idx}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={e => e.stopPropagation()}
+                    className="flex items-start gap-2 rounded-lg p-2 text-left transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800"
+                  >
+                    {body}
+                  </a>
+                ) : (
+                  <div
+                    key={idx}
+                    className="flex items-start gap-2 rounded-lg p-2 text-left"
+                  >
+                    {body}
+                  </div>
+                )
               )
             })}
           </div>,
@@ -5122,3 +5269,7 @@ const CitationChip = ({ indices, sources, isMobile, onMobileClick, label }) => {
 }
 
 export default React.memo(MessageBubble)
+  const buildDocumentPath = source =>
+    Array.isArray(source?.titlePath)
+      ? source.titlePath.map(item => String(item || '').trim()).filter(Boolean).join(' > ')
+      : ''

@@ -59,6 +59,14 @@ const cleanSnippet = value => {
     .trim()
 }
 
+const buildTitlePath = source => {
+  if (!Array.isArray(source?.titlePath) || source.titlePath.length === 0) return ''
+  return source.titlePath
+    .map(item => String(item || '').trim())
+    .filter(Boolean)
+    .join(' > ')
+}
+
 const SourcesModal = ({ isOpen, onClose, sources }) => {
   const { t } = useTranslation()
 
@@ -91,6 +99,11 @@ const SourcesModal = ({ isOpen, onClose, sources }) => {
                   <div className="truncate text-sm font-semibold text-gray-900 dark:text-white">
                     {source.title?.replace(/\.[^/.]+$/, '') || source.title}
                   </div>
+                  {buildTitlePath(source) && (
+                    <div className="mt-0.5 truncate text-[11px] text-gray-500 dark:text-gray-400">
+                      {buildTitlePath(source)}
+                    </div>
+                  )}
                   {source.fileType && (
                     <div className="mt-0.5 text-xs font-medium tracking-wider text-gray-500 uppercase dark:text-gray-400">
                       {formatFileType(source.fileType)}
@@ -138,8 +151,15 @@ const DocumentSourcesPanel = ({ sources = [], isOpen, onClose }) => {
                   <div className="glass-elite-chip flex items-center justify-center rounded-lg p-1 leading-none">
                     <FileIcon fileType={source.fileType} size={12} />
                   </div>
-                  <div className="truncate text-xs font-semibold text-gray-900 dark:text-white">
-                    {source.title?.replace(/\.[^/.]+$/, '') || source.title}
+                  <div className="min-w-0">
+                    <div className="truncate text-xs font-semibold text-gray-900 dark:text-white">
+                      {source.title?.replace(/\.[^/.]+$/, '') || source.title}
+                    </div>
+                    {buildTitlePath(source) && (
+                      <div className="truncate text-[10px] text-gray-400 dark:text-gray-500">
+                        {buildTitlePath(source)}
+                      </div>
+                    )}
                   </div>
                 </div>
                 {source.fileType && (

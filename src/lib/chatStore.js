@@ -2116,7 +2116,7 @@ const useChatStore = create((set, get) => ({
     let resolvedDocumentContextAppend = documentContextAppend
 
     if (shouldRetrieveDocs) {
-      const toolCallId = `document-embedding-${Date.now()}`
+      const toolCallId = `document-search-${Date.now()}`
       const toolStart = Date.now()
 
       set(state => {
@@ -2129,7 +2129,7 @@ const useChatStore = create((set, get) => ({
         const history = Array.isArray(lastMsg.toolCallHistory) ? [...lastMsg.toolCallHistory] : []
         history.push({
           id: toolCallId,
-          name: 'document_embedding',
+          name: 'document_search',
           arguments: JSON.stringify({ query: '' }),
           status: 'calling',
           durationMs: null,

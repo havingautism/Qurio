@@ -446,8 +446,8 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-200 flex items-start justify-center overflow-y-auto bg-black/80 px-0 backdrop-blur-sm md:items-center md:px-4">
-      <div className="glass-elite-panel animate-in zoom-in-95 w-full max-w-3xl overflow-hidden rounded-none border-0 shadow-2xl duration-200 md:max-h-[88vh] md:rounded-[28px]">
+    <div className="fixed inset-0 z-200 flex items-end justify-center overflow-hidden bg-black/80 px-0 backdrop-blur-sm md:items-center md:overflow-y-auto md:px-4">
+      <div className="glass-elite-panel animate-in zoom-in-95 flex max-h-[min(92dvh,760px)] w-full flex-col overflow-hidden rounded-t-[28px] border-0 shadow-2xl duration-200 md:max-h-[88vh] md:max-w-3xl md:rounded-[28px]">
         <div className="hidden border-b border-black/5 px-4 py-5 sm:block sm:px-10 dark:border-white/5">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
@@ -473,7 +473,7 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
           </div>
         </div>
 
-        <div className="max-h-[calc(100dvh-7rem)] space-y-4 overflow-y-auto px-4 py-6 sm:px-10 sm:py-8 md:max-h-[calc(88vh-6.5rem)]">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-6 pb-5 sm:px-10 sm:py-8 md:max-h-[calc(88vh-6.5rem)]">
           {healthStatus !== 'idle' && (
             <div
               className={clsx(
@@ -793,7 +793,7 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
           </div>
         </div>
 
-        <div className="border-t border-black/5 px-4 py-4 sm:px-10 dark:border-white/5">
+        <div className="border-t border-black/5 px-4 py-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] sm:px-10 dark:border-white/5">
           <div className="flex flex-col gap-3">
             {error && (
               <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50/90 px-4 py-3 text-sm text-red-600 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">

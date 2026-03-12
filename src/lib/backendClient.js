@@ -304,6 +304,79 @@ export const extractDocumentTextViaBackend = async file => {
   return response.json()
 }
 
+export const indexDocumentViaBackend = async ({ spaceId, documentId = null, file }) => {
+  const formData = new FormData()
+  formData.append('space_id', spaceId)
+  if (documentId) {
+    formData.append('document_id', documentId)
+  }
+  formData.append('file', file)
+
+  const response = await fetchWithTimeout(
+    `${getBackendUrl()}/api/documents/index`,
+    {
+      method: 'POST',
+      body: formData,
+    },
+    120000,
+  )
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Unknown error' }))
+    throw new Error(getBackendErrorMessage(error, response.status))
+  }
+
+  return response.json()
+}
+
+export const searchDocumentsViaBackend = async ({
+  spaceId,
+  documentIds = [],
+  queryText,
+  topK = 5,
+}) => {
+  const response = await fetchWithTimeout(
+    `${getBackendUrl()}/api/documents/search`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        space_id: spaceId,
+        document_ids: documentIds,
+        query_text: queryText,
+        top_k: topK,
+      }),
+    },
+    30000,
+  )
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Unknown error' }))
+    throw new Error(getBackendErrorMessage(error, response.status))
+  }
+
+  return response.json()
+}
+
+export const deleteDocumentIndexViaBackend = async ({ spaceId, documentId }) => {
+  const response = await fetchWithTimeout(
+    `${getBackendUrl()}/api/documents/index/${encodeURIComponent(spaceId)}/${encodeURIComponent(documentId)}`,
+    {
+      method: 'DELETE',
+    },
+    15000,
+  )
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Unknown error' }))
+    throw new Error(getBackendErrorMessage(error, response.status))
+  }
+
+  return response.json()
+}
+
 /**
  * Generate a structured deep research plan
  * @param {string} provider - AI provider name
@@ -349,6 +422,39 @@ export const generateResearchPlanViaBackend = async (
   return response.json()
 }
 
+export const selectThinkingModeViaBackend = async (
+  provider,
+  message,
+  apiKey,
+  baseUrl,
+  model,
+) => {
+  const response = await fetchWithTimeout(
+    `${getBackendUrl()}/api/thinking-mode`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...buildSecretHeaders({ apiKey }),
+      },
+      body: JSON.stringify({
+        provider,
+        message,
+        baseUrl,
+        model,
+      }),
+    },
+    30000,
+  )
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Unknown error' }))
+    throw new Error(getBackendErrorMessage(error, response.status))
+  }
+
+  return response.json()
+}
+
 /**
  * Stream research plan generation
  * Uses Server-Sent Events (SSE) for streaming responses
@@ -368,6 +474,7 @@ export const generateResearchPlanViaBackend = async (
  * @param {number} params.presence_penalty - Optional presence penalty
  * @param {number} params.contextTurns - Optional context turn limit
  * @param {Array} params.toolIds - Optional tool ids to enable
+ * @param {boolean} params.deepResearch - Whether this stream-chat request belongs to a deep research conversation
  * @param {Function} params.onChunk - Callback for each chunk (chunk) => void
  * @param {Function} params.onFinish - Callback when stream completes (result) => void
  * @param {Function} params.onError - Callback for errors (error) => void
@@ -786,6 +893,7 @@ export const streamChatViaBackend = async params => {
     tools,
     toolIds,
     skillIds,
+    deepResearch,
     toolChoice,
     responseFormat,
     thinking,
@@ -862,6 +970,7 @@ export const streamChatViaBackend = async params => {
           tools,
           toolIds,
           skillIds,
+          deepResearch,
           toolChoice,
           responseFormat,
           thinking,

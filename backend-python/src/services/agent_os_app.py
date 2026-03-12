@@ -28,6 +28,7 @@ from ..routes import (
     mcp_tools,
     related_questions,
     research_plan,
+    thinking_mode,
     space_agent,
     title_and_space,
     title_space_agent,
@@ -123,6 +124,7 @@ def _build_base_app() -> FastAPI:
     app.include_router(space_agent.router, prefix="/api")
     app.include_router(agent_for_auto.router, prefix="/api")
     app.include_router(related_questions.router, prefix="/api")
+    app.include_router(thinking_mode.router, prefix="/api")
     app.include_router(research_plan.router, prefix="/api")
     app.include_router(deep_research.router, prefix="/api")
     app.include_router(memory_route.router, prefix="/api")

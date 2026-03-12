@@ -2722,7 +2722,7 @@ class StreamChatService:
             "search_arxiv_and_return_articles",
             "search_wikipedia",
         }
-        if enabled_tools.intersection(search_tools_requiring_citations):
+        if request.deep_research and enabled_tools.intersection(search_tools_requiring_citations):
             citation_prompt = (
                 "\n\n[IMPORTANT] You have access to search tools. When you use them to answer a question, "
                 "you MUST cite the search results in your answer using the format [1], [2], etc., "

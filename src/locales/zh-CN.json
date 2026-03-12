@@ -1725,6 +1725,9 @@
       "cancel": "取消",
       "saveText": "保存条目",
       "autoSave": "自动获取并保存"
+    },
+    "chat": {
+      "title": "问一问"
     }
   }
 }

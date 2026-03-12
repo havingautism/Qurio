@@ -2398,7 +2398,10 @@ const ChatInterface = ({
         {/* Messages Scroll Container */}
         <div
           ref={messagesContainerRef}
-          className="no-scrollbar relative flex-1 overflow-x-hidden overflow-y-auto pt-20 sm:px-2 sm:pt-24 sm:pb-2"
+          className={clsx(
+            'no-scrollbar relative flex-1 overflow-x-hidden overflow-y-auto sm:px-2 sm:pb-2',
+            isEmbedded ? 'pt-4' : 'pt-20 sm:pt-24',
+          )}
         >
           <div className="mx-auto w-full max-w-3xl px-0 sm:px-5">
             {showHistoryLoader && (
@@ -2454,7 +2457,10 @@ const ChatInterface = ({
         {/* Input Area */}
         <div
           ref={inputAreaRef}
-          className="z-50 flex w-full shrink-0 justify-center rounded-b-3xl bg-transparent px-2 pt-0 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-0"
+          className={clsx(
+            'z-50 flex w-full shrink-0 justify-center rounded-b-3xl bg-transparent px-2 pt-0 sm:px-0',
+            isEmbedded ? 'pb-2 sm:px-4' : 'pb-[calc(0.75rem+env(safe-area-inset-bottom))]',
+          )}
         >
           <div className="relative w-full max-w-3xl">
             {/* Scrapbook context banner removed as redundant in embedded mode */}
@@ -2474,7 +2480,7 @@ const ChatInterface = ({
               </button>
             )}
 
-            <div className={clsx("flex flex-col gap-2", isEmbedded ? "pb-6" : "pb-2")}>
+            <div className={clsx('flex flex-col gap-2', isEmbedded ? 'pb-2' : 'pb-2')}>
               <ChatInputBar
                 variant="capsule"
                 isLoading={isLoading}

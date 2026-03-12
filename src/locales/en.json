@@ -1733,6 +1733,9 @@
       "cancel": "Cancel",
       "saveText": "Save Entry",
       "autoSave": "Fetch & Save"
+    },
+    "chat": {
+      "title": "Ask"
     }
   }
 }

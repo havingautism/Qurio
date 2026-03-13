@@ -219,13 +219,24 @@ const generateAgentForAuto = async (
   }
 }
 
-const generateRelatedQuestions = async (provider, messages, apiKey, baseUrl, model) => {
+const generateRelatedQuestions = async (
+  provider,
+  messages,
+  apiKey,
+  baseUrl,
+  model,
+  languageInstruction,
+) => {
+  const { userTimezone, userLocale } = getClientTimeContext()
   const result = await generateRelatedQuestionsViaBackend(
     provider,
     messages,
     apiKey,
     baseUrl,
     model,
+    languageInstruction,
+    userTimezone,
+    userLocale,
   )
   return result?.questions || []
 }
@@ -251,6 +262,13 @@ export const createBackendProvider = provider => ({
     generateSpaceAndAgent(provider, firstMessage, spacesWithAgents, apiKey, baseUrl, model),
   generateAgentForAuto: (userMessage, currentSpace, apiKey, baseUrl, model) =>
     generateAgentForAuto(provider, userMessage, currentSpace, apiKey, baseUrl, model),
-  generateRelatedQuestions: (messages, apiKey, baseUrl, model) =>
-    generateRelatedQuestions(provider, messages, apiKey, baseUrl, model),
+  generateRelatedQuestions: (messages, apiKey, baseUrl, model, languageInstruction) =>
+    generateRelatedQuestions(
+      provider,
+      messages,
+      apiKey,
+      baseUrl,
+      model,
+      languageInstruction,
+    ),
 })

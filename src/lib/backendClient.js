@@ -825,6 +825,9 @@ export const generateRelatedQuestionsViaBackend = async (
   apiKey,
   baseUrl,
   model,
+  languageInstruction,
+  userTimezone,
+  userLocale,
 ) => {
   const response = await fetchWithTimeout(
     `${getBackendUrl()}/api/related-questions`,
@@ -839,6 +842,9 @@ export const generateRelatedQuestionsViaBackend = async (
         messages,
         baseUrl,
         model,
+        languageInstruction,
+        userTimezone,
+        userLocale,
       }),
     },
     30000,

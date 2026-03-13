@@ -1967,6 +1967,7 @@ export const finalizeMessage = async (
             credentials.apiKey,
             credentials.baseUrl,
             modelConfig.model,
+            languageInstruction || undefined,
           ),
           20000,
           'Related questions',

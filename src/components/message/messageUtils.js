@@ -75,7 +75,14 @@ export const formatContentWithSources = (content, sources = []) => {
 
   return mapMarkdownOutsideCitationProtectedZones(content, segment =>
     segment.replace(citationRegex, match => {
-      const indices = match.match(/\d+/g).map(n => Number(n) - 1)
+      const indices = Array.from(
+        new Set(
+          match
+            .match(/\d+/g)
+            .map(n => Number(n) - 1)
+            .filter(index => index >= 0),
+        ),
+      ).sort((left, right) => left - right)
 
       if (indices.length === 0) return match
 
@@ -135,17 +142,25 @@ export const applyGroundingSupports = (content, groundingSupports = [], sources 
 
   const resolveCitationIndices = support => {
     const explicitCitations = Array.isArray(support?.citations)
-      ? support.citations
-          .map(citation => Number(citation?.index))
-          .filter(index => Number.isInteger(index) && index >= 0 && index < sources.length)
+      ? Array.from(
+          new Set(
+            support.citations
+              .map(citation => Number(citation?.index))
+              .filter(index => Number.isInteger(index) && index >= 0 && index < sources.length),
+          ),
+        ).sort((left, right) => left - right)
       : []
 
     if (explicitCitations.length > 0) return explicitCitations
 
     return Array.isArray(support?.groundingChunkIndices)
-      ? support.groundingChunkIndices
-          .map(index => Number(index))
-          .filter(index => Number.isInteger(index) && index >= 0 && index < sources.length)
+      ? Array.from(
+          new Set(
+            support.groundingChunkIndices
+              .map(index => Number(index))
+              .filter(index => Number.isInteger(index) && index >= 0 && index < sources.length),
+          ),
+        ).sort((left, right) => left - right)
       : []
   }
 
@@ -156,7 +171,8 @@ export const applyGroundingSupports = (content, groundingSupports = [], sources 
       const segmentText = String(support?.segment?.text || '')
       const citationIndices = resolveCitationIndices(support)
 
-      if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end <= start) return null
+      if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end <= start)
+        return null
       if (citationIndices.length === 0) return null
 
       const slice = content.slice(start, end)
@@ -251,17 +267,23 @@ const splitIntoCitableSegments = content => {
 }
 
 export const buildDocumentGroundingSupports = (content, sources = []) => {
-  if (typeof content !== 'string' || !content.trim() || !Array.isArray(sources) || sources.length === 0) {
+  if (
+    typeof content !== 'string' ||
+    !content.trim() ||
+    !Array.isArray(sources) ||
+    sources.length === 0
+  ) {
     return []
   }
 
   const indexedSources = sources.map((source, index) => {
     const titlePath = Array.isArray(source?.titlePath) ? source.titlePath.join(' ') : ''
-    const searchText = [source?.title, titlePath, source?.snippet].filter(Boolean).join(' ')
-    const tokens = extractOverlapTokens(searchText)
+    const snippetTokens = extractOverlapTokens(source?.snippet || '')
+    const contextTokens = extractOverlapTokens([source?.title, titlePath].filter(Boolean).join(' '))
     return {
       index,
-      tokens,
+      snippetTokens,
+      contextTokens,
       retrievalScore: Number.isFinite(source?.score) ? Number(source.score) : 0,
     }
   })
@@ -273,13 +295,24 @@ export const buildDocumentGroundingSupports = (content, sources = []) => {
 
       const ranked = indexedSources
         .map(source => {
-          const overlap = segmentTokens.filter(token => source.tokens.includes(token)).length
-          const score = overlap + source.retrievalScore * 0.25
-          return { index: source.index, score }
+          const snippetOverlap = segmentTokens.filter(token =>
+            source.snippetTokens.includes(token),
+          ).length
+          const contextOverlap = segmentTokens.filter(token =>
+            source.contextTokens.includes(token),
+          ).length
+          const overlapRatio =
+            snippetOverlap /
+            Math.max(1, Math.min(segmentTokens.length, source.snippetTokens.length || 1))
+          const passesThreshold =
+            snippetOverlap >= 3 || (snippetOverlap >= 2 && overlapRatio >= 0.2)
+          const score =
+            snippetOverlap + contextOverlap * 0.15 + source.retrievalScore * 0.15 + overlapRatio
+          return { index: source.index, score, passesThreshold }
         })
-        .filter(item => item.score > 0)
+        .filter(item => item.passesThreshold && item.score > 0)
         .sort((left, right) => right.score - left.score)
-        .slice(0, 2)
+        .slice(0, 3)
 
       if (ranked.length === 0) return null
 

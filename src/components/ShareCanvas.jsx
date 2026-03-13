@@ -4,6 +4,7 @@ import remarkGfm from 'remark-gfm'
 import { parseChildrenWithEmojis } from '../lib/emojiParser'
 import { getProvider } from '../lib/providers'
 import { PROVIDER_ICONS, getModelIcon, getModelIconClassName } from '../lib/modelIcons'
+import { buildDocumentGroundingSupports } from './message/messageUtils'
 
 const PROVIDER_META = {
   gemini: {
@@ -458,7 +459,8 @@ const applyGroundingSupports = (content, groundingSupports = [], sources = []) =
       const segmentText = String(support?.segment?.text || '')
       const sourceIndices = resolveSourceIndices(support)
 
-      if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end <= start) return null
+      if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end <= start)
+        return null
       if (sourceIndices.length === 0) return null
 
       const slice = content.slice(start, end)
@@ -620,12 +622,14 @@ const ShareCanvas = ({
     const provider = getProvider(providerId)
     const parsed = provider.parseMessage(message)
     const mainContent = parsed.content
+    const documentSources = Array.isArray(message.documentSources) ? message.documentSources : []
+    if (documentSources.length === 0) return mainContent
     const contentWithSupports = applyGroundingSupports(
       mainContent,
-      message.groundingSupports,
-      message.sources,
+      buildDocumentGroundingSupports(mainContent, documentSources),
+      documentSources,
     )
-    return formatContentWithSources(contentWithSupports, message.sources)
+    return formatContentWithSources(contentWithSupports, documentSources)
   }, [message, isUser, providerId])
 
   const markdownComponents = useMemo(

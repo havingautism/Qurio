@@ -1335,6 +1335,10 @@
     "citationSources": "引用来源",
     "documentSources": "文档来源",
     "allSources": "所有来源",
+    "searchSources": "网络搜索来源",
+    "showFullExcerpt": "显示完整引用",
+    "hideFullExcerpt": "收起完整引用",
+    "relatedExcerpts": "相关片段",
     "viewDocumentContext": "查看 {{count}} 个文档来源"
   },
   "errors": {

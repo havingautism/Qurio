@@ -1343,7 +1343,11 @@
     "resultsFound": "{{count}} results found",
     "citationSources": "Citation Sources",
     "documentSources": "Document Sources",
-    "allSources": "All Sources"
+    "allSources": "All Sources",
+    "searchSources": "Search Sources",
+    "showFullExcerpt": "Show full quote",
+    "hideFullExcerpt": "Hide full quote",
+    "relatedExcerpts": "Related excerpts"
   },
   "errors": {
     "generic": "Something went wrong. Please try again.",

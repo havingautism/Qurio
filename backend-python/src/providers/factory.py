@@ -7,6 +7,7 @@ Creates the appropriate adapter based on provider name.
 from .base import BaseProviderAdapter
 from .openai import OpenAIAdapter
 from .other_providers import (
+    DeepSeekAdapter,
     GeminiAdapter,
     GLMAdapter,
     KimiAdapter,
@@ -49,7 +50,7 @@ def get_provider_adapter(
         case "glm":
             adapter = GLMAdapter()
         case "deepseek":
-            adapter = GLMAdapter()
+            adapter = DeepSeekAdapter()
         case "volcengine":
             adapter = GLMAdapter()
         case "modelscope":

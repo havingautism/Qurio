@@ -1897,6 +1897,9 @@ class StreamChatService:
                     continuation_event_count += 1
                     last_event_type = type(run_event).__name__
                     last_event_name = str(getattr(run_event, "event", None) or last_event_type)
+                    raw_event_run_id = getattr(run_event, "run_id", None)
+                    if raw_event_run_id is None and isinstance(run_event, dict):
+                        raw_event_run_id = run_event.get("run_id")
                     last_event_run_id = str(raw_event_run_id) if raw_event_run_id else None
 
                     # Extract agent info for Team mode (though Team HITL is currently disabled)

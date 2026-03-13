@@ -638,7 +638,10 @@ const ChatInterface = ({
       return []
     }
     const idSet = new Set(spaceAgentIds.map(id => String(id)))
-    const filteredAgents = appAgents.filter(agent => idSet.has(String(agent.id)))
+    const filteredAgents = appAgents.filter(
+      agent =>
+        idSet.has(String(agent.id)) && String(agent?.id || '') !== String(SCRAPBOOK_AGENT_ID),
+    )
     return filteredAgents
   }, [appAgents, displaySpace?.id, spaceAgentIds])
 
@@ -656,7 +659,9 @@ const ChatInterface = ({
       const hasSelected = list.some(agent => String(agent.id) === String(selectedAgentId))
       if (!hasSelected) {
         const selected = appAgents.find(agent => String(agent.id) === String(selectedAgentId))
-        if (selected) list.unshift(selected)
+        if (selected && String(selected?.id || '') !== String(SCRAPBOOK_AGENT_ID)) {
+          list.unshift(selected)
+        }
       }
     }
     return list

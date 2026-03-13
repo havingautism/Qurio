@@ -865,6 +865,7 @@ export const callAIAPI = async (
       memoryModel: resolvedMemoryModel,
       memoryApiKey: memoryApiKey,
       memoryBaseUrl: memoryBaseUrl,
+      enableResponseCache: Boolean(settings.enableResponseCache),
       userTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       userLocale: navigator.language || 'en-US',
       runId: hitlRunId,

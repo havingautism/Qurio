@@ -616,6 +616,8 @@
     "customInstructionPlaceholder": "在此添加任何额外的风格备注...",
     "globalChatModels": "全局对话模型",
     "globalChatModelsHint": "设置所有智能体的全局默认对话模型。单个智能体的设置将覆盖此全局配置。",
+    "enableResponseCache": "启用响应缓存",
+    "enableResponseCacheHint": "将支持厂商的模型响应缓存到磁盘。目前仅对 Nvidia、SiliconFlow 和 DeepSeek 生效。",
     "applyToAllAgents": "应用到所有现有智能体",
     "embeddingConfiguration": "向量模型配置",
     "embeddingConfigurationHint": "选择用于长期记忆的向量模型。",

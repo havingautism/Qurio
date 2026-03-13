@@ -632,6 +632,8 @@
     "customInstructionPlaceholder": "Add any extra style notes here...",
     "globalChatModels": "Global Chat Models",
     "globalChatModelsHint": "Set global default chat models for all agents. Individual agent settings will override this configuration.",
+    "enableResponseCache": "Enable response cache",
+    "enableResponseCacheHint": "Cache model responses on disk for supported providers. Currently applies to Nvidia, SiliconFlow, and DeepSeek only.",
     "applyToAllAgents": "Apply to All Existing Agents",
     "embeddingConfiguration": "Embedding Configuration",
     "embeddingConfigurationHint": "Choose the embedding model used for long-term memory.",

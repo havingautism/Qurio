@@ -89,6 +89,7 @@ class StreamChatRequest(BaseModel):
         default=None,
         alias="thinkingMode",
     )
+    enable_response_cache: bool = Field(default=False, alias="enableResponseCache")
 
     # Generation parameters
     temperature: float | None = None

@@ -24,21 +24,11 @@ import {
   isExpertConversation,
   listConversations,
 } from './lib/conversationsService'
-import {
-  DEEP_RESEARCH_AGENT_DESCRIPTION,
-  DEEP_RESEARCH_AGENT_NAME,
-  DEEP_RESEARCH_AGENT_PROMPT,
-  DEEP_RESEARCH_EMOJI,
-  DEEP_RESEARCH_PROFILE,
-  DEEP_RESEARCH_SPACE_DESCRIPTION,
-  DEEP_RESEARCH_SPACE_LABEL,
-} from './lib/deepResearchDefaults'
 import i18n from './lib/i18n' // Initialize i18next
 import { getBackendUrl, loadSettings, updateMemorySettings } from './lib/settings'
 import {
   createSpace,
   deleteSpace,
-  listSpaceAgents,
   listSpaces,
   updateSpace,
   updateSpaceAgents,
@@ -49,7 +39,6 @@ import { DeepResearchGuideProvider } from './contexts/DeepResearchGuideContext'
 import {
   annotateSystemAgent,
   buildDefaultSystemAgentPayload,
-  buildDeepResearchSystemAgentPayload,
   buildScrapbookSystemAgentPayload,
   DEFAULT_AGENT_DESCRIPTION,
   DEFAULT_AGENT_ID,
@@ -57,10 +46,7 @@ import {
   SCRAPBOOK_AGENT_ID,
   isDeepResearchSystemAgent,
 } from './lib/systemAgents'
-import {
-  resolveDefaultAgentStartupAction,
-  resolveDeepResearchAgentStartupAction,
-} from './lib/systemAgentStartupPolicy'
+import { resolveDefaultAgentStartupAction } from './lib/systemAgentStartupPolicy'
 
 export const AppContext = React.createContext(null)
 export const useAppContext = () => React.useContext(AppContext)
@@ -598,7 +584,7 @@ function App() {
     setAgentsLoading(true)
     try {
       initSupabase()
-      const { data, error } = await listAgents()
+      const { data, error } = await listAgents({ excludeIds: [SCRAPBOOK_AGENT_ID] })
       if (!error && data) {
         const settings = loadSettings()
         let nextAgents = data.map(annotateSystemAgent)
@@ -682,130 +668,6 @@ function App() {
       window.removeEventListener('agents-changed', handleAgentsChanged)
     }
   }, [])
-
-  const ensuringDeepResearchRef = useRef(false)
-
-  useEffect(() => {
-    const ensureDeepResearchAssets = async () => {
-      // Prevent concurrent execution or redundant runs if already successful (optional)
-      if (ensuringDeepResearchRef.current) return
-      if (spacesLoading || agentsLoading) return
-      if (!spaces.length && !agents.length) return
-
-      const settings = loadSettings()
-      const defaultAgent = agents.find(agent => agent.isDefault) || null
-      const candidateAgents = agents.filter(agent => String(agent.id) === DEEP_RESEARCH_AGENT_ID)
-      const candidateSpaces = spaces.filter(space => isDeepResearchSpace(space))
-      const existingAgent = candidateAgents[0] || null
-      const existingSpace = candidateSpaces[0] || null
-
-      ensuringDeepResearchRef.current = true
-      try {
-        let deepAgent = existingAgent
-        const desiredDeepAgent = {
-          ...buildDeepResearchSystemAgentPayload(settings),
-          provider: defaultAgent?.provider || 'gemini',
-          defaultModelProvider:
-            defaultAgent?.defaultModelProvider || defaultAgent?.provider || 'gemini',
-          liteModelProvider: defaultAgent?.liteModelProvider || defaultAgent?.provider || 'gemini',
-          liteModel: defaultAgent?.liteModel || '',
-          defaultModel: defaultAgent?.defaultModel || '',
-        }
-        const deepResearchStartupAction = resolveDeepResearchAgentStartupAction(deepAgent)
-        if (deepResearchStartupAction === 'create') {
-          const { data: createdAgent, error: agentError } = await createAgent(desiredDeepAgent)
-          if (!agentError && createdAgent) {
-            deepAgent = annotateSystemAgent(createdAgent)
-            setAgents(prev => [...prev, deepAgent])
-          } else {
-            console.error('Create deep research agent failed:', agentError)
-          }
-        } else {
-          if (!existingAgent?.isDeepResearchSystem || !existingAgent?.isDeepResearch) {
-            setAgents(prev =>
-              prev.map(agent =>
-                agent.id === existingAgent.id ? annotateSystemAgent(agent) : agent,
-              ),
-            )
-          }
-        }
-
-        let deepSpace = existingSpace
-        if (!deepSpace) {
-          const { data: createdSpace, error: spaceError } = await createSpace({
-            emoji: DEEP_RESEARCH_EMOJI,
-            label: DEEP_RESEARCH_SPACE_LABEL,
-            description: DEEP_RESEARCH_SPACE_DESCRIPTION,
-            isDeepResearch: true,
-          })
-          if (!spaceError && createdSpace) {
-            deepSpace = { ...createdSpace, isDeepResearchSystem: true }
-            setSpaces(prev => [...prev, deepSpace])
-          } else {
-            console.error('Create deep research space failed:', spaceError)
-          }
-        } else {
-          if (!existingSpace.isDeepResearchSystem) {
-            setSpaces(prev =>
-              prev.map(space =>
-                space.id === existingSpace.id ? { ...space, isDeepResearchSystem: true } : space,
-              ),
-            )
-          }
-        }
-
-        if (deepSpace?.id) {
-          const patch = {}
-          if (deepSpace.label !== DEEP_RESEARCH_SPACE_LABEL) patch.label = DEEP_RESEARCH_SPACE_LABEL
-          if (deepSpace.description !== DEEP_RESEARCH_SPACE_DESCRIPTION)
-            patch.description = DEEP_RESEARCH_SPACE_DESCRIPTION
-          if (deepSpace.emoji !== DEEP_RESEARCH_EMOJI) patch.emoji = DEEP_RESEARCH_EMOJI
-          if (!deepSpace.isDeepResearch) patch.isDeepResearch = true
-          if (Object.keys(patch).length > 0) {
-            const { data: updatedSpace, error: updateError } = await updateSpace(
-              deepSpace.id,
-              patch,
-            )
-            if (!updateError && updatedSpace) {
-              deepSpace = { ...updatedSpace, isDeepResearchSystem: true }
-              setSpaces(prev =>
-                prev.map(space => (space.id === updatedSpace.id ? deepSpace : space)),
-              )
-            } else {
-              console.error('Update deep research space failed:', updateError)
-            }
-          }
-        }
-
-        if (deepSpace?.id && deepAgent?.id) {
-          let shouldRebindSpaceAgent = true
-          const { data: currentSpaceAgents, error: spaceAgentsError } = await listSpaceAgents(
-            deepSpace.id,
-          )
-          if (spaceAgentsError) {
-            console.error('Load deep research space agents failed:', spaceAgentsError)
-          } else {
-            const currentAgentIds = (currentSpaceAgents || [])
-              .map(item => String(item?.agent_id || ''))
-              .filter(Boolean)
-            const primaryAgentId =
-              currentSpaceAgents?.find(item => item?.is_primary)?.agent_id || null
-            shouldRebindSpaceAgent =
-              currentAgentIds.length !== 1 ||
-              currentAgentIds[0] !== String(deepAgent.id) ||
-              String(primaryAgentId || '') !== String(deepAgent.id)
-          }
-          if (shouldRebindSpaceAgent) {
-            await updateSpaceAgents(deepSpace.id, [deepAgent.id], deepAgent.id)
-          }
-        }
-      } finally {
-        ensuringDeepResearchRef.current = false
-      }
-    }
-
-    ensureDeepResearchAssets()
-  }, [agents, agentsLoading, spaces, spacesLoading])
 
   useEffect(() => {
     const cleanupDuplicates = async () => {

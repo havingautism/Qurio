@@ -44,6 +44,7 @@ import {
 } from '../lib/conversationsService'
 import { getSpaceDisplayLabel } from '../lib/spaceDisplay'
 import { listScrapbookEntries } from '../lib/scrapbookService'
+import { SCRAPBOOK_AGENT_ID } from '../lib/systemAgents'
 import { deleteConversation } from '../lib/supabase'
 import DotLoader from './DotLoader'
 import EmojiDisplay from './EmojiDisplay'
@@ -269,6 +270,10 @@ const Sidebar = ({
   const closeActions = () => setExpandedActionId(null)
 
   const displayTab = hoveredTab || activeTab
+  const visibleAgents = useMemo(
+    () => (agents || []).filter(agent => String(agent?.id || '') !== SCRAPBOOK_AGENT_ID),
+    [agents],
+  )
   const isMobileFastSidebar = isMobile
   const readResolvedSidebarDark = () => {
     if (theme === 'dark') return true
@@ -3132,13 +3137,13 @@ const Sidebar = ({
                       <DotLoader />
                     </div>
                   )}
-                  {!agentsLoading && agents.length === 0 && (
+                  {!agentsLoading && visibleAgents.length === 0 && (
                     <div className="flex flex-col items-center gap-2 px-2 py-3 text-xs text-gray-500 dark:text-gray-400">
                       <Smile size={24} className="text-black dark:text-white" />
                       <div>{t('sidebar.noAgentsYet')}</div>
                     </div>
                   )}
-                  {[...agents]
+                  {[...visibleAgents]
                     .sort((a, b) => Number(Boolean(b.isDefault)) - Number(Boolean(a.isDefault)))
                     .map(agent => (
                       <div

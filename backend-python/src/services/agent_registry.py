@@ -8,14 +8,18 @@ import os
 import json
 from types import SimpleNamespace
 from typing import Any
+from pathlib import Path
 
 from agno.agent import Agent
 from agno.skills import Skills, LocalSkills
 
 # from agno.db.postgres import PostgresDb
 # from agno.memory import MemoryManager
+from agno.models.deepseek import DeepSeek
 from agno.models.google import Gemini
+from agno.models.nvidia import Nvidia
 from agno.models.openai import OpenAILike
+from agno.models.siliconflow import Siliconflow
 
 # from agno.session.summary import SessionSummaryManager
 from agno.utils.log import logger
@@ -87,6 +91,13 @@ DEFAULT_BASE_URLS: dict[str, str] = {
     "minimax": os.getenv("MINIMAX_BASE_URL", "https://api.minimax.io/v1"),
 }
 
+OFFICIAL_PROVIDER_CACHE_SUPPORTED = {"nvidia", "siliconflow", "deepseek"}
+AGNO_RESPONSE_CACHE_DIR = (
+    Path(__file__).resolve().parents[2] / ".cache" / "agno" / "model_responses"
+)
+_cache_ttl_raw = os.getenv("AGNO_RESPONSE_CACHE_TTL_SECONDS", "3600").strip()
+AGNO_RESPONSE_CACHE_TTL_SECONDS = int(_cache_ttl_raw) if _cache_ttl_raw else None
+
 # These will be initialized within functions using get_settings() to ensure .env is loaded
 # MEMORY_LITE_PROVIDER = ...
 # MEMORY_LITE_MODEL = ...
@@ -107,6 +118,12 @@ def _build_model(provider: str, api_key: str | None, base_url: str | None, model
 
     if provider_key == "gemini":
         return Gemini(id=model_id, api_key=api_key)
+    if provider_key == "nvidia":
+        return Nvidia(id=model_id, api_key=api_key, base_url=resolved_base)
+    if provider_key == "siliconflow":
+        return Siliconflow(id=model_id, api_key=api_key, base_url=resolved_base)
+    if provider_key == "deepseek":
+        return DeepSeek(id=model_id, api_key=api_key, base_url=resolved_base)
 
     return OpenAILike(id=model_id, api_key=api_key, base_url=resolved_base)
 
@@ -138,6 +155,24 @@ def _apply_common_params(model: Any, request: Any) -> None:
             model.top_k = request.top_k
         else:
             _merge_model_dict_attr(model, "extra_body", {"top_k": request.top_k})
+
+
+def _apply_response_cache_params(model: Any, request: Any) -> None:
+    if getattr(request, "provider", None) not in OFFICIAL_PROVIDER_CACHE_SUPPORTED:
+        return
+
+    enabled = bool(getattr(request, "enable_response_cache", False))
+    if not hasattr(model, "cache_response"):
+        return
+
+    model.cache_response = enabled
+    if not enabled:
+        model.cache_ttl = None
+        model.cache_dir = None
+        return
+
+    model.cache_ttl = AGNO_RESPONSE_CACHE_TTL_SECONDS
+    model.cache_dir = str(AGNO_RESPONSE_CACHE_DIR)
 
 
 def _apply_thinking_params(model: Any, provider: str, thinking: dict[str, Any] | bool | None) -> None:
@@ -232,6 +267,7 @@ def _apply_thinking_params(model: Any, provider: str, thinking: dict[str, Any] |
 def _apply_model_settings(model: Any, request: Any) -> None:
     _apply_common_params(model, request)
     _apply_thinking_params(model, request.provider, request.thinking)
+    _apply_response_cache_params(model, request)
 
 
 def _collect_enabled_tool_names(request: Any) -> list[str]:

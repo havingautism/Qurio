@@ -5,7 +5,10 @@ Includes SiliconFlow, GLM, Kimi, Nvidia, MiniMax, and ModelScope adapters.
 
 from typing import Any
 
+from agno.models.deepseek import DeepSeek
+from agno.models.nvidia import Nvidia
 from agno.models.openai.like import OpenAILike
+from agno.models.siliconflow import Siliconflow
 from agno.run.agent import RunContentEvent
 
 from .base import ProviderConfig
@@ -37,8 +40,8 @@ class SiliconFlowAdapter(OpenAIAdapter):
         tools: list[dict[str, Any]] | None = None,
         tool_choice: Any = None,
         **kwargs
-    ) -> OpenAILike:
-        """Build SiliconFlow model with thinking support."""
+    ) -> Siliconflow:
+        """Build SiliconFlow model with the official Agno provider class."""
         resolved_base = base_url or self.config.base_url
         resolved_model = model or self.config.default_model
 
@@ -64,7 +67,7 @@ class SiliconFlowAdapter(OpenAIAdapter):
             if tool_choice:
                 extra_body["tool_choice"] = tool_choice
 
-        return OpenAILike(
+        return Siliconflow(
             id=resolved_model,
             api_key=api_key,
             base_url=resolved_base,
@@ -221,8 +224,8 @@ class NvidiaAdapter(OpenAIAdapter):
         tools: list[dict[str, Any]] | None = None,
         tool_choice: Any = None,
         **kwargs
-    ) -> OpenAILike:
-        """Build Nvidia NIM model with thinking support."""
+    ) -> Nvidia:
+        """Build Nvidia model with the official Agno provider class."""
         resolved_base = base_url or self.config.base_url
         resolved_model = model or self.config.default_model
 
@@ -238,7 +241,7 @@ class NvidiaAdapter(OpenAIAdapter):
             if tool_choice:
                 extra_body["tool_choice"] = tool_choice
 
-        return OpenAILike(
+        return Nvidia(
             id=resolved_model,
             api_key=api_key,
             base_url=resolved_base,
@@ -268,6 +271,60 @@ class NvidiaAdapter(OpenAIAdapter):
                         return str(reasoning)
 
         return None
+
+
+class DeepSeekAdapter(GLMAdapter):
+    """Adapter for DeepSeek using the official Agno provider class."""
+
+    def __init__(self):
+        self.config = ProviderConfig(
+            name="deepseek",
+            base_url="https://api.deepseek.com",
+            default_model="deepseek-chat",
+            supports_streaming=True,
+            supports_tools=True,
+            supports_streaming_tool_calls=True,
+            supports_json_schema=True,
+            supports_thinking=True,
+            supports_vision=False,
+        )
+
+    def build_model(
+        self,
+        api_key: str,
+        model: str | None = None,
+        base_url: str | None = None,
+        thinking: dict[str, Any] | bool | None = None,
+        tools: list[dict[str, Any]] | None = None,
+        tool_choice: Any = None,
+        **kwargs
+    ) -> DeepSeek:
+        """Build DeepSeek model with the official Agno provider class."""
+        resolved_base = base_url or self.config.base_url
+        resolved_model = model or self.config.default_model
+
+        extra_body: dict[str, Any] = {}
+
+        if thinking:
+            if isinstance(thinking, bool):
+                extra_body["thinking"] = {"type": "enabled"}
+            elif isinstance(thinking, dict):
+                if "type" in thinking:
+                    extra_body["thinking"] = {"type": thinking["type"]}
+                else:
+                    extra_body["thinking"] = {"type": "enabled"}
+
+        if tools:
+            extra_body["tools"] = tools
+            if tool_choice:
+                extra_body["tool_choice"] = tool_choice
+
+        return DeepSeek(
+            id=resolved_model,
+            api_key=api_key,
+            base_url=resolved_base,
+            extra_body=extra_body if extra_body else None,
+        )
 
 
 class MinimaxAdapter(OpenAIAdapter):

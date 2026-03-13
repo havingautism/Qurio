@@ -241,6 +241,7 @@ const ChatInterface = ({
   const documentSelectorRef = useRef(null)
   const pendingDocumentIdsRef = useRef([])
   const selectedDocumentIdsRef = useRef([])
+  const spaceDocumentsRef = useRef([])
   const selectedDocumentsRef = useRef([])
   const normalizedInitialDocumentIds = useMemo(
     () => (initialDocumentIds || []).map(id => String(id)).filter(Boolean),
@@ -675,6 +676,10 @@ const ChatInterface = ({
     const idSet = new Set((selectedDocumentIds || []).map(id => String(id)))
     return (spaceDocuments || []).filter(doc => idSet.has(String(doc.id)))
   }, [selectedDocumentIds, spaceDocuments])
+
+  useEffect(() => {
+    spaceDocumentsRef.current = spaceDocuments
+  }, [spaceDocuments])
 
   useEffect(() => {
     selectedDocumentsRef.current = selectedDocuments
@@ -1691,10 +1696,16 @@ const ChatInterface = ({
 
       const agentForSend =
         selectedAgent || (!isAgentAutoMode && initialAgentSelection) || defaultAgent || null
+      const latestSelectedDocumentIds = selectedDocumentIdsRef.current || []
+      const latestSpaceDocuments = spaceDocumentsRef.current || []
       const documentsForSend =
-        selectedDocumentsRef.current && selectedDocumentsRef.current.length > 0
-          ? selectedDocumentsRef.current
-          : selectedDocuments
+        latestSelectedDocumentIds.length > 0
+          ? latestSpaceDocuments.filter(doc =>
+              latestSelectedDocumentIds.some(id => String(id) === String(doc.id)),
+            )
+          : selectedDocumentsRef.current && selectedDocumentsRef.current.length > 0
+            ? selectedDocumentsRef.current
+            : selectedDocuments
 
       const skipDocumentRetrieval = false
 

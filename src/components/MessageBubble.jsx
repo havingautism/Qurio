@@ -57,12 +57,7 @@ import AgentBannerSurface from './AgentBannerSurface'
 import InteractiveForm from './InteractiveForm'
 import DeepResearchGoalCard from './message/DeepResearchGoalCard'
 import MessageActionBar from './message/MessageActionBar'
-import {
-  applyGroundingSupports,
-  buildDocumentGroundingSupports,
-  formatContentWithSources,
-  getHostname,
-} from './message/messageUtils'
+import { getHostname } from './message/messageUtils'
 import { formatMessageDate } from '../lib/dateUtils'
 import RelatedQuestions from './message/RelatedQuestions'
 import { useMessageExport } from './message/useMessageExport'
@@ -545,7 +540,6 @@ const MessageBubble = ({
     () => Array.isArray(mergedMessage.sources) && mergedMessage.sources.length > 0,
     [mergedMessage.sources],
   )
-  const shouldRenderInlineDocumentCitations = documentCitationSources.length > 0
   const hasNavigableSourceLink = useCallback(source => {
     const candidate =
       source?.url || source?.uri || source?.link || source?.href || source?.sourceUrl || ''
@@ -553,10 +547,6 @@ const MessageBubble = ({
   }, [])
   const hasAnySources = hasExplicitWebSources || documentCitationSources.length > 0
   const shouldShowWorkflowSourceSummary = !isStreamingMessage && hasAnySources
-  const documentGroundingSupports = useMemo(
-    () => buildDocumentGroundingSupports(mainContent, documentCitationSources),
-    [mainContent, documentCitationSources],
-  )
   const displayProviderId = isExpertMessage
     ? activeExpertResponse?.provider || providerId
     : providerId
@@ -2814,20 +2804,10 @@ const MessageBubble = ({
   )
   const renderedMainContent = contentPartsOutsideWorkflow.map((part, idx) => {
     if (part.type === 'text') {
-      const contentWithCitations = shouldRenderInlineDocumentCitations
-        ? formatContentWithSources(
-            applyGroundingSupports(
-              part.content,
-              documentGroundingSupports,
-              documentCitationSources,
-            ),
-            documentCitationSources,
-          )
-        : part.content
       const sanitizedMainText =
-        isExpertMessage && typeof contentWithCitations === 'string'
-          ? normalizeExpertBrokenTokenLines(contentWithCitations)
-          : sanitizeDisplayText(contentWithCitations)
+        isExpertMessage && typeof part.content === 'string'
+          ? normalizeExpertBrokenTokenLines(part.content)
+          : sanitizeDisplayText(part.content)
       const showStatusBeforeText = hasFormSubmissionStatus && idx === firstTextPartDisplayIndex
       const isTextEmpty = !sanitizedMainText || !sanitizedMainText.trim()
 
@@ -4000,18 +3980,7 @@ const MessageBubble = ({
             remarkPlugins={[remarkGfm]}
             components={markdownComponents}
           >
-            {sanitizeDisplayText(
-              shouldRenderInlineDocumentCitations
-                ? formatContentWithSources(
-                    applyGroundingSupports(
-                      expertPlanBlock.content,
-                      documentGroundingSupports,
-                      documentCitationSources,
-                    ),
-                    documentCitationSources,
-                  )
-                : expertPlanBlock.content,
-            )}
+            {sanitizeDisplayText(expertPlanBlock.content)}
           </Streamdown>
         </div>
       </div>

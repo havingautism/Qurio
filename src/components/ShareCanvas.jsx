@@ -4,7 +4,6 @@ import remarkGfm from 'remark-gfm'
 import { parseChildrenWithEmojis } from '../lib/emojiParser'
 import { getProvider } from '../lib/providers'
 import { PROVIDER_ICONS, getModelIcon, getModelIconClassName } from '../lib/modelIcons'
-import { buildDocumentGroundingSupports } from './message/messageUtils'
 
 const PROVIDER_META = {
   gemini: {
@@ -404,105 +403,6 @@ const getHostname = url => {
   }
 }
 
-const formatContentWithSources = (content, sources = []) => {
-  if (typeof content !== 'string' || !Array.isArray(sources) || sources.length === 0) {
-    return content
-  }
-
-  const citationRegex = /\[(\d+)\](?:\s*\[(\d+)\])*/g
-
-  return content.replace(citationRegex, match => {
-    const indices = match.match(/\d+/g).map(n => Number(n) - 1)
-    if (indices.length === 0) return match
-    const primaryIdx = indices[0]
-    const primarySource = sources[primaryIdx]
-    if (!primarySource) return match
-    if (indices.length > 1) {
-      return ` [+${indices.length}](citation:${indices.join(',')}) `
-    }
-    return ` [${primaryIdx + 1}](citation:${primaryIdx}) `
-  })
-}
-
-const applyGroundingSupports = (content, groundingSupports = [], sources = []) => {
-  if (
-    typeof content !== 'string' ||
-    !Array.isArray(groundingSupports) ||
-    groundingSupports.length === 0 ||
-    !Array.isArray(sources) ||
-    sources.length === 0
-  ) {
-    return content
-  }
-  if (/\[\d+\]/.test(content)) return content
-
-  const resolveSourceIndices = support => {
-    const explicitCitations = Array.isArray(support?.citations)
-      ? support.citations
-          .map(citation => Number(citation?.index))
-          .filter(index => Number.isInteger(index) && index >= 0 && index < sources.length)
-      : []
-
-    if (explicitCitations.length > 0) return explicitCitations
-
-    return Array.isArray(support?.groundingChunkIndices)
-      ? support.groundingChunkIndices
-          .map(index => Number(index))
-          .filter(index => Number.isInteger(index) && index >= 0 && index < sources.length)
-      : []
-  }
-
-  const offsetBackedSupports = groundingSupports
-    .map(support => {
-      const start = Number(support?.segment?.startIndex)
-      const end = Number(support?.segment?.endIndex)
-      const segmentText = String(support?.segment?.text || '')
-      const sourceIndices = resolveSourceIndices(support)
-
-      if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end <= start)
-        return null
-      if (sourceIndices.length === 0) return null
-
-      const slice = content.slice(start, end)
-      if (segmentText && slice && slice !== segmentText) return null
-
-      return {
-        start,
-        end,
-        sourceIndices,
-      }
-    })
-    .filter(Boolean)
-    .sort((left, right) => right.end - left.end)
-
-  if (offsetBackedSupports.length > 0) {
-    let updated = content
-    for (const support of offsetBackedSupports) {
-      const marker = ` ${support.sourceIndices.map(idx => `[${idx + 1}]`).join('')}`
-      const normalizedEnd = Math.max(0, Math.min(support.end, updated.length))
-      updated = updated.slice(0, normalizedEnd) + marker + updated.slice(normalizedEnd)
-    }
-    return updated
-  }
-
-  let updated = content
-  for (const support of groundingSupports) {
-    const segmentText = support?.segment?.text
-    if (!segmentText || typeof segmentText !== 'string') continue
-    const sourceIndices = resolveSourceIndices(support)
-    if (sourceIndices.length === 0) continue
-    const marker = ` ${sourceIndices.map(idx => `[${idx + 1}]`).join('')}`
-    const firstIndex = updated.indexOf(segmentText)
-    if (firstIndex === -1) continue
-    const secondIndex = updated.indexOf(segmentText, firstIndex + segmentText.length)
-    if (secondIndex !== -1) continue
-    const insertAt = firstIndex + segmentText.length
-    updated = updated.slice(0, insertAt) + marker + updated.slice(insertAt)
-  }
-
-  return updated
-}
-
 const normalizeMessageText = content => {
   if (typeof content === 'string') return content
   if (Array.isArray(content)) {
@@ -621,15 +521,7 @@ const ShareCanvas = ({
     if (isUser) return normalizeMessageText(message.content)
     const provider = getProvider(providerId)
     const parsed = provider.parseMessage(message)
-    const mainContent = parsed.content
-    const documentSources = Array.isArray(message.documentSources) ? message.documentSources : []
-    if (documentSources.length === 0) return mainContent
-    const contentWithSupports = applyGroundingSupports(
-      mainContent,
-      buildDocumentGroundingSupports(mainContent, documentSources),
-      documentSources,
-    )
-    return formatContentWithSources(contentWithSupports, documentSources)
+    return parsed.content
   }, [message, isUser, providerId])
 
   const markdownComponents = useMemo(
@@ -639,17 +531,11 @@ const ShareCanvas = ({
       h1: ({ children }) => <h1>{parseChildrenWithEmojis(children)}</h1>,
       h2: ({ children }) => <h2>{parseChildrenWithEmojis(children)}</h2>,
       h3: ({ children }) => <h3>{parseChildrenWithEmojis(children)}</h3>,
-      a: ({ href, children }) => {
-        if (href && href.startsWith('citation:')) {
-          const label = String(children).replace(/[\[\]]/g, '')
-          return <span className="share-citation">{label}</span>
-        }
-        return (
-          <a href={href} target="_blank" rel="noreferrer">
-            {parseChildrenWithEmojis(children)}
-          </a>
-        )
-      },
+      a: ({ href, children }) => (
+        <a href={href} target="_blank" rel="noreferrer">
+          {parseChildrenWithEmojis(children)}
+        </a>
+      ),
     }),
     [],
   )

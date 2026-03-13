@@ -369,7 +369,7 @@ const SpaceView = () => {
             documentId: indexed.document_id,
           })
         } catch (cleanupError) {
-          console.error('Failed to roll back TreeSearch index after metadata failure:', cleanupError)
+          console.error('Failed to roll back document index after metadata failure:', cleanupError)
         }
         throw createError || new Error('Failed to create document record')
       }
@@ -443,7 +443,7 @@ const SpaceView = () => {
         try {
           await deleteDocumentIndexViaBackend({ spaceId: activeSpace.id, documentId: doc.id })
         } catch (error) {
-          console.error('Failed to delete TreeSearch index:', error)
+          console.error('Failed to delete document index:', error)
         }
 
         const { success, error } = await deleteSpaceDocument(doc.id, activeSpace.id)

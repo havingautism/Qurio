@@ -39,7 +39,6 @@ dependencies = [
     "x-reader",
     "yt-dlp>=2026.2.21",
     "exa-py>=2.6.1",
-    "pytreesearch[all]>=0.6.1",
 ]
 
 

@@ -26,6 +26,13 @@
 - Web sources: 只进入来源面板，不进入正文。
 - Document sources: 只进入来源面板，不进入正文。
 
+这条规则当前已经覆盖：
+
+- 普通对话
+- expert mode 的主回答区
+- expert mode 的 plan 展示区
+- share canvas
+
 ### 2. “所有来源”改为统一入口
 
 - 消息气泡下方旧的文档来源入口已移除。
@@ -84,6 +91,17 @@
 - 引用查看统一交给“所有来源”及其完整引用内容展开能力。
 - `messageUtils.js` 中原有的 citation 推断与注入逻辑暂未删除，但当前已不参与业务渲染，先作为后续实验或回退的备用实现保留。
 
+已确认的前端状态：
+
+- 普通对话：不再注入正文 citations。
+- expert mode：不再注入正文 citations，expert plan 区域也不再注入 citations。
+- share canvas：不再注入正文 citations。
+
+需要注意：
+
+- 这里说的是“前端不再主动注入 citations”。
+- 如果某些模型或后端 prompt 自己在正文里直接输出了 `[1][2]` 这样的文本，那仍然可能显示出来；这属于模型原生输出，不属于前端 citation 渲染链。
+
 ### 7. 文档来源展示时机延后
 
 文档检索本身仍然在发送请求前执行，以便给模型提供上下文；但 UI 展示时机已延后。
@@ -114,6 +132,26 @@
 
 这能显著降低“模型通过 prompt 自行标注 `[1][2][3]` 导致幻觉”的风险。
 
+### deep research / academic research 的当前状态
+
+这两条链路目前还没有彻底完成 citation 收口。
+
+已确认的情况是：
+
+- 前端当前已经不再为它们额外注入正文 citations。
+- 但 backend deep research / academic research prompt 中，仍然存在明确要求模型使用 `[1]`、`[2]` 这类格式引用来源的指令。
+
+因此当前风险点仍在：
+
+- deep research writer prompt 仍要求 citations
+- academic research agent prompt 仍要求 citations
+- 相关 step 执行与最终写作链路中，模型仍可能继续原生输出 `[1][2]`
+
+也就是说：
+
+- 前端展示层已经朝“只保留所有来源”收口
+- 但 deep research + academic research 在 prompt 层还没有完全去掉 citations
+
 ## 已确认的问题与现状
 
 ### 1. 来源面板现在承担了全部证据查看职责
@@ -135,6 +173,16 @@
 - snippet 前半段可能相同
 
 这会让用户感知为“看起来重复”，即使底层其实是两个不同原始命中。
+
+### 4. deep research + academic research 仍然是 citation 高风险区
+
+虽然普通对话和 expert mode 的前端 citation 注入已经停用，但 deep research / academic research 的 prompt 仍然鼓励模型在正文中输出 citations。
+
+这意味着：
+
+- 这些模块仍然可能继续出现模型原生生成的 `[1][2]`
+- 这些 citations 仍然可能和真实使用的网页/论文不完全对应
+- 尤其 academic research 链路里，step 级 findings 到最终正文之间还会进一步放大 citation 漂移风险
 
 ## 待优化
 
@@ -162,19 +210,27 @@
 
 确认所有来源入口在不同消息模式下都遵循同一展示时机规则。
 
+### 3. 去掉 deep research + academic research prompt 中的 citations 要求
+
+这是后续很重要的一步。
+
+当前前端已经不再主动注入 citations，但如果后端 prompt 仍然要求模型用 `[1]` 格式写作，那么用户依然会看到正文里的 citations。
+
+后续需要检查并调整：
+
+- `backend-python/src/services/stream_chat.py`
+- `backend-python/src/services/deep_research.py`
+- `backend-python/src/prompts/deep_research_prompts.py`
+- `src/lib/academicResearchDefaults.js`
+
+目标应该是：
+
+- 对 deep research / academic research 也逐步收口到“正文不显示 citations，只保留来源列表”
+- 至少在没有结构化 source attribution 前，不再要求模型输出 `[1][2]`
+
 ## 需要继续考虑的提升方向
 
-### 1. 是否需要更严格的“可信 citation”定义
-
-如果以后要重新引入正文 citations，需要更底层的结构化支持，例如：
-
-- 检索阶段保存更精细的 chunk/span 信息
-- 模型或后端返回句子与 source ids 的显式映射
-- 不再只依赖前端 overlap 推断
-
-这会是更长期的架构升级，不适合在仅靠展示层的前提下硬做。
-
-### 2. 是否要对 web sources 做进一步兜底清洗
+### 1. 是否要对 web sources 做进一步兜底清洗
 
 当前网络搜索来源虽然不再走正文 citation 渲染，但如果模型自身在正文里输出 `[1][2]` 这样的文本，仍可能造成误导。
 
@@ -183,7 +239,7 @@
 - 在 prompt 层明确禁止 web inline citations
 - 或对 web-search answer 做正文 citation token 清洗
 
-### 3. 是否要让“所有来源”承担更多证据查看职责
+### 2. 是否要让“所有来源”承担更多证据查看职责
 
 当前“所有来源”已经是统一入口，但后续还可以增强为更强的证据查看器，例如：
 
@@ -191,21 +247,33 @@
 - 支持更明确的位置标签
 - 支持在文档中打开原位置
 
-这样正文 citations 可以继续保持轻量，完整证据查看则交给来源面板承担。
+当前方向已经是“正文不显示 citations”，因此后续完整证据查看能力应主要由来源面板承担。
+
+### 3. `messageUtils.js` 中停用逻辑的去留时机
+
+当前 `messageUtils.js` 中与 citations 推断相关的逻辑已经不参与业务渲染，但仍保留作为后续实验或回退的备用实现。
+
+后续需要决定的是：
+
+- 保留多久作为后备
+- 在什么时间点正式清理
+- 清理时是否连同测试一起删除
 
 ## 建议的下一步
 
 如果继续沿今天这条线优化，建议优先顺序如下：
 
 1. 为文档来源补充更细的位置区分信息
-2. 检查 deep research / expert / share 场景下的来源展示完成态是否一致
-3. 持续增强“所有来源”里的完整引用查看体验
-4. 再决定未来是否需要更进一步的结构化 citation 架构升级
+2. 去掉 deep research / academic research prompt 中对 citations 的强制要求
+3. 检查 deep research / expert / share 场景下的来源展示完成态是否一致
+4. 持续增强“所有来源”里的完整引用查看体验
+5. 评估 `messageUtils.js` 中停用 citations 逻辑的清理时机
 
 ## 涉及的核心文件
 
 - `src/components/MessageBubble.jsx`
 - `src/components/ShareCanvas.jsx`
+- `src/components/message/messageUtils.js`
 - `src/lib/documentCitationViewModel.js`
 - `src/lib/documentCitationViewModel.test.js`
 - `src/components/DesktopSourcesSheet.jsx`
@@ -214,3 +282,7 @@
 - `src/components/message/MessageActionBar.jsx`
 - `src/locales/en.json`
 - `src/locales/zh-CN.json`
+- `backend-python/src/services/stream_chat.py`
+- `backend-python/src/services/deep_research.py`
+- `backend-python/src/prompts/deep_research_prompts.py`
+- `src/lib/academicResearchDefaults.js`

@@ -56,6 +56,7 @@ import AgentAvatar from './AgentAvatar'
 import AgentBannerSurface from './AgentBannerSurface'
 import InteractiveForm from './InteractiveForm'
 import DeepResearchGoalCard from './message/DeepResearchGoalCard'
+import DeepResearchSourcesCard from './message/DeepResearchSourcesCard'
 import MessageActionBar from './message/MessageActionBar'
 import { getHostname } from './message/messageUtils'
 import { formatMessageDate } from '../lib/dateUtils'
@@ -2374,6 +2375,8 @@ const MessageBubble = ({
     [documentCitationSources, mergedMessage.sources],
   )
   const shouldShowSourcesDrawer = !isStreaming && allSources.length > 0
+  const shouldShowDeepResearchSourcesSection =
+    isDeepResearch && !isStreamingMessage && allSources.length > 0
   const SEARCH_STEP_TOOLS = useMemo(
     () =>
       new Set([
@@ -3922,7 +3925,7 @@ const MessageBubble = ({
                     <Link size={16} />
                   </div>
                   <div className="mb-3 text-base font-semibold text-gray-700 dark:text-gray-200">
-                    {t('messageBubble.organizedSources', '整理参考资料')}
+                    {t('messageBubble.researchSources', '研究来源')}
                   </div>
                   <DesktopSourcesSection sources={allSources} isOpen />
                 </div>
@@ -4561,6 +4564,14 @@ const MessageBubble = ({
                 </div>
               )}
             </div>
+          )}
+
+          {shouldShowDeepResearchSourcesSection && (
+            <DeepResearchSourcesCard
+              sources={allSources}
+              title={t('sources.researchSources', 'Research Sources')}
+              countLabel={t('sources.resultsFound', { count: allSources.length })}
+            />
           )}
         </>
       ) : null}

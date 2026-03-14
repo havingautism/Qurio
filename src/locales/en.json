@@ -1361,6 +1361,7 @@
     "usedSpecificTools": "Used {{tools}}",
     "completedAnswer": "Completed answer, took {{duration}}s",
     "organizedSources": "Organized Sources",
+    "researchSources": "Research Sources",
     "finalAnswerStep": "Generate final answer",
     "expertPlan": "Expert Plan",
     "workflowToolCalling": "{{tool}} calling",

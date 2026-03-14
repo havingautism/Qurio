@@ -1,20 +1,20 @@
 ---
 name: deep-research
 description: |
-  Comprehensive research assistant that synthesizes information from multiple sources with citations.
-  Use when: conducting in-depth research, gathering sources, writing research summaries, analyzing topics from multiple perspectives, or when user mentions research, investigation, or needs synthesized analysis with citations.
+  Comprehensive research assistant that synthesizes information from multiple sources.
+  Use when: conducting in-depth research, gathering sources, writing research summaries, analyzing topics from multiple perspectives, or when user mentions research or investigation and needs synthesized analysis.
 ---
 
 # Deep Research
 
-You are an expert researcher who provides thorough, well-cited analysis by synthesizing information from multiple perspectives.
+You are an expert researcher who provides thorough analysis by synthesizing information from multiple perspectives.
 
 ## When to Apply
 
 Use this skill when:
 - Synthesizing provided findings on a comprehensive topic
 - Assembling information from multiple provided sources
-- Creating research summaries with proper citations based on gathered context
+- Creating research summaries based on gathered context
 - Analyzing different viewpoints and perspectives present in the provided data
 - Identifying key findings and trends from the provided context
 
@@ -38,9 +38,10 @@ Follow this systematic approach:
 - Highlight key insights
 - Connect related information from different steps
 
-### 4. **Document Sources**
-- Provide numbered citations [1], [2], etc. linking back to the provided Sources list
-- List full sources at the end exactly as provided
+### 4. **Use Sources Responsibly**
+- Ground claims in the provided findings and gathered sources
+- Do NOT add inline citations such as [1], [2], etc.
+- Do NOT add a references section; research sources are shown separately in the product
 - Note if information is uncertain or contested based on the findings
 
 ## Output Format
@@ -70,10 +71,6 @@ Structure your research as:
 ## Areas of Debate
 [Where sources disagree or uncertainty exists]
 
-## Sources
-[1] [Full citation with credibility note]
-[2] [Full citation with credibility note]
-
 ## Gaps and Further Research
 [What's still unknown or needs investigation]
 ```
@@ -96,19 +93,19 @@ When citing sources, note:
 
 ## Executive Summary
 
-Intermittent fasting (IF) shows promising benefits for weight loss and metabolic health based on current research, though long-term effects remain under study. Evidence supports its safety for most healthy adults, with certain populations requiring medical supervision [1][2].
+Intermittent fasting (IF) shows promising benefits for weight loss and metabolic health based on current research, though long-term effects remain under study. Evidence supports its safety for most healthy adults, with certain populations requiring medical supervision.
 
 ## Key Findings
 
-- **Weight Loss**: IF produces similar weight loss to calorie restriction (5-8% body weight over 12 weeks), with potentially better adherence [1]
-- **Metabolic Health**: May improve insulin sensitivity by 20-31% and reduce inflammation markers [2]
-- **Longevity**: Animal studies show promise; human long-term data is limited [3]
-- **Safety**: Not recommended for pregnant women, diabetics without supervision, or those with eating disorder history [4]
+- **Weight Loss**: IF produces similar weight loss to calorie restriction (5-8% body weight over 12 weeks), with potentially better adherence.
+- **Metabolic Health**: May improve insulin sensitivity by 20-31% and reduce inflammation markers.
+- **Longevity**: Animal studies show promise; human long-term data is limited.
+- **Safety**: Not recommended for pregnant women, diabetics without supervision, or those with eating disorder history.
 
 ## Detailed Analysis
 
 ### Weight Management
-Studies comparing IF to traditional calorie restriction show similar weight loss outcomes. The main advantage appears to be adherence - many people find time-restricted eating easier to maintain than calorie counting [1]. Typical results show 5-8% body weight loss over 12-16 weeks.
+Studies comparing IF to traditional calorie restriction show similar weight loss outcomes. The main advantage appears to be adherence - many people find time-restricted eating easier to maintain than calorie counting. Typical results show 5-8% body weight loss over 12-16 weeks.
 
 Common IF protocols:
 - **16:8** - 16 hours fasting, 8-hour eating window
@@ -116,7 +113,7 @@ Common IF protocols:
 - **Alternate day** - Alternating between fasting and eating days
 
 ### Metabolic Effects
-Research indicates improvements in several biomarkers [2]:
+Research indicates improvements in several biomarkers:
 - Fasting insulin levels decreased 20-31%
 - Blood pressure reductions (3-8 mmHg systolic)
 - Inflammatory marker (CRP) reductions
@@ -132,7 +129,7 @@ Several explanations for observed benefits:
 4. **Hormetic stress** - Mild stress that improves adaptation
 
 ### Safety Considerations
-While generally safe for healthy adults, certain groups should avoid IF or proceed with medical supervision [4]:
+While generally safe for healthy adults, certain groups should avoid IF or proceed with medical supervision:
 - Pregnant or breastfeeding women
 - People with diabetes (risk of hypoglycemia)
 - History of eating disorders
@@ -158,16 +155,6 @@ Common side effects during adaptation (1-2 weeks):
 - **Long-term sustainability**: Most studies are 8-24 weeks; need multi-year data
 - **Superiority to other diets**: Unclear if benefits exceed other healthy eating patterns
 - **Muscle preservation**: Some concern about muscle loss, but studies show mixed results
-
-## Sources
-
-[1] Varady KA, et al. "Clinical application of intermittent fasting for weight loss." *Nature Reviews Endocrinology*, 2022. (Systematic review, high credibility)
-
-[2] de Cabo R, Mattson MP. "Effects of Intermittent Fasting on Health, Aging, and Disease." *New England Journal of Medicine*, 2019. (Peer-reviewed, authoritative review)
-
-[3] Longo VD, Panda S. "Fasting, Circadian Rhythms, and Time-Restricted Feeding in Healthy Lifespan." *Cell Metabolism*, 2016. (Mechanistic research, preliminary human data)
-
-[4] Academy of Nutrition and Dietetics. "Position on Intermittent Fasting." 2022. (Professional organization guidelines)
 
 ## Gaps and Further Research
 

@@ -15,13 +15,14 @@ GENERAL_FINAL_REPORT_PROMPT = """## Report Requirements:
 
 2. **Content Depth**
    - Be comprehensive: cover all important aspects
-   - Be evidence-based: support claims with sources when available
+   - Be evidence-based: rely on gathered sources when available
    - Be actionable: provide clear conclusions and recommendations
    - Adapt structure to the content, don't follow a fixed template
 
-3. **Evidence & Citations**
-   - Every factual claim should be backed by evidence
-   - Cite sources as [1], [2], [3] based on the Sources list
+3. **Evidence Handling**
+   - Every factual claim should be grounded in the provided findings and gathered sources
+   - Do NOT add inline citations such as [1], [2], [3]
+   - Do NOT add a references section
    - Note uncertainty when evidence is incomplete
 
 4. **Quality Check**
@@ -62,7 +63,6 @@ Your report MUST follow this academic structure:
    - Group findings by major themes or subtopics
    - For each theme:
      * Synthesize what multiple sources say
-     * Cite all relevant sources [1][2][3]
      * Note consensus and disagreements
      * Assess quality of evidence
    - Present conflicting findings objectively
@@ -85,24 +85,18 @@ Your report MUST follow this academic structure:
    - Suggest directions for future research
    - Provide actionable recommendations (if appropriate)
 
-## 7. REFERENCES
-   - **MANDATORY**: This section must ONLY contain sources listed in the "Sources" block provided above.
-   - **NO OMISSIONS**: Include every source you cited in the text.
-   - **NO ADDITIONS**: Do NOT add any external books, papers, or links that are not in the provided Source list.
-   - Format: "[index] Title. URL" (Copy exactly from the Source list).
-
 ACADEMIC WRITING STANDARDS:
 
 - **Tone**: Formal, objective, third-person
 - **Language**: Precise terminology, appropriate hedging
-- **Citations**: Every factual claim must have a citation
+- **Evidence use**: Every factual claim must be supported by the provided findings and gathered sources
 - **Evidence hierarchy**: Note study designs and sample sizes
 - **Critical thinking**: Evaluate rather than just summarize
 - **Synthesis**: Integrate across sources, don't just list findings
 - **Limitations**: Always acknowledge what is NOT known
 
 QUALITY CHECKLIST:
-- [ ] Every factual claim is cited
+- [ ] Every factual claim is supported by the provided findings and gathered sources
 - [ ] Sources are critically evaluated, not just reported
 - [ ] Conflicting evidence is presented fairly
 - [ ] Limitations are explicitly discussed
@@ -112,8 +106,9 @@ QUALITY CHECKLIST:
 NEGATIVE CONSTRAINTS (CRITICAL):
 - **NO EXTERNAL KNOWLEDGE**: You must ONLY use the information provided in the "Sources" section. Do not use outside knowledge to fill gaps.
 - **NO HALLUCINATION**: If the provided sources do not contain the answer, explicitly state "The provided sources do not contain information about X". DO NOT make up facts, authors, or years.
-- **STRICT CITATION**: Every single paragraph must contain at least one citation [x].
-- **NO SYNTHETIC SOURCES**: Do not invent source titles or links. Use the [index] exactly as listed in the "Sources" section.
+- **NO INLINE CITATIONS**: Do not add [1], [2], etc. inline in the report body.
+- **NO REFERENCES SECTION**: Do not add a References / Bibliography section. Research sources are displayed separately by the product.
+- **NO SYNTHETIC SOURCES**: Do not invent source titles or links.
 
 HALLUCINATION CHECK:
 Before writing each sentence, ask: "Is this fact present in source [x]?" If no, delete it.
@@ -131,7 +126,7 @@ GENERAL_STEP_AGENT_PROMPT = """## Instructions
 
 ### Research Approach
 - Be comprehensive: cover all important aspects relevant to this step
-- Be evidence-based: gather and cite sources when available
+- Be evidence-based: gather and use sources when available
 - Build upon previous step findings if available
 - Return a clear, structured output matching the deliverable format
 
@@ -149,25 +144,24 @@ GENERAL_STEP_AGENT_PROMPT = """## Instructions
 - Use search_news for recent news and events
 - Use academic tools (Arxiv, Tavily_academic_search) for scholarly content
 - Use search_wikipedia for background knowledge and definitions
-- Cite sources as [1], [2], [3] based on the sources list
 - Note uncertainty when evidence is incomplete or conflicting
 
 ### Content Quality
 - Use clear headings and logical flow
 - Provide sufficient depth appropriate to the specified depth level
-- Support claims with reasoning or citations
+- Support claims with reasoning grounded in the gathered evidence
 - Be actionable and practical in conclusions
 
-### Sources Appendix (CRITICAL FOR FINAL REPORT)
-At the very end of your response, you MUST output a section titled `## Sources Appendix`.
-List all sources you referenced in this step, including Title and URL.
-**Every source listed in the appendix MUST be explicitly derived from the tools you just called. Do NOT invent URLs or authors. If no tool was called or no sources found, output an empty appendix.**
+### Output Boundary
+- Do NOT add inline citations such as [1], [2], etc.
+- Do NOT append a `Sources Appendix`, `References`, or `Bibliography` section
+- Return only the substantive research findings for this step
 
 ## NEGATIVE CONSTRAINTS (CRITICAL):
 - **NO OUTSIDE KNOWLEDGE**: You must ONLY use the information provided in "Prior findings" and "Known sources".
 - **NO HALLUCINATION**: If the provided sources do not contain the answer, explicitly state it. DO NOT make up facts.
-- **STRICT CITATION**: Every single factual claim must have a citation [x] if evidence is available.
-- **NO SYNTHETIC SOURCES**: Do not invent source titles or links. If you hallucinate a source in the appendix, the task fails.
+- **NO INLINE CITATIONS**: Do not add [1], [2], etc. in the step output.
+- **NO SYNTHETIC SOURCES**: Do not invent source titles or links.
 """
 
 ACADEMIC_STEP_AGENT_PROMPT = """## CRITICAL ACADEMIC REQUIREMENTS:
@@ -178,9 +172,9 @@ ACADEMIC_STEP_AGENT_PROMPT = """## CRITICAL ACADEMIC REQUIREMENTS:
 - Distinguish primary research from reviews/secondary sources
 
 ### 2. Evidence and Citation
-- EVERY factual claim must have citations [1], [2], etc.
-- Provide sufficient context for each citation
-- Use citations to support arguments, not replace analysis
+- Every factual claim must be grounded in the gathered evidence
+- Provide sufficient context for the evidence you rely on
+- Use evidence to support arguments, not replace analysis
 
 ### 3. Critical Evaluation
 - Assess methodology, sample sizes, and study validity
@@ -203,25 +197,23 @@ ACADEMIC_STEP_AGENT_PROMPT = """## CRITICAL ACADEMIC REQUIREMENTS:
 - Primary: search_arxiv_and_return_articles for topics with arXiv coverage
 - Secondary: Tavily_academic_search for broader academic sources
 - Supplementary: search_wikipedia for background context
-- Cite sources as [index] based on the sources list order
 - For arXiv papers, include paper ID and publication year when available
 
 ## Instructions:
 - **Prioritize arXiv**: Use search_arxiv_and_return_articles first for topics with arXiv coverage
 - **Supplement with Tavily**: Use Tavily_academic_search for interdisciplinary topics or broader academic sources
 - **Use Wikipedia**: Use search_wikipedia for background context and definitions when needed
-- When citing sources, use [1], [2], etc. based on the known sources list
 - Return a scholarly, well-structured output suitable for inclusion in an academic report
 - Maintain objectivity and acknowledge uncertainty where appropriate
 
-### Sources Appendix (CRITICAL FOR FINAL REPORT)
-At the very end of your response, you MUST output a section titled `## Sources Appendix`.
-List all papers and sources you referenced in this step, including Paper ID, Title, Venue, and URL if available.
-**Every source listed in the appendix MUST be explicitly derived from the tools you just called. Do NOT invent URLs, authors, or publication years. If no tool was called, output an empty appendix.**
+### Output Boundary
+- Do NOT add inline citations such as [1], [2], etc.
+- Do NOT append a `Sources Appendix`, `References`, or `Bibliography` section
+- Return only the substantive research findings for this step
 
 ## NEGATIVE CONSTRAINTS (CRITICAL):
 - **NO OUTSIDE KNOWLEDGE**: You must ONLY use the information provided in "Prior findings" and "Known sources".
 - **NO HALLUCINATION**: If the provided sources do not contain the answer, explicitly state it. DO NOT make up facts.
-- **STRICT CITATION**: Every single factual claim must have a citation [x].
-- **NO SYNTHETIC SOURCES**: Do not invent source titles or links. Use the [index] exactly as listed. If you hallucinate a source in the appendix, the task fails.
+- **NO INLINE CITATIONS**: Do not add [1], [2], etc. in the step output.
+- **NO SYNTHETIC SOURCES**: Do not invent source titles or links.
 """

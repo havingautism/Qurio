@@ -2715,24 +2715,13 @@ class StreamChatService:
             updated = self._append_system_message(updated, form_guidance, system_index)
             system_index = next((i for i, m in enumerate(updated) if m.get("role") == "system"), -1)
 
-        search_tools_requiring_citations = {
-            "Tavily_web_search",
-            "Tavily_academic_search",
-            "web_search_using_tavily",
-            "web_search",
-            "search_news",
-            "search_exa",
-            "search_arxiv_and_return_articles",
-            "search_wikipedia",
-        }
-        if request.deep_research and enabled_tools.intersection(search_tools_requiring_citations):
-            citation_prompt = (
-                "\n\n[IMPORTANT] You have access to search tools. When you use them to answer a question, "
-                "you MUST cite the search results in your answer using the format [1], [2], etc., "
-                "corresponding to the index of the search result provided in the tool output. Do not fabricate "
-                "citations."
+        if request.deep_research:
+            sources_guidance = (
+                "\n\n[IMPORTANT] You have access to search tools. Use gathered sources to inform your answer, "
+                "but do NOT add inline citations such as [1], [2], etc. and do NOT add a references section. "
+                "Search results and research sources are displayed separately by the product."
             )
-            updated = self._append_system_message(updated, citation_prompt, system_index)
+            updated = self._append_system_message(updated, sources_guidance, system_index)
 
         if "local_time" in enabled_tools:
             local_time_guidance = (

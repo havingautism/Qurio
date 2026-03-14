@@ -2,7 +2,7 @@
 name: academic-researcher
 description: |
   Academic research assistant for literature reviews, paper analysis, and scholarly writing.
-  Use when: reviewing academic papers, conducting literature reviews, writing research summaries, analyzing methodologies, formatting citations, or when user mentions academic research, scholarly writing, papers, or scientific literature.
+  Use when: reviewing academic papers, conducting literature reviews, writing research summaries, analyzing methodologies, or when user mentions academic research, scholarly writing, papers, or scientific literature.
 ---
 
 # Academic Researcher
@@ -16,7 +16,6 @@ Use this skill when:
 - Summarizing provided research papers
 - Analyzing methodologies from the gathered text
 - Structuring academic arguments based on provided context
-- Formatting citations (APA, MLA, Chicago, etc.) from the provided sources list
 - Identifying research gaps from the provided literature summaries
 
 ## Paper Analysis Framework
@@ -53,35 +52,6 @@ When reviewing academic papers, address:
 - What questions remain?
 - What should future research address?
 
-## Citation Formats
-
-### APA (7th Edition)
-```
-Journal article:
-Author, A. A., & Author, B. B. (Year). Title of article. Title of Periodical, volume(issue), pages. https://doi.org/xxx
-
-Book:
-Author, A. A. (Year). Title of book (Edition). Publisher.
-```
-
-### MLA (9th Edition)
-```
-Journal article:
-Author Last Name, First Name. "Title of Article." Title of Journal, vol. #, no. #, Year, pages.
-
-Book:
-Author Last Name, First Name. Title of Book. Publisher, Year.
-```
-
-### Chicago (17th Edition - Notes)
-```
-Footnote:
-1. First Name Last Name, "Title of Article," Title of Journal vol, no. # (Year): pages.
-
-Bibliography:
-Last Name, First Name. "Title of Article." Title of Journal vol, no. # (Year): pages.
-```
-
 ## Literature Review Structure
 
 ```markdown
@@ -111,8 +81,6 @@ Last Name, First Name. "Title of Article." Title of Journal vol, no. # (Year): p
 - Summary of key insights
 - Implications for theory and practice
 
-## References
-[Formatted citation list]
 ```
 
 ## Academic Writing Standards
@@ -140,9 +108,6 @@ Last Name, First Name. "Title of Article." Title of Journal vol, no. # (Year): p
 For paper summaries:
 
 ```markdown
-## Citation
-[Full formatted citation]
-
 ## Research Question
 [What the study investigates]
 
@@ -197,8 +162,6 @@ Spaced repetition is a learning technique where review sessions are distributed 
 - Optimal gap: approximately 10-20% of desired retention interval
 - Effect size: d = 0.42 (moderate to large)
 
-*Citation:* Cepeda, N. J., Pashler, H., Vul, E., Wixted, J. T., & Rohrer, D. (2006). Distributed practice in verbal recall tasks: A review and quantitative synthesis. *Psychological Bulletin, 132*(3), 354-380. https://doi.org/10.1037/0033-2909.132.3.354
-
 ### Mechanisms
 
 **Karpicke & Roediger (2008)** - Retrieval practice
@@ -251,12 +214,6 @@ Based on current evidence:
 4. Adjust difficulty - items should be challenging but retrievable
 5. Combine with other effective techniques (elaboration, interleaving)
 
-### Key References
+### Research Notes
 
-*Note: Full citations in APA format*
-
-Cepeda, N. J., Pashler, H., Vul, E., Wixted, J. T., & Rohrer, D. (2006). Distributed practice in verbal recall tasks: A review and quantitative synthesis. *Psychological Bulletin, 132*(3), 354-380.
-
-Karpicke, J. D., & Roediger, H. L. (2008). The critical importance of retrieval for learning. *Science, 319*(5865), 966-968.
-
-Dunlosky, J., Rawson, K. A., Marsh, E. J., Nathan, M. J., & Willingham, D. T. (2013). Improving students' learning with effective learning techniques. *Psychological Science in the Public Interest, 14*(1), 4-58.
+Research sources are displayed separately in the product. Do not add inline citations or a references section.

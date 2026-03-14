@@ -96,35 +96,35 @@ def build_final_report_prompt(
         f"Question type: {plan_meta.get('question_type') or 'N/A'}\n\n"
         "Findings to synthesize:\n"
         + ("\n".join([f"- {f}" for f in findings]) if findings else "- None")
-        + "\n\nSources (cite as [index]):\n"
+        + "\n\nResearch Sources (for context only; do not cite inline or reproduce as a references section):\n"
         + ("\n".join(sources_list) if sources_list else "- None")
     )
 
     if research_type == "academic":
-        # Sandwich structure: Intro -> Data -> Instructions (Negative Constraints at the end)
         return (
             f"You are writing an academic research report based on a systematic literature review.\n\n"
             f"{base_info}\n\n"
-            f"CRITICAL INSTRUCTION: You MUST completely reorganize the provided 'Findings to synthesize' by logical themes. "
-            f"DO NOT simply list the steps or write source-by-source. "
-            f"DO NOT output any conversational filler, greetings, or introductory remarks (e.g., 'Here is the report...', 'I will now...'). "
-            f"Start your response IMMEDIATELY with the first Markdown heading (e.g., `#` or `##`). "
-            f"You MUST strictly adopt the 'Output Format' structure defined in your assigned 'Academic Researcher' skill "
-            f"and you MUST cite the sources using the `[1]` format from the provided Sources list."
-            # f"{ACADEMIC_FINAL_REPORT_PROMPT}"
+            f"CRITICAL INSTRUCTION: Reorganize the provided findings by logical themes rather than by step number or source order. "
+            f"Do NOT simply list step 1, step 2, etc. "
+            f"Do NOT output conversational filler, greetings, or setup text. "
+            f"Start immediately with the report content in Markdown. "
+            f"Follow the structure, tone, and analysis framework defined in your assigned 'Academic Researcher' skill. "
+            f"Treat the research sources as background context only. "
+            f"Do NOT add inline citations, footnotes, or a references / bibliography section. "
+            f"The research sources will be shown separately in the UI."
         )
 
     return (
         f"You are a deep research writer producing a comprehensive, evidence-driven report.\n\n"
         f"{base_info}\n\n"
-        f"CRITICAL INSTRUCTION: You MUST completely synthesize the provided 'Findings' by overall topics. "
-        f"DO NOT simply summarize step 1, step 2, etc. "
-        f"DO NOT output any conversational filler, greetings, or introductory remarks (e.g., 'Here is the report...', 'I will now...'). "
-        f"Start your response IMMEDIATELY with the first Markdown heading (e.g., `#` or `##`). "
-        f"You MUST strictly adopt the 'Output Format' structure defined in your assigned 'Deep Researcher' skill "
-        f"(e.g., Executive Summary, Key Findings, Detailed Analysis, etc.) "
-        f"and you MUST cite the sources using the `[1]` format from the provided Sources list."
-        # f"{GENERAL_FINAL_REPORT_PROMPT}"
+        f"CRITICAL INSTRUCTION: Synthesize the provided findings by overall topics rather than by step number or source order. "
+        f"Do NOT simply summarize step 1, step 2, etc. "
+        f"Do NOT output conversational filler, greetings, or setup text. "
+        f"Start immediately with the report content in Markdown. "
+        f"Follow the structure, tone, and analysis framework defined in your assigned 'Deep Research' skill. "
+        f"Treat the research sources as background context only. "
+        f"Do NOT add inline citations, footnotes, or a references / bibliography section. "
+        f"The research sources will be shown separately in the UI."
     )
 
 

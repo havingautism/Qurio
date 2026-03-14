@@ -171,7 +171,7 @@ const DesktopSourcesSection = ({ sources = [], isOpen, variant = 'default' }) =>
                   className={clsx(
                     'group/source flex flex-col transition-colors',
                     isCompactVariant
-                      ? 'min-h-[74px] gap-2 rounded-[22px] border border-white/12 bg-white/[0.03] p-3 hover:bg-white/[0.05] dark:bg-white/[0.02] dark:hover:bg-white/[0.04]'
+                      ? 'min-h-[78px] gap-2 rounded-[16px] border border-gray-200/75 bg-white/82 p-3 shadow-[0_8px_24px_-22px_rgba(15,23,42,0.55)] hover:border-gray-300 hover:bg-white/95 dark:border-zinc-700/70 dark:bg-zinc-900/65 dark:hover:border-zinc-600 dark:hover:bg-zinc-900/82'
                       : 'min-h-[86px] gap-2.5 rounded-xl border border-gray-200 bg-gray-50 p-2.5 hover:bg-gray-100 dark:border-zinc-700/50 dark:bg-zinc-800/50 dark:hover:bg-zinc-800',
                   )}
                 >
@@ -182,7 +182,7 @@ const DesktopSourcesSection = ({ sources = [], isOpen, variant = 'default' }) =>
                       className={clsx(
                         'mt-0.5 shrink-0 items-center justify-center font-medium shadow-sm',
                         isCompactVariant
-                          ? 'flex h-7 min-w-[1.7rem] rounded-lg border border-white/10 bg-white/[0.04] px-1 text-[10px] text-gray-400 dark:bg-white/[0.03] dark:text-gray-500'
+                          ? 'flex h-7 min-w-[1.7rem] rounded-lg border border-gray-200/80 bg-gray-100/85 px-1 text-[10px] text-gray-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-gray-400'
                           : 'flex h-4 w-4 rounded border border-gray-200 bg-white text-[9px] text-gray-500 dark:border-zinc-600 dark:bg-zinc-700 dark:text-gray-400',
                       )}
                     >
@@ -223,7 +223,7 @@ const DesktopSourcesSection = ({ sources = [], isOpen, variant = 'default' }) =>
                               className={clsx(
                                 'rounded-full object-cover',
                                 isCompactVariant
-                                  ? 'h-3.5 w-3.5 border border-white/10 bg-white/90 dark:border-white/8'
+                                  ? 'h-3.5 w-3.5 border border-gray-200/80 bg-white dark:border-zinc-700'
                                   : 'h-3 w-3 border border-white/80 bg-white dark:border-zinc-800',
                               )}
                             />

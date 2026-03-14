@@ -1444,6 +1444,11 @@
   "chatInterface": {
     "regenerateTitle": "根据最近 3 条消息重新生成标题",
     "openTimeline": "打开问题时间轴",
+    "closeTimeline": "关闭时间轴",
+    "noTimelineItems": "暂无问题",
+    "timelineToday": "今天",
+    "timelineYesterday": "昨天",
+    "timelineNoDate": "无日期",
     "askFollowUp": "追问...",
     "agentsLabel": "智能体",
     "agentsNone": "暂无智能体",

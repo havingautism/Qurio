@@ -4250,12 +4250,10 @@ const MessageBubble = ({
             <div className="mb-2.5">
               <button
                 onClick={() => setIsPlanExpanded(!isPlanExpanded)}
-                className="glass-elite-soft group relative flex w-full items-center justify-between overflow-hidden rounded-[22px] border border-white/16 bg-gradient-to-r from-white/[0.08] via-white/[0.04] to-transparent px-4 py-3 text-gray-600 transition-all duration-300 hover:border-white/24 hover:text-gray-800 dark:border-white/10 dark:from-white/[0.05] dark:via-white/[0.025] dark:text-gray-300 dark:hover:text-gray-100"
+                className="group relative flex w-full items-center justify-between overflow-hidden rounded-2xl border border-gray-200/70 bg-white/70 px-4 py-3 text-gray-700 shadow-[0_10px_30px_-22px_rgba(15,23,42,0.5)] backdrop-blur-md transition-colors duration-300 hover:border-gray-300 hover:bg-white/85 dark:border-zinc-700/60 dark:bg-zinc-900/60 dark:text-gray-200 dark:hover:border-zinc-600 dark:hover:bg-zinc-900/75"
               >
-                <div className="bg-primary-500/12 absolute inset-x-0 top-0 h-px" />
-                <div className="bg-primary-500/10 absolute top-2 right-6 h-10 w-10 rounded-full blur-2xl" />
                 <div className="relative flex min-w-0 items-center gap-3 text-sm font-medium text-gray-700 dark:text-gray-300">
-                  <div className="bg-primary-500/12 text-primary-600 dark:text-primary-300 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-white/16 dark:border-white/10">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gray-200/80 bg-gray-100/90 text-gray-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-gray-300">
                     <BrainCircuit size={15} />
                   </div>
                   <span className="text-sm">{t('messageBubble.planProcess')}</span>
@@ -4274,21 +4272,21 @@ const MessageBubble = ({
                     </div>
                   )}
                 </div>
-                <div className="bg-primary-500/12 text-primary-600 dark:text-primary-300 relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/14 dark:border-white/10">
+                <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-200/80 bg-white/90 text-gray-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-gray-300">
                   {isPlanExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
                 </div>
               </button>
 
               {isPlanExpanded && (hasPlanText || shouldShowPlanStatus) && (
-                <div className="mt-2.5 ml-1.5 border-l border-white/10 pl-4 text-sm leading-relaxed text-gray-600 font-stretch-semi-condensed dark:text-gray-400">
+                <div className="mt-2.5 ml-1 border-l border-gray-200/80 pl-4 text-sm leading-relaxed text-gray-600 font-stretch-semi-condensed dark:border-zinc-700/80 dark:text-gray-400">
                   {planStepsForCards.length > 0 ? (
                     <div className="space-y-3">
-                      <div className="glass-elite-soft rounded-[20px] border border-white/12 px-4 py-3">
+                      <div className="rounded-2xl border border-gray-200/75 bg-white/72 px-4 py-3 shadow-[0_10px_28px_-24px_rgba(15,23,42,0.6)] backdrop-blur-sm dark:border-zinc-700/70 dark:bg-zinc-900/60">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="text-[11px] font-semibold tracking-[0.14em] text-gray-500 uppercase dark:text-gray-400">
                             Plan Overview
                           </span>
-                          <span className="bg-primary-500/12 text-primary-700 dark:text-primary-300 rounded-full px-2 py-0.5 text-[11px] font-medium">
+                          <span className="rounded-full border border-primary-500/25 bg-primary-500/12 px-2 py-0.5 text-[11px] font-medium text-primary-700 dark:text-primary-300">
                             {parsedResearchPlan?.research_type === 'academic'
                               ? t('messageBubble.researchTypeAcademic')
                               : t('messageBubble.researchTypeGeneral')}
@@ -4311,13 +4309,13 @@ const MessageBubble = ({
                         {(parsedResearchPlan?.complexity || parsedResearchPlan?.question_type) && (
                           <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-gray-500 dark:text-gray-400">
                             {parsedResearchPlan?.complexity && (
-                              <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 dark:bg-white/[0.03]">
+                              <span className="rounded-full border border-gray-200/80 bg-white/80 px-2.5 py-1 dark:border-zinc-700 dark:bg-zinc-800/70">
                                 {t('messageBubble.researchComplexity')}:{' '}
                                 {parsedResearchPlan.complexity}
                               </span>
                             )}
                             {parsedResearchPlan?.question_type && (
-                              <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 dark:bg-white/[0.03]">
+                              <span className="rounded-full border border-gray-200/80 bg-white/80 px-2.5 py-1 dark:border-zinc-700 dark:bg-zinc-800/70">
                                 {t('messageBubble.researchQuestionType')}:{' '}
                                 {parsedResearchPlan.question_type}
                               </span>
@@ -4332,7 +4330,7 @@ const MessageBubble = ({
                         return (
                           <div
                             key={`plan-step-card-${step.step || stepIdx}`}
-                            className="glass-elite-soft rounded-[20px] border border-white/10 px-4 py-3"
+                            className="rounded-2xl border border-gray-200/75 bg-white/72 px-4 py-3 shadow-[0_10px_28px_-24px_rgba(15,23,42,0.6)] backdrop-blur-sm dark:border-zinc-700/70 dark:bg-zinc-900/60"
                           >
                             <div className="flex flex-wrap items-center gap-2 text-xs">
                               <span className="bg-primary-500/12 text-primary-700 dark:text-primary-300 rounded-full px-2.5 py-1 font-semibold">
@@ -4352,7 +4350,7 @@ const MessageBubble = ({
                             </div>
                             <div className="mt-3 space-y-2.5 text-[12px] text-gray-500 dark:text-gray-400">
                               {step.thought && (
-                                <div className="rounded-[18px] border border-white/8 bg-white/[0.03] px-3 py-2.5 dark:bg-white/[0.02]">
+                                <div className="rounded-[14px] border border-gray-200/80 bg-white/78 px-3 py-2.5 dark:border-zinc-700 dark:bg-zinc-800/65">
                                   <span className="text-[10px] font-semibold tracking-[0.12em] text-gray-400 uppercase dark:text-gray-500">
                                     {t('messageBubble.researchThought')}
                                   </span>
@@ -4362,7 +4360,7 @@ const MessageBubble = ({
                                 </div>
                               )}
                               {step.expected_output && (
-                                <div className="rounded-[18px] border border-white/8 bg-white/[0.03] px-3 py-2.5 dark:bg-white/[0.02]">
+                                <div className="rounded-[14px] border border-gray-200/80 bg-white/78 px-3 py-2.5 dark:border-zinc-700 dark:bg-zinc-800/65">
                                   <span className="text-[10px] font-semibold tracking-[0.12em] text-gray-400 uppercase dark:text-gray-500">
                                     {t('messageBubble.researchExpected')}
                                   </span>
@@ -4373,7 +4371,7 @@ const MessageBubble = ({
                               )}
                               <div className="flex flex-wrap gap-2">
                                 {step.deliverable_format && (
-                                  <div className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 dark:bg-white/[0.03]">
+                                  <div className="inline-flex items-center gap-1.5 rounded-full border border-gray-200/80 bg-white/80 px-2.5 py-1 dark:border-zinc-700 dark:bg-zinc-800/70">
                                     <span className="text-[10px] font-semibold tracking-[0.12em] text-gray-400 uppercase dark:text-gray-500">
                                       {t('messageBubble.researchDeliverableFormat')}
                                     </span>
@@ -4383,7 +4381,7 @@ const MessageBubble = ({
                                   </div>
                                 )}
                                 {typeof step.requires_search === 'boolean' && (
-                                  <div className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 dark:bg-white/[0.03]">
+                                  <div className="inline-flex items-center gap-1.5 rounded-full border border-gray-200/80 bg-white/80 px-2.5 py-1 dark:border-zinc-700 dark:bg-zinc-800/70">
                                     <span className="text-[10px] font-semibold tracking-[0.12em] text-gray-400 uppercase dark:text-gray-500">
                                       {t('messageBubble.researchRequiresSearch')}
                                     </span>
@@ -4396,7 +4394,7 @@ const MessageBubble = ({
                               {criteria.map((item, idx) => (
                                 <div
                                   key={`plan-criteria-${stepIdx}-${idx}`}
-                                  className="rounded-[18px] border border-white/8 bg-white/[0.03] px-3 py-2.5 dark:bg-white/[0.02]"
+                                  className="rounded-[14px] border border-gray-200/80 bg-white/78 px-3 py-2.5 dark:border-zinc-700 dark:bg-zinc-800/65"
                                 >
                                   <span className="text-[10px] font-semibold tracking-[0.12em] text-gray-400 uppercase dark:text-gray-500">
                                     {t('messageBubble.researchAcceptanceCriteria')}
@@ -4431,12 +4429,10 @@ const MessageBubble = ({
             <div className="mb-2.5">
               <button
                 onClick={() => setIsResearchExpanded(!isResearchExpanded)}
-                className="glass-elite-soft group relative flex w-full items-center justify-between overflow-hidden rounded-[22px] border border-white/16 bg-gradient-to-r from-white/[0.08] via-white/[0.04] to-transparent px-4 py-3 text-gray-600 transition-all duration-300 hover:border-white/24 hover:text-gray-800 dark:border-white/10 dark:from-white/[0.05] dark:via-white/[0.025] dark:text-gray-300 dark:hover:text-gray-100"
+                className="group relative flex w-full items-center justify-between overflow-hidden rounded-2xl border border-gray-200/70 bg-white/70 px-4 py-3 text-gray-700 shadow-[0_10px_30px_-22px_rgba(15,23,42,0.5)] backdrop-blur-md transition-colors duration-300 hover:border-gray-300 hover:bg-white/85 dark:border-zinc-700/60 dark:bg-zinc-900/60 dark:text-gray-200 dark:hover:border-zinc-600 dark:hover:bg-zinc-900/75"
               >
-                <div className="bg-primary-500/12 absolute inset-x-0 top-0 h-px" />
-                <div className="bg-primary-500/10 absolute top-2 right-6 h-10 w-10 rounded-full blur-2xl" />
                 <div className="relative flex min-w-0 items-center gap-3 text-sm font-medium text-gray-700 dark:text-gray-300">
-                  <div className="bg-primary-500/12 text-primary-600 dark:text-primary-300 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-white/16 dark:border-white/10">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gray-200/80 bg-gray-100/90 text-gray-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-gray-300">
                     <ScanText size={15} />
                   </div>
                   <span className="text-sm">{t('messageBubble.researchProcess')}</span>
@@ -4455,13 +4451,13 @@ const MessageBubble = ({
                     </div>
                   )}
                 </div>
-                <div className="bg-primary-500/12 text-primary-600 dark:text-primary-300 relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/14 dark:border-white/10">
+                <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-200/80 bg-white/90 text-gray-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-gray-300">
                   {isResearchExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
                 </div>
               </button>
 
               {isResearchExpanded && hasResearchSteps && (
-                <div className="mt-2.5 ml-1.5 border-l border-white/10 pl-4 text-sm leading-relaxed text-gray-600 font-stretch-semi-condensed dark:text-gray-400 [&>div>p:last-child]:mb-0!">
+                <div className="mt-2.5 ml-1 border-l border-gray-200/80 pl-4 text-sm leading-relaxed text-gray-600 font-stretch-semi-condensed dark:border-zinc-700/80 dark:text-gray-400 [&>div>p:last-child]:mb-0!">
                   {researchSteps.map(step => {
                     const isRunning = step.status === 'running'
                     const isPending = step.status === 'pending'
@@ -4490,7 +4486,7 @@ const MessageBubble = ({
                             ? `research-step-${Number(step.step)}`
                             : `research-step-${step.streamOrder ?? step.title ?? 'unknown'}`)
                         }
-                        className="glass-elite-soft mb-3 rounded-[20px] border border-white/10 px-4 py-3"
+                        className="mb-3 rounded-2xl border border-gray-200/75 bg-white/72 px-4 py-3 shadow-[0_10px_28px_-24px_rgba(15,23,42,0.6)] backdrop-blur-sm dark:border-zinc-700/70 dark:bg-zinc-900/60"
                       >
                         <div className="flex-1 space-y-2">
                           <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -4543,13 +4539,13 @@ const MessageBubble = ({
                                   return (
                                     <div
                                       key={item.id || `${item.name}-${item.arguments}`}
-                                      className="relative rounded-[18px] border border-white/8 bg-white/[0.03] px-2.5 py-2.5 text-[11px] text-gray-500 sm:px-3 dark:bg-white/[0.02] dark:text-gray-400"
+                                      className="relative rounded-[14px] border border-gray-200/80 bg-white/80 px-2.5 py-2.5 text-[11px] text-gray-500 sm:px-3 dark:border-zinc-700 dark:bg-zinc-800/70 dark:text-gray-400"
                                     >
                                       <div className="relative pl-0">
                                         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-1.5 sm:flex sm:items-center sm:justify-between">
                                           <div className="min-w-0 flex-1">
                                             <div className="flex min-w-0 items-center gap-2">
-                                              <span className="bg-primary-500/12 text-primary-600 dark:text-primary-300 flex h-6 w-6 shrink-0 items-center justify-center rounded-xl border border-white/12 dark:border-white/10">
+                                              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-xl border border-gray-200/80 bg-white/90 text-primary-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-primary-300">
                                                 {item.status === 'error' ? (
                                                   <AlertTriangle
                                                     size={12}
@@ -4576,13 +4572,13 @@ const MessageBubble = ({
                                           </div>
                                           <div className="flex shrink-0 items-center gap-2">
                                             {typeof item.durationMs === 'number' && (
-                                              <span className="rounded-full border border-white/8 bg-white/[0.04] px-2 py-0.5 text-[10px] whitespace-nowrap text-gray-500 dark:bg-white/[0.03] dark:text-gray-400">
+                                              <span className="rounded-full border border-gray-200/80 bg-white/90 px-2 py-0.5 text-[10px] whitespace-nowrap text-gray-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-gray-400">
                                                 {t('messageBubble.toolDuration', {
                                                   duration: (item.durationMs / 1000).toFixed(2),
                                                 })}
                                               </span>
                                             )}
-                                            <span className="bg-primary-500/12 text-primary-600 dark:text-primary-300 flex h-6 w-6 shrink-0 items-center justify-center rounded-xl border border-white/12 dark:border-white/10">
+                                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-xl border border-gray-200/80 bg-white/90 text-primary-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-primary-300">
                                               {item.status === 'error' ? (
                                                 <X className="h-3 w-3 text-red-500 dark:text-red-400" />
                                               ) : item.status === 'done' ? (

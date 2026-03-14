@@ -17,13 +17,11 @@ const DeepResearchSourcesCard = ({ sources = [], title, countLabel }) => {
       onToggle={event => setIsOpen(event.currentTarget.open)}
     >
       <summary className="list-none">
-        <div className="glass-elite-soft relative overflow-hidden rounded-[22px] border border-white/16 bg-gradient-to-r from-white/[0.08] via-white/[0.04] to-transparent px-4 py-3 transition-all duration-300 hover:border-white/24 dark:border-white/10 dark:from-white/[0.05] dark:via-white/[0.025]">
-          <div className="bg-primary-500/12 absolute inset-x-0 top-0 h-px" />
-          <div className="bg-primary-500/10 absolute top-2 right-6 h-10 w-10 rounded-full blur-2xl" />
+        <div className="relative overflow-hidden rounded-2xl border border-gray-200/70 bg-white/70 px-4 py-3 shadow-[0_10px_30px_-22px_rgba(15,23,42,0.5)] backdrop-blur-md transition-colors duration-300 hover:border-gray-300 hover:bg-white/85 dark:border-zinc-700/60 dark:bg-zinc-900/60 dark:hover:border-zinc-600 dark:hover:bg-zinc-900/75">
           <div className="relative flex cursor-pointer items-center justify-between gap-4 select-none">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-3">
-                <div className="bg-primary-500/12 text-primary-600 dark:text-primary-300 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-white/16 dark:border-white/10">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gray-200/80 bg-gray-100/90 text-gray-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-gray-300">
                   <LibraryBig size={15} />
                 </div>
                 <div className="min-w-0">
@@ -44,7 +42,7 @@ const DeepResearchSourcesCard = ({ sources = [], title, countLabel }) => {
             </div>
             <div
               className={clsx(
-                'bg-primary-500/12 text-primary-600 dark:text-primary-300 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/14 transition-transform duration-300 dark:border-white/10',
+                'flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-200/80 bg-white/90 text-gray-500 transition-transform duration-300 dark:border-zinc-700 dark:bg-zinc-800 dark:text-gray-300',
                 isOpen ? 'rotate-180' : 'rotate-0',
               )}
             >

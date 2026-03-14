@@ -56,7 +56,6 @@ import AgentAvatar from './AgentAvatar'
 import AgentBannerSurface from './AgentBannerSurface'
 import InteractiveForm from './InteractiveForm'
 import DeepResearchGoalCard from './message/DeepResearchGoalCard'
-import DeepResearchSourcesCard from './message/DeepResearchSourcesCard'
 import MessageActionBar from './message/MessageActionBar'
 import { getHostname } from './message/messageUtils'
 import { formatMessageDate } from '../lib/dateUtils'
@@ -1657,8 +1656,6 @@ const MessageBubble = ({
     }
   }, [isDownloadMenuOpen])
 
-  const [isResearchExpanded, setIsResearchExpanded] = useState(false)
-  const [isPlanExpanded, setIsPlanExpanded] = useState(false)
   const [isWorkflowExpanded, setIsWorkflowExpanded] = useState(false)
 
   useEffect(() => {
@@ -2375,8 +2372,6 @@ const MessageBubble = ({
     [documentCitationSources, mergedMessage.sources],
   )
   const shouldShowSourcesDrawer = !isStreaming && allSources.length > 0
-  const shouldShowDeepResearchSourcesSection =
-    isDeepResearch && !isStreamingMessage && allSources.length > 0
   const SEARCH_STEP_TOOLS = useMemo(
     () =>
       new Set([
@@ -3326,7 +3321,6 @@ const MessageBubble = ({
     )
   }
 
-  const hasPlanText = !!planMarkdown
   const researchPlanLoading = Boolean(message?.researchPlanLoading)
   const researchSteps = useMemo(() => {
     const steps = Array.isArray(message.researchSteps) ? [...message.researchSteps] : []
@@ -3354,10 +3348,87 @@ const MessageBubble = ({
   const hasActiveResearchStep = researchSteps.some(
     step => step.status === 'running' || step.status === 'pending',
   )
-  const shouldShowPlan = isDeepResearch && (hasPlanText || researchPlanLoading)
-  const shouldShowResearch = isDeepResearch && hasResearchSteps
   const shouldShowPlanStatus = isDeepResearch && researchPlanLoading
-  const shouldShowResearchStatus = isDeepResearch && hasActiveResearchStep
+  const totalResearchSteps = useMemo(() => {
+    if (!hasResearchSteps) return 0
+    const maxStep = researchSteps.reduce((max, step) => {
+      const value = Number(step?.step)
+      return Number.isFinite(value) ? Math.max(max, value) : max
+    }, 0)
+    const declaredTotal = researchSteps.reduce((max, step) => {
+      const value = Number(step?.total)
+      return Number.isFinite(value) ? Math.max(max, value) : max
+    }, 0)
+    return Math.max(maxStep, declaredTotal, researchSteps.length)
+  }, [hasResearchSteps, researchSteps])
+  const researchProgressPercent = useMemo(() => {
+    if (!hasResearchSteps || totalResearchSteps <= 0) return 0
+    const completedCount = researchSteps.filter(
+      step => step?.status === 'done' || step?.status === 'error',
+    ).length
+    const runningCount = researchSteps.filter(step => step?.status === 'running').length
+    let progressUnits = completedCount
+    if (runningCount > 0 && completedCount < totalResearchSteps) {
+      progressUnits += 0.5
+    }
+    if (!isStreaming && !hasActiveResearchStep) {
+      progressUnits = totalResearchSteps
+    }
+    const raw = (progressUnits / totalResearchSteps) * 100
+    return Math.max(0, Math.min(100, Math.round(raw)))
+  }, [hasResearchSteps, totalResearchSteps, researchSteps, isStreaming, hasActiveResearchStep])
+  const researchStepsDurationMs = useMemo(
+    () =>
+      researchSteps.reduce(
+        (sum, step) => sum + (typeof step.durationMs === 'number' ? step.durationMs : 0),
+        0,
+      ),
+    [researchSteps],
+  )
+  const deepResearchCompletedDurationSec = useMemo(() => {
+    if (!isDeepResearch) return null
+
+    let finalGenerationMs = 0
+    if (Number.isFinite(persistedFinalAnswerDurationMs) && persistedFinalAnswerDurationMs > 0) {
+      finalGenerationMs = persistedFinalAnswerDurationMs
+    } else if (typeof wallClockFinalSec === 'number' && wallClockFinalSec > 0) {
+      finalGenerationMs = wallClockFinalSec * 1000
+    } else if (typeof wallClockElapsedSec === 'number' && wallClockElapsedSec > 0) {
+      finalGenerationMs = wallClockElapsedSec * 1000
+    }
+
+    const totalMs = researchStepsDurationMs + finalGenerationMs
+    return totalMs > 0 ? Math.max(0, Math.round(totalMs / 1000)) : 0
+  }, [
+    isDeepResearch,
+    persistedFinalAnswerDurationMs,
+    researchStepsDurationMs,
+    wallClockElapsedSec,
+    wallClockFinalSec,
+  ])
+  const deepResearchHeaderText = useMemo(() => {
+    if (!isDeepResearch) return ''
+    if (!isStreaming) {
+      return t('messageBubble.completedResearch', {
+        duration: Math.max(0, Number(deepResearchCompletedDurationSec) || 0),
+      })
+    }
+    if (shouldShowPlanStatus && !hasResearchSteps) {
+      return t('chat.deepResearchPlanning', '正在规划中')
+    }
+    if (hasResearchSteps) {
+      return `${t('chat.deepResearchResearching', '正在研究中')} (${researchProgressPercent}%)`
+    }
+    return t('messageBubble.statusThinking', '正在思考分析')
+  }, [
+    isDeepResearch,
+    isStreaming,
+    shouldShowPlanStatus,
+    hasResearchSteps,
+    researchProgressPercent,
+    deepResearchCompletedDurationSec,
+    t,
+  ])
 
   const resolvedRelatedQuestions = (() => {
     const direct = mergedMessage.related
@@ -3391,11 +3462,47 @@ const MessageBubble = ({
   const workflowContainerRef = useRef(null)
   const workflowProcessSteps = useMemo(() => {
     const base = Array.isArray(processSteps) ? [...processSteps] : []
-    if (isDeepResearch) return base
-
     const shouldShowAnswerStep = Boolean(
       isStreaming || hasMainText || base.length > 0 || typeof wallClockFinalSec === 'number',
     )
+
+    if (isDeepResearch) {
+      const mappedSteps = researchSteps.map(step => ({
+        kind: 'research_step',
+        ...step,
+      }))
+      if (!shouldShowAnswerStep) return mappedSteps
+
+      let finalMs = 0
+      if (
+        !isStreaming &&
+        Number.isFinite(persistedFinalAnswerDurationMs) &&
+        persistedFinalAnswerDurationMs > 0
+      ) {
+        finalMs = persistedFinalAnswerDurationMs
+      } else {
+        const answerDurationSec =
+          typeof wallClockFinalSec === 'number'
+            ? wallClockFinalSec
+            : typeof wallClockElapsedSec === 'number'
+              ? wallClockElapsedSec
+              : 0
+        finalMs = answerDurationSec > 0 ? Math.max(0, Number(answerDurationSec) * 1000) : 0
+      }
+
+      const stepMs = mappedSteps.reduce(
+        (sum, step) => sum + (typeof step.durationMs === 'number' ? step.durationMs : 0),
+        0,
+      )
+      mappedSteps.push({
+        kind: 'final_answer',
+        status: isStreaming ? 'running' : 'done',
+        durationMs: stepMs + finalMs > 0 ? stepMs + finalMs : null,
+      })
+
+      return mappedSteps
+    }
+
     if (!shouldShowAnswerStep) return base
 
     let finalMs = 0
@@ -3444,6 +3551,7 @@ const MessageBubble = ({
     hasMainText,
     wallClockElapsedSec,
     isDeepResearch,
+    researchSteps,
     persistedFinalAnswerDurationMs,
   ])
   const hasWorkflowFinalAnswerStep = useMemo(
@@ -3522,6 +3630,14 @@ const MessageBubble = ({
     wallClockFinalSec,
   ])
   const finalAnswerDurationMsForDisplay = useMemo(() => {
+    if (isDeepResearch) {
+      if (typeof finalAnswerWorkflowStep?.durationMs === 'number' && finalAnswerWorkflowStep.durationMs > 0) {
+        return finalAnswerWorkflowStep.durationMs
+      }
+      if (typeof deepResearchCompletedDurationSec === 'number' && deepResearchCompletedDurationSec > 0) {
+        return deepResearchCompletedDurationSec * 1000
+      }
+    }
     // Return cumulative duration for 'final_answer' step display
     if (typeof completedDurationSec === 'number' && completedDurationSec > 0) {
       return completedDurationSec * 1000
@@ -3531,7 +3647,13 @@ const MessageBubble = ({
       return persistedFinalAnswerDurationMs + processDurationMs
     }
     return null
-  }, [persistedFinalAnswerDurationMs, finalAnswerWorkflowStep?.durationMs, completedDurationSec])
+  }, [
+    isDeepResearch,
+    persistedFinalAnswerDurationMs,
+    finalAnswerWorkflowStep?.durationMs,
+    completedDurationSec,
+    deepResearchCompletedDurationSec,
+  ])
   const activeStreamingStepKind = useMemo(() => {
     if (!isStreaming) return null
 
@@ -3617,7 +3739,12 @@ const MessageBubble = ({
         >
           <div className="flex items-center gap-2.5">
             <span className="flex items-center gap-2 text-sm font-semibold tracking-tight">
-              {isStreaming ? (
+              {isDeepResearch ? (
+                <>
+                  <span className="truncate">{deepResearchHeaderText}</span>
+                  {isStreaming && <DotLoader size="sm" />}
+                </>
+              ) : isStreaming ? (
                 <>
                   <span>
                     {(() => {
@@ -3709,6 +3836,132 @@ const MessageBubble = ({
                         >
                           {formatThoughtContentForDisplay(step.content)}
                         </Streamdown>
+                      </div>
+                    </div>
+                  )
+                }
+
+                if (step.kind === 'research_step') {
+                  const isRunning = step.status === 'running'
+                  const isPending = step.status === 'pending'
+                  const isActive = isRunning || isPending
+                  const isDone = step.status === 'done'
+                  const isError = step.status === 'error'
+                  const stepToolCalls = getToolCallsForStep(step.step)
+                  const durationLabel =
+                    typeof step.durationMs === 'number'
+                      ? t('messageBubble.researchStepDuration', {
+                          duration: (step.durationMs / 1000).toFixed(2),
+                        })
+                      : null
+                  const statusLabel = isError
+                    ? t('messageBubble.researchStepStatusError')
+                    : isDone
+                      ? t('messageBubble.researchStepStatusDone')
+                      : isRunning
+                        ? t('messageBubble.researchStepStatusRunning')
+                        : t('messageBubble.researchStepStatusPending')
+
+                  return (
+                    <div
+                      key={
+                        step.stepKey ||
+                        (Number.isFinite(Number(step.step))
+                          ? `research-step-${Number(step.step)}`
+                          : `research-step-${step.streamOrder ?? step.title ?? 'unknown'}`)
+                      }
+                      className="relative mb-4"
+                    >
+                      {isNotLast && (
+                        <span className="pointer-events-none absolute top-6 bottom-[-16px] -left-5 border-l border-dashed border-gray-300/90 dark:border-zinc-700/90" />
+                      )}
+                      <div className="absolute top-0.75 -left-7 flex h-4 w-4 items-center justify-center text-gray-400 dark:text-gray-500">
+                        <ScanText size={16} />
+                      </div>
+
+                      <div className="space-y-2">
+                        <div className="flex flex-wrap items-center gap-2 text-xs">
+                          <span className="rounded-full border border-gray-200/80 bg-white/85 px-2 py-0.5 font-semibold text-gray-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-gray-300">
+                            {t('messageBubble.researchStepLabel', {
+                              step: step.step,
+                              total: step.total || researchSteps.length,
+                            })}
+                          </span>
+                          <span
+                            className={clsx(
+                              'rounded-full px-2 py-0.5 text-[11px]',
+                              isError
+                                ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+                                : isDone
+                                  ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
+                                  : 'bg-gray-200/70 text-gray-600 dark:bg-zinc-700/70 dark:text-gray-400',
+                            )}
+                          >
+                            {statusLabel}
+                          </span>
+                          {isActive && <DotLoader />}
+                          {durationLabel && (
+                            <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                              {durationLabel}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-base text-gray-700 dark:text-gray-200">
+                          {step.title}
+                          {isActive ? '...' : ''}
+                        </div>
+                        {step.error && (
+                          <div className="rounded-xl border border-red-500/20 bg-red-500/8 px-3 py-2 text-[11px] text-red-500 dark:text-red-400">
+                            {step.error}
+                          </div>
+                        )}
+                        {stepToolCalls.length > 0 && (
+                          <div className="space-y-2">
+                            {stepToolCalls.map(item => {
+                              const hasDuration = typeof item.durationMs === 'number'
+                              const queryPreview = renderToolQueryPreview(
+                                item,
+                                'max-w-[280px] truncate text-xs text-gray-600 dark:text-gray-300',
+                              )
+                              const isSearchLike = Boolean(queryPreview)
+
+                              return (
+                                <div
+                                  key={item.id || `${item.name}-${item.arguments}`}
+                                  className="flex items-center gap-3"
+                                >
+                                  <div className="min-w-0">
+                                    {isSearchLike ? (
+                                      <div
+                                        className={clsx(
+                                          'inline-flex max-w-full items-center gap-2 rounded-full border px-3 py-1.5 text-xs shadow-[0_1px_2px_rgba(0,0,0,0.02)]',
+                                          item.status === 'error'
+                                            ? 'border-red-200/70 bg-red-50/70 text-red-600 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300'
+                                            : 'border-primary-200/35 bg-white/70 text-gray-700 dark:border-primary-700/30 dark:bg-zinc-800/55 dark:text-gray-200',
+                                        )}
+                                      >
+                                        <Search size={13} className="shrink-0 opacity-75" />
+                                        <span className="truncate">
+                                          {getToolDisplayName(item) || t('messageBubble.searchToolLabel')}
+                                        </span>
+                                        <span className="min-w-0 truncate">{queryPreview}</span>
+                                      </div>
+                                    ) : (
+                                      renderWorkflowToolCapsule(item)
+                                    )}
+                                  </div>
+                                  {hasDuration && (
+                                    <span className="ml-auto shrink-0 text-xs! whitespace-nowrap text-gray-500 dark:text-gray-400">
+                                      {t('messageBubble.toolDuration', {
+                                        duration: (item.durationMs / 1000).toFixed(2),
+                                      })}
+                                    </span>
+                                  )}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
                       </div>
                     </div>
                   )
@@ -3925,9 +4178,11 @@ const MessageBubble = ({
                     <Link size={16} />
                   </div>
                   <div className="mb-3 text-base font-semibold text-gray-700 dark:text-gray-200">
-                    {t('messageBubble.researchSources', '研究来源')}
+                    {isDeepResearch
+                      ? t('messageBubble.organizeResearchSources', '整理研究来源')
+                      : t('messageBubble.organizedSources', '整理参考资料')}
                   </div>
-                  <DesktopSourcesSection sources={allSources} isOpen />
+                  <DesktopSourcesSection sources={allSources} isOpen variant="legacy" />
                 </div>
               )}
               {hasWorkflowFinalAnswerStep && (
@@ -3940,7 +4195,9 @@ const MessageBubble = ({
                       <span>
                         {isStreaming
                           ? t('messageBubble.statusGeneratingAnswer', '正文生成中')
-                          : t('messageBubble.finalAnswerStep', '生成最终回答')}
+                          : isDeepResearch
+                            ? t('messageBubble.finalResearchStep', '生成最终研究')
+                            : t('messageBubble.finalAnswerStep', '生成最终回答')}
                       </span>
                     </div>
                     {typeof finalAnswerDurationMsForDisplay === 'number' && (
@@ -3959,7 +4216,9 @@ const MessageBubble = ({
                     <DotLoader size="6px" gap="3px" />
                   </div>
                   <div className="text-base font-medium text-gray-600 dark:text-gray-300">
-                    {t('messageBubble.finalAnswerStep')}
+                    {isDeepResearch
+                      ? t('messageBubble.finalResearchStep', '生成最终研究')
+                      : t('messageBubble.finalAnswerStep')}
                   </div>
                 </div>
               )}
@@ -4242,392 +4501,6 @@ const MessageBubble = ({
         </div>
       </div>
       {headerExtraContent}
-
-      {/* Thinking Process Section */}
-      {isDeepResearch ? (
-        <>
-          {shouldShowPlan && (
-            <div className="mb-2.5">
-              <button
-                onClick={() => setIsPlanExpanded(!isPlanExpanded)}
-                className="group relative flex w-full items-center justify-between overflow-hidden rounded-2xl border border-gray-200/70 bg-white/70 px-4 py-3 text-gray-700 shadow-[0_10px_30px_-22px_rgba(15,23,42,0.5)] backdrop-blur-md transition-colors duration-300 hover:border-gray-300 hover:bg-white/85 dark:border-zinc-700/60 dark:bg-zinc-900/60 dark:text-gray-200 dark:hover:border-zinc-600 dark:hover:bg-zinc-900/75"
-              >
-                <div className="relative flex min-w-0 items-center gap-3 text-sm font-medium text-gray-700 dark:text-gray-300">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gray-200/80 bg-gray-100/90 text-gray-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-gray-300">
-                    <BrainCircuit size={15} />
-                  </div>
-                  <span className="text-sm">{t('messageBubble.planProcess')}</span>
-                  {!shouldShowPlanStatus && (
-                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/18 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
-                      <Check size={12} />
-                      {t('messageBubble.researchStepStatusDone')}
-                    </span>
-                  )}
-                  {shouldShowPlanStatus && (
-                    <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                      <span className="text-left transition-opacity duration-200 ease-out">
-                        {researchStatusText}
-                      </span>
-                      <DotLoader />
-                    </div>
-                  )}
-                </div>
-                <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-200/80 bg-white/90 text-gray-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-gray-300">
-                  {isPlanExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
-                </div>
-              </button>
-
-              {isPlanExpanded && (hasPlanText || shouldShowPlanStatus) && (
-                <div className="mt-2.5 ml-1 border-l border-gray-200/80 pl-4 text-sm leading-relaxed text-gray-600 font-stretch-semi-condensed dark:border-zinc-700/80 dark:text-gray-400">
-                  {planStepsForCards.length > 0 ? (
-                    <div className="space-y-3">
-                      <div className="rounded-2xl border border-gray-200/75 bg-white/72 px-4 py-3 shadow-[0_10px_28px_-24px_rgba(15,23,42,0.6)] backdrop-blur-sm dark:border-zinc-700/70 dark:bg-zinc-900/60">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-[11px] font-semibold tracking-[0.14em] text-gray-500 uppercase dark:text-gray-400">
-                            Plan Overview
-                          </span>
-                          <span className="rounded-full border border-primary-500/25 bg-primary-500/12 px-2 py-0.5 text-[11px] font-medium text-primary-700 dark:text-primary-300">
-                            {parsedResearchPlan?.research_type === 'academic'
-                              ? t('messageBubble.researchTypeAcademic')
-                              : t('messageBubble.researchTypeGeneral')}
-                          </span>
-                        </div>
-                        <div className="mt-2 text-sm font-semibold text-gray-800 dark:text-gray-100">
-                          {parsedResearchPlan?.research_type
-                            ? `${t('messageBubble.researchType')}: ${
-                                parsedResearchPlan.research_type === 'academic'
-                                  ? t('messageBubble.researchTypeAcademic')
-                                  : t('messageBubble.researchTypeGeneral')
-                              }`
-                            : t('messageBubble.planOverview')}
-                        </div>
-                        {parsedResearchPlan?.goal && (
-                          <div className="mt-2 text-sm leading-relaxed text-gray-700 dark:text-gray-300">
-                            {parsedResearchPlan.goal}
-                          </div>
-                        )}
-                        {(parsedResearchPlan?.complexity || parsedResearchPlan?.question_type) && (
-                          <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-gray-500 dark:text-gray-400">
-                            {parsedResearchPlan?.complexity && (
-                              <span className="rounded-full border border-gray-200/80 bg-white/80 px-2.5 py-1 dark:border-zinc-700 dark:bg-zinc-800/70">
-                                {t('messageBubble.researchComplexity')}:{' '}
-                                {parsedResearchPlan.complexity}
-                              </span>
-                            )}
-                            {parsedResearchPlan?.question_type && (
-                              <span className="rounded-full border border-gray-200/80 bg-white/80 px-2.5 py-1 dark:border-zinc-700 dark:bg-zinc-800/70">
-                                {t('messageBubble.researchQuestionType')}:{' '}
-                                {parsedResearchPlan.question_type}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      {planStepsForCards.map((step, stepIdx) => {
-                        const criteria = Array.isArray(step.acceptance_criteria)
-                          ? step.acceptance_criteria.filter(Boolean)
-                          : []
-                        return (
-                          <div
-                            key={`plan-step-card-${step.step || stepIdx}`}
-                            className="rounded-2xl border border-gray-200/75 bg-white/72 px-4 py-3 shadow-[0_10px_28px_-24px_rgba(15,23,42,0.6)] backdrop-blur-sm dark:border-zinc-700/70 dark:bg-zinc-900/60"
-                          >
-                            <div className="flex flex-wrap items-center gap-2 text-xs">
-                              <span className="bg-primary-500/12 text-primary-700 dark:text-primary-300 rounded-full px-2.5 py-1 font-semibold">
-                                {t('messageBubble.researchStepLabel', {
-                                  step: step.step || stepIdx + 1,
-                                  total: planStepsForCards.length,
-                                })}
-                              </span>
-                              {step.depth && (
-                                <span className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-gray-500 dark:text-gray-400">
-                                  {t('messageBubble.researchDepth')}: {step.depth}
-                                </span>
-                              )}
-                            </div>
-                            <div className="mt-3 text-sm font-medium text-gray-800 dark:text-gray-100">
-                              {step.action || '-'}
-                            </div>
-                            <div className="mt-3 space-y-2.5 text-[12px] text-gray-500 dark:text-gray-400">
-                              {step.thought && (
-                                <div className="rounded-[14px] border border-gray-200/80 bg-white/78 px-3 py-2.5 dark:border-zinc-700 dark:bg-zinc-800/65">
-                                  <span className="text-[10px] font-semibold tracking-[0.12em] text-gray-400 uppercase dark:text-gray-500">
-                                    {t('messageBubble.researchThought')}
-                                  </span>
-                                  <div className="mt-1.5 text-[13px] leading-relaxed text-gray-600 dark:text-gray-300">
-                                    {step.thought}
-                                  </div>
-                                </div>
-                              )}
-                              {step.expected_output && (
-                                <div className="rounded-[14px] border border-gray-200/80 bg-white/78 px-3 py-2.5 dark:border-zinc-700 dark:bg-zinc-800/65">
-                                  <span className="text-[10px] font-semibold tracking-[0.12em] text-gray-400 uppercase dark:text-gray-500">
-                                    {t('messageBubble.researchExpected')}
-                                  </span>
-                                  <div className="mt-1.5 text-[13px] leading-relaxed text-gray-600 dark:text-gray-300">
-                                    {step.expected_output}
-                                  </div>
-                                </div>
-                              )}
-                              <div className="flex flex-wrap gap-2">
-                                {step.deliverable_format && (
-                                  <div className="inline-flex items-center gap-1.5 rounded-full border border-gray-200/80 bg-white/80 px-2.5 py-1 dark:border-zinc-700 dark:bg-zinc-800/70">
-                                    <span className="text-[10px] font-semibold tracking-[0.12em] text-gray-400 uppercase dark:text-gray-500">
-                                      {t('messageBubble.researchDeliverableFormat')}
-                                    </span>
-                                    <span className="text-[12px] text-gray-600 dark:text-gray-300">
-                                      {step.deliverable_format}
-                                    </span>
-                                  </div>
-                                )}
-                                {typeof step.requires_search === 'boolean' && (
-                                  <div className="inline-flex items-center gap-1.5 rounded-full border border-gray-200/80 bg-white/80 px-2.5 py-1 dark:border-zinc-700 dark:bg-zinc-800/70">
-                                    <span className="text-[10px] font-semibold tracking-[0.12em] text-gray-400 uppercase dark:text-gray-500">
-                                      {t('messageBubble.researchRequiresSearch')}
-                                    </span>
-                                    <span className="text-[12px] text-gray-600 dark:text-gray-300">
-                                      {step.requires_search ? '✅' : '❌'}
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
-                              {criteria.map((item, idx) => (
-                                <div
-                                  key={`plan-criteria-${stepIdx}-${idx}`}
-                                  className="rounded-[14px] border border-gray-200/80 bg-white/78 px-3 py-2.5 dark:border-zinc-700 dark:bg-zinc-800/65"
-                                >
-                                  <span className="text-[10px] font-semibold tracking-[0.12em] text-gray-400 uppercase dark:text-gray-500">
-                                    {t('messageBubble.researchAcceptanceCriteria')}
-                                  </span>
-                                  <div className="mt-1.5 text-[13px] leading-relaxed text-gray-600 dark:text-gray-300">
-                                    {item}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  ) : (
-                    <div className="[&>div>p:last-child]:mb-0!">
-                      <Streamdown
-                        mermaid={mermaidOptions}
-                        remarkPlugins={[remarkGfm]}
-                        components={markdownComponents}
-                      >
-                        {planMarkdown}
-                      </Streamdown>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
-          {shouldShowResearch && (
-            <div className="mb-2.5">
-              <button
-                onClick={() => setIsResearchExpanded(!isResearchExpanded)}
-                className="group relative flex w-full items-center justify-between overflow-hidden rounded-2xl border border-gray-200/70 bg-white/70 px-4 py-3 text-gray-700 shadow-[0_10px_30px_-22px_rgba(15,23,42,0.5)] backdrop-blur-md transition-colors duration-300 hover:border-gray-300 hover:bg-white/85 dark:border-zinc-700/60 dark:bg-zinc-900/60 dark:text-gray-200 dark:hover:border-zinc-600 dark:hover:bg-zinc-900/75"
-              >
-                <div className="relative flex min-w-0 items-center gap-3 text-sm font-medium text-gray-700 dark:text-gray-300">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gray-200/80 bg-gray-100/90 text-gray-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-gray-300">
-                    <ScanText size={15} />
-                  </div>
-                  <span className="text-sm">{t('messageBubble.researchProcess')}</span>
-                  {!shouldShowResearchStatus && (
-                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/18 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
-                      <Check size={12} />
-                      {t('messageBubble.researchStepStatusDone')}
-                    </span>
-                  )}
-                  {shouldShowResearchStatus && (
-                    <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                      <span className="text-left transition-opacity duration-200 ease-out">
-                        {researchStatusText}
-                      </span>
-                      <DotLoader />
-                    </div>
-                  )}
-                </div>
-                <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-200/80 bg-white/90 text-gray-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-gray-300">
-                  {isResearchExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
-                </div>
-              </button>
-
-              {isResearchExpanded && hasResearchSteps && (
-                <div className="mt-2.5 ml-1 border-l border-gray-200/80 pl-4 text-sm leading-relaxed text-gray-600 font-stretch-semi-condensed dark:border-zinc-700/80 dark:text-gray-400 [&>div>p:last-child]:mb-0!">
-                  {researchSteps.map(step => {
-                    const isRunning = step.status === 'running'
-                    const isPending = step.status === 'pending'
-                    const isActive = isRunning || isPending
-                    const isDone = step.status === 'done'
-                    const isError = step.status === 'error'
-                    const stepToolCalls = getToolCallsForStep(step.step)
-                    const durationLabel =
-                      typeof step.durationMs === 'number'
-                        ? t('messageBubble.researchStepDuration', {
-                            duration: (step.durationMs / 1000).toFixed(2),
-                          })
-                        : null
-                    const statusLabel = isError
-                      ? t('messageBubble.researchStepStatusError')
-                      : isDone
-                        ? t('messageBubble.researchStepStatusDone')
-                        : isRunning
-                          ? t('messageBubble.researchStepStatusRunning')
-                          : t('messageBubble.researchStepStatusPending')
-                    return (
-                      <div
-                        key={
-                          step.stepKey ||
-                          (Number.isFinite(Number(step.step))
-                            ? `research-step-${Number(step.step)}`
-                            : `research-step-${step.streamOrder ?? step.title ?? 'unknown'}`)
-                        }
-                        className="mb-3 rounded-2xl border border-gray-200/75 bg-white/72 px-4 py-3 shadow-[0_10px_28px_-24px_rgba(15,23,42,0.6)] backdrop-blur-sm dark:border-zinc-700/70 dark:bg-zinc-900/60"
-                      >
-                        <div className="flex-1 space-y-2">
-                          <div className="flex flex-wrap items-center gap-2 text-xs">
-                            <span className="bg-primary-500/12 text-primary-700 dark:text-primary-300 rounded-full px-2.5 py-1 font-semibold">
-                              {t('messageBubble.researchStepLabel', {
-                                step: step.step,
-                                total: step.total || researchSteps.length,
-                              })}
-                            </span>
-                            <span
-                              className={clsx(
-                                'rounded-full px-2.5 py-1 text-[11px]',
-                                isError
-                                  ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
-                                  : isDone
-                                    ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
-                                    : 'bg-gray-200/70 text-gray-600 dark:bg-zinc-700/70 dark:text-gray-400',
-                              )}
-                            >
-                              {statusLabel}
-                            </span>
-                            {isActive && <DotLoader />}
-                            {durationLabel && (
-                              <span className="text-[11px] text-gray-500 dark:text-gray-400">
-                                {durationLabel}
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-sm font-medium text-gray-800 dark:text-gray-100">
-                            {step.title}
-                            {isActive ? '...' : ''}
-                          </div>
-                          {step.error && (
-                            <div className="rounded-xl border border-red-500/20 bg-red-500/8 px-3 py-2 text-[11px] text-red-500 dark:text-red-400">
-                              {step.error}
-                            </div>
-                          )}
-                          {stepToolCalls.length > 0 && (
-                            <div className="mt-3 space-y-2.5">
-                              <div className="text-[11px] font-semibold tracking-[0.14em] text-gray-500 uppercase dark:text-gray-400">
-                                {t('messageBubble.toolCalls')}
-                              </div>
-                              <div className="space-y-2 overflow-hidden">
-                                {stepToolCalls.map(item => {
-                                  const IconComponent = getToolIconComponent(item.name)
-                                  const queryPreview = renderToolQueryPreview(
-                                    item,
-                                    'truncate text-[11px] opacity-70',
-                                  )
-                                  return (
-                                    <div
-                                      key={item.id || `${item.name}-${item.arguments}`}
-                                      className="relative rounded-[14px] border border-gray-200/80 bg-white/80 px-2.5 py-2.5 text-[11px] text-gray-500 sm:px-3 dark:border-zinc-700 dark:bg-zinc-800/70 dark:text-gray-400"
-                                    >
-                                      <div className="relative pl-0">
-                                        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-1.5 sm:flex sm:items-center sm:justify-between">
-                                          <div className="min-w-0 flex-1">
-                                            <div className="flex min-w-0 items-center gap-2">
-                                              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-xl border border-gray-200/80 bg-white/90 text-primary-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-primary-300">
-                                                {item.status === 'error' ? (
-                                                  <AlertTriangle
-                                                    size={12}
-                                                    className="text-red-500 dark:text-red-400"
-                                                  />
-                                                ) : IconComponent ? (
-                                                  <IconComponent
-                                                    size={12}
-                                                    className="text-gray-500 dark:text-gray-400"
-                                                  />
-                                                ) : null}
-                                              </span>
-                                              <span className="truncate font-medium text-gray-700 dark:text-gray-200">
-                                                {item.status === 'error'
-                                                  ? t('messageBubble.toolCallError')
-                                                  : getToolDisplayName(item)}
-                                              </span>
-                                              {queryPreview && (
-                                                <span className="hidden min-w-0 flex-1 sm:block">
-                                                  {queryPreview}
-                                                </span>
-                                              )}
-                                            </div>
-                                          </div>
-                                          <div className="flex shrink-0 items-center gap-2">
-                                            {typeof item.durationMs === 'number' && (
-                                              <span className="rounded-full border border-gray-200/80 bg-white/90 px-2 py-0.5 text-[10px] whitespace-nowrap text-gray-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-gray-400">
-                                                {t('messageBubble.toolDuration', {
-                                                  duration: (item.durationMs / 1000).toFixed(2),
-                                                })}
-                                              </span>
-                                            )}
-                                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-xl border border-gray-200/80 bg-white/90 text-primary-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-primary-300">
-                                              {item.status === 'error' ? (
-                                                <X className="h-3 w-3 text-red-500 dark:text-red-400" />
-                                              ) : item.status === 'done' ? (
-                                                <Check className="h-3 w-3" />
-                                              ) : (
-                                                <DotLoader />
-                                              )}
-                                            </span>
-                                            {developerMode && (
-                                              <button
-                                                type="button"
-                                                onClick={() => setActiveToolDetail(item)}
-                                                className="text-primary-600 dark:text-primary-300 hidden text-[10px] whitespace-nowrap hover:underline sm:inline"
-                                              >
-                                                {t('messageBubble.toolDetails')}
-                                              </button>
-                                            )}
-                                          </div>
-                                          {queryPreview && (
-                                            <div className="col-span-2 min-w-0 sm:hidden">
-                                              {queryPreview}
-                                            </div>
-                                          )}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  )
-                                })}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-
-          {shouldShowDeepResearchSourcesSection && (
-            <DeepResearchSourcesCard
-              sources={allSources}
-              title={t('sources.researchSources', 'Research Sources')}
-              countLabel={t('sources.resultsFound', { count: allSources.length })}
-            />
-          )}
-        </>
-      ) : null}
 
       {/* Sources Section - REMOVED (Moved to toolbar) */}
 

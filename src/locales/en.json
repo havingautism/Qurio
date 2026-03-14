@@ -1363,6 +1363,7 @@
     "usedSpecificTools": "Used {{tools}}",
     "completedAnswer": "Completed answer, took {{duration}}s",
     "completedResearch": "Research completed, took {{duration}}s",
+    "researchPlanningInProgress": "Planning research",
     "organizedSources": "Organized Sources",
     "organizeResearchSources": "Organize Research Sources",
     "researchAppendix": "Research Appendix",
@@ -1414,6 +1415,9 @@
     "searchFound": "Found {{count}} results",
     "statusSearching": "Searching...",
     "statusCallingTools": "Calling tools...",
+    "statusGeneratingResearch": "Generating research",
+    "statusGenerationWaiting": "Waiting to generate",
+    "statusResearchGenerationWaiting": "Waiting to generate research",
     "statusThinking": "Thinking...",
 
     "analyzing": "Analyzing",

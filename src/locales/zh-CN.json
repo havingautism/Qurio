@@ -1355,6 +1355,7 @@
     "usedSpecificTools": "已调用 {{tools}}",
     "completedAnswer": "完成回答，用时 {{duration}} 秒",
     "completedResearch": "完成研究，用时 {{duration}} 秒",
+    "researchPlanningInProgress": "研究规划中",
     "organizedSources": "整理参考来源",
     "organizeResearchSources": "整理研究来源",
     "researchAppendix": "研究附录",
@@ -1406,6 +1407,9 @@
     "searchFound": "找到 {{count}} 条结果",
     "statusSearching": "正在搜索...",
     "statusCallingTools": "正在调用工具...",
+    "statusGeneratingResearch": "研究生成中",
+    "statusGenerationWaiting": "生成等待中",
+    "statusResearchGenerationWaiting": "研究生成等待中",
     "statusThinking": "正在思考分析...",
 
     "analyzing": "分析中",

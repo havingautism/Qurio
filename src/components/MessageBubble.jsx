@@ -1827,13 +1827,15 @@ const MessageBubble = ({
   const persistedFinalAnswerDurationMs = Number.isFinite(mergedMessage?.finalAnswerDurationMs)
     ? Number(mergedMessage.finalAnswerDurationMs)
     : null
-  const wallClockStartRef = useRef(null)
+  const answerWallClockActiveStartRef = useRef(null)
+  const answerWallClockAccumulatedMsRef = useRef(0)
   const [wallClockElapsedSec, setWallClockElapsedSec] = useState(0)
   const [wallClockFinalSec, setWallClockFinalSec] = useState(null)
   const searchLiveStartRef = useRef(null)
   const [searchLiveElapsedSec, setSearchLiveElapsedSec] = useState(0)
 
   const [expandedToolsSteps, setExpandedToolsSteps] = useState(new Set())
+  const thoughtDurationMemoryRef = useRef(0)
   const toggleToolsStep = useCallback(idx => {
     setExpandedToolsSteps(prev => {
       const next = new Set(prev)
@@ -1844,7 +1846,9 @@ const MessageBubble = ({
   }, [])
 
   useEffect(() => {
-    wallClockStartRef.current = null
+    answerWallClockActiveStartRef.current = null
+    answerWallClockAccumulatedMsRef.current = 0
+    thoughtDurationMemoryRef.current = 0
     searchLiveStartRef.current = null
     setWallClockElapsedSec(0)
     setWallClockFinalSec(null)
@@ -1858,34 +1862,90 @@ const MessageBubble = ({
       (isExpertMessage
         ? typeof mainContent === 'string' && mainContent.trim().length > 0
         : typeof message?.content === 'string' && message.content.trim().length > 0)
+    const lastStreamType =
+      normalizedStreamBlocks.length > 0
+        ? String(normalizedStreamBlocks[normalizedStreamBlocks.length - 1]?.type || '')
+        : ''
+    // If stream blocks are available, only count wall-clock while actual text is streaming.
+    // This keeps fallback timer paused during interleaved reasoning/tool phases.
+    const shouldRunAnswerTimer =
+      isStreaming &&
+      hasAnswerOutputSignal &&
+      (normalizedStreamBlocks.length === 0 || lastStreamType === 'text')
 
-    if (isStreaming && hasAnswerOutputSignal) {
-      if (!Number.isFinite(wallClockStartRef.current)) {
-        // Start total timer when the default model actually begins emitting answer text.
-        wallClockStartRef.current = Date.now()
+    if (shouldRunAnswerTimer) {
+      if (!Number.isFinite(answerWallClockActiveStartRef.current)) {
+        answerWallClockActiveStartRef.current = Date.now()
       }
-
       const tick = () => {
-        const startMs = Number.isFinite(wallClockStartRef.current)
-          ? wallClockStartRef.current
+        const activeStart = Number.isFinite(answerWallClockActiveStartRef.current)
+          ? answerWallClockActiveStartRef.current
           : Date.now()
-        const elapsed = Math.max(0, Math.round((Date.now() - startMs) / 1000))
-        setWallClockElapsedSec(elapsed)
+        const totalMs = answerWallClockAccumulatedMsRef.current + (Date.now() - activeStart)
+        setWallClockElapsedSec(Math.max(0, Math.round(totalMs / 1000)))
       }
-
       tick()
       const timer = window.setInterval(tick, 500)
       return () => window.clearInterval(timer)
     }
 
-    if (Number.isFinite(wallClockStartRef.current)) {
-      const elapsed = Math.max(0, Math.round((Date.now() - wallClockStartRef.current) / 1000))
-      setWallClockElapsedSec(elapsed)
-      setWallClockFinalSec(prev => (typeof prev === 'number' ? prev : elapsed))
+    if (Number.isFinite(answerWallClockActiveStartRef.current)) {
+      answerWallClockAccumulatedMsRef.current += Math.max(
+        0,
+        Date.now() - answerWallClockActiveStartRef.current,
+      )
+      answerWallClockActiveStartRef.current = null
+      setWallClockElapsedSec(Math.max(0, Math.round(answerWallClockAccumulatedMsRef.current / 1000)))
+    }
+
+    if (!isStreaming && answerWallClockAccumulatedMsRef.current > 0) {
+      setWallClockFinalSec(Math.max(0, Math.round(answerWallClockAccumulatedMsRef.current / 1000)))
     }
 
     return undefined
-  }, [isStreaming, hasStartedAnswerTextStream, isExpertMessage, mainContent, message?.content])
+  }, [
+    isStreaming,
+    hasStartedAnswerTextStream,
+    isExpertMessage,
+    mainContent,
+    message?.content,
+    normalizedStreamBlocks,
+  ])
+
+  const answerTextDurationMsFromBlocks = useMemo(
+    () =>
+      normalizedStreamBlocks
+        .filter(
+          block =>
+            block.type === 'text' &&
+            typeof block.content === 'string' &&
+            block.content.trim().length > 0 &&
+            typeof block.durationMs === 'number' &&
+            block.durationMs > 0,
+        )
+        .reduce((sum, block) => sum + block.durationMs, 0),
+    [normalizedStreamBlocks],
+  )
+  const answerGenerationDurationMs = useMemo(() => {
+    if (Number.isFinite(persistedFinalAnswerDurationMs) && persistedFinalAnswerDurationMs > 0) {
+      return persistedFinalAnswerDurationMs
+    }
+    if (answerTextDurationMsFromBlocks > 0) {
+      return answerTextDurationMsFromBlocks
+    }
+    if (typeof wallClockFinalSec === 'number' && wallClockFinalSec > 0) {
+      return wallClockFinalSec * 1000
+    }
+    if (typeof wallClockElapsedSec === 'number' && wallClockElapsedSec > 0) {
+      return wallClockElapsedSec * 1000
+    }
+    return 0
+  }, [
+    answerTextDurationMsFromBlocks,
+    persistedFinalAnswerDurationMs,
+    wallClockElapsedSec,
+    wallClockFinalSec,
+  ])
 
   const hasMainText = (() => {
     if (isExpertMessage) {
@@ -3388,23 +3448,12 @@ const MessageBubble = ({
   const deepResearchCompletedDurationSec = useMemo(() => {
     if (!isDeepResearch) return null
 
-    let finalGenerationMs = 0
-    if (Number.isFinite(persistedFinalAnswerDurationMs) && persistedFinalAnswerDurationMs > 0) {
-      finalGenerationMs = persistedFinalAnswerDurationMs
-    } else if (typeof wallClockFinalSec === 'number' && wallClockFinalSec > 0) {
-      finalGenerationMs = wallClockFinalSec * 1000
-    } else if (typeof wallClockElapsedSec === 'number' && wallClockElapsedSec > 0) {
-      finalGenerationMs = wallClockElapsedSec * 1000
-    }
-
-    const totalMs = researchStepsDurationMs + finalGenerationMs
+    const totalMs = researchStepsDurationMs + answerGenerationDurationMs
     return totalMs > 0 ? Math.max(0, Math.round(totalMs / 1000)) : 0
   }, [
+    answerGenerationDurationMs,
     isDeepResearch,
-    persistedFinalAnswerDurationMs,
     researchStepsDurationMs,
-    wallClockElapsedSec,
-    wallClockFinalSec,
   ])
   const deepResearchHeaderText = useMemo(() => {
     if (!isDeepResearch) return ''
@@ -3414,7 +3463,7 @@ const MessageBubble = ({
       })
     }
     if (shouldShowPlanStatus && !hasResearchSteps) {
-      return t('chat.deepResearchPlanning', '正在规划中')
+      return t('messageBubble.researchPlanningInProgress', '研究规划中')
     }
     if (hasResearchSteps) {
       return `${t('chat.deepResearchResearching', '正在研究中')} (${researchProgressPercent}%)`
@@ -3473,22 +3522,7 @@ const MessageBubble = ({
       }))
       if (!shouldShowAnswerStep) return mappedSteps
 
-      let finalMs = 0
-      if (
-        !isStreaming &&
-        Number.isFinite(persistedFinalAnswerDurationMs) &&
-        persistedFinalAnswerDurationMs > 0
-      ) {
-        finalMs = persistedFinalAnswerDurationMs
-      } else {
-        const answerDurationSec =
-          typeof wallClockFinalSec === 'number'
-            ? wallClockFinalSec
-            : typeof wallClockElapsedSec === 'number'
-              ? wallClockElapsedSec
-              : 0
-        finalMs = answerDurationSec > 0 ? Math.max(0, Number(answerDurationSec) * 1000) : 0
-      }
+      const finalMs = answerGenerationDurationMs > 0 ? answerGenerationDurationMs : 0
 
       const stepMs = mappedSteps.reduce(
         (sum, step) => sum + (typeof step.durationMs === 'number' ? step.durationMs : 0),
@@ -3505,22 +3539,7 @@ const MessageBubble = ({
 
     if (!shouldShowAnswerStep) return base
 
-    let finalMs = 0
-    if (
-      !isStreaming &&
-      Number.isFinite(persistedFinalAnswerDurationMs) &&
-      persistedFinalAnswerDurationMs > 0
-    ) {
-      finalMs = persistedFinalAnswerDurationMs
-    } else {
-      const answerDurationSec =
-        typeof wallClockFinalSec === 'number'
-          ? wallClockFinalSec
-          : typeof wallClockElapsedSec === 'number'
-            ? wallClockElapsedSec
-            : 0
-      finalMs = answerDurationSec > 0 ? Math.max(0, Number(answerDurationSec) * 1000) : 0
-    }
+    const finalMs = answerGenerationDurationMs > 0 ? answerGenerationDurationMs : 0
 
     const sumOfBaseMs = base.reduce((sum, step) => {
       if (typeof step.durationMs === 'number') return sum + step.durationMs
@@ -3553,6 +3572,7 @@ const MessageBubble = ({
     isDeepResearch,
     researchSteps,
     persistedFinalAnswerDurationMs,
+    answerGenerationDurationMs,
   ])
   const hasWorkflowFinalAnswerStep = useMemo(
     () => workflowProcessSteps.some(step => step?.kind === 'final_answer'),
@@ -3579,6 +3599,18 @@ const MessageBubble = ({
       ),
     }
   }, [workflowProcessSteps])
+  useEffect(() => {
+    const thoughtMs = workflowThoughtStep?.durationMs
+    if (typeof thoughtMs === 'number' && thoughtMs > 0) {
+      thoughtDurationMemoryRef.current = thoughtMs
+    }
+  }, [workflowThoughtStep?.durationMs])
+  const displayWorkflowThoughtDurationMs = useMemo(() => {
+    const thoughtMs = workflowThoughtStep?.durationMs
+    if (typeof thoughtMs === 'number' && thoughtMs > 0) return thoughtMs
+    if (thoughtDurationMemoryRef.current > 0) return thoughtDurationMemoryRef.current
+    return null
+  }, [workflowThoughtStep?.durationMs])
   const workflowToolItems = useMemo(
     () =>
       workflowProcessSteps
@@ -3607,53 +3639,15 @@ const MessageBubble = ({
   }, [workflowThoughtStep?.durationMs, workflowSearchDurationMs, workflowToolItems])
   const processDurationSec = Math.max(0, Math.round(processDurationMs / 1000))
   const completedDurationSec = useMemo(() => {
-    let finalMs = 0
-    if (
-      !isStreaming &&
-      Number.isFinite(persistedFinalAnswerDurationMs) &&
-      persistedFinalAnswerDurationMs > 0
-    ) {
-      finalMs = persistedFinalAnswerDurationMs
-    } else if (typeof wallClockFinalSec === 'number') {
-      finalMs = wallClockFinalSec * 1000
-    } else if (typeof wallClockElapsedSec === 'number' && wallClockElapsedSec > 0) {
-      finalMs = wallClockElapsedSec * 1000
-    }
-
-    const totalMs = processDurationMs + finalMs
+    const totalMs = processDurationMs + (answerGenerationDurationMs > 0 ? answerGenerationDurationMs : 0)
     return totalMs > 0 ? Math.max(0, Math.round(totalMs / 1000)) : null
   }, [
-    isStreaming,
-    persistedFinalAnswerDurationMs,
+    answerGenerationDurationMs,
     processDurationMs,
-    wallClockElapsedSec,
-    wallClockFinalSec,
   ])
   const finalAnswerDurationMsForDisplay = useMemo(() => {
-    if (isDeepResearch) {
-      if (typeof finalAnswerWorkflowStep?.durationMs === 'number' && finalAnswerWorkflowStep.durationMs > 0) {
-        return finalAnswerWorkflowStep.durationMs
-      }
-      if (typeof deepResearchCompletedDurationSec === 'number' && deepResearchCompletedDurationSec > 0) {
-        return deepResearchCompletedDurationSec * 1000
-      }
-    }
-    // Return cumulative duration for 'final_answer' step display
-    if (typeof completedDurationSec === 'number' && completedDurationSec > 0) {
-      return completedDurationSec * 1000
-    }
-    // Fallback if completedDuration doesn't evaluate
-    if (Number.isFinite(persistedFinalAnswerDurationMs) && persistedFinalAnswerDurationMs > 0) {
-      return persistedFinalAnswerDurationMs + processDurationMs
-    }
-    return null
-  }, [
-    isDeepResearch,
-    persistedFinalAnswerDurationMs,
-    finalAnswerWorkflowStep?.durationMs,
-    completedDurationSec,
-    deepResearchCompletedDurationSec,
-  ])
+    return answerGenerationDurationMs > 0 ? answerGenerationDurationMs : null
+  }, [answerGenerationDurationMs])
   const activeStreamingStepKind = useMemo(() => {
     if (!isStreaming) return null
 
@@ -3748,8 +3742,20 @@ const MessageBubble = ({
                 <>
                   <span>
                     {(() => {
+                      if (
+                        isStreaming &&
+                        !hasStartedAnswerTextStream &&
+                        hasWorkflowFinalAnswerStep &&
+                        (activeStreamingStepKind === null || activeStreamingStepKind === 'final_answer')
+                      ) {
+                        return isDeepResearch
+                          ? t('messageBubble.statusResearchGenerationWaiting', '研究生成等待中')
+                          : t('messageBubble.statusGenerationWaiting', '生成等待中')
+                      }
                       if (activeStreamingStepKind === 'final_answer')
-                        return t('messageBubble.statusGeneratingAnswer', '正在生成正文')
+                        return isDeepResearch
+                          ? t('messageBubble.statusGeneratingResearch', '研究生成中')
+                          : t('messageBubble.statusGeneratingAnswer', '正在生成正文')
                       if (activeStreamingStepKind === 'search')
                         return t('messageBubble.statusSearching', '正在搜索')
                       if (activeStreamingStepKind === 'tools')
@@ -3812,7 +3818,9 @@ const MessageBubble = ({
             style={{ scrollbarGutter: 'stable' }}
           >
             <div className="relative pl-7">
-              {workflowProcessSteps.map((step, idx) => {
+              {(() => {
+                const thoughtStepCount = workflowProcessSteps.filter(step => step.kind === 'thought').length
+                return workflowProcessSteps.map((step, idx) => {
                 const isNotLast =
                   idx < workflowProcessSteps.length - 1 ||
                   allSources.length > 0 ||
@@ -3820,6 +3828,12 @@ const MessageBubble = ({
 
                 if (step.kind === 'thought') {
                   if (!step.content) return null
+                  const thoughtDurationMs =
+                    typeof step.durationMs === 'number' && step.durationMs > 0
+                      ? step.durationMs
+                      : thoughtStepCount === 1
+                        ? displayWorkflowThoughtDurationMs
+                        : null
                   return (
                     <div key={`thought-${idx}`} className="relative mb-4">
                       {isNotLast && (
@@ -3828,6 +3842,15 @@ const MessageBubble = ({
                       <div className="absolute top-0.75 -left-7 flex h-4 w-4 items-center justify-center text-gray-400 dark:text-gray-500">
                         <BrainCircuit size={16} />
                       </div>
+                      {typeof thoughtDurationMs === 'number' && thoughtDurationMs > 0 && (
+                        <div className="mb-2 flex justify-end">
+                          <span className="text-xs! text-gray-500 dark:text-gray-400">
+                            {t('messageBubble.toolDuration', {
+                              duration: (thoughtDurationMs / 1000).toFixed(2),
+                            })}
+                          </span>
+                        </div>
+                      )}
                       <div className="text-base leading-relaxed text-gray-600 dark:text-gray-300">
                         <Streamdown
                           mermaid={mermaidOptions}
@@ -4167,7 +4190,8 @@ const MessageBubble = ({
                 if (step.kind === 'final_answer') return null
 
                 return null
-              })}
+                })
+              })()}
 
               {shouldShowWorkflowSourceSummary && allSources.length > 0 && (
                 <div className="relative mb-4 pt-2">
@@ -4194,7 +4218,13 @@ const MessageBubble = ({
                     <div className="flex items-center gap-2 text-base font-medium text-gray-600 dark:text-gray-300">
                       <span>
                         {isStreaming
-                          ? t('messageBubble.statusGeneratingAnswer', '正文生成中')
+                          ? activeStreamingStepKind === 'final_answer'
+                            ? isDeepResearch
+                              ? t('messageBubble.statusGeneratingResearch', '研究生成中')
+                              : t('messageBubble.statusGeneratingAnswer', '正文生成中')
+                            : isDeepResearch
+                              ? t('messageBubble.statusResearchGenerationWaiting', '研究生成等待中')
+                              : t('messageBubble.statusGenerationWaiting', '生成等待中')
                           : isDeepResearch
                             ? t('messageBubble.finalResearchStep', '生成最终研究')
                             : t('messageBubble.finalAnswerStep', '生成最终回答')}

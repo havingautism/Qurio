@@ -289,37 +289,53 @@ const DesktopSourcesSection = ({ sources = [], isOpen, variant = 'default' }) =>
         {totalPages > 1 && (
           <div
             className={clsx(
-              'flex items-center justify-center gap-4 py-1',
+              'flex items-center justify-center py-1',
               isCompactVariant ? 'mt-1' : 'mt-2',
             )}
           >
-            <button
-              onClick={() => updatePage(currentPage - 1)}
-              disabled={currentPage === 1}
+            <div
               className={clsx(
-                'rounded-full p-1 text-gray-600 transition-colors disabled:opacity-30 disabled:hover:bg-transparent dark:text-gray-400',
+                'inline-flex items-center gap-2 rounded-full border',
                 isCompactVariant
-                  ? 'hover:bg-white/8 dark:hover:bg-white/6'
-                  : 'hover:bg-gray-100 dark:hover:bg-zinc-800',
+                  ? 'border-white/10 bg-white/[0.035] px-2 py-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]'
+                  : 'border-gray-200 bg-gray-50 px-2 py-1 dark:border-zinc-700/60 dark:bg-zinc-800/70',
               )}
             >
-              <ChevronLeft size={16} />
-            </button>
-            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-              {currentPage} / {totalPages}
-            </span>
-            <button
-              onClick={() => updatePage(currentPage + 1)}
-              disabled={currentPage === totalPages}
-              className={clsx(
-                'rounded-full p-1 text-gray-600 transition-colors disabled:opacity-30 disabled:hover:bg-transparent dark:text-gray-400',
-                isCompactVariant
-                  ? 'hover:bg-white/8 dark:hover:bg-white/6'
-                  : 'hover:bg-gray-100 dark:hover:bg-zinc-800',
-              )}
-            >
-              <ChevronRight size={16} />
-            </button>
+              <button
+                onClick={() => updatePage(currentPage - 1)}
+                disabled={currentPage === 1}
+                className={clsx(
+                  'flex items-center justify-center rounded-full transition disabled:cursor-not-allowed',
+                  isCompactVariant
+                    ? 'text-primary-600 dark:text-primary-300 h-7 w-7 border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] disabled:border-white/6 disabled:bg-white/[0.02] disabled:text-gray-500 dark:disabled:text-gray-600'
+                    : 'text-primary-600 dark:text-primary-400 h-8 w-8 hover:bg-gray-100 disabled:text-gray-300 dark:hover:bg-zinc-700 dark:disabled:text-gray-600',
+                )}
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <span
+                className={clsx(
+                  'inline-flex min-w-[58px] items-center justify-center rounded-full font-medium tabular-nums',
+                  isCompactVariant
+                    ? 'bg-primary-500/10 text-primary-700 dark:text-primary-300 border border-white/10 px-3 py-1 text-[11px]'
+                    : 'bg-gray-900 px-3 py-1 text-sm text-white dark:bg-zinc-100 dark:text-zinc-900',
+                )}
+              >
+                {currentPage} / {totalPages}
+              </span>
+              <button
+                onClick={() => updatePage(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className={clsx(
+                  'flex items-center justify-center rounded-full transition disabled:cursor-not-allowed',
+                  isCompactVariant
+                    ? 'text-primary-600 dark:text-primary-300 h-7 w-7 border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] disabled:border-white/6 disabled:bg-white/[0.02] disabled:text-gray-500 dark:disabled:text-gray-600'
+                    : 'text-primary-600 dark:text-primary-400 h-8 w-8 hover:bg-gray-100 disabled:text-gray-300 dark:hover:bg-zinc-700 dark:disabled:text-gray-600',
+                )}
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
           </div>
         )}
       </div>

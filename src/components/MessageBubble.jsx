@@ -4247,61 +4247,77 @@ const MessageBubble = ({
       {isDeepResearch ? (
         <>
           {shouldShowPlan && (
-            <div className="mb-4">
+            <div className="mb-2.5">
               <button
                 onClick={() => setIsPlanExpanded(!isPlanExpanded)}
-                className="flex w-full items-center justify-between py-1 text-gray-600 transition-colors hover:text-gray-800 dark:text-gray-300 dark:hover:text-gray-100"
+                className="glass-elite-soft group relative flex w-full items-center justify-between overflow-hidden rounded-[22px] border border-white/16 bg-gradient-to-r from-white/[0.08] via-white/[0.04] to-transparent px-4 py-3 text-gray-600 transition-all duration-300 hover:border-white/24 hover:text-gray-800 dark:border-white/10 dark:from-white/[0.05] dark:via-white/[0.025] dark:text-gray-300 dark:hover:text-gray-100"
               >
-                <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                  <BrainCircuit
-                    size={15}
-                    className="text-primary-500/80 dark:text-primary-300/75"
-                  />
+                <div className="bg-primary-500/12 absolute inset-x-0 top-0 h-px" />
+                <div className="bg-primary-500/10 absolute top-2 right-6 h-10 w-10 rounded-full blur-2xl" />
+                <div className="relative flex min-w-0 items-center gap-3 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <div className="bg-primary-500/12 text-primary-600 dark:text-primary-300 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-white/16 dark:border-white/10">
+                    <BrainCircuit size={15} />
+                  </div>
                   <span className="text-sm">{t('messageBubble.planProcess')}</span>
-                  {!shouldShowPlanStatus && <Check size="1em" />}
+                  {!shouldShowPlanStatus && (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/18 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                      <Check size={12} />
+                      {t('messageBubble.researchStepStatusDone')}
+                    </span>
+                  )}
                   {shouldShowPlanStatus && (
                     <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                      <span className="mr-4 text-left transition-opacity duration-200 ease-out">
+                      <span className="text-left transition-opacity duration-200 ease-out">
                         {researchStatusText}
                       </span>
                       <DotLoader />
                     </div>
                   )}
                 </div>
-                <div className="flex items-center gap-3">
-                  {isPlanExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                <div className="bg-primary-500/12 text-primary-600 dark:text-primary-300 relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/14 dark:border-white/10">
+                  {isPlanExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
                 </div>
               </button>
 
               {isPlanExpanded && (hasPlanText || shouldShowPlanStatus) && (
-                <div className="mt-1 border-l border-gray-300/80 pl-4 text-sm leading-relaxed text-gray-600 font-stretch-semi-condensed dark:border-zinc-700/80 dark:text-gray-400">
+                <div className="mt-2.5 ml-1.5 border-l border-white/10 pl-4 text-sm leading-relaxed text-gray-600 font-stretch-semi-condensed dark:text-gray-400">
                   {planStepsForCards.length > 0 ? (
-                    <div className="space-y-4">
-                      <div className="border-primary-200/38 dark:border-primary-700/22 rounded-lg border bg-white/72 p-3 dark:bg-zinc-800/62">
-                        <div className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                    <div className="space-y-3">
+                      <div className="glass-elite-soft rounded-[20px] border border-white/12 px-4 py-3">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-[11px] font-semibold tracking-[0.14em] text-gray-500 uppercase dark:text-gray-400">
+                            Plan Overview
+                          </span>
+                          <span className="bg-primary-500/12 text-primary-700 dark:text-primary-300 rounded-full px-2 py-0.5 text-[11px] font-medium">
+                            {parsedResearchPlan?.research_type === 'academic'
+                              ? t('messageBubble.researchTypeAcademic')
+                              : t('messageBubble.researchTypeGeneral')}
+                          </span>
+                        </div>
+                        <div className="mt-2 text-sm font-semibold text-gray-800 dark:text-gray-100">
                           {parsedResearchPlan?.research_type
                             ? `${t('messageBubble.researchType')}: ${
                                 parsedResearchPlan.research_type === 'academic'
                                   ? t('messageBubble.researchTypeAcademic')
                                   : t('messageBubble.researchTypeGeneral')
                               }`
-                            : t('messageBubble.researchPlan')}
+                            : t('messageBubble.planOverview')}
                         </div>
                         {parsedResearchPlan?.goal && (
-                          <div className="mt-2 text-sm text-gray-700 dark:text-gray-300">
+                          <div className="mt-2 text-sm leading-relaxed text-gray-700 dark:text-gray-300">
                             {parsedResearchPlan.goal}
                           </div>
                         )}
                         {(parsedResearchPlan?.complexity || parsedResearchPlan?.question_type) && (
-                          <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-gray-500 dark:text-gray-400">
+                          <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-gray-500 dark:text-gray-400">
                             {parsedResearchPlan?.complexity && (
-                              <span className="rounded-full bg-gray-100 px-2 py-0.5 dark:bg-zinc-700/70">
+                              <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 dark:bg-white/[0.03]">
                                 {t('messageBubble.researchComplexity')}:{' '}
                                 {parsedResearchPlan.complexity}
                               </span>
                             )}
                             {parsedResearchPlan?.question_type && (
-                              <span className="rounded-full bg-gray-100 px-2 py-0.5 dark:bg-zinc-700/70">
+                              <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 dark:bg-white/[0.03]">
                                 {t('messageBubble.researchQuestionType')}:{' '}
                                 {parsedResearchPlan.question_type}
                               </span>
@@ -4316,50 +4332,78 @@ const MessageBubble = ({
                         return (
                           <div
                             key={`plan-step-card-${step.step || stepIdx}`}
-                            className="border-primary-200/38 dark:border-primary-700/22 rounded-lg border bg-white/72 p-3 dark:bg-zinc-800/62"
+                            className="glass-elite-soft rounded-[20px] border border-white/10 px-4 py-3"
                           >
                             <div className="flex flex-wrap items-center gap-2 text-xs">
-                              <span className="font-semibold text-gray-700 dark:text-gray-200">
+                              <span className="bg-primary-500/12 text-primary-700 dark:text-primary-300 rounded-full px-2.5 py-1 font-semibold">
                                 {t('messageBubble.researchStepLabel', {
                                   step: step.step || stepIdx + 1,
                                   total: planStepsForCards.length,
                                 })}
                               </span>
+                              {step.depth && (
+                                <span className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-gray-500 dark:text-gray-400">
+                                  {t('messageBubble.researchDepth')}: {step.depth}
+                                </span>
+                              )}
                             </div>
-                            <div className="mt-1 text-sm text-gray-700 dark:text-gray-300">
+                            <div className="mt-3 text-sm font-medium text-gray-800 dark:text-gray-100">
                               {step.action || '-'}
                             </div>
-                            <div className="mt-2 space-y-1 text-[12px] text-gray-600 dark:text-gray-400">
+                            <div className="mt-3 space-y-2.5 text-[12px] text-gray-500 dark:text-gray-400">
                               {step.thought && (
-                                <div>
-                                  {t('messageBubble.researchThought')}: {step.thought}
+                                <div className="rounded-[18px] border border-white/8 bg-white/[0.03] px-3 py-2.5 dark:bg-white/[0.02]">
+                                  <span className="text-[10px] font-semibold tracking-[0.12em] text-gray-400 uppercase dark:text-gray-500">
+                                    {t('messageBubble.researchThought')}
+                                  </span>
+                                  <div className="mt-1.5 text-[13px] leading-relaxed text-gray-600 dark:text-gray-300">
+                                    {step.thought}
+                                  </div>
                                 </div>
                               )}
                               {step.expected_output && (
-                                <div>
-                                  {t('messageBubble.researchExpected')}: {step.expected_output}
+                                <div className="rounded-[18px] border border-white/8 bg-white/[0.03] px-3 py-2.5 dark:bg-white/[0.02]">
+                                  <span className="text-[10px] font-semibold tracking-[0.12em] text-gray-400 uppercase dark:text-gray-500">
+                                    {t('messageBubble.researchExpected')}
+                                  </span>
+                                  <div className="mt-1.5 text-[13px] leading-relaxed text-gray-600 dark:text-gray-300">
+                                    {step.expected_output}
+                                  </div>
                                 </div>
                               )}
-                              {step.deliverable_format && (
-                                <div>
-                                  {t('messageBubble.researchDeliverableFormat')}:{' '}
-                                  {step.deliverable_format}
-                                </div>
-                              )}
-                              {step.depth && (
-                                <div>
-                                  {t('messageBubble.researchDepth')}: {step.depth}
-                                </div>
-                              )}
-                              {typeof step.requires_search === 'boolean' && (
-                                <div>
-                                  {t('messageBubble.researchRequiresSearch')}:{' '}
-                                  {step.requires_search ? '✅' : '❌'}
-                                </div>
-                              )}
+                              <div className="flex flex-wrap gap-2">
+                                {step.deliverable_format && (
+                                  <div className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 dark:bg-white/[0.03]">
+                                    <span className="text-[10px] font-semibold tracking-[0.12em] text-gray-400 uppercase dark:text-gray-500">
+                                      {t('messageBubble.researchDeliverableFormat')}
+                                    </span>
+                                    <span className="text-[12px] text-gray-600 dark:text-gray-300">
+                                      {step.deliverable_format}
+                                    </span>
+                                  </div>
+                                )}
+                                {typeof step.requires_search === 'boolean' && (
+                                  <div className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 dark:bg-white/[0.03]">
+                                    <span className="text-[10px] font-semibold tracking-[0.12em] text-gray-400 uppercase dark:text-gray-500">
+                                      {t('messageBubble.researchRequiresSearch')}
+                                    </span>
+                                    <span className="text-[12px] text-gray-600 dark:text-gray-300">
+                                      {step.requires_search ? '✅' : '❌'}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
                               {criteria.map((item, idx) => (
-                                <div key={`plan-criteria-${stepIdx}-${idx}`}>
-                                  {t('messageBubble.researchAcceptanceCriteria')}: {item}
+                                <div
+                                  key={`plan-criteria-${stepIdx}-${idx}`}
+                                  className="rounded-[18px] border border-white/8 bg-white/[0.03] px-3 py-2.5 dark:bg-white/[0.02]"
+                                >
+                                  <span className="text-[10px] font-semibold tracking-[0.12em] text-gray-400 uppercase dark:text-gray-500">
+                                    {t('messageBubble.researchAcceptanceCriteria')}
+                                  </span>
+                                  <div className="mt-1.5 text-[13px] leading-relaxed text-gray-600 dark:text-gray-300">
+                                    {item}
+                                  </div>
                                 </div>
                               ))}
                             </div>
@@ -4384,34 +4428,40 @@ const MessageBubble = ({
           )}
 
           {shouldShowResearch && (
-            <div className="mb-4">
+            <div className="mb-2.5">
               <button
                 onClick={() => setIsResearchExpanded(!isResearchExpanded)}
-                className="flex w-full items-center justify-between py-1 text-gray-600 transition-colors hover:text-gray-800 dark:text-gray-300 dark:hover:text-gray-100"
+                className="glass-elite-soft group relative flex w-full items-center justify-between overflow-hidden rounded-[22px] border border-white/16 bg-gradient-to-r from-white/[0.08] via-white/[0.04] to-transparent px-4 py-3 text-gray-600 transition-all duration-300 hover:border-white/24 hover:text-gray-800 dark:border-white/10 dark:from-white/[0.05] dark:via-white/[0.025] dark:text-gray-300 dark:hover:text-gray-100"
               >
-                <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                  <BrainCircuit
-                    size={15}
-                    className="text-primary-500/80 dark:text-primary-300/75"
-                  />
+                <div className="bg-primary-500/12 absolute inset-x-0 top-0 h-px" />
+                <div className="bg-primary-500/10 absolute top-2 right-6 h-10 w-10 rounded-full blur-2xl" />
+                <div className="relative flex min-w-0 items-center gap-3 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <div className="bg-primary-500/12 text-primary-600 dark:text-primary-300 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-white/16 dark:border-white/10">
+                    <ScanText size={15} />
+                  </div>
                   <span className="text-sm">{t('messageBubble.researchProcess')}</span>
-                  {!shouldShowResearchStatus && <Check size="1em" />}
+                  {!shouldShowResearchStatus && (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/18 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                      <Check size={12} />
+                      {t('messageBubble.researchStepStatusDone')}
+                    </span>
+                  )}
                   {shouldShowResearchStatus && (
                     <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                      <span className="mr-4 text-left transition-opacity duration-200 ease-out">
+                      <span className="text-left transition-opacity duration-200 ease-out">
                         {researchStatusText}
                       </span>
                       <DotLoader />
                     </div>
                   )}
                 </div>
-                <div className="flex items-center gap-3">
-                  {isResearchExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                <div className="bg-primary-500/12 text-primary-600 dark:text-primary-300 relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/14 dark:border-white/10">
+                  {isResearchExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
                 </div>
               </button>
 
               {isResearchExpanded && hasResearchSteps && (
-                <div className="mt-1 border-l border-gray-300/80 pl-4 text-sm leading-relaxed text-gray-600 font-stretch-semi-condensed dark:border-zinc-700/80 dark:text-gray-400 [&>div>p:last-child]:mb-0!">
+                <div className="mt-2.5 ml-1.5 border-l border-white/10 pl-4 text-sm leading-relaxed text-gray-600 font-stretch-semi-condensed dark:text-gray-400 [&>div>p:last-child]:mb-0!">
                   {researchSteps.map(step => {
                     const isRunning = step.status === 'running'
                     const isPending = step.status === 'pending'
@@ -4440,11 +4490,11 @@ const MessageBubble = ({
                             ? `research-step-${Number(step.step)}`
                             : `research-step-${step.streamOrder ?? step.title ?? 'unknown'}`)
                         }
-                        className="border-primary-200/38 dark:border-primary-700/22 mb-4 flex items-start gap-3 rounded-lg border bg-white/72 p-3 dark:bg-zinc-800/62"
+                        className="glass-elite-soft mb-3 rounded-[20px] border border-white/10 px-4 py-3"
                       >
-                        <div className="flex-1 space-y-1">
+                        <div className="flex-1 space-y-2">
                           <div className="flex flex-wrap items-center gap-2 text-xs">
-                            <span className="font-semibold text-gray-700 dark:text-gray-200">
+                            <span className="bg-primary-500/12 text-primary-700 dark:text-primary-300 rounded-full px-2.5 py-1 font-semibold">
                               {t('messageBubble.researchStepLabel', {
                                 step: step.step,
                                 total: step.total || researchSteps.length,
@@ -4452,7 +4502,7 @@ const MessageBubble = ({
                             </span>
                             <span
                               className={clsx(
-                                'rounded-full px-2 py-0.5 text-[11px]',
+                                'rounded-full px-2.5 py-1 text-[11px]',
                                 isError
                                   ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
                                   : isDone
@@ -4469,87 +4519,94 @@ const MessageBubble = ({
                               </span>
                             )}
                           </div>
-                          <div className="text-sm text-gray-700 dark:text-gray-300">
+                          <div className="text-sm font-medium text-gray-800 dark:text-gray-100">
                             {step.title}
                             {isActive ? '...' : ''}
                           </div>
                           {step.error && (
-                            <div className="text-[11px] text-red-500 dark:text-red-400">
+                            <div className="rounded-xl border border-red-500/20 bg-red-500/8 px-3 py-2 text-[11px] text-red-500 dark:text-red-400">
                               {step.error}
                             </div>
                           )}
                           {stepToolCalls.length > 0 && (
-                            <div className="mt-2 space-y-1">
-                              <div className="my-2 h-[0.5px] w-full bg-gray-200 dark:bg-zinc-700"></div>
-                              {/* <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400">
+                            <div className="mt-3 space-y-2.5">
+                              <div className="text-[11px] font-semibold tracking-[0.14em] text-gray-500 uppercase dark:text-gray-400">
                                 {t('messageBubble.toolCalls')}
-                              </div> */}
-                              <div className="space-y-1 overflow-hidden">
+                              </div>
+                              <div className="space-y-2 overflow-hidden">
                                 {stepToolCalls.map(item => {
                                   const IconComponent = getToolIconComponent(item.name)
+                                  const queryPreview = renderToolQueryPreview(
+                                    item,
+                                    'truncate text-[11px] opacity-70',
+                                  )
                                   return (
                                     <div
                                       key={item.id || `${item.name}-${item.arguments}`}
-                                      className="flex items-center gap-2 text-[11px] text-gray-500 dark:text-gray-400"
+                                      className="relative rounded-[18px] border border-white/8 bg-white/[0.03] px-2.5 py-2.5 text-[11px] text-gray-500 sm:px-3 dark:bg-white/[0.02] dark:text-gray-400"
                                     >
-                                      <div className="grid w-full grid-cols-[auto_minmax(0,1fr)_auto_auto_auto] items-center gap-1 sm:gap-1.5">
-                                        <span className="flex items-center gap-1 font-medium whitespace-nowrap text-gray-600 dark:text-gray-300">
-                                          {item.status === 'error' ? (
-                                            <AlertTriangle
-                                              size={12}
-                                              className="text-red-500 dark:text-red-400"
-                                            />
-                                          ) : (
-                                            IconComponent && (
-                                              <IconComponent
-                                                size={12}
-                                                className="text-gray-500 dark:text-gray-400"
-                                              />
-                                            )
+                                      <div className="relative pl-0">
+                                        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-1.5 sm:flex sm:items-center sm:justify-between">
+                                          <div className="min-w-0 flex-1">
+                                            <div className="flex min-w-0 items-center gap-2">
+                                              <span className="bg-primary-500/12 text-primary-600 dark:text-primary-300 flex h-6 w-6 shrink-0 items-center justify-center rounded-xl border border-white/12 dark:border-white/10">
+                                                {item.status === 'error' ? (
+                                                  <AlertTriangle
+                                                    size={12}
+                                                    className="text-red-500 dark:text-red-400"
+                                                  />
+                                                ) : IconComponent ? (
+                                                  <IconComponent
+                                                    size={12}
+                                                    className="text-gray-500 dark:text-gray-400"
+                                                  />
+                                                ) : null}
+                                              </span>
+                                              <span className="truncate font-medium text-gray-700 dark:text-gray-200">
+                                                {item.status === 'error'
+                                                  ? t('messageBubble.toolCallError')
+                                                  : getToolDisplayName(item)}
+                                              </span>
+                                              {queryPreview && (
+                                                <span className="hidden min-w-0 flex-1 sm:block">
+                                                  {queryPreview}
+                                                </span>
+                                              )}
+                                            </div>
+                                          </div>
+                                          <div className="flex shrink-0 items-center gap-2">
+                                            {typeof item.durationMs === 'number' && (
+                                              <span className="rounded-full border border-white/8 bg-white/[0.04] px-2 py-0.5 text-[10px] whitespace-nowrap text-gray-500 dark:bg-white/[0.03] dark:text-gray-400">
+                                                {t('messageBubble.toolDuration', {
+                                                  duration: (item.durationMs / 1000).toFixed(2),
+                                                })}
+                                              </span>
+                                            )}
+                                            <span className="bg-primary-500/12 text-primary-600 dark:text-primary-300 flex h-6 w-6 shrink-0 items-center justify-center rounded-xl border border-white/12 dark:border-white/10">
+                                              {item.status === 'error' ? (
+                                                <X className="h-3 w-3 text-red-500 dark:text-red-400" />
+                                              ) : item.status === 'done' ? (
+                                                <Check className="h-3 w-3" />
+                                              ) : (
+                                                <DotLoader />
+                                              )}
+                                            </span>
+                                            {developerMode && (
+                                              <button
+                                                type="button"
+                                                onClick={() => setActiveToolDetail(item)}
+                                                className="text-primary-600 dark:text-primary-300 hidden text-[10px] whitespace-nowrap hover:underline sm:inline"
+                                              >
+                                                {t('messageBubble.toolDetails')}
+                                              </button>
+                                            )}
+                                          </div>
+                                          {queryPreview && (
+                                            <div className="col-span-2 min-w-0 sm:hidden">
+                                              {queryPreview}
+                                            </div>
                                           )}
-                                          {item.status === 'error'
-                                            ? t('messageBubble.toolCallError')
-                                            : getToolDisplayName(item)}
-                                        </span>
-                                        <div className="flex min-w-0 items-center">
-                                          {renderToolQueryPreview(item)}
                                         </div>
-                                        {typeof item.durationMs === 'number' && (
-                                          <span className="text-[10px] whitespace-nowrap text-gray-500 dark:text-gray-400">
-                                            {t('messageBubble.toolDuration', {
-                                              duration: (item.durationMs / 1000).toFixed(2),
-                                            })}
-                                          </span>
-                                        )}
-                                        <span
-                                          className={clsx(
-                                            'ml-auto flex min-w-[20px] shrink-0 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px]',
-                                            item.status === 'error'
-                                              ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
-                                              : item.status === 'done'
-                                                ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
-                                                : 'bg-gray-200/70 text-gray-600 dark:bg-zinc-700/70 dark:text-gray-400',
-                                          )}
-                                        >
-                                          {item.status === 'error' ? (
-                                            <X className="h-3 w-3" />
-                                          ) : item.status === 'done' ? (
-                                            <Check className="h-3 w-3" />
-                                          ) : (
-                                            <DotLoader />
-                                          )}
-                                        </span>
-                                        {developerMode ? (
-                                          <button
-                                            type="button"
-                                            onClick={() => setActiveToolDetail(item)}
-                                            className="text-primary-600 dark:text-primary-300 justify-self-end text-[10px] whitespace-nowrap hover:underline"
-                                          >
-                                            {t('messageBubble.toolDetails')}
-                                          </button>
-                                        ) : (
-                                          <span aria-hidden="true" />
-                                        )}
                                       </div>
                                     </div>
                                   )

@@ -1,16 +1,18 @@
 import { useState } from 'react'
 import clsx from 'clsx'
 import { ChevronDown, ChevronRight, LibraryBig, Sparkles } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import DesktopSourcesSection from '../DesktopSourcesSection'
 
 const DeepResearchSourcesCard = ({ sources = [], title, countLabel }) => {
+  const { t } = useTranslation()
   const [isOpen, setIsOpen] = useState(false)
 
   if (!Array.isArray(sources) || sources.length === 0) return null
 
   return (
     <details
-      className="group mt-3 mb-4"
+      className="group mt-0.5 mb-3.5"
       open={isOpen}
       onToggle={event => setIsOpen(event.currentTarget.open)}
     >
@@ -26,7 +28,7 @@ const DeepResearchSourcesCard = ({ sources = [], title, countLabel }) => {
                 </div>
                 <div className="min-w-0">
                   <div className="text-[11px] font-semibold tracking-[0.16em] text-gray-500 uppercase dark:text-gray-400">
-                    Research Appendix
+                    {t('messageBubble.researchAppendix')}
                   </div>
                   <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
                     <h3 className="text-[15px] font-semibold tracking-tight text-gray-900 dark:text-gray-100">

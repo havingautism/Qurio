@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+﻿import { useState, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -931,8 +931,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
       const resolvedAvatarImage = avatarImage
       const resolvedAvatarShape = avatarShape
       const resolvedBannerMode = bannerMode
-      const resolvedBannerImage =
-        resolvedBannerMode === AGENT_BANNER_MODE_MANUAL ? bannerImage : ''
+      const resolvedBannerImage = resolvedBannerMode === AGENT_BANNER_MODE_MANUAL ? bannerImage : ''
       const resolvedBaseTone = isDeepResearchAgent ? DEEP_RESEARCH_PROFILE.baseTone : baseTone
       const resolvedTraits = isDeepResearchAgent ? DEEP_RESEARCH_PROFILE.traits : traits
       const resolvedWarmth = isDeepResearchAgent ? DEEP_RESEARCH_PROFILE.warmth : warmth
@@ -1672,9 +1671,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
     : isDeepResearchAgent
       ? t('deepResearch.agentName')
       : name
-  const displayDescription = isDeepResearchAgent
-      ? t('deepResearch.agentDescription')
-      : description
+  const displayDescription = isDeepResearchAgent ? t('deepResearch.agentDescription') : description
   const previewProviderId = provider || defaultModelProvider || 'gemini'
   const previewProvider = getProvider(previewProviderId)
   const previewProviderLabel =
@@ -3056,7 +3053,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
       )}
       {bannerCropSource && bannerPreviewLayout && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-5xl rounded-[28px] border border-white/10 bg-white/95 p-5 shadow-2xl dark:bg-zinc-950/95">
+          <div className="w-full max-w-2xl rounded-[28px] border border-white/10 bg-white/95 p-5 shadow-2xl dark:bg-zinc-950/95">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -3078,8 +3075,8 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
               </button>
             </div>
 
-            <div className="mt-5 flex flex-col gap-6 xl:flex-row">
-              <div className="flex justify-center xl:flex-1">
+            <div className="mt-5 flex flex-col gap-5">
+              <div className="flex justify-center">
                 <div
                   ref={bannerCropFrameRef}
                   className={clsx(
@@ -3125,7 +3122,10 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                 </div>
               </div>
 
-              <div className="flex min-w-0 flex-1 flex-col gap-4">
+              <div className="flex min-w-0 flex-col gap-4">
+                <div className="rounded-2xl border border-black/5 bg-black/[0.03] px-4 py-3 text-xs text-gray-500 dark:border-white/5 dark:bg-white/[0.03] dark:text-gray-400">
+                  {t('agents.crop.dragToAdjustPosition')}
+                </div>
                 <label className="flex flex-col gap-2 text-sm text-gray-700 dark:text-gray-300">
                   {t('agents.crop.zoom')}
                   <input
@@ -3151,36 +3151,6 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                         setBannerCropOffsetY(prev => clampCropOffset(prev * ratio, nextMaxY))
                       }
                     }}
-                  />
-                </label>
-                <label className="flex flex-col gap-2 text-sm text-gray-700 dark:text-gray-300">
-                  {t('agents.crop.horizontal')}
-                  <input
-                    type="range"
-                    min={-bannerPreviewLayout.maxOffsetX}
-                    max={bannerPreviewLayout.maxOffsetX}
-                    step="1"
-                    value={bannerCropOffsetX}
-                    onChange={event =>
-                      setBannerCropOffsetX(
-                        clampCropOffset(Number(event.target.value), bannerPreviewLayout.maxOffsetX),
-                      )
-                    }
-                  />
-                </label>
-                <label className="flex flex-col gap-2 text-sm text-gray-700 dark:text-gray-300">
-                  {t('agents.crop.vertical')}
-                  <input
-                    type="range"
-                    min={-bannerPreviewLayout.maxOffsetY}
-                    max={bannerPreviewLayout.maxOffsetY}
-                    step="1"
-                    value={bannerCropOffsetY}
-                    onChange={event =>
-                      setBannerCropOffsetY(
-                        clampCropOffset(Number(event.target.value), bannerPreviewLayout.maxOffsetY),
-                      )
-                    }
                   />
                 </label>
                 <div className="rounded-2xl border border-black/5 bg-black/[0.03] px-4 py-3 text-xs text-gray-500 dark:border-white/5 dark:bg-white/[0.03] dark:text-gray-400">
@@ -3213,7 +3183,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
         </div>
       )}
     </div>,
-    document.body
+    document.body,
   )
 }
 

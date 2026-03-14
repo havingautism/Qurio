@@ -1057,6 +1057,7 @@
       "avatarFrameLabel": "当前头像框：{{shape}}",
       "avatarSourceAlt": "头像裁剪原图",
       "bannerSourceAlt": "Banner 裁剪原图",
+      "dragToAdjustPosition": "拖动以调整位置",
       "bannerHint": "可以直接拖拽图片调整构图。预览会为左下角的信息卡保留空间。",
       "applyAvatar": "应用裁剪",
       "applyBanner": "应用裁剪"

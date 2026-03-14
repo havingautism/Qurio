@@ -1072,6 +1072,7 @@
       "avatarFrameLabel": "Current frame: {{shape}}",
       "avatarSourceAlt": "Avatar crop source",
       "bannerSourceAlt": "Banner crop source",
+      "dragToAdjustPosition": "Drag to adjust position",
       "bannerHint": "You can drag the image directly to reframe it. The preview reserves space for the agent info card in the lower-left area.",
       "applyAvatar": "Apply Crop",
       "applyBanner": "Apply Crop"

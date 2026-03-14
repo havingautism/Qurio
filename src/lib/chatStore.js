@@ -1070,6 +1070,7 @@ const useChatStore = create((set, get) => ({
 
     // Step 2: Construct User Message (defer document context append until retrieval completes)
     const { userMessage } = buildUserMessage(text, attachments, quoteContext, '')
+    userMessage.deepResearch = !!toggles?.deepResearch
 
     // When quoting, the original answer has already been embedded into textWithPrefix,
     // so we don't need to resend it as separate context.

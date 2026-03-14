@@ -1094,7 +1094,9 @@ const Sidebar = ({
           isOpen ? 'translate-x-0' : '-translate-x-full',
         )}
         onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => {
+        onMouseLeave={event => {
+          const nextTarget = event.relatedTarget
+          if (nextTarget && event.currentTarget.contains(nextTarget)) return
           if (!isPinned) {
             setIsHovered(false)
             setHoveredTab(null)

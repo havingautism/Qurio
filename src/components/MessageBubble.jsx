@@ -2949,6 +2949,8 @@ const MessageBubble = ({
     // Check if this user message initiated a Deep Research task
     const nextMessage = messages[messageIndex + 1]
     const isDeepResearchContext =
+      !!message?.deepResearch ||
+      !!nextMessage?.deepResearch ||
       nextMessage?.agentName === 'Deep Research Agent' ||
       nextMessage?.agent_name === 'Deep Research Agent'
     const nextUserIndex = messages.findIndex((m, idx) => idx > messageIndex && m.role === 'user')

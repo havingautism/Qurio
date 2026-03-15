@@ -996,6 +996,9 @@ def build_team(request: Any, members: list[Agent]) -> Any:
         instructions=instructions,
         markdown=True,
         stream_member_events=True,  # Ensure member events are streamed
+        # Only enable member-to-member context sharing for coordinate mode.
+        # Other modes either do not benefit (`route`, `broadcast`) or are currently disabled (`tasks`).
+        share_member_interactions=team_mode == TeamMode.coordinate,
     )
     # Set agent_id manually as Team constructor might not support it directly
     team.agent_id = getattr(request, "agent_id", None)

@@ -1391,6 +1391,14 @@
     "researchReportTitle": "Deep Research Report",
     "researchPlan": "Research Plan",
     "planOverview": "Plan Overview",
+    "expert": {
+      "overallTask": "Overall Task",
+      "assignedTask": "Assigned Task",
+      "notEngagedTitle": "Not engaged this turn",
+      "notEngagedBody": "The leader routed this request to another expert, so this member did not participate in the current run.",
+      "standbyTitle": "Standing by",
+      "standbyBody": "No task has been delegated to this member yet. The leader may involve them later if more input is needed."
+    },
     "researchType": "Research Type",
     "researchTypeAcademic": "Academic Research 🎓",
     "researchTypeGeneral": "General Research 🌐",

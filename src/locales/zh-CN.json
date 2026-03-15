@@ -1383,6 +1383,14 @@
     "researchReportTitle": "深入研究报告",
     "researchPlan": "深入研究：规划",
     "planOverview": "规划总览",
+    "expert": {
+      "overallTask": "总体任务",
+      "assignedTask": "分配任务",
+      "notEngagedTitle": "本轮未参与",
+      "notEngagedBody": "负责人将这次请求路由给了其他专家，因此该成员未参与本轮执行。",
+      "standbyTitle": "待命中",
+      "standbyBody": "该成员暂未收到任务委派。如果后续需要补充意见，负责人可能会继续调用。"
+    },
     "researchType": "研究类型",
     "researchTypeAcademic": "学术研究 🎓",
     "researchTypeGeneral": "通用研究 🌐",

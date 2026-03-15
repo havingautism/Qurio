@@ -39,6 +39,7 @@ import {
   applyLanguageInstructionToText,
 } from './chat/prompts'
 import { normalizeExpertBrokenTokenLines } from './chat/expertTextUtils'
+import { buildInitialExpertTasks, parseDelegatedExpertTask } from './chat/expertTaskUtils'
 
 const sanitizeExpertStreamChunk = value => {
   if (typeof value !== 'string') return ''
@@ -1454,6 +1455,11 @@ const useChatStore = create((set, get) => ({
           const leaderAgent = resolvedToggles?.leaderAgentId
             ? (agents || []).find(a => String(a.id) === String(resolvedToggles.leaderAgentId))
             : null
+          const initialTasks = buildInitialExpertTasks({
+            teamMode: resolvedToggles?.teamMode || 'route',
+            userTask: text,
+            memberIds: expertAgents.map(agent => agent.id),
+          })
 
           updateExpertMessage(current => ({
             ...current,
@@ -1464,7 +1470,7 @@ const useChatStore = create((set, get) => ({
                 agentName: leaderAgent?.name || resolvedAgent?.name || 'Team',
                 agentEmoji: leaderAgent?.emoji || resolvedAgent?.emoji || '🤝',
                 agentRole: 'leader',
-                task: 'Leader Correlation',
+                task: initialTasks.leaderTask,
                 provider: leaderAgent?.provider || null,
                 model: leaderAgent?.defaultModel || null,
                 status: 'pending',
@@ -1487,7 +1493,7 @@ const useChatStore = create((set, get) => ({
                 agentName: agent.name || '',
                 agentEmoji: agent.emoji || '',
                 agentRole: 'member',
-                task: 'Expert Task',
+                task: initialTasks.memberTasks[String(agent.id)] || '',
                 provider: agent.provider || null,
                 model: agent.defaultModel || null,
                 status: 'pending',
@@ -1770,17 +1776,42 @@ const useChatStore = create((set, get) => ({
                       typeof chunk === 'object' &&
                       (chunk.type === 'tool_call' || chunk.type === 'tool_call_started')
                     ) {
+                      const delegatedTask = parseDelegatedExpertTask({
+                        toolName: chunk.name || 'tool',
+                        argumentsText: chunk.arguments || '',
+                      })
                       updateExpertMessage(current => ({
                         ...current,
                         expertActiveAgentId:
                           chunkAgentId === 'leader' ? current.expertActiveAgentId : chunkAgentId,
                         expertResponses: (current.expertResponses || []).map(item => {
-                          if (String(item.agentId) !== String(chunkAgentId)) return item
+                          const itemAgentId = String(item.agentId)
+                          const matchesChunkAgent = itemAgentId === String(chunkAgentId)
+                          const matchesDelegatedTarget =
+                            delegatedTask &&
+                            ((delegatedTask.memberId &&
+                              itemAgentId === String(delegatedTask.memberId)) ||
+                              (delegatedTask.memberName &&
+                                String(item.agentName || '').trim() === delegatedTask.memberName))
+
+                          if (!matchesChunkAgent && !matchesDelegatedTarget) return item
                           const nextToolId = chunk.id || `${chunk.name || 'tool'}-${Date.now()}`
+                          const toolName = chunk.name || 'tool'
+                          const taskUpdate =
+                            matchesDelegatedTarget && delegatedTask?.task
+                              ? { task: delegatedTask.task }
+                              : {}
+
+                          if (!matchesChunkAgent) {
+                            return {
+                              ...item,
+                              ...taskUpdate,
+                            }
+                          }
+
                           const toolCallHistory = Array.isArray(item.toolCallHistory)
                             ? [...item.toolCallHistory]
                             : []
-                          const toolName = chunk.name || 'tool'
 
                           toolCallHistory.push({
                             id: nextToolId,
@@ -1805,7 +1836,7 @@ const useChatStore = create((set, get) => ({
                             arguments: chunk.arguments || '',
                             status: 'calling',
                           })
-                          return { ...item, toolCallHistory, streamBlocks }
+                          return { ...item, ...taskUpdate, toolCallHistory, streamBlocks }
                         }),
                       }))
                       return

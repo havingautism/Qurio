@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import sqlite3
 import threading
 import uuid
@@ -28,33 +27,6 @@ def _utc_now_iso() -> str:
     return datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
 
 
-def _cosine_similarity(left: list[float], right: list[float]) -> float:
-    if not left or not right or len(left) != len(right):
-        return 0.0
-    dot = sum(a * b for a, b in zip(left, right))
-    norm_left = sum(a * a for a in left) ** 0.5
-    norm_right = sum(b * b for b in right) ** 0.5
-    return dot / (norm_left * norm_right) if norm_left and norm_right else 0.0
-
-
-def _normalize_fts5_query(raw: str) -> str:
-    text = str(raw or "").strip().lower()
-    if not text:
-        return ""
-    tokens = re.findall(r"[\w\u4e00-\u9fff]+", text, flags=re.UNICODE)
-    if not tokens:
-        return ""
-    unique_tokens: list[str] = []
-    seen: set[str] = set()
-    for token in tokens:
-        normalized = token.strip()
-        if not normalized or normalized in seen:
-            continue
-        seen.add(normalized)
-        unique_tokens.append(normalized)
-    return " OR ".join(f'"{token}"' for token in unique_tokens)
-
-
 JSON_COLUMNS: dict[str, set[str]] = {
     "agents": {"tool_ids", "skill_ids"},
     "conversations": {"title_emojis", "session_summary"},
@@ -71,8 +43,6 @@ JSON_COLUMNS: dict[str, set[str]] = {
     },
     "conversation_events": {"payload"},
     "attachments": {"data"},
-    "document_sections": {"title_path", "loc"},
-    "document_chunks": {"title_path", "loc", "embedding"},
     "memory_domains": {"aliases"},
     "user_tools": {"config", "input_schema"},
     "pending_form_runs": {"requirements_data", "messages"},
@@ -87,8 +57,6 @@ TABLES_WITH_ID = {
     "conversation_events",
     "attachments",
     "space_documents",
-    "document_sections",
-    "document_chunks",
     "home_notes",
     "home_shortcuts",
     "memory_domains",
@@ -105,8 +73,6 @@ TABLES_WITH_UPDATED_AT = {
     "agents",
     "conversations",
     "space_documents",
-    "document_sections",
-    "document_chunks",
     "home_notes",
     "home_shortcuts",
     "user_settings",
@@ -126,8 +92,6 @@ TABLES_WITH_CREATED_AT = {
     "attachments",
     "space_documents",
     "conversation_documents",
-    "document_sections",
-    "document_chunks",
     "space_agents",
     "home_notes",
     "home_shortcuts",
@@ -405,22 +369,6 @@ class SQLiteAdapter:
             conv_columns = {str(row[1]) for row in cursor.fetchall()}
             if "scrapbook_id" not in conv_columns:
                 cursor.execute("ALTER TABLE conversations ADD COLUMN scrapbook_id TEXT")
-            cursor.execute("DELETE FROM document_chunks_fts")
-            cursor.execute(
-                """
-                INSERT INTO document_chunks_fts (
-                  chunk_id, document_id, section_id, title_text, body_text, source_hint
-                )
-                SELECT
-                  id,
-                  document_id,
-                  COALESCE(section_id, ''),
-                  trim(replace(replace(replace(COALESCE(title_path, ''), '[', ' '), ']', ' '), '\"', ' ')),
-                  COALESCE(text, ''),
-                  COALESCE(source_hint, '')
-                FROM document_chunks
-                """
-            )
             self._conn.commit()
 
     def _execute(self, sql: str, params: list[Any] | tuple[Any, ...] = ()) -> sqlite3.Cursor:
@@ -672,138 +620,7 @@ class SQLiteAdapter:
     def _rpc(self, req: DbQueryRequest) -> DbQueryResponse:
         if not req.rpc:
             return DbQueryResponse(error="Missing rpc")
-        if req.rpc.name == "match_document_chunks":
-            return self._rpc_match_document_chunks(req.rpc.params or {})
-        if req.rpc.name == "hybrid_search":
-            return self._rpc_hybrid_search(req.rpc.params or {})
         return DbQueryResponse(error=f"Unsupported rpc: {req.rpc.name}")
-
-    def _rpc_match_document_chunks(self, params: dict[str, Any]) -> DbQueryResponse:
-        document_ids = params.get("document_ids") or []
-        query_embedding = params.get("query_embedding") or []
-        match_count = int(params.get("match_count") or 3)
-        if not document_ids or not query_embedding:
-            return DbQueryResponse(data=[])
-        rows = self._fetchall(
-            "SELECT id, document_id, section_id, title_path, text, source_hint, chunk_index, embedding "
-            "FROM document_chunks WHERE document_id IN ({})".format(
-                ", ".join(["?"] * len(document_ids))
-            ),
-            [str(i) for i in document_ids],
-        )
-        scored = []
-        for row in rows:
-            try:
-                embedding = json.loads(row.get("embedding") or "[]")
-            except Exception:
-                embedding = []
-            if not embedding or len(embedding) != len(query_embedding):
-                continue
-            similarity = _cosine_similarity(embedding, query_embedding)
-            row["similarity"] = similarity
-            scored.append(row)
-        scored.sort(key=lambda r: r["similarity"], reverse=True)
-        limited = scored[: max(match_count, 1)]
-        data = []
-        for row in limited:
-            entry = _deserialize_row("document_chunks", row)
-            entry["similarity"] = row["similarity"]
-            data.append(entry)
-        return DbQueryResponse(data=data)
-
-    def _rpc_hybrid_search(self, params: dict[str, Any]) -> DbQueryResponse:
-        document_ids = params.get("document_ids") or []
-        query_text = str(params.get("query_text") or "").strip().lower()
-        query_embedding = params.get("query_embedding") or []
-        match_count = int(params.get("match_count") or 10)
-        rrf_k = int(params.get("rrf_k") or 60)
-        if not document_ids or not query_text or not query_embedding:
-            return DbQueryResponse(data=[])
-        document_id_values = [str(i) for i in document_ids]
-        rows = self._fetchall(
-            "SELECT id, document_id, section_id, title_path, text, source_hint, chunk_index, embedding "
-            "FROM document_chunks WHERE document_id IN ({})".format(
-                ", ".join(["?"] * len(document_ids))
-            ),
-            document_id_values,
-        )
-        vector_rows = []
-        for row in rows:
-            try:
-                embedding = json.loads(row.get("embedding") or "[]")
-            except Exception:
-                embedding = []
-            if not embedding or len(embedding) != len(query_embedding):
-                continue
-            similarity = _cosine_similarity(embedding, query_embedding)
-            row["similarity"] = similarity
-            vector_rows.append(row)
-
-        vector_rows.sort(key=lambda r: r["similarity"], reverse=True)
-        vector_limit = max(match_count, 1) * 2
-        vector_candidates = vector_rows[:vector_limit]
-
-        fts_query = _normalize_fts5_query(query_text)
-        keyword_candidates: list[dict[str, Any]] = []
-        if fts_query:
-            placeholders = ", ".join(["?"] * len(document_id_values))
-            fts_rows = self._fetchall(
-                (
-                    "SELECT chunk_id AS id, document_id, section_id, "
-                    "bm25(document_chunks_fts) AS bm25_score "
-                    "FROM document_chunks_fts "
-                    f"WHERE document_chunks_fts MATCH ? AND document_id IN ({placeholders}) "
-                    "ORDER BY bm25_score ASC LIMIT ?"
-                ),
-                [fts_query, *document_id_values, vector_limit],
-            )
-            for row in fts_rows:
-                bm25_score = float(row.get("bm25_score") or 0.0)
-                row["fts_score"] = 1.0 / (1.0 + max(bm25_score, 0.0))
-                keyword_candidates.append(row)
-
-        vector_rank_map = {
-            str(row["id"]): rank for rank, row in enumerate(vector_candidates, start=1)
-        }
-        keyword_rank_map = {
-            str(row["id"]): rank for rank, row in enumerate(keyword_candidates, start=1)
-        }
-        keyword_score_map = {
-            str(row["id"]): float(row.get("fts_score") or 0.0) for row in keyword_candidates
-        }
-
-        candidate_ids = set(vector_rank_map) | set(keyword_rank_map)
-        if not candidate_ids:
-            return DbQueryResponse(data=[])
-
-        row_map = {str(row["id"]): row for row in rows}
-        scored = []
-        for chunk_id in candidate_ids:
-            row = row_map.get(chunk_id)
-            if not row:
-                continue
-            similarity = float(row.get("similarity") or 0.0)
-            vec_rank = vector_rank_map.get(chunk_id)
-            fts_rank = keyword_rank_map.get(chunk_id)
-            score = 0.0
-            if vec_rank:
-                score += 1.0 / (rrf_k + vec_rank)
-            if fts_rank:
-                score += 1.0 / (rrf_k + fts_rank)
-            row["fts_score"] = keyword_score_map.get(chunk_id, 0.0)
-            row["score"] = score
-            scored.append(row)
-
-        scored.sort(key=lambda r: r["score"], reverse=True)
-        limited = scored[: max(match_count, 1)]
-        data = []
-        for row in limited:
-            entry = _deserialize_row("document_chunks", row)
-            entry["similarity"] = float(row.get("similarity") or 0.0)
-            entry["fts_score"] = float(row.get("fts_score") or 0.0)
-            entry["score"] = float(row.get("score") or 0.0)
-            data.append(entry)
-        return DbQueryResponse(data=data)
 
     def _test(self, req: DbQueryRequest) -> DbQueryResponse:
         tables = [
@@ -814,8 +631,6 @@ class SQLiteAdapter:
             "conversation_messages",
             "space_documents",
             "conversation_documents",
-            "document_sections",
-            "document_chunks",
             "user_settings",
             "memory_domains",
             "memory_summaries",
@@ -1034,8 +849,6 @@ class SQLAlchemyAdapter:
             "conversation_messages",
             "space_documents",
             "conversation_documents",
-            "document_sections",
-            "document_chunks",
             "user_settings",
             "memory_domains",
             "memory_summaries",
@@ -1303,8 +1116,6 @@ class SupabaseAdapter:
             "conversation_messages": "id",
             "space_documents": "id",
             "conversation_documents": "conversation_id",
-            "document_sections": "id",
-            "document_chunks": "id",
             "user_settings": "key",
             "memory_domains": "id",
             "memory_summaries": "id",

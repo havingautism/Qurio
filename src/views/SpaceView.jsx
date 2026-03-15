@@ -33,7 +33,10 @@ import {
 import {
   indexDocumentViaBackend,
   deleteDocumentIndexViaBackend,
+  getDocumentIndexStatusViaBackend,
 } from '../lib/backendClient'
+import { loadSettings } from '../lib/settings'
+import { getProvider } from '../lib/providers'
 import {
   createSpaceDocument,
   deleteSpaceDocument,
@@ -318,9 +321,26 @@ const SpaceView = () => {
     return text ? text.toUpperCase() : 'FILE'
   }
 
+  const estimatePdfPageCount = async file => {
+    if (!file || !String(file.name || '').toLowerCase().endsWith('.pdf')) return 0
+    try {
+      const pdfjs = await import('pdfjs-dist')
+      const data = await file.arrayBuffer()
+      const task = pdfjs.getDocument({ data, disableWorker: true })
+      const pdf = await task.promise
+      return Number(pdf.numPages || 0)
+    } catch (error) {
+      console.warn('Failed to estimate PDF page count:', error)
+      return 0
+    }
+  }
+
   const handleDocumentUpload = async (event, droppedFile = null) => {
     const file = droppedFile || event.target.files?.[0]
     if (!file || !activeSpace?.id) return
+    const documentId = crypto.randomUUID()
+    let stopPolling = false
+    let pollingTimer = null
 
     updateTrackedUploadState({
       status: 'loading',
@@ -345,10 +365,69 @@ const SpaceView = () => {
         progress: 45,
       })
 
+      const settings = loadSettings()
+      const ocrProvider = String(settings.ocrProvider || '').trim()
+      const ocrAdapter = getProvider(ocrProvider)
+      const ocrCredentials = ocrAdapter?.getCredentials ? ocrAdapter.getCredentials(settings) : {}
+      const estimatedPages = await estimatePdfPageCount(file)
+      const isPdfOcr = Boolean(
+        settings.enablePdfOcr && String(file.name || '').toLowerCase().endsWith('.pdf'),
+      )
+      const timeoutMs = isPdfOcr ? Math.max(600000, estimatedPages * 60000) : 600000
+      const pollStatus = async () => {
+        if (stopPolling) return
+        try {
+          const status = await getDocumentIndexStatusViaBackend({
+            spaceId: activeSpace.id,
+            documentId,
+          })
+          if (status?.status === 'loading') {
+            const total = Number(status.total || estimatedPages || 0)
+            const current = Number(status.current || 0)
+            const ratio =
+              typeof status.progress === 'number' && status.progress > 0
+                ? status.progress
+                : total > 0
+                  ? current / total
+                  : 0.45
+            updateTrackedUploadState({
+              status: 'loading',
+              stage: status.stage || 'ocr',
+              message:
+                status.stage === 'ocr' && total > 0
+                  ? t('views.spaceView.documentOcrProgress', { current, total })
+                  : status.message || t('views.spaceView.documentIndexing'),
+              fileName: file.name,
+              characters: 0,
+              sections: 0,
+              chunks: 0,
+              progress: Math.max(0.45, Math.min(0.95, ratio)),
+            })
+          }
+        } catch (statusError) {
+          console.warn('Failed to poll document index status:', statusError)
+        } finally {
+          if (!stopPolling) {
+            pollingTimer = setTimeout(pollStatus, 1000)
+          }
+        }
+      }
+      if (isPdfOcr) {
+        pollingTimer = setTimeout(pollStatus, 500)
+      }
       const indexed = await indexDocumentViaBackend({
         spaceId: activeSpace.id,
+        documentId,
         file,
+        enablePdfOcr: Boolean(settings.enablePdfOcr),
+        ocrProvider,
+        ocrModel: String(settings.ocrModel || '').trim(),
+        ocrApiKey: String(ocrCredentials?.apiKey || '').trim(),
+        ocrBaseUrl: String(ocrCredentials?.baseUrl || '').trim(),
+        timeoutMs,
       })
+      stopPolling = true
+      if (pollingTimer) clearTimeout(pollingTimer)
       const normalized = String(indexed?.content_text || '').trim()
       if (!normalized) {
         throw new Error(t('views.spaceView.documentEmpty'))
@@ -405,6 +484,8 @@ const SpaceView = () => {
         progress: 0,
       })
     } finally {
+      stopPolling = true
+      if (pollingTimer) clearTimeout(pollingTimer)
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
       }

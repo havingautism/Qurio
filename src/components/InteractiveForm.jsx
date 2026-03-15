@@ -3,6 +3,7 @@ import Check from 'lucide-react/dist/esm/icons/check'
 import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down'
 import React, { useState, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Checkbox } from '@/components/ui/checkbox'
 
 /**
  * Custom Select Component
@@ -326,8 +327,9 @@ const InteractiveForm = ({
                             return (
                               <label
                                 key={opt}
+                                onClick={() => !isFormDisabled && toggleCheckbox(field.name, opt)}
                                 className={clsx(
-                                  'group/item relative cursor-pointer overflow-hidden rounded-lg border px-3 py-2 transition-all duration-300 select-none',
+                                  'group/item relative flex cursor-pointer items-center gap-2 overflow-hidden rounded-lg border px-3 py-2 transition-all duration-300 select-none',
                                   isChecked
                                     ? 'bg-primary-500 border-primary-500 shadow-primary-500/25 scale-[1.02] text-white shadow-lg'
                                     : 'border-primary-200/70 bg-primary-50/50 text-gray-600 hover:border-primary-300 hover:bg-white dark:border-primary-500/30 dark:bg-zinc-900/40 dark:text-gray-400 dark:hover:border-primary-400/40 dark:hover:bg-zinc-800',
@@ -335,15 +337,17 @@ const InteractiveForm = ({
                                     'pointer-events-none cursor-not-allowed opacity-60',
                                 )}
                               >
-                                <input
-                                  type="checkbox"
-                                  className="hidden"
+                                <Checkbox
                                   checked={isChecked}
-                                  onChange={() => !isFormDisabled && toggleCheckbox(field.name, opt)}
+                                  onCheckedChange={() => {}}
                                   disabled={isFormDisabled}
+                                  className={clsx(
+                                    'pointer-events-none',
+                                    isChecked &&
+                                      'border-white/60 bg-white/15 text-white hover:border-white/80',
+                                  )}
                                 />
-                                <span className="relative z-10 flex items-center gap-2 text-sm font-medium">
-                                  {isChecked && <Check size={14} strokeWidth={3} />}
+                                <span className="relative z-10 text-sm font-medium">
                                   {opt}
                                 </span>
                               </label>

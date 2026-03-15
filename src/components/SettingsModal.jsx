@@ -27,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
@@ -99,11 +100,11 @@ const DOCUMENT_CHUNK_OVERLAP = 200
 const DOCUMENT_MAX_CHUNKS = 60
 const DOCUMENT_TOP_K = 3
 
-const EMBEDDING_KEYWORDS = ['embed', 'bge', 'vector']
+const OCR_MODEL_KEYWORDS = ['ocr', 'vision', 'vl', 'omni', 'parse']
 
 const matchesEmbeddingKeyword = model => {
   const text = String((model?.value || model?.label) ?? '').toLowerCase()
-  return EMBEDDING_KEYWORDS.some(keyword => text.includes(keyword))
+  return OCR_MODEL_KEYWORDS.some(keyword => text.includes(keyword))
 }
 
 const validateSettingsForSave = settings => {
@@ -234,6 +235,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
   const [isChatModelsLoading, setIsChatModelsLoading] = useState(false)
   const [embeddingModelSource, setEmbeddingModelSource] = useState('list')
   const [embeddingCustomModel, setEmbeddingCustomModel] = useState('')
+  const [enablePdfOcr, setEnablePdfOcr] = useState(false)
   const [embeddingGroupedModels, setEmbeddingGroupedModels] = useState({})
   const [embeddingAvailableProviders, setEmbeddingAvailableProviders] = useState([])
   const [embeddingModelsLoading, setEmbeddingModelsLoading] = useState(false)
@@ -526,12 +528,11 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
         setDefaultCustomModel(settings.defaultModel || '')
       if (settings.liteModelSource === 'custom') setLiteCustomModel(settings.liteModel || '')
 
-      if (settings.embeddingProvider) setEmbeddingProvider(settings.embeddingProvider)
-      if (settings.embeddingModelSource)
-        setEmbeddingModelSource(settings.embeddingModelSource || 'list')
-      if (settings.embeddingModel) setEmbeddingModel(settings.embeddingModel)
-      if (settings.embeddingModelSource === 'custom')
-        setEmbeddingCustomModel(settings.embeddingModel || '')
+      if (settings.ocrProvider) setEmbeddingProvider(settings.ocrProvider)
+      if (settings.ocrModelSource) setEmbeddingModelSource(settings.ocrModelSource || 'list')
+      if (settings.ocrModel) setEmbeddingModel(settings.ocrModel)
+      if (settings.ocrModelSource === 'custom') setEmbeddingCustomModel(settings.ocrModel || '')
+      if (settings.enablePdfOcr !== undefined) setEnablePdfOcr(Boolean(settings.enablePdfOcr))
       if (typeof settings.userSelfIntro === 'string') {
         setUserSelfIntro(settings.userSelfIntro)
         initialSelfIntroRef.current = settings.userSelfIntro
@@ -594,12 +595,13 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
               }),
             )
             if (data.backendUrl && !ENV_VARS.backendUrl) setBackendUrl(data.backendUrl)
-            if (data.embeddingProvider) setEmbeddingProvider(data.embeddingProvider)
-            if (data.embeddingModelSource)
-              setEmbeddingModelSource(data.embeddingModelSource || 'list')
-            if (data.embeddingModel) setEmbeddingModel(data.embeddingModel)
-            if (data.embeddingModelSource === 'custom')
-              setEmbeddingCustomModel(data.embeddingModel || '')
+            if (data.ocrProvider) setEmbeddingProvider(data.ocrProvider)
+            if (data.ocrModelSource) setEmbeddingModelSource(data.ocrModelSource || 'list')
+            if (data.ocrModel) setEmbeddingModel(data.ocrModel)
+            if (data.ocrModelSource === 'custom') setEmbeddingCustomModel(data.ocrModel || '')
+            if (data.enablePdfOcr !== undefined) {
+              setEnablePdfOcr(String(data.enablePdfOcr) === 'true')
+            }
             if (data.defaultModel !== undefined) setDefaultModel(data.defaultModel || '')
             if (data.liteModel !== undefined) setLiteModel(data.liteModel || '')
             if (data.defaultModelProvider !== undefined)
@@ -1776,9 +1778,21 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
     embeddingModel &&
     documentSearchState.status !== 'loading',
   )
+  const resolvedOcrModel = (
+    embeddingModelSource === 'custom' ? embeddingCustomModel : embeddingModel
+  ).trim()
+  const canEnablePdfOcr = Boolean(
+    embeddingProvider && resolvedOcrModel && providerConfiguredMap[embeddingProvider],
+  )
   const selectedDbProvider =
     dbProviders.find(provider => provider.type === databaseProvider) || dbProviders[0]
   const isSupabaseProvider = selectedDbProvider?.type === 'supabase'
+
+  useEffect(() => {
+    if (enablePdfOcr && !canEnablePdfOcr) {
+      setEnablePdfOcr(false)
+    }
+  }, [enablePdfOcr, canEnablePdfOcr])
 
   if (!isOpen) return null
 
@@ -1856,10 +1870,11 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
         enableLongTermMemory,
 
         userSelfIntro,
-        // Embedding
-        embeddingProvider,
-        embeddingModel,
-        embeddingModelSource,
+        // OCR (PDF only)
+        ocrProvider: embeddingProvider,
+        ocrModel: embeddingModel,
+        ocrModelSource: embeddingModelSource,
+        enablePdfOcr,
         defaultModel: defaultModelSource === 'list' ? defaultModel : defaultCustomModel,
         liteModel: liteModelSource === 'list' ? liteModel : liteCustomModel,
         defaultModelProvider,
@@ -1909,9 +1924,10 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
               'backendUrl',
               'NvidiaKey',
               'MinimaxKey',
-              'embeddingProvider',
-              'embeddingModel',
-              'embeddingModelSource',
+              'ocrProvider',
+              'ocrModel',
+              'ocrModelSource',
+              'enablePdfOcr',
               'defaultModel',
               'liteModel',
               'defaultModelProvider',
@@ -2899,11 +2915,9 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                             {t('settings.enableResponseCacheHint')}
                           </span>
                         </div>
-                        <input
-                          type="checkbox"
+                        <Switch
                           checked={enableResponseCache}
-                          onChange={event => setEnableResponseCache(event.target.checked)}
-                          className="text-primary-600 focus:ring-primary-500 h-4 w-4 rounded border-gray-300"
+                          onCheckedChange={checked => setEnableResponseCache(Boolean(checked))}
                         />
                       </div>
                     </div>
@@ -2918,6 +2932,27 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                     <p className="font-medium">{t('settings.embeddingConfiguration')}</p>
                     <p className="opacity-90">{t('settings.embeddingConfigurationHint')}</p>
                   </div>
+                </div>
+
+                <div className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50/50 p-3 dark:border-zinc-800 dark:bg-zinc-800/50">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">
+                      {t('settings.enablePdfOcr')}
+                    </span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      {t('settings.enablePdfOcrHint')}
+                    </span>
+                  </div>
+                  <Switch
+                    checked={enablePdfOcr}
+                    disabled={!canEnablePdfOcr && !enablePdfOcr}
+                    title={!canEnablePdfOcr ? t('settings.embeddingTestMissingConfig') : ''}
+                    onCheckedChange={checked => {
+                      const nextChecked = Boolean(checked)
+                      if (nextChecked && !canEnablePdfOcr) return
+                      setEnablePdfOcr(nextChecked)
+                    }}
+                  />
                 </div>
 
                 {embeddingModelsLoading ? (

@@ -40,6 +40,7 @@ import AgentAvatar from './AgentAvatar'
 import AgentBannerSurface, { AGENT_BANNER_ASPECT_RATIO } from './AgentBannerSurface'
 import CustomEmojiPicker from './CustomEmojiPicker'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Switch } from '@/components/ui/switch'
 import clsx from 'clsx'
 import { getModelsForProvider } from '../lib/models_api'
 import { useAppContext } from '../App'
@@ -1618,7 +1619,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
             </div>
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{description}</p>
           </div>
-          <Checkbox
+          <Switch
             checked={isEnabled}
             onCheckedChange={checked => {
               if (checked) {
@@ -2161,11 +2162,10 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                       {t('agents.model.useGlobalHint')}
                     </span>
                   </div>
-                  <Checkbox
+                  <Switch
                     checked={useGlobalModelSettings}
                     disabled={isModelLocked}
                     onCheckedChange={checked => setUseGlobalModelSettings(Boolean(checked))}
-                    className="h-5 w-5"
                   />
                 </div>
 

@@ -32,8 +32,6 @@ APP_TABLES: list[str] = [
     "attachments",
     "conversation_events",
     "conversation_messages",
-    "document_chunks",
-    "document_sections",
     "space_documents",
     "conversations",
     "agents",
@@ -46,6 +44,11 @@ APP_TABLES: list[str] = [
     "user_tools",
     "pending_form_runs",
     "scrapbook",
+]
+
+LEGACY_DROP_TABLES: list[str] = [
+    "document_chunks",
+    "document_sections",
 ]
 
 
@@ -129,7 +132,7 @@ def initialize_provider_schema(provider: ProviderConfig) -> dict[str, Any]:
             conn = sqlite3.connect(provider.sqlite_path)
             cursor = conn.cursor()
             cursor.execute("PRAGMA foreign_keys=OFF;")
-            for table in APP_TABLES:
+            for table in APP_TABLES + LEGACY_DROP_TABLES:
                 cursor.execute(f"DROP TABLE IF EXISTS {table};")
             conn.commit()
         except Exception as exc:
@@ -178,7 +181,7 @@ def initialize_provider_schema(provider: ProviderConfig) -> dict[str, Any]:
         conn = psycopg2.connect(db_url)
         conn.autocommit = True
         with conn.cursor() as cursor:
-            for table in APP_TABLES:
+            for table in APP_TABLES + LEGACY_DROP_TABLES:
                 cursor.execute(f"DROP TABLE IF EXISTS public.{table} CASCADE;")
             cursor.execute(schema_sql)
         return {"success": True, "message": "Supabase schema reset and initialized."}

@@ -35,8 +35,9 @@ const buildOpenAIEmbeddingRequest = async ({ apiKey, baseUrl, modelId, input }) 
 export const resolveEmbeddingConfig = overrides => {
   const settings = loadSettings(overrides)
   return {
-    provider: overrides?.provider || settings.embeddingProvider,
-    model: overrides?.model || settings.embeddingModel,
+    provider:
+      overrides?.provider || settings.ocrProvider || settings.embeddingProvider,
+    model: overrides?.model || settings.ocrModel || settings.embeddingModel,
     OpenAICompatibilityKey: settings.OpenAICompatibilityKey || '',
     OpenAICompatibilityUrl: settings.OpenAICompatibilityUrl || '',
     SiliconFlowKey: settings.SiliconFlowKey || '',

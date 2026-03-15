@@ -532,11 +532,19 @@ class OpenAIAdapter(BaseProviderAdapter):
         if not content:
             return ""
 
+        has_non_text_part = any(
+            isinstance(item, dict) and item.get("type") not in (None, "text")
+            for item in content
+        )
+        if has_non_text_part:
+            # Preserve multimodal payloads (e.g. image_url) for vision/OCR models.
+            return content
+
         if len(content) == 1 and isinstance(content[0], dict):
             item = content[0]
             if "text" in item:
                 return item["text"]
-            elif "type" in item and item["type"] == "text":
+            if "type" in item and item["type"] == "text":
                 return item.get("text", "")
 
         texts = []

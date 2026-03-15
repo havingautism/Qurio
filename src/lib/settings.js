@@ -233,9 +233,10 @@ const MEMORY_SETTINGS_KEYS = [
   'MinimaxKey',
   'searchProvider',
   'backendUrl',
-  'embeddingProvider',
-  'embeddingModel',
-  'embeddingModelSource',
+  'ocrProvider',
+  'ocrModel',
+  'ocrModelSource',
+  'enablePdfOcr',
   'defaultModel',
   'liteModel',
   'defaultModelProvider',
@@ -339,9 +340,12 @@ export const loadSettings = (overrides = {}) => {
   const localFontSize = localStorage.getItem('fontSize')
   const localEnableLongTermMemory = localStorage.getItem('enableLongTermMemory')
   const localMemoryRecallLimit = localStorage.getItem('memoryRecallLimit')
-  const localEmbeddingProvider = localStorage.getItem('embeddingProvider')
-  const localEmbeddingModel = localStorage.getItem('embeddingModel')
-  const localEmbeddingModelSource = localStorage.getItem('embeddingModelSource')
+  const localOcrProvider =
+    localStorage.getItem('ocrProvider') || localStorage.getItem('embeddingProvider')
+  const localOcrModel = localStorage.getItem('ocrModel') || localStorage.getItem('embeddingModel')
+  const localOcrModelSource =
+    localStorage.getItem('ocrModelSource') || localStorage.getItem('embeddingModelSource')
+  const localEnablePdfOcr = localStorage.getItem('enablePdfOcr')
   const localScrapbookProvider = localStorage.getItem('scrapbookProvider')
   const localScrapbookModel = localStorage.getItem('scrapbookModel')
   const localScrapbookModelSource = localStorage.getItem('scrapbookModelSource')
@@ -514,9 +518,17 @@ export const loadSettings = (overrides = {}) => {
     fontSize: localFontSize || overrides.fontSize || overrides.messageFontSize || 'medium',
     enableLongTermMemory: resolvedLongTermMemoryPreference,
     memoryRecallLimit: resolvedMemoryRecallLimit,
-    embeddingProvider: localEmbeddingProvider || overrides.embeddingProvider || '',
-    embeddingModel: localEmbeddingModel || overrides.embeddingModel || '',
-    embeddingModelSource: localEmbeddingModelSource || overrides.embeddingModelSource || 'list',
+    ocrProvider:
+      localOcrProvider || overrides.ocrProvider || overrides.embeddingProvider || '',
+    ocrModel: localOcrModel || overrides.ocrModel || overrides.embeddingModel || '',
+    ocrModelSource:
+      localOcrModelSource || overrides.ocrModelSource || overrides.embeddingModelSource || 'list',
+    enablePdfOcr:
+      typeof overrides.enablePdfOcr === 'boolean'
+        ? overrides.enablePdfOcr
+        : localEnablePdfOcr !== null
+          ? localEnablePdfOcr === 'true'
+          : false,
     userSelfIntro: overrides.userSelfIntro || '',
     developerMode:
       localDeveloperMode !== null
@@ -596,6 +608,14 @@ export const loadSettings = (overrides = {}) => {
   if (typeof mergedSettings.enableLongTermMemory === 'string') {
     mergedSettings.enableLongTermMemory = mergedSettings.enableLongTermMemory === 'true'
   }
+  if (typeof mergedSettings.enablePdfOcr === 'string') {
+    mergedSettings.enablePdfOcr = mergedSettings.enablePdfOcr === 'true'
+  }
+
+  // Backward compatibility for older callers that still read embedding keys.
+  mergedSettings.embeddingProvider = mergedSettings.ocrProvider
+  mergedSettings.embeddingModel = mergedSettings.ocrModel
+  mergedSettings.embeddingModelSource = mergedSettings.ocrModelSource
 
   return {
     ...mergedSettings,
@@ -744,15 +764,24 @@ export const saveSettings = async settings => {
   if (settings.memoryRecallLimit !== undefined) {
     localStorage.setItem('memoryRecallLimit', String(settings.memoryRecallLimit))
   }
-  if (settings.embeddingProvider !== undefined) {
-    localStorage.setItem('embeddingProvider', settings.embeddingProvider)
+  if (settings.ocrProvider !== undefined || settings.embeddingProvider !== undefined) {
+    localStorage.setItem('ocrProvider', settings.ocrProvider ?? settings.embeddingProvider ?? '')
   }
-  if (settings.embeddingModel !== undefined) {
-    localStorage.setItem('embeddingModel', settings.embeddingModel)
+  if (settings.ocrModel !== undefined || settings.embeddingModel !== undefined) {
+    localStorage.setItem('ocrModel', settings.ocrModel ?? settings.embeddingModel ?? '')
   }
-  if (settings.embeddingModelSource !== undefined) {
-    localStorage.setItem('embeddingModelSource', settings.embeddingModelSource)
+  if (settings.ocrModelSource !== undefined || settings.embeddingModelSource !== undefined) {
+    localStorage.setItem(
+      'ocrModelSource',
+      settings.ocrModelSource ?? settings.embeddingModelSource ?? 'list',
+    )
   }
+  if (settings.enablePdfOcr !== undefined) {
+    localStorage.setItem('enablePdfOcr', String(!!settings.enablePdfOcr))
+  }
+  localStorage.removeItem('embeddingProvider')
+  localStorage.removeItem('embeddingModel')
+  localStorage.removeItem('embeddingModelSource')
   if (settings.scrapbookProvider !== undefined) {
     localStorage.setItem('scrapbookProvider', settings.scrapbookProvider)
   }

@@ -33,6 +33,7 @@ import {
   MODAL_SELECT_TRIGGER_CLASS,
   MODAL_TEXTAREA_CLASS,
 } from '../lib/modalFieldStyles'
+import { Checkbox } from '@/components/ui/checkbox'
 
 const ToolsModal = ({ isOpen, onClose }) => {
   const { t } = useTranslation()
@@ -1009,16 +1010,14 @@ const ToolsModal = ({ isOpen, onClose }) => {
                                       {tool.config?.toolName || tool.name}
                                     </div>
                                   </div>
-                                  <input
-                                    type="checkbox"
+                                  <Checkbox
                                     checked={mcpGroupToolStates[tool.id] ?? true}
-                                    onChange={e => {
+                                    onCheckedChange={checked => {
                                       setMcpGroupToolStates(prev => ({
                                         ...prev,
-                                        [tool.id]: e.target.checked,
+                                        [tool.id]: Boolean(checked),
                                       }))
                                     }}
-                                    className="accent-primary-600 h-4 w-4"
                                   />
                                 </label>
                               ))}

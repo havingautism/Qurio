@@ -126,8 +126,6 @@ SCHEMA_STATEMENTS: list[str] = [
       name TEXT NOT NULL,
       file_type TEXT NOT NULL,
       content_text TEXT NOT NULL,
-      embedding_provider TEXT,
-      embedding_model TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
@@ -139,92 +137,6 @@ SCHEMA_STATEMENTS: list[str] = [
       created_at TEXT NOT NULL,
       PRIMARY KEY (conversation_id, document_id)
     );
-    """,
-    """
-    CREATE TABLE IF NOT EXISTS document_sections (
-      id TEXT PRIMARY KEY,
-      document_id TEXT NOT NULL,
-      external_section_id INTEGER NOT NULL,
-      title_path TEXT NOT NULL DEFAULT '[]',
-      level INTEGER DEFAULT 0,
-      loc TEXT,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    );
-    """,
-    """
-    CREATE TABLE IF NOT EXISTS document_chunks (
-      id TEXT PRIMARY KEY,
-      document_id TEXT NOT NULL,
-      section_id TEXT,
-      title_path TEXT NOT NULL DEFAULT '[]',
-      external_chunk_id TEXT,
-      chunk_index INTEGER,
-      content_type TEXT,
-      text TEXT NOT NULL,
-      token_count INTEGER,
-      chunk_hash TEXT,
-      loc TEXT,
-      source_hint TEXT,
-      embedding TEXT NOT NULL DEFAULT '[]',
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    );
-    """,
-    """
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_document_chunks_document_hash
-      ON document_chunks(document_id, chunk_hash);
-    """,
-    """
-    CREATE VIRTUAL TABLE IF NOT EXISTS document_chunks_fts USING fts5(
-      chunk_id UNINDEXED,
-      document_id UNINDEXED,
-      section_id UNINDEXED,
-      title_text,
-      body_text,
-      source_hint,
-      tokenize='unicode61'
-    );
-    """,
-    """
-    CREATE TRIGGER IF NOT EXISTS trg_document_chunks_fts_insert
-    AFTER INSERT ON document_chunks
-    BEGIN
-      INSERT INTO document_chunks_fts (
-        chunk_id, document_id, section_id, title_text, body_text, source_hint
-      ) VALUES (
-        NEW.id,
-        NEW.document_id,
-        COALESCE(NEW.section_id, ''),
-        trim(replace(replace(replace(COALESCE(NEW.title_path, ''), '[', ' '), ']', ' '), '\"', ' ')),
-        COALESCE(NEW.text, ''),
-        COALESCE(NEW.source_hint, '')
-      );
-    END;
-    """,
-    """
-    CREATE TRIGGER IF NOT EXISTS trg_document_chunks_fts_update
-    AFTER UPDATE ON document_chunks
-    BEGIN
-      DELETE FROM document_chunks_fts WHERE chunk_id = OLD.id;
-      INSERT INTO document_chunks_fts (
-        chunk_id, document_id, section_id, title_text, body_text, source_hint
-      ) VALUES (
-        NEW.id,
-        NEW.document_id,
-        COALESCE(NEW.section_id, ''),
-        trim(replace(replace(replace(COALESCE(NEW.title_path, ''), '[', ' '), ']', ' '), '\"', ' ')),
-        COALESCE(NEW.text, ''),
-        COALESCE(NEW.source_hint, '')
-      );
-    END;
-    """,
-    """
-    CREATE TRIGGER IF NOT EXISTS trg_document_chunks_fts_delete
-    AFTER DELETE ON document_chunks
-    BEGIN
-      DELETE FROM document_chunks_fts WHERE chunk_id = OLD.id;
-    END;
     """,
     """
     CREATE TABLE IF NOT EXISTS space_agents (

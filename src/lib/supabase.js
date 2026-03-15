@@ -582,6 +582,26 @@ export const fetchRemoteSettings = async () => {
   ) {
     settings.contextTurns = settings.contextMessageLimit
   }
+  if (
+    (settings.ocrProvider === undefined || settings.ocrProvider === null || settings.ocrProvider === '') &&
+    settings.embeddingProvider !== undefined
+  ) {
+    settings.ocrProvider = settings.embeddingProvider
+  }
+  if (
+    (settings.ocrModel === undefined || settings.ocrModel === null || settings.ocrModel === '') &&
+    settings.embeddingModel !== undefined
+  ) {
+    settings.ocrModel = settings.embeddingModel
+  }
+  if (
+    (settings.ocrModelSource === undefined ||
+      settings.ocrModelSource === null ||
+      settings.ocrModelSource === '') &&
+    settings.embeddingModelSource !== undefined
+  ) {
+    settings.ocrModelSource = settings.embeddingModelSource
+  }
 
   return { data: settings, error: null }
 }
@@ -614,9 +634,10 @@ export const saveRemoteSettings = async settings => {
     'serpapiApiKey',
     'NvidiaKey',
     'MinimaxKey',
-    'embeddingProvider',
-    'embeddingModel',
-    'embeddingModelSource',
+    'ocrProvider',
+    'ocrModel',
+    'ocrModelSource',
+    'enablePdfOcr',
     'enableLongTermMemory',
     'contextTurns',
     'defaultModel',
@@ -649,6 +670,17 @@ export const saveRemoteSettings = async settings => {
     // Migration cleanup: remove legacy key after successful upsert.
     if (settings.contextTurns !== undefined || settings.contextMessageLimit !== undefined) {
       await supabase.from('user_settings').delete().eq('key', 'contextMessageLimit')
+    }
+    if (
+      settings.ocrProvider !== undefined ||
+      settings.ocrModel !== undefined ||
+      settings.ocrModelSource !== undefined
+    ) {
+      await supabase.from('user_settings').delete().in('key', [
+        'embeddingProvider',
+        'embeddingModel',
+        'embeddingModelSource',
+      ])
     }
     return { error: null }
   }

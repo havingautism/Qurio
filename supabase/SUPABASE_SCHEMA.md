@@ -134,17 +134,15 @@ Join table for binding multiple agents to a space.
 
 Parsed text artifacts stored per space (acts like a lightweight knowledge base).
 
-| Column               | Type        | Notes                                         |
-| -------------------- | ----------- | --------------------------------------------- |
-| `id`                 | uuid        | Primary key                                   |
-| `space_id`           | uuid        | FK -> `spaces.id`                             |
-| `name`               | text        | Original file name                            |
-| `file_type`          | text        | File extension or MIME                        |
-| `content_text`       | text        | Parsed document content                       |
-| `embedding_provider` | text        | Embedding provider used to index the document |
-| `embedding_model`    | text        | Embedding model used to index the document    |
-| `created_at`         | timestamptz |                                               |
-| `updated_at`         | timestamptz |                                               |
+| Column         | Type        | Notes                   |
+| -------------- | ----------- | ----------------------- |
+| `id`           | uuid        | Primary key             |
+| `space_id`     | uuid        | FK -> `spaces.id`       |
+| `name`         | text        | Original file name      |
+| `file_type`    | text        | File extension or MIME  |
+| `content_text` | text        | Parsed document content |
+| `created_at`   | timestamptz |                         |
+| `updated_at`   | timestamptz |                         |
 
 ## 9. `conversation_documents`
 
@@ -183,22 +181,6 @@ Single summary per domain (injectable memory).
 | `created_at` | timestamptz |                           |
 | `updated_at` | timestamptz |                           |
 
-## 12. `long_term_memory` (legacy)
+## 12. `long_term_memory` (removed)
 
-Single-user memory blob with optional embeddings.
-
-| Column               | Type        | Notes                                |
-| -------------------- | ----------- | ------------------------------------ |
-| `id`                 | uuid        | Primary key                          |
-| `user_id`            | uuid        | FK -> `auth.users.id`                |
-| `content_text`       | text        | Full memory text                     |
-| `content_hash`       | text        | Hash of content for change detection |
-| `embedding`          | real[]      | Optional embedding for retrieval     |
-| `embedding_provider` | text        | Provider used for embedding          |
-| `embedding_model`    | text        | Embedding model used                 |
-| `created_at`         | timestamptz |                                      |
-| `updated_at`         | timestamptz |                                      |
-
-Notes:
-
-- `long_term_memory` is retained for backward compatibility; new routing uses `memory_domains` + `memory_summaries`.
+This legacy table is no longer part of the active schema.

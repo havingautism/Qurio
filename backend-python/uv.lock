@@ -1298,7 +1298,7 @@ name = "macholib"
 version = "1.16.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "altgraph" },
+    { name = "altgraph", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/10/2f/97589876ea967487978071c9042518d28b958d87b17dceb7cdc1d881f963/macholib-1.16.4.tar.gz", hash = "sha256:f408c93ab2e995cd2c46e34fe328b130404be143469e41bc366c807448979362", size = 59427, upload-time = "2025-11-22T08:28:38.373Z" }
 wheels = [
@@ -1734,19 +1734,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/65/ee/299d360cdc32edc7d2cf530f3accf79c4fca01e96ffc950d8a52213bd8e4/packaging-26.0.tar.gz", hash = "sha256:00243ae351a257117b6a241061796684b084ed1c516a08c48a3f7e147a9d80b4", size = 143416, upload-time = "2026-01-21T20:50:39.064Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b7/b9/c538f279a4e237a006a2c98387d081e9eb060d203d8ed34467cc0f0b9b53/packaging-26.0-py3-none-any.whl", hash = "sha256:b36f1fef9334a5588b4166f8bcd26a14e521f2b55e6b9de3aaa80d3ff7a37529", size = 74366, upload-time = "2026-01-21T20:50:37.788Z" },
-]
-
-[[package]]
-name = "pageindex"
-version = "0.2.6"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "openai" },
-    { name = "requests" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/f6/dd/7d2cf721ecda752383cf3a00f80118b43472c83301971aa7b65d4fe7ce62/pageindex-0.2.6.tar.gz", hash = "sha256:b694ddb1557fc692454de44e147c579882ee46cf839242ea08a30e2845e3dda4", size = 4559, upload-time = "2026-03-03T11:29:46.351Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/2d/d1/e8fab44919c68b9b75fc3cc6a2feda8046f65ffb08eebb79b23b80d57d45/pageindex-0.2.6-py3-none-any.whl", hash = "sha256:ff8c875789b857b520148cca22edb9e3ceac83ade6073ab49ad0518f97cfe0af", size = 5529, upload-time = "2026-03-03T11:29:45.122Z" },
 ]
 
 [[package]]
@@ -2366,6 +2353,15 @@ wheels = [
 ]
 
 [[package]]
+name = "pypdf2"
+version = "3.0.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/9f/bb/18dc3062d37db6c491392007dfd1a7f524bb95886eb956569ac38a23a784/PyPDF2-3.0.1.tar.gz", hash = "sha256:a74408f69ba6271f71b9352ef4ed03dc53a31aa404d29b5d31f53bfecfee1440", size = 227419, upload-time = "2022-12-31T10:36:13.13Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8e/5e/c86a5643653825d3c913719e788e41386bee415c2b87b4f955432f2de6b2/pypdf2-3.0.1-py3-none-any.whl", hash = "sha256:d16e4205cfee272fbdc0568b68d82be796540b1537508cef59388f839c191928", size = 232572, upload-time = "2022-12-31T10:36:10.327Z" },
+]
+
+[[package]]
 name = "pyroaring"
 version = "1.0.3"
 source = { registry = "https://pypi.org/simple" }
@@ -2489,19 +2485,19 @@ wheels = [
 
 [[package]]
 name = "pytreesearch"
-version = "0.6.1"
+version = "0.6.2"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/44/e5/eff5cd29f643b5f5292f7f60e02d35472f7d295fba7d2d8e087d4d23f49d/pytreesearch-0.6.1.tar.gz", hash = "sha256:49d53735f38af8d589bb7f0107fbf7f047bfe4ff45ccd4fdcec9b32e45045b43", size = 73873, upload-time = "2026-03-12T06:23:13.662Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b5/72/5a2fc05fbef3bb9b024391175787216c3825f4cbf4f85b7c14bc3a6c90a5/pytreesearch-0.6.2.tar.gz", hash = "sha256:7625fff11230e13308c1c7a5c58cf21881fbfda5adcb3d5d4d0a5f1e5b0d8aa3", size = 74721, upload-time = "2026-03-14T03:37:29.452Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/bd/2c/ebe6dcaa7e7e9751cedb1830089108e1de783e57e1ab71dbe9efc94b30b6/pytreesearch-0.6.1-py3-none-any.whl", hash = "sha256:9c2d3925f3470466a5e2070aca2ef36249f8a326fe7c067c726bc664052e7a4b", size = 67417, upload-time = "2026-03-12T06:23:11.975Z" },
+    { url = "https://files.pythonhosted.org/packages/9c/63/36ba9bf611d2063afee3cd4bba42a0bbce35957408711ea2201c017d807a/pytreesearch-0.6.2-py3-none-any.whl", hash = "sha256:5070e9455200aa111fd62316724f47d8db8d14e730f807b76ee26d6d2b0da801", size = 68257, upload-time = "2026-03-14T03:37:26.926Z" },
 ]
 
 [package.optional-dependencies]
 all = [
     { name = "beautifulsoup4" },
     { name = "jieba" },
-    { name = "pageindex" },
     { name = "pathspec" },
+    { name = "pypdf2" },
     { name = "python-docx" },
     { name = "tree-sitter-languages" },
 ]
@@ -2672,7 +2668,7 @@ requires-dist = [
     { name = "pypdf", specifier = ">=6.8.0" },
     { name = "python-dotenv", specifier = ">=1.2.2" },
     { name = "python-multipart", specifier = ">=0.0.22" },
-    { name = "pytreesearch", extras = ["all"], specifier = ">=0.6.1" },
+    { name = "pytreesearch", extras = ["all"], specifier = ">=0.6.2" },
     { name = "sqlalchemy", specifier = ">=2.0.48" },
     { name = "sse-starlette", specifier = ">=3.3.2" },
     { name = "supabase", specifier = ">=2.28.1" },

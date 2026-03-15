@@ -1,14 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from io import BytesIO
 from pathlib import Path
 import shutil
 from typing import Any, Callable
-from zipfile import ZipFile
-from xml.etree import ElementTree as ET
-
-from pypdf import PdfReader
 
 
 @dataclass(frozen=True)
@@ -79,93 +74,6 @@ class TreeSearchDocumentService:
         self._search_fn = search
         return self._search_fn
 
-    def _get_text_to_tree_fn(self):
-        if self._text_to_tree_fn is not None:
-            return self._text_to_tree_fn
-        try:
-            from treesearch import text_to_tree
-        except ImportError as exc:
-            raise RuntimeError("TreeSearch dependency is not installed") from exc
-        self._text_to_tree_fn = text_to_tree
-        return self._text_to_tree_fn
-
-    def _get_fts_index_cls(self):
-        if self._fts_index_cls is not None:
-            return self._fts_index_cls
-        try:
-            from treesearch import FTS5Index
-        except ImportError as exc:
-            raise RuntimeError("TreeSearch dependency is not installed") from exc
-        self._fts_index_cls = FTS5Index
-        return self._fts_index_cls
-
-    @staticmethod
-    def _extract_pdf_text(raw_bytes: bytes) -> str:
-        reader = PdfReader(BytesIO(raw_bytes))
-        parts: list[str] = []
-        for page in reader.pages:
-            text = (page.extract_text() or "").strip()
-            if text:
-                parts.append(text)
-        return "\n\n".join(parts).strip()
-
-    @staticmethod
-    def _extract_docx_text(raw_bytes: bytes) -> str:
-        with ZipFile(BytesIO(raw_bytes)) as archive:
-            with archive.open("word/document.xml") as document_xml:
-                tree = ET.parse(document_xml)
-        namespace = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
-        paragraphs: list[str] = []
-        for paragraph in tree.findall(".//w:p", namespace):
-            runs = [node.text or "" for node in paragraph.findall(".//w:t", namespace)]
-            text = "".join(runs).strip()
-            if text:
-                paragraphs.append(text)
-        return "\n\n".join(paragraphs).strip()
-
-    def _extract_text_from_raw_document(self, filename: str, raw_bytes: bytes) -> str:
-        suffix = Path(filename).suffix.lower()
-        if suffix == ".pdf":
-            return self._extract_pdf_text(raw_bytes)
-        if suffix == ".docx":
-            return self._extract_docx_text(raw_bytes)
-        return raw_bytes.decode("utf-8", errors="ignore").strip()
-
-    async def _index_via_extracted_text(
-        self,
-        *,
-        paths: DocumentPaths,
-        document_id: str,
-        filename: str,
-        raw_bytes: bytes,
-    ) -> None:
-        text_to_tree = self._get_text_to_tree_fn()
-        fts_index_cls = self._get_fts_index_cls()
-        extracted_text = self._extract_text_from_raw_document(filename, raw_bytes)
-        if not extracted_text:
-            raise ValueError("No readable text found in this document.")
-
-        result = await text_to_tree(
-            text_content=extracted_text,
-            if_add_node_text=True,
-            if_add_doc_description=True,
-        )
-
-        from treesearch import Document
-
-        document = Document(
-            doc_id=str(document_id),
-            doc_name=result.get("doc_name") or Path(filename).stem,
-            structure=result.get("structure", []),
-            doc_description=result.get("doc_description", ""),
-            metadata={"source_path": str(paths.original_file)},
-            source_type=Path(filename).suffix.lower().lstrip(".") or "text",
-        )
-        fts = fts_index_cls(db_path=str(paths.index_db))
-        fts.save_document(document)
-        fts.index_document(document, force=True)
-        fts.close()
-
     @staticmethod
     def _flatten_nodes(structure: Any) -> list[dict]:
         nodes: list[dict] = []
@@ -214,23 +122,14 @@ class TreeSearchDocumentService:
         paths.treesearch_dir.mkdir(parents=True, exist_ok=True)
         paths.original_file.write_bytes(raw_bytes)
 
-        suffix = Path(filename).suffix.lower()
-        if suffix in {".pdf", ".docx"}:
-            await self._index_via_extracted_text(
-                paths=paths,
-                document_id=document_id,
-                filename=filename,
-                raw_bytes=raw_bytes,
-            )
-        else:
-            tree_search_cls = self._get_treesearch_cls()
-            tree_search = tree_search_cls(str(paths.original_file), db_path=str(paths.index_db))
-            await tree_search.aindex(
-                str(paths.original_file),
-                force=True,
-                if_add_node_text=True,
-                if_add_doc_description=True,
-            )
+        tree_search_cls = self._get_treesearch_cls()
+        tree_search = tree_search_cls(str(paths.original_file), db_path=str(paths.index_db))
+        await tree_search.aindex(
+            str(paths.original_file),
+            force=True,
+            if_add_node_text=True,
+            if_add_doc_description=True,
+        )
 
         document_summary: dict[str, Any] | None = None
         if paths.index_db.exists():

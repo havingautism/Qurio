@@ -677,7 +677,7 @@ ${entry.content}`
         >
           <div
             className={clsx(
-              'relative flex h-[85vh] w-full flex-col overflow-hidden bg-white/80 shadow-2xl transition-all duration-500 ease-out sm:rounded-t-[2.5rem] lg:h-full lg:w-[420px] lg:rounded-[2rem] lg:border lg:border-white/20 lg:backdrop-blur-3xl xl:w-[480px] dark:bg-zinc-950/80',
+              'relative flex h-[85vh] w-full flex-col overflow-hidden bg-white/80 shadow-2xl transition-all duration-500 ease-out sm:rounded-t-[2.5rem] lg:h-full lg:w-[460px] lg:rounded-[2rem] lg:border lg:border-white/20 lg:backdrop-blur-3xl xl:w-[540px] dark:bg-zinc-950/80',
               isChatOpen
                 ? 'translate-y-0 opacity-100 scale-100'
                 : 'translate-y-full opacity-0 scale-95',
@@ -689,7 +689,7 @@ ${entry.content}`
               <div className="flex items-center gap-2">
                 <div className="h-2 w-2 animate-pulse rounded-full bg-primary-500 shadow-[0_0_8px_rgba(var(--color-primary-500),0.8)]" />
                 <span className="text-xs font-bold tracking-widest text-zinc-500 uppercase dark:text-zinc-400">
-                  Intelligence
+                  {t('scrapbook.chat.title')}
                 </span>
               </div>
               <button

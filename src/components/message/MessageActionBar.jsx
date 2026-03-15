@@ -1,4 +1,3 @@
-import { useMemo } from 'react'
 import clsx from 'clsx'
 import {
   Check,
@@ -7,7 +6,6 @@ import {
   ChevronDown,
   Download,
   RefreshCw,
-  Globe,
   Trash2,
   FileText,
 } from 'lucide-react'
@@ -16,13 +14,6 @@ const MessageActionBar = ({
   t,
   isDeepResearch,
   isMobile,
-  message,
-  isSourcesOpen,
-  onToggleSources,
-  documentSources,
-  isDocumentSourcesOpen,
-  onToggleDocumentSources,
-  onOpenMobileSources,
   onShare,
   onRegenerate,
   onCopy,
@@ -34,11 +25,6 @@ const MessageActionBar = ({
   downloadMenuRef,
   onDelete,
 }) => {
-  const uniqueDocumentSourcesCount = useMemo(() => {
-    if (!documentSources || !documentSources.length) return 0
-    return documentSources.length
-  }, [documentSources])
-
   return (
     <div className="mt-2 flex items-center gap-1 border-t border-gray-200/60 pt-3 dark:border-zinc-800/50">
       <button
@@ -135,65 +121,6 @@ const MessageActionBar = ({
             </div>
           )}
         </div>
-      )}
-      {/* {message.sources && message.sources.length > 0 && (
-        <button
-          onClick={() => {
-            if (isMobile) {
-              onOpenMobileSources()
-            } else {
-              onToggleSources()
-            }
-          }}
-          className={clsx(
-            'group flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 transition-all duration-200',
-            isSourcesOpen
-              ? 'text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20 font-medium'
-              : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-white dark:hover:bg-zinc-800 dark:hover:text-gray-200',
-          )}
-        >
-          <Globe size={16} strokeWidth={2} />
-          <span className="hidden max-w-0 overflow-hidden text-xs font-medium whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[60px] group-hover:opacity-100 sm:block">
-            {t('sources.title')}
-          </span>
-          <span
-            className={clsx(
-              'flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold transition-colors',
-              isSourcesOpen
-                ? 'bg-primary-200 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300'
-                : 'bg-gray-200 text-gray-700 dark:bg-zinc-700 dark:text-white',
-            )}
-          >
-            {message.sources.length}
-          </span>
-        </button>
-      )} */}
-      {documentSources && documentSources.length > 0 && (
-        <button
-          type="button"
-          onClick={onToggleDocumentSources}
-          className={clsx(
-            'group flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 transition-all duration-200',
-            isDocumentSourcesOpen
-              ? 'text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20 font-medium'
-              : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-white dark:hover:bg-zinc-800 dark:hover:text-gray-200',
-          )}
-        >
-          <FileText size={16} strokeWidth={2} />
-          <span className="hidden max-w-0 overflow-hidden text-xs font-medium whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[100px] group-hover:opacity-100 sm:block">
-            {t('sources.documentSources')}
-          </span>
-          <span
-            className={clsx(
-              'flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold transition-colors',
-              isDocumentSourcesOpen
-                ? 'bg-primary-200 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300'
-                : 'bg-gray-200 text-gray-700 dark:bg-zinc-700 dark:text-white',
-            )}
-          >
-            {uniqueDocumentSourcesCount}
-          </span>
-        </button>
       )}
       <button
         className="group ml-auto flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-gray-500 transition-all duration-200 hover:bg-red-50 hover:text-red-600 dark:text-white dark:hover:bg-red-900/20 dark:hover:text-red-400"

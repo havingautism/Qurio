@@ -74,6 +74,7 @@ class StreamChatRequest(BaseModel):
 
     # Team configuration (Expert Mode)
     expert_mode: bool = Field(default=False, alias="expertMode")
+    deep_research: bool = Field(default=False, alias="deepResearch")
     team_mode: Literal["coordinate", "route", "broadcast", "tasks"] | None = Field(default=None, alias="teamMode")
     leader_agent_id: str | None = Field(default=None, alias="leaderAgentId")
     team_agent_ids: list[str] = Field(default_factory=list, alias="teamAgentIds")
@@ -88,6 +89,7 @@ class StreamChatRequest(BaseModel):
         default=None,
         alias="thinkingMode",
     )
+    enable_response_cache: bool = Field(default=False, alias="enableResponseCache")
 
     # Generation parameters
     temperature: float | None = None

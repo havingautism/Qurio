@@ -25,8 +25,9 @@ export const useSidebarOffset = isSidebarOpen => {
       } else if (window.innerWidth >= 768) {
         sidebarWidth = '24rem' // md:w-96 = 24rem
       } else {
-        // For mobile, use viewport percentage (w-3/4 = 75vw)
-        sidebarWidth = '75vw'
+        // Keep in sync with timeline drawer width token: min-w-[16rem] w-[75vw] max-w-75
+        // Use max drawer width for a stable content shift on small screens.
+        sidebarWidth = '18.75rem'
       }
 
       // Update CSS variable

@@ -403,79 +403,6 @@ const getHostname = url => {
   }
 }
 
-const formatContentWithSources = (content, sources = []) => {
-  if (typeof content !== 'string' || !Array.isArray(sources) || sources.length === 0) {
-    return content
-  }
-
-  const citationRegex = /\[(\d+)\](?:\s*\[(\d+)\])*/g
-
-  return content.replace(citationRegex, match => {
-    const indices = match.match(/\d+/g).map(n => Number(n) - 1)
-    if (indices.length === 0) return match
-    const primaryIdx = indices[0]
-    const primarySource = sources[primaryIdx]
-    if (!primarySource) return match
-    if (indices.length > 1) {
-      return ` [+${indices.length}](citation:${indices.join(',')}) `
-    }
-    return ` [${primaryIdx + 1}](citation:${primaryIdx}) `
-  })
-}
-
-const applyGroundingSupports = (content, groundingSupports = [], sources = []) => {
-  if (
-    typeof content !== 'string' ||
-    !Array.isArray(groundingSupports) ||
-    groundingSupports.length === 0 ||
-    !Array.isArray(sources) ||
-    sources.length === 0
-  ) {
-    return content
-  }
-  if (/\[\d+\]/.test(content)) return content
-
-  const markersByText = new Map()
-  for (const support of groundingSupports) {
-    const segmentText = support?.segment?.text
-    if (!segmentText || typeof segmentText !== 'string') continue
-    const chunkIndices = Array.isArray(support?.groundingChunkIndices)
-      ? support.groundingChunkIndices
-      : []
-    const sourceIndices = chunkIndices
-      .filter(idx => Number.isInteger(idx) && idx >= 0 && idx < sources.length)
-      .map(idx => idx)
-    if (sourceIndices.length === 0) continue
-    const set = markersByText.get(segmentText) || new Set()
-    for (const idx of sourceIndices) set.add(idx)
-    markersByText.set(segmentText, set)
-  }
-
-  if (markersByText.size === 0) return content
-
-  let updated = content
-  const supports = Array.from(markersByText.entries())
-    .map(([text, indices]) => ({
-      text,
-      indices: Array.from(indices).sort((a, b) => a - b),
-    }))
-    .sort((a, b) => b.text.length - a.text.length)
-
-  for (const support of supports) {
-    const marker = ` ${support.indices.map(idx => `[${idx + 1}]`).join('')}`
-    let searchFrom = 0
-    while (true) {
-      const matchIndex = updated.indexOf(support.text, searchFrom)
-      if (matchIndex === -1) break
-      const insertAt = matchIndex + support.text.length
-      updated = updated.slice(0, insertAt) + marker + updated.slice(insertAt)
-      searchFrom = insertAt + marker.length
-    }
-  }
-
-  return updated
-}
-
 const normalizeMessageText = content => {
   if (typeof content === 'string') return content
   if (Array.isArray(content)) {
@@ -594,13 +521,7 @@ const ShareCanvas = ({
     if (isUser) return normalizeMessageText(message.content)
     const provider = getProvider(providerId)
     const parsed = provider.parseMessage(message)
-    const mainContent = parsed.content
-    const contentWithSupports = applyGroundingSupports(
-      mainContent,
-      message.groundingSupports,
-      message.sources,
-    )
-    return formatContentWithSources(contentWithSupports, message.sources)
+    return parsed.content
   }, [message, isUser, providerId])
 
   const markdownComponents = useMemo(
@@ -610,17 +531,11 @@ const ShareCanvas = ({
       h1: ({ children }) => <h1>{parseChildrenWithEmojis(children)}</h1>,
       h2: ({ children }) => <h2>{parseChildrenWithEmojis(children)}</h2>,
       h3: ({ children }) => <h3>{parseChildrenWithEmojis(children)}</h3>,
-      a: ({ href, children }) => {
-        if (href && href.startsWith('citation:')) {
-          const label = String(children).replace(/[\[\]]/g, '')
-          return <span className="share-citation">{label}</span>
-        }
-        return (
-          <a href={href} target="_blank" rel="noreferrer">
-            {parseChildrenWithEmojis(children)}
-          </a>
-        )
-      },
+      a: ({ href, children }) => (
+        <a href={href} target="_blank" rel="noreferrer">
+          {parseChildrenWithEmojis(children)}
+        </a>
+      ),
     }),
     [],
   )

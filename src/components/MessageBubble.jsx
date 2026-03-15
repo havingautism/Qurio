@@ -57,16 +57,11 @@ import AgentBannerSurface from './AgentBannerSurface'
 import InteractiveForm from './InteractiveForm'
 import DeepResearchGoalCard from './message/DeepResearchGoalCard'
 import MessageActionBar from './message/MessageActionBar'
-import {
-  applyGroundingSupports,
-  formatContentWithSources,
-  getHostname,
-} from './message/messageUtils'
+import { getHostname } from './message/messageUtils'
 import { formatMessageDate } from '../lib/dateUtils'
 import RelatedQuestions from './message/RelatedQuestions'
 import { useMessageExport } from './message/useMessageExport'
 import MobileSourcesDrawer from './MobileSourcesDrawer'
-import DocumentSourcesPanel from './DocumentSourcesPanel'
 import ShareModal from './ShareModal'
 import YoutubeLogo from '../assets/youtube.svg?url'
 import BilibiliLogo from '../assets/bilibili.png?url'
@@ -78,6 +73,11 @@ import {
   getAgentBannerImage,
   hasManualAgentBanner,
 } from '../lib/agentAppearance'
+import {
+  canExpandDocumentCitation,
+  buildDocumentCitationPath,
+  prepareDocumentCitationSources,
+} from '../lib/documentCitationViewModel'
 
 const PROVIDER_META = {
   gemini: {
@@ -523,6 +523,30 @@ const MessageBubble = ({
   const formToolHistory = toolCallHistory.filter(item => item.name === 'interactive_form')
   const hasInteractiveForm = formToolHistory.length > 0
   const mainContent = isExpertMessage ? activeExpertResponse?.content || '' : parsed.content
+  const documentCitationSources = useMemo(
+    () =>
+      prepareDocumentCitationSources(
+        Array.isArray(mergedMessage.documentSources)
+          ? mergedMessage.documentSources.map(source => ({
+              ...source,
+              title: source?.title || 'Document',
+              snippet: source?.snippet || source?.content || '',
+            }))
+          : [],
+      ),
+    [mergedMessage.documentSources],
+  )
+  const hasExplicitWebSources = useMemo(
+    () => Array.isArray(mergedMessage.sources) && mergedMessage.sources.length > 0,
+    [mergedMessage.sources],
+  )
+  const hasNavigableSourceLink = useCallback(source => {
+    const candidate =
+      source?.url || source?.uri || source?.link || source?.href || source?.sourceUrl || ''
+    return typeof candidate === 'string' && candidate.trim().length > 0
+  }, [])
+  const hasAnySources = hasExplicitWebSources || documentCitationSources.length > 0
+  const shouldShowWorkflowSourceSummary = !isStreamingMessage && hasAnySources
   const displayProviderId = isExpertMessage
     ? activeExpertResponse?.provider || providerId
     : providerId
@@ -921,8 +945,6 @@ const MessageBubble = ({
   const [isGalleryOpen, setIsGalleryOpen] = useState(false)
   const [galleryIndex, setGalleryIndex] = useState(0)
   const [failedImageUrls, setFailedImageUrls] = useState(new Set())
-  const [isDocumentSourcesOpen, setIsDocumentSourcesOpen] = useState(false)
-
   // Use ref to store image metadata to avoid triggering markdownComponents rebuild
   const imageMetadataRef = useRef([])
   // Use ref to store video metadata to avoid triggering markdownComponents rebuild
@@ -1139,10 +1161,6 @@ const MessageBubble = ({
       return next
     })
   }, [])
-
-  useEffect(() => {
-    setIsDocumentSourcesOpen(false)
-  }, [message?.id])
 
   // Sync gallery index and close if empty
   useEffect(() => {
@@ -1638,8 +1656,6 @@ const MessageBubble = ({
     }
   }, [isDownloadMenuOpen])
 
-  const [isResearchExpanded, setIsResearchExpanded] = useState(false)
-  const [isPlanExpanded, setIsPlanExpanded] = useState(false)
   const [isWorkflowExpanded, setIsWorkflowExpanded] = useState(false)
 
   useEffect(() => {
@@ -1796,24 +1812,30 @@ const MessageBubble = ({
 
   const handleMobileSourceClick = useCallback(
     (selectedSources, title) => {
-      setMobileDrawerSources(selectedSources || mergedMessage.sources)
+      const resolvedSources = selectedSources || [
+        ...(Array.isArray(mergedMessage.sources) ? mergedMessage.sources : []),
+        ...documentCitationSources,
+      ]
+      setMobileDrawerSources(resolvedSources)
       setMobileDrawerTitle(title || t('sources.title'))
       setIsMobileDrawerOpen(true)
     },
-    [mergedMessage.sources, t],
+    [documentCitationSources, mergedMessage.sources, t],
   )
 
   const isStreaming = isStreamingMessage
   const persistedFinalAnswerDurationMs = Number.isFinite(mergedMessage?.finalAnswerDurationMs)
     ? Number(mergedMessage.finalAnswerDurationMs)
     : null
-  const wallClockStartRef = useRef(null)
+  const answerWallClockActiveStartRef = useRef(null)
+  const answerWallClockAccumulatedMsRef = useRef(0)
   const [wallClockElapsedSec, setWallClockElapsedSec] = useState(0)
   const [wallClockFinalSec, setWallClockFinalSec] = useState(null)
   const searchLiveStartRef = useRef(null)
   const [searchLiveElapsedSec, setSearchLiveElapsedSec] = useState(0)
 
   const [expandedToolsSteps, setExpandedToolsSteps] = useState(new Set())
+  const thoughtDurationMemoryRef = useRef(0)
   const toggleToolsStep = useCallback(idx => {
     setExpandedToolsSteps(prev => {
       const next = new Set(prev)
@@ -1824,7 +1846,9 @@ const MessageBubble = ({
   }, [])
 
   useEffect(() => {
-    wallClockStartRef.current = null
+    answerWallClockActiveStartRef.current = null
+    answerWallClockAccumulatedMsRef.current = 0
+    thoughtDurationMemoryRef.current = 0
     searchLiveStartRef.current = null
     setWallClockElapsedSec(0)
     setWallClockFinalSec(null)
@@ -1838,34 +1862,90 @@ const MessageBubble = ({
       (isExpertMessage
         ? typeof mainContent === 'string' && mainContent.trim().length > 0
         : typeof message?.content === 'string' && message.content.trim().length > 0)
+    const lastStreamType =
+      normalizedStreamBlocks.length > 0
+        ? String(normalizedStreamBlocks[normalizedStreamBlocks.length - 1]?.type || '')
+        : ''
+    // If stream blocks are available, only count wall-clock while actual text is streaming.
+    // This keeps fallback timer paused during interleaved reasoning/tool phases.
+    const shouldRunAnswerTimer =
+      isStreaming &&
+      hasAnswerOutputSignal &&
+      (normalizedStreamBlocks.length === 0 || lastStreamType === 'text')
 
-    if (isStreaming && hasAnswerOutputSignal) {
-      if (!Number.isFinite(wallClockStartRef.current)) {
-        // Start total timer when the default model actually begins emitting answer text.
-        wallClockStartRef.current = Date.now()
+    if (shouldRunAnswerTimer) {
+      if (!Number.isFinite(answerWallClockActiveStartRef.current)) {
+        answerWallClockActiveStartRef.current = Date.now()
       }
-
       const tick = () => {
-        const startMs = Number.isFinite(wallClockStartRef.current)
-          ? wallClockStartRef.current
+        const activeStart = Number.isFinite(answerWallClockActiveStartRef.current)
+          ? answerWallClockActiveStartRef.current
           : Date.now()
-        const elapsed = Math.max(0, Math.round((Date.now() - startMs) / 1000))
-        setWallClockElapsedSec(elapsed)
+        const totalMs = answerWallClockAccumulatedMsRef.current + (Date.now() - activeStart)
+        setWallClockElapsedSec(Math.max(0, Math.round(totalMs / 1000)))
       }
-
       tick()
       const timer = window.setInterval(tick, 500)
       return () => window.clearInterval(timer)
     }
 
-    if (Number.isFinite(wallClockStartRef.current)) {
-      const elapsed = Math.max(0, Math.round((Date.now() - wallClockStartRef.current) / 1000))
-      setWallClockElapsedSec(elapsed)
-      setWallClockFinalSec(prev => (typeof prev === 'number' ? prev : elapsed))
+    if (Number.isFinite(answerWallClockActiveStartRef.current)) {
+      answerWallClockAccumulatedMsRef.current += Math.max(
+        0,
+        Date.now() - answerWallClockActiveStartRef.current,
+      )
+      answerWallClockActiveStartRef.current = null
+      setWallClockElapsedSec(Math.max(0, Math.round(answerWallClockAccumulatedMsRef.current / 1000)))
+    }
+
+    if (!isStreaming && answerWallClockAccumulatedMsRef.current > 0) {
+      setWallClockFinalSec(Math.max(0, Math.round(answerWallClockAccumulatedMsRef.current / 1000)))
     }
 
     return undefined
-  }, [isStreaming, hasStartedAnswerTextStream, isExpertMessage, mainContent, message?.content])
+  }, [
+    isStreaming,
+    hasStartedAnswerTextStream,
+    isExpertMessage,
+    mainContent,
+    message?.content,
+    normalizedStreamBlocks,
+  ])
+
+  const answerTextDurationMsFromBlocks = useMemo(
+    () =>
+      normalizedStreamBlocks
+        .filter(
+          block =>
+            block.type === 'text' &&
+            typeof block.content === 'string' &&
+            block.content.trim().length > 0 &&
+            typeof block.durationMs === 'number' &&
+            block.durationMs > 0,
+        )
+        .reduce((sum, block) => sum + block.durationMs, 0),
+    [normalizedStreamBlocks],
+  )
+  const answerGenerationDurationMs = useMemo(() => {
+    if (Number.isFinite(persistedFinalAnswerDurationMs) && persistedFinalAnswerDurationMs > 0) {
+      return persistedFinalAnswerDurationMs
+    }
+    if (answerTextDurationMsFromBlocks > 0) {
+      return answerTextDurationMsFromBlocks
+    }
+    if (typeof wallClockFinalSec === 'number' && wallClockFinalSec > 0) {
+      return wallClockFinalSec * 1000
+    }
+    if (typeof wallClockElapsedSec === 'number' && wallClockElapsedSec > 0) {
+      return wallClockElapsedSec * 1000
+    }
+    return 0
+  }, [
+    answerTextDurationMsFromBlocks,
+    persistedFinalAnswerDurationMs,
+    wallClockElapsedSec,
+    wallClockFinalSec,
+  ])
 
   const hasMainText = (() => {
     if (isExpertMessage) {
@@ -2042,7 +2122,7 @@ const MessageBubble = ({
         return (
           <CitationChip
             indices={citationIndices}
-            sources={mergedMessage.sources}
+            sources={documentCitationSources}
             isMobile={isMobile}
             onMobileClick={sources =>
               handleMobileSourceClick(sources, t('sources.citationSources'))
@@ -2120,7 +2200,7 @@ const MessageBubble = ({
     LinkRenderer.displayName = 'MarkdownLinkRenderer'
     return LinkRenderer
   }, [
-    mergedMessage.sources,
+    documentCitationSources,
     isMobile,
     handleMobileSourceClick,
     t,
@@ -2334,6 +2414,24 @@ const MessageBubble = ({
     }
     return merged
   }, [compactStreamingTextBlocks, interleavedContent, isExpertMessage])
+  const allSources = useMemo(
+    () => [
+      ...(Array.isArray(mergedMessage.sources)
+        ? mergedMessage.sources.map((source, index) => ({
+            ...source,
+            sourceKind: 'web',
+            originalIndex: source?.originalIndex !== undefined ? source.originalIndex : index,
+          }))
+        : []),
+      ...documentCitationSources.map((source, index) => ({
+        ...source,
+        sourceKind: 'document',
+        originalIndex: source?.originalIndex !== undefined ? source.originalIndex : index,
+      })),
+    ],
+    [documentCitationSources, mergedMessage.sources],
+  )
+  const shouldShowSourcesDrawer = !isStreaming && allSources.length > 0
   const SEARCH_STEP_TOOLS = useMemo(
     () =>
       new Set([
@@ -2764,19 +2862,10 @@ const MessageBubble = ({
   )
   const renderedMainContent = contentPartsOutsideWorkflow.map((part, idx) => {
     if (part.type === 'text') {
-      const contentWithSupports = applyGroundingSupports(
-        part.content,
-        mergedMessage.groundingSupports,
-        mergedMessage.sources,
-      )
-      const contentWithCitations = formatContentWithSources(
-        contentWithSupports,
-        mergedMessage.sources,
-      )
       const sanitizedMainText =
-        isExpertMessage && typeof contentWithCitations === 'string'
-          ? normalizeExpertBrokenTokenLines(contentWithCitations)
-          : sanitizeDisplayText(contentWithCitations)
+        isExpertMessage && typeof part.content === 'string'
+          ? normalizeExpertBrokenTokenLines(part.content)
+          : sanitizeDisplayText(part.content)
       const showStatusBeforeText = hasFormSubmissionStatus && idx === firstTextPartDisplayIndex
       const isTextEmpty = !sanitizedMainText || !sanitizedMainText.trim()
 
@@ -2860,6 +2949,8 @@ const MessageBubble = ({
     // Check if this user message initiated a Deep Research task
     const nextMessage = messages[messageIndex + 1]
     const isDeepResearchContext =
+      !!message?.deepResearch ||
+      !!nextMessage?.deepResearch ||
       nextMessage?.agentName === 'Deep Research Agent' ||
       nextMessage?.agent_name === 'Deep Research Agent'
     const nextUserIndex = messages.findIndex((m, idx) => idx > messageIndex && m.role === 'user')
@@ -3185,7 +3276,9 @@ const MessageBubble = ({
                         emoji={item.agentEmoji}
                         size="1.3rem"
                       />
-                      <span className="text-base font-semibold">{item.agentName || item.agentId}</span>
+                      <span className="text-base font-semibold">
+                        {item.agentName || item.agentId}
+                      </span>
                     </span>
                     <span className="ml-auto flex shrink-0 items-center gap-1.5">
                       <span
@@ -3290,7 +3383,6 @@ const MessageBubble = ({
     )
   }
 
-  const hasPlanText = !!planMarkdown
   const researchPlanLoading = Boolean(message?.researchPlanLoading)
   const researchSteps = useMemo(() => {
     const steps = Array.isArray(message.researchSteps) ? [...message.researchSteps] : []
@@ -3318,10 +3410,76 @@ const MessageBubble = ({
   const hasActiveResearchStep = researchSteps.some(
     step => step.status === 'running' || step.status === 'pending',
   )
-  const shouldShowPlan = isDeepResearch && (hasPlanText || researchPlanLoading)
-  const shouldShowResearch = isDeepResearch && hasResearchSteps
   const shouldShowPlanStatus = isDeepResearch && researchPlanLoading
-  const shouldShowResearchStatus = isDeepResearch && hasActiveResearchStep
+  const totalResearchSteps = useMemo(() => {
+    if (!hasResearchSteps) return 0
+    const maxStep = researchSteps.reduce((max, step) => {
+      const value = Number(step?.step)
+      return Number.isFinite(value) ? Math.max(max, value) : max
+    }, 0)
+    const declaredTotal = researchSteps.reduce((max, step) => {
+      const value = Number(step?.total)
+      return Number.isFinite(value) ? Math.max(max, value) : max
+    }, 0)
+    return Math.max(maxStep, declaredTotal, researchSteps.length)
+  }, [hasResearchSteps, researchSteps])
+  const researchProgressPercent = useMemo(() => {
+    if (!hasResearchSteps || totalResearchSteps <= 0) return 0
+    const completedCount = researchSteps.filter(
+      step => step?.status === 'done' || step?.status === 'error',
+    ).length
+    const runningCount = researchSteps.filter(step => step?.status === 'running').length
+    let progressUnits = completedCount
+    if (runningCount > 0 && completedCount < totalResearchSteps) {
+      progressUnits += 0.5
+    }
+    if (!isStreaming && !hasActiveResearchStep) {
+      progressUnits = totalResearchSteps
+    }
+    const raw = (progressUnits / totalResearchSteps) * 100
+    return Math.max(0, Math.min(100, Math.round(raw)))
+  }, [hasResearchSteps, totalResearchSteps, researchSteps, isStreaming, hasActiveResearchStep])
+  const researchStepsDurationMs = useMemo(
+    () =>
+      researchSteps.reduce(
+        (sum, step) => sum + (typeof step.durationMs === 'number' ? step.durationMs : 0),
+        0,
+      ),
+    [researchSteps],
+  )
+  const deepResearchCompletedDurationSec = useMemo(() => {
+    if (!isDeepResearch) return null
+
+    const totalMs = researchStepsDurationMs + answerGenerationDurationMs
+    return totalMs > 0 ? Math.max(0, Math.round(totalMs / 1000)) : 0
+  }, [
+    answerGenerationDurationMs,
+    isDeepResearch,
+    researchStepsDurationMs,
+  ])
+  const deepResearchHeaderText = useMemo(() => {
+    if (!isDeepResearch) return ''
+    if (!isStreaming) {
+      return t('messageBubble.completedResearch', {
+        duration: Math.max(0, Number(deepResearchCompletedDurationSec) || 0),
+      })
+    }
+    if (shouldShowPlanStatus && !hasResearchSteps) {
+      return t('messageBubble.researchPlanningInProgress', '研究规划中')
+    }
+    if (hasResearchSteps) {
+      return `${t('chat.deepResearchResearching', '正在研究中')} (${researchProgressPercent}%)`
+    }
+    return t('messageBubble.statusThinking', '正在思考分析')
+  }, [
+    isDeepResearch,
+    isStreaming,
+    shouldShowPlanStatus,
+    hasResearchSteps,
+    researchProgressPercent,
+    deepResearchCompletedDurationSec,
+    t,
+  ])
 
   const resolvedRelatedQuestions = (() => {
     const direct = mergedMessage.related
@@ -3353,35 +3511,37 @@ const MessageBubble = ({
     return isLastRenderable
   }, [messages, messageIndex, isLastRenderable])
   const workflowContainerRef = useRef(null)
-  const allSources = useMemo(
-    () => (Array.isArray(mergedMessage.sources) ? mergedMessage.sources : []),
-    [mergedMessage.sources],
-  )
   const workflowProcessSteps = useMemo(() => {
     const base = Array.isArray(processSteps) ? [...processSteps] : []
-    if (isDeepResearch) return base
-
     const shouldShowAnswerStep = Boolean(
       isStreaming || hasMainText || base.length > 0 || typeof wallClockFinalSec === 'number',
     )
+
+    if (isDeepResearch) {
+      const mappedSteps = researchSteps.map(step => ({
+        kind: 'research_step',
+        ...step,
+      }))
+      if (!shouldShowAnswerStep) return mappedSteps
+
+      const finalMs = answerGenerationDurationMs > 0 ? answerGenerationDurationMs : 0
+
+      const stepMs = mappedSteps.reduce(
+        (sum, step) => sum + (typeof step.durationMs === 'number' ? step.durationMs : 0),
+        0,
+      )
+      mappedSteps.push({
+        kind: 'final_answer',
+        status: isStreaming ? 'running' : 'done',
+        durationMs: stepMs + finalMs > 0 ? stepMs + finalMs : null,
+      })
+
+      return mappedSteps
+    }
+
     if (!shouldShowAnswerStep) return base
 
-    let finalMs = 0
-    if (
-      !isStreaming &&
-      Number.isFinite(persistedFinalAnswerDurationMs) &&
-      persistedFinalAnswerDurationMs > 0
-    ) {
-      finalMs = persistedFinalAnswerDurationMs
-    } else {
-      const answerDurationSec =
-        typeof wallClockFinalSec === 'number'
-          ? wallClockFinalSec
-          : typeof wallClockElapsedSec === 'number'
-            ? wallClockElapsedSec
-            : 0
-      finalMs = answerDurationSec > 0 ? Math.max(0, Number(answerDurationSec) * 1000) : 0
-    }
+    const finalMs = answerGenerationDurationMs > 0 ? answerGenerationDurationMs : 0
 
     const sumOfBaseMs = base.reduce((sum, step) => {
       if (typeof step.durationMs === 'number') return sum + step.durationMs
@@ -3412,7 +3572,9 @@ const MessageBubble = ({
     hasMainText,
     wallClockElapsedSec,
     isDeepResearch,
+    researchSteps,
     persistedFinalAnswerDurationMs,
+    answerGenerationDurationMs,
   ])
   const hasWorkflowFinalAnswerStep = useMemo(
     () => workflowProcessSteps.some(step => step?.kind === 'final_answer'),
@@ -3439,6 +3601,18 @@ const MessageBubble = ({
       ),
     }
   }, [workflowProcessSteps])
+  useEffect(() => {
+    const thoughtMs = workflowThoughtStep?.durationMs
+    if (typeof thoughtMs === 'number' && thoughtMs > 0) {
+      thoughtDurationMemoryRef.current = thoughtMs
+    }
+  }, [workflowThoughtStep?.durationMs])
+  const displayWorkflowThoughtDurationMs = useMemo(() => {
+    const thoughtMs = workflowThoughtStep?.durationMs
+    if (typeof thoughtMs === 'number' && thoughtMs > 0) return thoughtMs
+    if (thoughtDurationMemoryRef.current > 0) return thoughtDurationMemoryRef.current
+    return null
+  }, [workflowThoughtStep?.durationMs])
   const workflowToolItems = useMemo(
     () =>
       workflowProcessSteps
@@ -3467,39 +3641,15 @@ const MessageBubble = ({
   }, [workflowThoughtStep?.durationMs, workflowSearchDurationMs, workflowToolItems])
   const processDurationSec = Math.max(0, Math.round(processDurationMs / 1000))
   const completedDurationSec = useMemo(() => {
-    let finalMs = 0
-    if (
-      !isStreaming &&
-      Number.isFinite(persistedFinalAnswerDurationMs) &&
-      persistedFinalAnswerDurationMs > 0
-    ) {
-      finalMs = persistedFinalAnswerDurationMs
-    } else if (typeof wallClockFinalSec === 'number') {
-      finalMs = wallClockFinalSec * 1000
-    } else if (typeof wallClockElapsedSec === 'number' && wallClockElapsedSec > 0) {
-      finalMs = wallClockElapsedSec * 1000
-    }
-
-    const totalMs = processDurationMs + finalMs
+    const totalMs = processDurationMs + (answerGenerationDurationMs > 0 ? answerGenerationDurationMs : 0)
     return totalMs > 0 ? Math.max(0, Math.round(totalMs / 1000)) : null
   }, [
-    isStreaming,
-    persistedFinalAnswerDurationMs,
+    answerGenerationDurationMs,
     processDurationMs,
-    wallClockElapsedSec,
-    wallClockFinalSec,
   ])
   const finalAnswerDurationMsForDisplay = useMemo(() => {
-    // Return cumulative duration for 'final_answer' step display
-    if (typeof completedDurationSec === 'number' && completedDurationSec > 0) {
-      return completedDurationSec * 1000
-    }
-    // Fallback if completedDuration doesn't evaluate
-    if (Number.isFinite(persistedFinalAnswerDurationMs) && persistedFinalAnswerDurationMs > 0) {
-      return persistedFinalAnswerDurationMs + processDurationMs
-    }
-    return null
-  }, [persistedFinalAnswerDurationMs, finalAnswerWorkflowStep?.durationMs, completedDurationSec])
+    return answerGenerationDurationMs > 0 ? answerGenerationDurationMs : null
+  }, [answerGenerationDurationMs])
   const activeStreamingStepKind = useMemo(() => {
     if (!isStreaming) return null
 
@@ -3585,12 +3735,29 @@ const MessageBubble = ({
         >
           <div className="flex items-center gap-2.5">
             <span className="flex items-center gap-2 text-sm font-semibold tracking-tight">
-              {isStreaming ? (
+              {isDeepResearch ? (
+                <>
+                  <span className="truncate">{deepResearchHeaderText}</span>
+                  {isStreaming && <DotLoader size="sm" />}
+                </>
+              ) : isStreaming ? (
                 <>
                   <span>
                     {(() => {
+                      if (
+                        isStreaming &&
+                        !hasStartedAnswerTextStream &&
+                        hasWorkflowFinalAnswerStep &&
+                        (activeStreamingStepKind === null || activeStreamingStepKind === 'final_answer')
+                      ) {
+                        return isDeepResearch
+                          ? t('messageBubble.statusResearchGenerationWaiting', '研究生成等待中')
+                          : t('messageBubble.statusGenerationWaiting', '生成等待中')
+                      }
                       if (activeStreamingStepKind === 'final_answer')
-                        return t('messageBubble.statusGeneratingAnswer', '正在生成正文')
+                        return isDeepResearch
+                          ? t('messageBubble.statusGeneratingResearch', '研究生成中')
+                          : t('messageBubble.statusGeneratingAnswer', '正在生成正文')
                       if (activeStreamingStepKind === 'search')
                         return t('messageBubble.statusSearching', '正在搜索')
                       if (activeStreamingStepKind === 'tools')
@@ -3610,7 +3777,7 @@ const MessageBubble = ({
               <ChevronRight size={16} className="opacity-60" />
             )}
           </div>
-          {allSources.length > 0 && (
+          {shouldShowWorkflowSourceSummary && allSources.length > 0 && (
             <button
               type="button"
               onClick={event => {
@@ -3653,7 +3820,9 @@ const MessageBubble = ({
             style={{ scrollbarGutter: 'stable' }}
           >
             <div className="relative pl-7">
-              {workflowProcessSteps.map((step, idx) => {
+              {(() => {
+                const thoughtStepCount = workflowProcessSteps.filter(step => step.kind === 'thought').length
+                return workflowProcessSteps.map((step, idx) => {
                 const isNotLast =
                   idx < workflowProcessSteps.length - 1 ||
                   allSources.length > 0 ||
@@ -3661,6 +3830,12 @@ const MessageBubble = ({
 
                 if (step.kind === 'thought') {
                   if (!step.content) return null
+                  const thoughtDurationMs =
+                    typeof step.durationMs === 'number' && step.durationMs > 0
+                      ? step.durationMs
+                      : thoughtStepCount === 1
+                        ? displayWorkflowThoughtDurationMs
+                        : null
                   return (
                     <div key={`thought-${idx}`} className="relative mb-4">
                       {isNotLast && (
@@ -3669,6 +3844,15 @@ const MessageBubble = ({
                       <div className="absolute top-0.75 -left-7 flex h-4 w-4 items-center justify-center text-gray-400 dark:text-gray-500">
                         <BrainCircuit size={16} />
                       </div>
+                      {typeof thoughtDurationMs === 'number' && thoughtDurationMs > 0 && (
+                        <div className="mb-2 flex justify-end">
+                          <span className="text-xs! text-gray-500 dark:text-gray-400">
+                            {t('messageBubble.toolDuration', {
+                              duration: (thoughtDurationMs / 1000).toFixed(2),
+                            })}
+                          </span>
+                        </div>
+                      )}
                       <div className="text-base leading-relaxed text-gray-600 dark:text-gray-300">
                         <Streamdown
                           mermaid={mermaidOptions}
@@ -3677,6 +3861,132 @@ const MessageBubble = ({
                         >
                           {formatThoughtContentForDisplay(step.content)}
                         </Streamdown>
+                      </div>
+                    </div>
+                  )
+                }
+
+                if (step.kind === 'research_step') {
+                  const isRunning = step.status === 'running'
+                  const isPending = step.status === 'pending'
+                  const isActive = isRunning || isPending
+                  const isDone = step.status === 'done'
+                  const isError = step.status === 'error'
+                  const stepToolCalls = getToolCallsForStep(step.step)
+                  const durationLabel =
+                    typeof step.durationMs === 'number'
+                      ? t('messageBubble.researchStepDuration', {
+                          duration: (step.durationMs / 1000).toFixed(2),
+                        })
+                      : null
+                  const statusLabel = isError
+                    ? t('messageBubble.researchStepStatusError')
+                    : isDone
+                      ? t('messageBubble.researchStepStatusDone')
+                      : isRunning
+                        ? t('messageBubble.researchStepStatusRunning')
+                        : t('messageBubble.researchStepStatusPending')
+
+                  return (
+                    <div
+                      key={
+                        step.stepKey ||
+                        (Number.isFinite(Number(step.step))
+                          ? `research-step-${Number(step.step)}`
+                          : `research-step-${step.streamOrder ?? step.title ?? 'unknown'}`)
+                      }
+                      className="relative mb-4"
+                    >
+                      {isNotLast && (
+                        <span className="pointer-events-none absolute top-6 bottom-[-16px] -left-5 border-l border-dashed border-gray-300/90 dark:border-zinc-700/90" />
+                      )}
+                      <div className="absolute top-0.75 -left-7 flex h-4 w-4 items-center justify-center text-gray-400 dark:text-gray-500">
+                        <ScanText size={16} />
+                      </div>
+
+                      <div className="space-y-2">
+                        <div className="flex flex-wrap items-center gap-2 text-xs">
+                          <span className="rounded-full border border-gray-200/80 bg-white/85 px-2 py-0.5 font-semibold text-gray-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-gray-300">
+                            {t('messageBubble.researchStepLabel', {
+                              step: step.step,
+                              total: step.total || researchSteps.length,
+                            })}
+                          </span>
+                          <span
+                            className={clsx(
+                              'rounded-full px-2 py-0.5 text-[11px]',
+                              isError
+                                ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+                                : isDone
+                                  ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
+                                  : 'bg-gray-200/70 text-gray-600 dark:bg-zinc-700/70 dark:text-gray-400',
+                            )}
+                          >
+                            {statusLabel}
+                          </span>
+                          {isActive && <DotLoader />}
+                          {durationLabel && (
+                            <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                              {durationLabel}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-base text-gray-700 dark:text-gray-200">
+                          {step.title}
+                          {isActive ? '...' : ''}
+                        </div>
+                        {step.error && (
+                          <div className="rounded-xl border border-red-500/20 bg-red-500/8 px-3 py-2 text-[11px] text-red-500 dark:text-red-400">
+                            {step.error}
+                          </div>
+                        )}
+                        {stepToolCalls.length > 0 && (
+                          <div className="space-y-2">
+                            {stepToolCalls.map(item => {
+                              const hasDuration = typeof item.durationMs === 'number'
+                              const queryPreview = renderToolQueryPreview(
+                                item,
+                                'max-w-[280px] truncate text-xs text-gray-600 dark:text-gray-300',
+                              )
+                              const isSearchLike = Boolean(queryPreview)
+
+                              return (
+                                <div
+                                  key={item.id || `${item.name}-${item.arguments}`}
+                                  className="flex items-center gap-3"
+                                >
+                                  <div className="min-w-0">
+                                    {isSearchLike ? (
+                                      <div
+                                        className={clsx(
+                                          'inline-flex max-w-full items-center gap-2 rounded-full border px-3 py-1.5 text-xs shadow-[0_1px_2px_rgba(0,0,0,0.02)]',
+                                          item.status === 'error'
+                                            ? 'border-red-200/70 bg-red-50/70 text-red-600 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300'
+                                            : 'border-primary-200/35 bg-white/70 text-gray-700 dark:border-primary-700/30 dark:bg-zinc-800/55 dark:text-gray-200',
+                                        )}
+                                      >
+                                        <Search size={13} className="shrink-0 opacity-75" />
+                                        <span className="truncate">
+                                          {getToolDisplayName(item) || t('messageBubble.searchToolLabel')}
+                                        </span>
+                                        <span className="min-w-0 truncate">{queryPreview}</span>
+                                      </div>
+                                    ) : (
+                                      renderWorkflowToolCapsule(item)
+                                    )}
+                                  </div>
+                                  {hasDuration && (
+                                    <span className="ml-auto shrink-0 text-xs! whitespace-nowrap text-gray-500 dark:text-gray-400">
+                                      {t('messageBubble.toolDuration', {
+                                        duration: (item.durationMs / 1000).toFixed(2),
+                                      })}
+                                    </span>
+                                  )}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
                       </div>
                     </div>
                   )
@@ -3753,11 +4063,13 @@ const MessageBubble = ({
                         </div>
 
                         {/* Sources row */}
-                        {step.sources && step.sources.length > 0 && (
-                          <div className="mb-2">
-                            <SearchSourcesList sources={step.sources} />
-                          </div>
-                        )}
+                        {Array.isArray(step.sources) &&
+                          step.sources.length > 0 &&
+                          step.sources.some(hasNavigableSourceLink) && (
+                            <div className="mb-2">
+                              <SearchSourcesList sources={step.sources} />
+                            </div>
+                          )}
                       </div>
                     </div>
                   )
@@ -3880,9 +4192,10 @@ const MessageBubble = ({
                 if (step.kind === 'final_answer') return null
 
                 return null
-              })}
+                })
+              })()}
 
-              {allSources.length > 0 && (
+              {shouldShowWorkflowSourceSummary && allSources.length > 0 && (
                 <div className="relative mb-4 pt-2">
                   {(shouldShowWorkflowFinalAnswer || hasWorkflowFinalAnswerStep) && (
                     <span className="pointer-events-none absolute top-6 bottom-[-16px] -left-5 border-l border-dashed border-gray-300/90 dark:border-zinc-700/90" />
@@ -3891,9 +4204,11 @@ const MessageBubble = ({
                     <Link size={16} />
                   </div>
                   <div className="mb-3 text-base font-semibold text-gray-700 dark:text-gray-200">
-                    {t('messageBubble.organizedSources', '整理参考资料')}
+                    {isDeepResearch
+                      ? t('messageBubble.organizeResearchSources', '整理研究来源')
+                      : t('messageBubble.organizedSources', '整理参考资料')}
                   </div>
-                  <DesktopSourcesSection sources={allSources} isOpen />
+                  <DesktopSourcesSection sources={allSources} isOpen variant="legacy" />
                 </div>
               )}
               {hasWorkflowFinalAnswerStep && (
@@ -3905,8 +4220,16 @@ const MessageBubble = ({
                     <div className="flex items-center gap-2 text-base font-medium text-gray-600 dark:text-gray-300">
                       <span>
                         {isStreaming
-                          ? t('messageBubble.statusGeneratingAnswer', '正文生成中')
-                          : t('messageBubble.finalAnswerStep', '生成最终回答')}
+                          ? activeStreamingStepKind === 'final_answer'
+                            ? isDeepResearch
+                              ? t('messageBubble.statusGeneratingResearch', '研究生成中')
+                              : t('messageBubble.statusGeneratingAnswer', '正文生成中')
+                            : isDeepResearch
+                              ? t('messageBubble.statusResearchGenerationWaiting', '研究生成等待中')
+                              : t('messageBubble.statusGenerationWaiting', '生成等待中')
+                          : isDeepResearch
+                            ? t('messageBubble.finalResearchStep', '生成最终研究')
+                            : t('messageBubble.finalAnswerStep', '生成最终回答')}
                       </span>
                     </div>
                     {typeof finalAnswerDurationMsForDisplay === 'number' && (
@@ -3925,7 +4248,9 @@ const MessageBubble = ({
                     <DotLoader size="6px" gap="3px" />
                   </div>
                   <div className="text-base font-medium text-gray-600 dark:text-gray-300">
-                    {t('messageBubble.finalAnswerStep')}
+                    {isDeepResearch
+                      ? t('messageBubble.finalResearchStep', '生成最终研究')
+                      : t('messageBubble.finalAnswerStep')}
                   </div>
                 </div>
               )}
@@ -3949,16 +4274,7 @@ const MessageBubble = ({
             remarkPlugins={[remarkGfm]}
             components={markdownComponents}
           >
-            {sanitizeDisplayText(
-              formatContentWithSources(
-                applyGroundingSupports(
-                  expertPlanBlock.content,
-                  mergedMessage.groundingSupports,
-                  mergedMessage.sources,
-                ),
-                mergedMessage.sources,
-              ),
-            )}
+            {sanitizeDisplayText(expertPlanBlock.content)}
           </Streamdown>
         </div>
       </div>
@@ -4218,331 +4534,6 @@ const MessageBubble = ({
       </div>
       {headerExtraContent}
 
-      {/* Thinking Process Section */}
-      {isDeepResearch ? (
-        <>
-          {shouldShowPlan && (
-            <div className="mb-4">
-              <button
-                onClick={() => setIsPlanExpanded(!isPlanExpanded)}
-                className="flex w-full items-center justify-between py-1 text-gray-600 transition-colors hover:text-gray-800 dark:text-gray-300 dark:hover:text-gray-100"
-              >
-                <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                  <BrainCircuit
-                    size={15}
-                    className="text-primary-500/80 dark:text-primary-300/75"
-                  />
-                  <span className="text-sm">{t('messageBubble.planProcess')}</span>
-                  {!shouldShowPlanStatus && <Check size="1em" />}
-                  {shouldShowPlanStatus && (
-                    <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                      <span className="mr-4 text-left transition-opacity duration-200 ease-out">
-                        {researchStatusText}
-                      </span>
-                      <DotLoader />
-                    </div>
-                  )}
-                </div>
-                <div className="flex items-center gap-3">
-                  {isPlanExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                </div>
-              </button>
-
-              {isPlanExpanded && (hasPlanText || shouldShowPlanStatus) && (
-                <div className="mt-1 border-l border-gray-300/80 pl-4 text-sm leading-relaxed text-gray-600 font-stretch-semi-condensed dark:border-zinc-700/80 dark:text-gray-400">
-                  {planStepsForCards.length > 0 ? (
-                    <div className="space-y-4">
-                      <div className="border-primary-200/38 dark:border-primary-700/22 rounded-lg border bg-white/72 p-3 dark:bg-zinc-800/62">
-                        <div className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-                          {parsedResearchPlan?.research_type
-                            ? `${t('messageBubble.researchType')}: ${
-                                parsedResearchPlan.research_type === 'academic'
-                                  ? t('messageBubble.researchTypeAcademic')
-                                  : t('messageBubble.researchTypeGeneral')
-                              }`
-                            : t('messageBubble.researchPlan')}
-                        </div>
-                        {parsedResearchPlan?.goal && (
-                          <div className="mt-2 text-sm text-gray-700 dark:text-gray-300">
-                            {parsedResearchPlan.goal}
-                          </div>
-                        )}
-                        {(parsedResearchPlan?.complexity || parsedResearchPlan?.question_type) && (
-                          <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-gray-500 dark:text-gray-400">
-                            {parsedResearchPlan?.complexity && (
-                              <span className="rounded-full bg-gray-100 px-2 py-0.5 dark:bg-zinc-700/70">
-                                {t('messageBubble.researchComplexity')}:{' '}
-                                {parsedResearchPlan.complexity}
-                              </span>
-                            )}
-                            {parsedResearchPlan?.question_type && (
-                              <span className="rounded-full bg-gray-100 px-2 py-0.5 dark:bg-zinc-700/70">
-                                {t('messageBubble.researchQuestionType')}:{' '}
-                                {parsedResearchPlan.question_type}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      {planStepsForCards.map((step, stepIdx) => {
-                        const criteria = Array.isArray(step.acceptance_criteria)
-                          ? step.acceptance_criteria.filter(Boolean)
-                          : []
-                        return (
-                          <div
-                            key={`plan-step-card-${step.step || stepIdx}`}
-                            className="border-primary-200/38 dark:border-primary-700/22 rounded-lg border bg-white/72 p-3 dark:bg-zinc-800/62"
-                          >
-                            <div className="flex flex-wrap items-center gap-2 text-xs">
-                              <span className="font-semibold text-gray-700 dark:text-gray-200">
-                                {t('messageBubble.researchStepLabel', {
-                                  step: step.step || stepIdx + 1,
-                                  total: planStepsForCards.length,
-                                })}
-                              </span>
-                            </div>
-                            <div className="mt-1 text-sm text-gray-700 dark:text-gray-300">
-                              {step.action || '-'}
-                            </div>
-                            <div className="mt-2 space-y-1 text-[12px] text-gray-600 dark:text-gray-400">
-                              {step.thought && (
-                                <div>
-                                  {t('messageBubble.researchThought')}: {step.thought}
-                                </div>
-                              )}
-                              {step.expected_output && (
-                                <div>
-                                  {t('messageBubble.researchExpected')}: {step.expected_output}
-                                </div>
-                              )}
-                              {step.deliverable_format && (
-                                <div>
-                                  {t('messageBubble.researchDeliverableFormat')}:{' '}
-                                  {step.deliverable_format}
-                                </div>
-                              )}
-                              {step.depth && (
-                                <div>
-                                  {t('messageBubble.researchDepth')}: {step.depth}
-                                </div>
-                              )}
-                              {typeof step.requires_search === 'boolean' && (
-                                <div>
-                                  {t('messageBubble.researchRequiresSearch')}:{' '}
-                                  {step.requires_search ? '✅' : '❌'}
-                                </div>
-                              )}
-                              {criteria.map((item, idx) => (
-                                <div key={`plan-criteria-${stepIdx}-${idx}`}>
-                                  {t('messageBubble.researchAcceptanceCriteria')}: {item}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  ) : (
-                    <div className="[&>div>p:last-child]:mb-0!">
-                      <Streamdown
-                        mermaid={mermaidOptions}
-                        remarkPlugins={[remarkGfm]}
-                        components={markdownComponents}
-                      >
-                        {planMarkdown}
-                      </Streamdown>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
-          {shouldShowResearch && (
-            <div className="mb-4">
-              <button
-                onClick={() => setIsResearchExpanded(!isResearchExpanded)}
-                className="flex w-full items-center justify-between py-1 text-gray-600 transition-colors hover:text-gray-800 dark:text-gray-300 dark:hover:text-gray-100"
-              >
-                <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                  <BrainCircuit
-                    size={15}
-                    className="text-primary-500/80 dark:text-primary-300/75"
-                  />
-                  <span className="text-sm">{t('messageBubble.researchProcess')}</span>
-                  {!shouldShowResearchStatus && <Check size="1em" />}
-                  {shouldShowResearchStatus && (
-                    <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                      <span className="mr-4 text-left transition-opacity duration-200 ease-out">
-                        {researchStatusText}
-                      </span>
-                      <DotLoader />
-                    </div>
-                  )}
-                </div>
-                <div className="flex items-center gap-3">
-                  {isResearchExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                </div>
-              </button>
-
-              {isResearchExpanded && hasResearchSteps && (
-                <div className="mt-1 border-l border-gray-300/80 pl-4 text-sm leading-relaxed text-gray-600 font-stretch-semi-condensed dark:border-zinc-700/80 dark:text-gray-400 [&>div>p:last-child]:mb-0!">
-                  {researchSteps.map(step => {
-                    const isRunning = step.status === 'running'
-                    const isPending = step.status === 'pending'
-                    const isActive = isRunning || isPending
-                    const isDone = step.status === 'done'
-                    const isError = step.status === 'error'
-                    const stepToolCalls = getToolCallsForStep(step.step)
-                    const durationLabel =
-                      typeof step.durationMs === 'number'
-                        ? t('messageBubble.researchStepDuration', {
-                            duration: (step.durationMs / 1000).toFixed(2),
-                          })
-                        : null
-                    const statusLabel = isError
-                      ? t('messageBubble.researchStepStatusError')
-                      : isDone
-                        ? t('messageBubble.researchStepStatusDone')
-                        : isRunning
-                          ? t('messageBubble.researchStepStatusRunning')
-                          : t('messageBubble.researchStepStatusPending')
-                    return (
-                      <div
-                        key={
-                          step.stepKey ||
-                          (Number.isFinite(Number(step.step))
-                            ? `research-step-${Number(step.step)}`
-                            : `research-step-${step.streamOrder ?? step.title ?? 'unknown'}`)
-                        }
-                        className="border-primary-200/38 dark:border-primary-700/22 mb-4 flex items-start gap-3 rounded-lg border bg-white/72 p-3 dark:bg-zinc-800/62"
-                      >
-                        <div className="flex-1 space-y-1">
-                          <div className="flex flex-wrap items-center gap-2 text-xs">
-                            <span className="font-semibold text-gray-700 dark:text-gray-200">
-                              {t('messageBubble.researchStepLabel', {
-                                step: step.step,
-                                total: step.total || researchSteps.length,
-                              })}
-                            </span>
-                            <span
-                              className={clsx(
-                                'rounded-full px-2 py-0.5 text-[11px]',
-                                isError
-                                  ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
-                                  : isDone
-                                    ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
-                                    : 'bg-gray-200/70 text-gray-600 dark:bg-zinc-700/70 dark:text-gray-400',
-                              )}
-                            >
-                              {statusLabel}
-                            </span>
-                            {isActive && <DotLoader />}
-                            {durationLabel && (
-                              <span className="text-[11px] text-gray-500 dark:text-gray-400">
-                                {durationLabel}
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-sm text-gray-700 dark:text-gray-300">
-                            {step.title}
-                            {isActive ? '...' : ''}
-                          </div>
-                          {step.error && (
-                            <div className="text-[11px] text-red-500 dark:text-red-400">
-                              {step.error}
-                            </div>
-                          )}
-                          {stepToolCalls.length > 0 && (
-                            <div className="mt-2 space-y-1">
-                              <div className="my-2 h-[0.5px] w-full bg-gray-200 dark:bg-zinc-700"></div>
-                              {/* <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400">
-                                {t('messageBubble.toolCalls')}
-                              </div> */}
-                              <div className="space-y-1 overflow-hidden">
-                                {stepToolCalls.map(item => {
-                                  const IconComponent = getToolIconComponent(item.name)
-                                  return (
-                                    <div
-                                      key={item.id || `${item.name}-${item.arguments}`}
-                                      className="flex items-center gap-2 text-[11px] text-gray-500 dark:text-gray-400"
-                                    >
-                                      <div className="grid w-full grid-cols-[auto_minmax(0,1fr)_auto_auto_auto] items-center gap-1 sm:gap-1.5">
-                                        <span className="flex items-center gap-1 font-medium whitespace-nowrap text-gray-600 dark:text-gray-300">
-                                          {item.status === 'error' ? (
-                                            <AlertTriangle
-                                              size={12}
-                                              className="text-red-500 dark:text-red-400"
-                                            />
-                                          ) : (
-                                            IconComponent && (
-                                              <IconComponent
-                                                size={12}
-                                                className="text-gray-500 dark:text-gray-400"
-                                              />
-                                            )
-                                          )}
-                                          {item.status === 'error'
-                                            ? t('messageBubble.toolCallError')
-                                            : getToolDisplayName(item)}
-                                        </span>
-                                        <div className="flex min-w-0 items-center">
-                                          {renderToolQueryPreview(item)}
-                                        </div>
-                                        {typeof item.durationMs === 'number' && (
-                                          <span className="text-[10px] whitespace-nowrap text-gray-500 dark:text-gray-400">
-                                            {t('messageBubble.toolDuration', {
-                                              duration: (item.durationMs / 1000).toFixed(2),
-                                            })}
-                                          </span>
-                                        )}
-                                        <span
-                                          className={clsx(
-                                            'ml-auto flex min-w-[20px] shrink-0 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px]',
-                                            item.status === 'error'
-                                              ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
-                                              : item.status === 'done'
-                                                ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
-                                                : 'bg-gray-200/70 text-gray-600 dark:bg-zinc-700/70 dark:text-gray-400',
-                                          )}
-                                        >
-                                          {item.status === 'error' ? (
-                                            <X className="h-3 w-3" />
-                                          ) : item.status === 'done' ? (
-                                            <Check className="h-3 w-3" />
-                                          ) : (
-                                            <DotLoader />
-                                          )}
-                                        </span>
-                                        {developerMode ? (
-                                          <button
-                                            type="button"
-                                            onClick={() => setActiveToolDetail(item)}
-                                            className="text-primary-600 dark:text-primary-300 justify-self-end text-[10px] whitespace-nowrap hover:underline"
-                                          >
-                                            {t('messageBubble.toolDetails')}
-                                          </button>
-                                        ) : (
-                                          <span aria-hidden="true" />
-                                        )}
-                                      </div>
-                                    </div>
-                                  )
-                                })}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-        </>
-      ) : null}
-
       {/* Sources Section - REMOVED (Moved to toolbar) */}
 
       {/* Main Content */}
@@ -4622,15 +4613,6 @@ const MessageBubble = ({
         t={t}
         isDeepResearch={isDeepResearch}
         isMobile={isMobile}
-        message={mergedMessage}
-        isSourcesOpen={isSourcesOpen}
-        documentSources={mergedMessage.documentSources}
-        isDocumentSourcesOpen={isDocumentSourcesOpen}
-        onToggleSources={() => setIsSourcesOpen(prev => !prev)}
-        onToggleDocumentSources={() => setIsDocumentSourcesOpen(prev => !prev)}
-        onOpenMobileSources={() =>
-          handleMobileSourceClick(mergedMessage.sources, t('sources.allSources'))
-        }
         onShare={() => setIsShareModalOpen(true)}
         onRegenerate={
           onRegenerateAnswer
@@ -4668,21 +4650,12 @@ const MessageBubble = ({
         }}
       />
 
-      {/* Document Sources Panel */}
-      {mergedMessage.documentSources && mergedMessage.documentSources.length > 0 && (
-        <DocumentSourcesPanel
-          sources={mergedMessage.documentSources}
-          isOpen={isDocumentSourcesOpen}
-          onClose={() => setIsDocumentSourcesOpen(false)}
-        />
-      )}
-
       {/* Desktop Sources Drawer */}
-      {!isMobile && mergedMessage.sources && mergedMessage.sources.length > 0 && (
+      {!isMobile && shouldShowSourcesDrawer && (
         <DesktopSourcesSheet
           isOpen={isSourcesOpen}
           onClose={() => setIsSourcesOpen(false)}
-          sources={mergedMessage.sources}
+          sources={allSources}
           title={t('sources.citationSources', '参考资料')}
         />
       )}
@@ -4913,18 +4886,57 @@ const MessageBubble = ({
 const CitationChip = ({ indices, sources, isMobile, onMobileClick, label }) => {
   const { t } = useTranslation()
   const [isOpen, setIsOpen] = useState(false)
+  const [expandedItemKey, setExpandedItemKey] = useState(null)
   const [position, setPosition] = useState({ top: 0, left: 0 })
   const containerRef = useRef(null)
   const timeoutRef = useRef(null)
+  const normalizedIndices = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          (Array.isArray(indices) ? indices : [])
+            .map(value => Number(value))
+            .filter(value => Number.isInteger(value) && value >= 0),
+        ),
+      ).sort((left, right) => left - right),
+    [indices],
+  )
 
   // Memoize the filtered sources for the drawer
   const drawerSources = useMemo(() => {
     if (!sources || !Array.isArray(sources)) return []
-    return indices
-      .map(idx => sources[idx])
-      .filter(Boolean)
-      .map((source, i) => ({ ...source, originalIndex: indices[i] })) // Keep track if needed, though drawer re-indexes
-  }, [indices, sources])
+    const seen = new Set()
+    return normalizedIndices
+      .map(idx => ({ source: sources[idx], originalIndex: idx }))
+      .filter(item => {
+        if (!item.source) return false
+        const dedupeKey =
+          item.source.id ||
+          item.source.nodeId ||
+          item.source.url ||
+          item.source.uri ||
+          item.source.link ||
+          item.source.href ||
+          `${item.originalIndex}:${item.source.title || ''}`
+        if (seen.has(dedupeKey)) return false
+        seen.add(dedupeKey)
+        return true
+      })
+      .map(item => ({ ...item.source, originalIndex: item.originalIndex }))
+  }, [normalizedIndices, sources])
+
+  const getSourceKey = useCallback(source => {
+    const path = buildDocumentCitationPath(source)
+    return (
+      source?.id ||
+      source?.nodeId ||
+      source?.url ||
+      source?.uri ||
+      source?.link ||
+      source?.href ||
+      `${source?.citationIndex ?? source?.originalIndex ?? 'source'}:${source?.title || ''}:${path}`
+    )
+  }, [])
 
   const updatePosition = useCallback(() => {
     if (containerRef.current) {
@@ -4995,7 +5007,11 @@ const CitationChip = ({ indices, sources, isMobile, onMobileClick, label }) => {
       if (onMobileClick) {
         onMobileClick(drawerSources)
       }
+      return
     }
+    if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    updatePosition()
+    setIsOpen(prev => !prev)
   }
 
   // Update position on scroll/resize while open
@@ -5031,6 +5047,11 @@ const CitationChip = ({ indices, sources, isMobile, onMobileClick, label }) => {
     }
   }, [isOpen])
 
+  useEffect(() => {
+    if (isOpen) return
+    setExpandedItemKey(null)
+  }, [isOpen])
+
   return (
     <>
       <span
@@ -5041,6 +5062,7 @@ const CitationChip = ({ indices, sources, isMobile, onMobileClick, label }) => {
       >
         <span
           onClick={handleClick}
+          onFocus={handleMouseEnter}
           className="bg-primary-200/50 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300 hover:bg-primary-300/50 dark:hover:bg-primary-700/50 mx-0.5 cursor-pointer rounded-lg px-1 py-0.5 text-[12px] transition-colors"
         >
           {parseChildrenWithEmojis(label)}
@@ -5064,26 +5086,37 @@ const CitationChip = ({ indices, sources, isMobile, onMobileClick, label }) => {
             }}
             onMouseLeave={handleMouseLeave}
           >
-            {indices.map(idx => {
-              const source = sources[idx]
+            {drawerSources.map((source, listIndex) => {
               if (!source) return null
               const url = source.url || source.uri || source.link || source.href || ''
-              const snippet = source.snippet || source.content || ''
+              const previewSnippet = source.previewSnippet || source.snippet || source.content || ''
+              const fullSnippet = source.fullSnippet || source.snippet || source.content || ''
               const hostname = getHostname(url)
-              const faviconUrl =
-                source.icon ||
-                (hostname ? `https://www.google.com/s2/favicons?domain=${hostname}&sz=32` : '')
-              return (
-                <a
-                  key={idx}
-                  href={url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={e => e.stopPropagation()}
-                  className="flex items-start gap-2 rounded-lg p-2 text-left transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800"
-                >
+              const faviconUrl = (() => {
+                if (source.icon) return source.icon
+                if (!url) return ''
+                try {
+                  const parsed = new URL(url)
+                  const validHost = parsed.hostname.replace(/^www\./, '')
+                  return validHost
+                    ? `https://www.google.com/s2/favicons?domain=${validHost}&sz=32`
+                    : ''
+                } catch {
+                  return ''
+                }
+              })()
+              const titlePath = buildDocumentCitationPath(source)
+              const metaLabel = url
+                ? hostname
+                : titlePath || source.fileType || t('sources.documentSources')
+              const itemKey = getSourceKey(source)
+              const canExpand = !url && canExpandDocumentCitation(source)
+              const isExpanded = expandedItemKey === itemKey
+              const displayIndex = source.originalIndex ?? listIndex
+              const body = (
+                <>
                   <span className="mt-0.5 flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border border-gray-200 bg-gray-100 text-[9px] font-medium text-gray-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-gray-400">
-                    {idx + 1}
+                    {displayIndex + 1}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="line-clamp-1 block text-xs font-medium text-gray-800 dark:text-gray-200">
@@ -5091,19 +5124,57 @@ const CitationChip = ({ indices, sources, isMobile, onMobileClick, label }) => {
                     </span>
                     <span className="block truncate text-[10px]! text-gray-400 dark:text-gray-500">
                       <span className="inline-flex items-center gap-1.5">
-                        {faviconUrl && (
+                        {faviconUrl ? (
                           <img src={faviconUrl} alt="" className="h-3 w-3 rounded-sm" />
+                        ) : (
+                          <FileText size={12} className="opacity-70" />
                         )}
-                        <span className="truncate">{hostname}</span>
+                        <span className="truncate">{metaLabel}</span>
                       </span>
                     </span>
-                    {snippet && (
-                      <span className="mt-1 line-clamp-2 block text-[10px] text-gray-500 dark:text-gray-400">
-                        {snippet}
+                    {previewSnippet && (
+                      <span
+                        className={clsx(
+                          'mt-1 block text-[10px] text-gray-500 dark:text-gray-400',
+                          isExpanded ? 'whitespace-pre-wrap' : 'line-clamp-2',
+                        )}
+                      >
+                        {isExpanded ? fullSnippet : previewSnippet}
                       </span>
                     )}
+                    {canExpand && (
+                      <button
+                        type="button"
+                        onClick={event => {
+                          event.preventDefault()
+                          event.stopPropagation()
+                          setExpandedItemKey(prev => (prev === itemKey ? null : itemKey))
+                        }}
+                        className="text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 mt-1 text-[10px] font-medium transition-colors"
+                      >
+                        {isExpanded
+                          ? t('sources.hideFullExcerpt', 'Hide full quote')
+                          : t('sources.showFullExcerpt', 'Show full quote')}
+                      </button>
+                    )}
                   </span>
+                </>
+              )
+              return url ? (
+                <a
+                  key={itemKey}
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={e => e.stopPropagation()}
+                  className="flex items-start gap-2 rounded-lg p-2 text-left transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800"
+                >
+                  {body}
                 </a>
+              ) : (
+                <div key={itemKey} className="flex items-start gap-2 rounded-lg p-2 text-left">
+                  {body}
+                </div>
               )
             })}
           </div>,

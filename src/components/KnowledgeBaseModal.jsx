@@ -275,10 +275,10 @@ const KnowledgeBaseModal = ({ isOpen, onClose }) => {
               <h3 className="mb-1 text-lg font-medium text-gray-900 dark:text-gray-100">
                 {t('knowledgeBase.selectPrompt') || 'Select a collection'}
               </h3>
-              <p className="mb-6 max-w-md text-sm">
-                {t('knowledgeBase.selectPromptHelp') ||
-                  'Manage your documents and embedding indexes from here.'}
-              </p>
+                <p className="mb-6 max-w-md text-sm">
+                  {t('knowledgeBase.selectPromptHelp') ||
+                  'Manage your documents and search indexes from here.'}
+                </p>
             </div>
           )}
         </div>

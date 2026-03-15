@@ -7,6 +7,7 @@ import {
   updateMessageById,
 } from '../conversationsService'
 import { getModelConfigForAgent, resolveProviderConfigWithCredentials } from './modelConfig'
+import { selectThinkingModeViaBackend } from '../backendClient'
 import { getLanguageInstruction, applyLanguageInstructionToText } from './prompts'
 import { buildSpaceAgentOptions, resolveAgentForSpace } from './conversationSetup'
 import { sanitizeJson } from './utils'
@@ -320,32 +321,20 @@ const runLiteThinkingPlanner = async ({ question, selectedAgent, settings, agent
   const fallbackAgent = agents?.find(agent => agent.isDefault)
   const liteConfig = getModelConfigForAgent(selectedAgent, settings, 'lite', fallbackAgent)
   const liteProvider = getProvider(liteConfig.provider)
-  if (!liteProvider?.generateResearchPlan || !liteConfig.model) return null
+  if (!liteProvider || !liteConfig.model) return null
 
   const liteCreds = liteProvider.getCredentials(settings)
   if (!liteCreds?.apiKey) return null
 
-  const prompt = [
-    'You are a thinking-mode router for a chat assistant.',
-    'Return STRICT JSON only.',
-    'Schema: {"thinking_mode":"deep|fast"}',
-    'Rules:',
-    '- Choose "deep" only if multi-step reasoning is required; otherwise "fast".',
-    '- Do not include any keys other than thinking_mode.',
-    `User question:\n${String(question || '').trim()}`,
-  ].join('\n')
-
   try {
-    const raw = await liteProvider.generateResearchPlan(
-      prompt,
+    const result = await selectThinkingModeViaBackend(
+      liteConfig.provider,
+      String(question || '').trim(),
       liteCreds.apiKey,
       liteCreds.baseUrl,
       liteConfig.model,
-      'general',
     )
-    const parsed = safeParseJsonObject(raw)
-    if (!parsed) return null
-    return normalizeThinkingMode(parsed.thinking_mode, false)
+    return normalizeThinkingMode(result?.thinking_mode, false)
   } catch (error) {
     console.warn('[callAIAPI] lite thinking planner failed:', error)
     return null
@@ -876,6 +865,7 @@ export const callAIAPI = async (
       memoryModel: resolvedMemoryModel,
       memoryApiKey: memoryApiKey,
       memoryBaseUrl: memoryBaseUrl,
+      enableResponseCache: Boolean(settings.enableResponseCache),
       userTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       userLocale: navigator.language || 'en-US',
       runId: hitlRunId,
@@ -913,6 +903,7 @@ export const callAIAPI = async (
       ),
       toolIds: resolvedToolIds,
       skillIds: resolvedSkillIds,
+      deepResearch: !!toggles?.deepResearch,
       thinkingMode: modelThinkingModeParam,
       enableLongTermMemory: toggles.deepResearch ? false : Boolean(settings.enableLongTermMemory),
       databaseProvider: selectedDatabaseProvider,
@@ -1976,6 +1967,7 @@ export const finalizeMessage = async (
             credentials.apiKey,
             credentials.baseUrl,
             modelConfig.model,
+            languageInstruction || undefined,
           ),
           20000,
           'Related questions',

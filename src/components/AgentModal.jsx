@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+﻿import { useState, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -145,9 +145,16 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
   const { t } = useTranslation()
   const { defaultAgent, agents = [], showConfirmation } = useAppContext()
   useScrollLock(isOpen)
+  const isDefaultAgent = Boolean(editingAgent?.isDefault)
   const isDeepResearchAgent = Boolean(editingAgent?.isDeepResearchSystem)
-  const isGeneralLocked = Boolean(editingAgent?.isDefault || isDeepResearchAgent)
-  const isEmojiLocked = Boolean(isDeepResearchAgent)
+  const isNameLocked = Boolean(isDefaultAgent || isDeepResearchAgent)
+  const isDescriptionLocked = Boolean(isDeepResearchAgent)
+  const isAvatarLocked = false
+  const isBannerLocked = false
+  const isModelLocked = false
+  const isPersonalizationLocked = Boolean(isDeepResearchAgent)
+  const isToolsLocked = Boolean(isDeepResearchAgent)
+  const isSkillsLocked = Boolean(isDeepResearchAgent)
 
   const [activeTab, setActiveTab] = useState('general')
 
@@ -909,26 +916,22 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
 
       const resolvedName = isDeepResearchAgent
         ? DEEP_RESEARCH_AGENT_NAME
-        : editingAgent?.isDefault
+        : isDefaultAgent
           ? editingAgent?.name || name.trim()
           : name.trim()
       const resolvedDescription = isDeepResearchAgent
         ? DEEP_RESEARCH_AGENT_DESCRIPTION
-        : editingAgent?.isDefault
-          ? editingAgent?.description || description.trim()
-          : description.trim()
+        : description.trim()
       const resolvedPrompt = isDeepResearchAgent ? DEEP_RESEARCH_AGENT_PROMPT : prompt.trim()
-      const resolvedEmoji = isDeepResearchAgent ? DEEP_RESEARCH_EMOJI : emoji
-      const resolvedAvatarType = isDeepResearchAgent
-        ? AGENT_AVATAR_TYPE_EMOJI
-        : avatarType === AGENT_AVATAR_TYPE_IMAGE && avatarImage
+      const resolvedEmoji = isDeepResearchAgent ? emoji : emoji
+      const resolvedAvatarType =
+        avatarType === AGENT_AVATAR_TYPE_IMAGE && avatarImage
           ? AGENT_AVATAR_TYPE_IMAGE
           : AGENT_AVATAR_TYPE_EMOJI
-      const resolvedAvatarImage = isDeepResearchAgent ? '' : avatarImage
+      const resolvedAvatarImage = avatarImage
       const resolvedAvatarShape = avatarShape
-      const resolvedBannerMode = isDeepResearchAgent ? AGENT_BANNER_MODE_NONE : bannerMode
-      const resolvedBannerImage =
-        !isDeepResearchAgent && resolvedBannerMode === AGENT_BANNER_MODE_MANUAL ? bannerImage : ''
+      const resolvedBannerMode = bannerMode
+      const resolvedBannerImage = resolvedBannerMode === AGENT_BANNER_MODE_MANUAL ? bannerImage : ''
       const resolvedBaseTone = isDeepResearchAgent ? DEEP_RESEARCH_PROFILE.baseTone : baseTone
       const resolvedTraits = isDeepResearchAgent ? DEEP_RESEARCH_PROFILE.traits : traits
       const resolvedWarmth = isDeepResearchAgent ? DEEP_RESEARCH_PROFILE.warmth : warmth
@@ -1663,16 +1666,12 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
 
   if (!isOpen) return null
 
-  const displayName = editingAgent?.isDefault
+  const displayName = isDefaultAgent
     ? t('agents.defaults.name')
     : isDeepResearchAgent
       ? t('deepResearch.agentName')
       : name
-  const displayDescription = editingAgent?.isDefault
-    ? t('agents.defaults.description')
-    : isDeepResearchAgent
-      ? t('deepResearch.agentDescription')
-      : description
+  const displayDescription = isDeepResearchAgent ? t('deepResearch.agentDescription') : description
   const previewProviderId = provider || defaultModelProvider || 'gemini'
   const previewProvider = getProvider(previewProviderId)
   const previewProviderLabel =
@@ -1806,28 +1805,28 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                               <div className={compactSegmentGroupClassName}>
                                 <button
                                   type="button"
-                                  disabled={isEmojiLocked}
+                                  disabled={isAvatarLocked}
                                   onClick={() => setAvatarType(AGENT_AVATAR_TYPE_EMOJI)}
                                   className={clsx(
                                     compactSegmentButtonClassName,
                                     avatarType === AGENT_AVATAR_TYPE_EMOJI
                                       ? 'bg-white/90 text-gray-900 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:bg-white/10 dark:text-white'
                                       : 'text-gray-500 dark:text-gray-400',
-                                    isEmojiLocked && 'cursor-not-allowed opacity-50',
+                                    isAvatarLocked && 'cursor-not-allowed opacity-50',
                                   )}
                                 >
                                   {t('agents.general.avatarTypeEmoji')}
                                 </button>
                                 <button
                                   type="button"
-                                  disabled={isEmojiLocked}
+                                  disabled={isAvatarLocked}
                                   onClick={() => setAvatarType(AGENT_AVATAR_TYPE_IMAGE)}
                                   className={clsx(
                                     compactSegmentButtonClassName,
                                     avatarType === AGENT_AVATAR_TYPE_IMAGE
                                       ? 'bg-white/90 text-gray-900 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:bg-white/10 dark:text-white'
                                       : 'text-gray-500 dark:text-gray-400',
-                                    isEmojiLocked && 'cursor-not-allowed opacity-50',
+                                    isAvatarLocked && 'cursor-not-allowed opacity-50',
                                   )}
                                 >
                                   {t('agents.general.avatarTypeImage')}
@@ -1841,28 +1840,28 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                               <div className={compactSegmentGroupClassName}>
                                 <button
                                   type="button"
-                                  disabled={isEmojiLocked}
+                                  disabled={isAvatarLocked}
                                   onClick={() => setAvatarShape(AGENT_AVATAR_SHAPE_ROUNDED)}
                                   className={clsx(
                                     compactSegmentButtonClassName,
                                     avatarShape === AGENT_AVATAR_SHAPE_ROUNDED
                                       ? 'bg-white/90 text-gray-900 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:bg-white/10 dark:text-white'
                                       : 'text-gray-500 dark:text-gray-400',
-                                    isEmojiLocked && 'cursor-not-allowed opacity-50',
+                                    isAvatarLocked && 'cursor-not-allowed opacity-50',
                                   )}
                                 >
                                   {t('agents.general.avatarShapeRounded')}
                                 </button>
                                 <button
                                   type="button"
-                                  disabled={isEmojiLocked}
+                                  disabled={isAvatarLocked}
                                   onClick={() => setAvatarShape(AGENT_AVATAR_SHAPE_CIRCLE)}
                                   className={clsx(
                                     compactSegmentButtonClassName,
                                     avatarShape === AGENT_AVATAR_SHAPE_CIRCLE
                                       ? 'bg-white/90 text-gray-900 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:bg-white/10 dark:text-white'
                                       : 'text-gray-500 dark:text-gray-400',
-                                    isEmojiLocked && 'cursor-not-allowed opacity-50',
+                                    isAvatarLocked && 'cursor-not-allowed opacity-50',
                                   )}
                                 >
                                   {t('agents.general.avatarShapeCircle')}
@@ -1882,7 +1881,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                             value={displayName}
                             onChange={e => setName(e.target.value)}
                             placeholder={t('agents.general.namePlaceholder')}
-                            disabled={isGeneralLocked}
+                            disabled={isNameLocked}
                             className={MODAL_INPUT_CLASS}
                           />
                         </div>
@@ -1897,10 +1896,10 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                 ref={buttonRef}
                                 type="button"
                                 onClick={() => {
-                                  if (isEmojiLocked) return
+                                  if (isAvatarLocked) return
                                   setShowEmojiPicker(!showEmojiPicker)
                                 }}
-                                disabled={isEmojiLocked}
+                                disabled={isAvatarLocked}
                                 className={clsx(
                                   compactActionButtonClassName,
                                   'w-full disabled:bg-gray-50/20 sm:w-auto',
@@ -1933,7 +1932,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                             <div className="flex flex-wrap items-center gap-2">
                               <button
                                 type="button"
-                                disabled={isEmojiLocked}
+                                disabled={isAvatarLocked}
                                 onClick={() => avatarInputRef.current?.click()}
                                 className={compactActionButtonClassName}
                               >
@@ -1944,7 +1943,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                 <>
                                   <button
                                     type="button"
-                                    disabled={isEmojiLocked}
+                                    disabled={isAvatarLocked}
                                     onClick={() =>
                                       openAvatarCropper(avatarImage).catch(err =>
                                         setError(err.message),
@@ -1956,7 +1955,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                   </button>
                                   <button
                                     type="button"
-                                    disabled={isEmojiLocked}
+                                    disabled={isAvatarLocked}
                                     onClick={() => {
                                       setAvatarImage('')
                                       setAvatarType(AGENT_AVATAR_TYPE_EMOJI)
@@ -1995,7 +1994,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                       value={displayDescription}
                       onChange={e => setDescription(e.target.value)}
                       placeholder={t('agents.general.descriptionPlaceholder')}
-                      disabled={isGeneralLocked}
+                      disabled={isDescriptionLocked}
                       className={MODAL_INPUT_CLASS}
                     />
                   </div>
@@ -2027,14 +2026,14 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                 <button
                                   key={option.value}
                                   type="button"
-                                  disabled={isDeepResearchAgent}
+                                  disabled={isBannerLocked}
                                   onClick={() => setBannerMode(option.value)}
                                   className={clsx(
                                     compactSegmentButtonClassName,
                                     bannerMode === option.value
                                       ? 'bg-white/90 text-gray-900 shadow-[0_1px_3px_rgba(15,23,42,0.08)] dark:bg-white/10 dark:text-white'
                                       : 'text-gray-500 dark:text-gray-400',
-                                    isDeepResearchAgent && 'cursor-not-allowed opacity-50',
+                                    isBannerLocked && 'cursor-not-allowed opacity-50',
                                   )}
                                 >
                                   {option.label}
@@ -2049,7 +2048,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                             <div className="grid gap-1.5 sm:flex sm:flex-wrap sm:items-center">
                               <button
                                 type="button"
-                                disabled={isDeepResearchAgent}
+                                disabled={isBannerLocked}
                                 onClick={() => bannerInputRef.current?.click()}
                                 className={bannerActionButtonClassName}
                               >
@@ -2060,7 +2059,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                 <>
                                   <button
                                     type="button"
-                                    disabled={isDeepResearchAgent}
+                                    disabled={isBannerLocked}
                                     onClick={() =>
                                       openBannerCropper(bannerImage).catch(err =>
                                         setError(err.message),
@@ -2072,7 +2071,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                   </button>
                                   <button
                                     type="button"
-                                    disabled={isDeepResearchAgent}
+                                    disabled={isBannerLocked}
                                     onClick={() => setIsBannerPreviewOpen(true)}
                                     className={bannerActionButtonClassName}
                                   >
@@ -2081,7 +2080,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                   </button>
                                   <button
                                     type="button"
-                                    disabled={isDeepResearchAgent}
+                                    disabled={isBannerLocked}
                                     onClick={() => {
                                       setBannerImage('')
                                       setIsBannerPreviewOpen(false)
@@ -2164,6 +2163,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   </div>
                   <Checkbox
                     checked={useGlobalModelSettings}
+                    disabled={isModelLocked}
                     onCheckedChange={checked => setUseGlobalModelSettings(Boolean(checked))}
                     className="h-5 w-5"
                   />
@@ -2187,6 +2187,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                       <button
                         type="button"
                         onClick={loadKeysAndFetchModels}
+                        disabled={isModelLocked}
                         className="text-primary-600 hover:text-primary-700 dark:text-primary-400 flex items-center gap-1"
                       >
                         <RefreshCw size={14} />
@@ -2215,7 +2216,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                         status: defaultTestState.status,
                         message: defaultTestState.message,
                       },
-                      disabled: useGlobalModelSettings,
+                      disabled: useGlobalModelSettings || isModelLocked,
                       disabledDisplayValue: globalDefaultModel || t('agents.model.notSelected'),
                     })}
 
@@ -2243,7 +2244,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                         status: liteTestState.status,
                         message: liteTestState.message,
                       },
-                      disabled: useGlobalModelSettings,
+                      disabled: useGlobalModelSettings || isModelLocked,
                       disabledDisplayValue: globalLiteModel || t('agents.model.notSelected'),
                     })}
                   </>
@@ -2269,7 +2270,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   setIsResponseLanguageOpen,
                   responseLanguageRef,
                   false,
-                  isDeepResearchAgent || followInterfaceLanguage,
+                  isPersonalizationLocked || followInterfaceLanguage,
                 )}
 
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -2285,7 +2286,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     setIsBaseToneOpen,
                     baseToneRef,
                     false,
-                    isDeepResearchAgent,
+                    isPersonalizationLocked,
                   )}
                   {renderDropdown(
                     t('settings.traits'),
@@ -2299,7 +2300,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     setIsTraitsOpen,
                     traitsRef,
                     false,
-                    isDeepResearchAgent,
+                    isPersonalizationLocked,
                   )}
                 </div>
 
@@ -2316,7 +2317,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     setIsWarmthOpen,
                     warmthRef,
                     false,
-                    isDeepResearchAgent,
+                    isPersonalizationLocked,
                   )}
                   {renderDropdown(
                     t('settings.enthusiasm'),
@@ -2330,7 +2331,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     setIsEnthusiasmOpen,
                     enthusiasmRef,
                     false,
-                    isDeepResearchAgent,
+                    isPersonalizationLocked,
                   )}
                 </div>
 
@@ -2347,7 +2348,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     setIsHeadingsOpen,
                     headingsRef,
                     false,
-                    isDeepResearchAgent,
+                    isPersonalizationLocked,
                   )}
                   {renderDropdown(
                     t('settings.emojis'),
@@ -2361,7 +2362,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     setIsEmojisOpen,
                     emojisRef,
                     false,
-                    isDeepResearchAgent,
+                    isPersonalizationLocked,
                   )}
                 </div>
 
@@ -2374,6 +2375,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     onChange={e => setCustomInstruction(e.target.value)}
                     placeholder={t('settings.customInstructionPlaceholder')}
                     rows={3}
+                    disabled={isPersonalizationLocked}
                     className={MODAL_TEXTAREA_CLASS}
                   />
                 </div>
@@ -2381,6 +2383,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                 <div className="rounded-xl border border-black/5 bg-transparent p-1 dark:border-white/5">
                   <button
                     type="button"
+                    disabled={isPersonalizationLocked}
                     onClick={() => {
                       if (hasAdvancedOverrides) return
                       setIsAdvancedOpen(prev => !prev)
@@ -2453,6 +2456,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                       <div className="flex justify-end">
                         <button
                           type="button"
+                          disabled={isPersonalizationLocked}
                           onClick={() => {
                             setTemperature(null)
                             setTopP(null)
@@ -2514,7 +2518,9 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                   </div>
                                   <button
                                     type="button"
+                                    disabled={isToolsLocked}
                                     onClick={() => {
+                                      if (isToolsLocked) return
                                       if (allSelected) {
                                         // Deselect all in this group
                                         const groupIds = tools.map(t => t.id)
@@ -2538,7 +2544,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                                   {tools.map(tool => {
                                     const checked = selectedToolIds.includes(tool.id)
-                                    const disabled = isToolUnavailable(tool)
+                                    const disabled = isToolUnavailable(tool) || isToolsLocked
                                     const iconName = TOOL_ICONS[tool.name]
                                     const IconComponent = iconName
                                       ? {
@@ -2625,7 +2631,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                             {groupData.tools.map(tool => {
                               const checked = selectedToolIds.includes(tool.id)
-                              const disabled = isToolUnavailable(tool)
+                              const disabled = isToolUnavailable(tool) || isToolsLocked
                               const iconName = TOOL_ICONS[tool.name]
                               const IconComponent = iconName
                                 ? {
@@ -2739,7 +2745,8 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                         <label
                           key={skill.id}
                           className={clsx(
-                            'group/skill flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors',
+                            'group/skill flex items-start gap-3 rounded-lg border p-3 transition-colors',
+                            isSkillsLocked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
                             checked
                               ? 'border-primary-400 bg-primary-50/40 dark:bg-primary-900/20'
                               : 'border-black/10 hover:bg-black/5 dark:border-zinc-700 dark:hover:bg-zinc-800/40',
@@ -2747,7 +2754,9 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                         >
                           <Checkbox
                             checked={checked}
+                            disabled={isSkillsLocked}
                             onCheckedChange={() => {
+                              if (isSkillsLocked) return
                               setSelectedSkillIds(prev =>
                                 prev.includes(skill.id)
                                   ? prev.filter(id => id !== skill.id)
@@ -3044,7 +3053,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
       )}
       {bannerCropSource && bannerPreviewLayout && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-5xl rounded-[28px] border border-white/10 bg-white/95 p-5 shadow-2xl dark:bg-zinc-950/95">
+          <div className="w-full max-w-2xl rounded-[28px] border border-white/10 bg-white/95 p-5 shadow-2xl dark:bg-zinc-950/95">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -3066,8 +3075,8 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
               </button>
             </div>
 
-            <div className="mt-5 flex flex-col gap-6 xl:flex-row">
-              <div className="flex justify-center xl:flex-1">
+            <div className="mt-5 flex flex-col gap-5">
+              <div className="flex justify-center">
                 <div
                   ref={bannerCropFrameRef}
                   className={clsx(
@@ -3113,7 +3122,10 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                 </div>
               </div>
 
-              <div className="flex min-w-0 flex-1 flex-col gap-4">
+              <div className="flex min-w-0 flex-col gap-4">
+                <div className="rounded-2xl border border-black/5 bg-black/[0.03] px-4 py-3 text-xs text-gray-500 dark:border-white/5 dark:bg-white/[0.03] dark:text-gray-400">
+                  {t('agents.crop.dragToAdjustPosition')}
+                </div>
                 <label className="flex flex-col gap-2 text-sm text-gray-700 dark:text-gray-300">
                   {t('agents.crop.zoom')}
                   <input
@@ -3139,36 +3151,6 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                         setBannerCropOffsetY(prev => clampCropOffset(prev * ratio, nextMaxY))
                       }
                     }}
-                  />
-                </label>
-                <label className="flex flex-col gap-2 text-sm text-gray-700 dark:text-gray-300">
-                  {t('agents.crop.horizontal')}
-                  <input
-                    type="range"
-                    min={-bannerPreviewLayout.maxOffsetX}
-                    max={bannerPreviewLayout.maxOffsetX}
-                    step="1"
-                    value={bannerCropOffsetX}
-                    onChange={event =>
-                      setBannerCropOffsetX(
-                        clampCropOffset(Number(event.target.value), bannerPreviewLayout.maxOffsetX),
-                      )
-                    }
-                  />
-                </label>
-                <label className="flex flex-col gap-2 text-sm text-gray-700 dark:text-gray-300">
-                  {t('agents.crop.vertical')}
-                  <input
-                    type="range"
-                    min={-bannerPreviewLayout.maxOffsetY}
-                    max={bannerPreviewLayout.maxOffsetY}
-                    step="1"
-                    value={bannerCropOffsetY}
-                    onChange={event =>
-                      setBannerCropOffsetY(
-                        clampCropOffset(Number(event.target.value), bannerPreviewLayout.maxOffsetY),
-                      )
-                    }
                   />
                 </label>
                 <div className="rounded-2xl border border-black/5 bg-black/[0.03] px-4 py-3 text-xs text-gray-500 dark:border-white/5 dark:bg-white/[0.03] dark:text-gray-400">
@@ -3201,7 +3183,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
         </div>
       )}
     </div>,
-    document.body
+    document.body,
   )
 }
 

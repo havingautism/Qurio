@@ -31,36 +31,19 @@ import {
   toggleFavorite,
 } from '../lib/conversationsService'
 import {
-  extractTextFromFile,
-  getFileTypeLabel,
-  normalizeExtractedText,
-  postProcessExtractedDocumentText,
-} from '../lib/documentParser'
-import { chunkDocumentWithHierarchy } from '../lib/documentStructure'
-import {
-  DOCUMENT_CHUNK_OVERLAP,
-  DOCUMENT_CHUNK_SIZE,
-} from '../lib/documentConstants'
-import { resolveDocumentMaxChunks } from '../lib/documentChunkingPolicy'
+  indexDocumentViaBackend,
+  deleteDocumentIndexViaBackend,
+} from '../lib/backendClient'
 import {
   createSpaceDocument,
   deleteSpaceDocument,
   listSpaceDocuments,
 } from '../lib/documentsService'
-import { persistDocumentChunks, persistDocumentSections } from '../lib/documentIndexService'
-import {
-  fetchEmbeddingVector,
-  getEmbeddingConfigIssue,
-  resolveEmbeddingConfig,
-} from '../lib/embeddingService'
-import { computeSha256 } from '../lib/hash'
 import {
   getTrackedDocumentUploadState,
   setTrackedDocumentUploadState,
   subscribeToTrackedDocumentUploadState,
 } from '../lib/documentUploadTracker'
-import { getModelIcon, getModelIconClassName, renderProviderIcon } from '../lib/modelIcons'
-import { getProvider } from '../lib/providers'
 import { deleteConversation } from '../lib/supabase'
 import { spaceRoute } from '../router'
 
@@ -335,88 +318,14 @@ const SpaceView = () => {
     return text ? text.toUpperCase() : 'FILE'
   }
 
-  const formatEmbeddingMeta = doc => {
-    const provider = String(doc?.embedding_provider || '').trim()
-    const model = String(doc?.embedding_model || '').trim()
-    if (!provider && !model) return null
-    if (!provider) return model
-    if (!model) return provider
-    return `${provider} / ${model}`
-  }
-
-  const renderEmbeddingMeta = doc => {
-    const providerId = String(doc?.embedding_provider || '').trim()
-    const modelId = String(doc?.embedding_model || '').trim()
-    const provider = providerId ? getProvider(providerId) : null
-    const modelIcon = getModelIcon(modelId)
-
-    if (!providerId && !modelId) return null
-
-    return (
-      <div className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full border border-gray-200/70 bg-black/[0.03] px-2 py-0.5 text-[10.5px] font-medium text-gray-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] backdrop-blur-sm dark:border-zinc-700/70 dark:bg-white/[0.04] dark:text-zinc-200 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-        {providerId &&
-          renderProviderIcon(providerId, {
-            size: 12,
-            compact: true,
-            wrapperClassName: 'h-3.5 w-3.5',
-            imgClassName: 'h-3.5 w-3.5 object-contain',
-            alt: provider?.name || providerId,
-          })}
-        <span className="truncate font-semibold">{provider?.name || providerId}</span>
-        {modelId && (
-          <>
-            <span className="text-gray-300 dark:text-zinc-600">•</span>
-            {modelIcon ? (
-              <img
-                src={modelIcon}
-                alt={modelId}
-                width={12}
-                height={12}
-                className={clsx(
-                  'h-3.5 w-3.5 shrink-0 object-contain',
-                  getModelIconClassName(modelId),
-                )}
-                loading="lazy"
-              />
-            ) : null}
-            <span className="min-w-0 truncate text-gray-600 dark:text-zinc-300">{modelId}</span>
-          </>
-        )}
-      </div>
-    )
-  }
-
   const handleDocumentUpload = async (event, droppedFile = null) => {
     const file = droppedFile || event.target.files?.[0]
     if (!file || !activeSpace?.id) return
 
-    const embeddingIssue = getEmbeddingConfigIssue()
-    if (embeddingIssue?.code === 'missing_config') {
-      toastError(t('views.spaceView.documentEmbeddingConfigRequired'))
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ''
-      }
-      return
-    }
-    if (embeddingIssue?.code === 'missing_key') {
-      toastError(t('views.spaceView.documentEmbeddingKeyRequired'))
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ''
-      }
-      return
-    }
-    if (embeddingIssue?.code === 'unsupported_provider') {
-      toastError(t('views.spaceView.documentEmbeddingProviderUnsupported'))
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ''
-      }
-      return
-    }
-
     updateTrackedUploadState({
       status: 'loading',
-      stage: 'chunking',
-      message: t('views.spaceView.documentChunking'),
+      stage: 'uploading',
+      message: t('views.spaceView.documentUploading'),
       fileName: file.name,
       characters: 0,
       sections: 0,
@@ -425,98 +334,44 @@ const SpaceView = () => {
     })
 
     try {
-      const rawText = await extractTextFromFile(file, {
-        unsupportedMessage: t('views.spaceView.documentUnsupportedType'),
+      updateTrackedUploadState({
+        status: 'loading',
+        stage: 'indexing',
+        message: t('views.spaceView.documentIndexing'),
+        fileName: file.name,
+        characters: 0,
+        sections: 0,
+        chunks: 0,
+        progress: 45,
       })
-      const normalized = postProcessExtractedDocumentText(normalizeExtractedText(rawText), {
-        fileType: getFileTypeLabel(file),
+
+      const indexed = await indexDocumentViaBackend({
+        spaceId: activeSpace.id,
+        file,
       })
+      const normalized = String(indexed?.content_text || '').trim()
       if (!normalized) {
         throw new Error(t('views.spaceView.documentEmpty'))
       }
 
-      const { sections, chunks } = chunkDocumentWithHierarchy(normalized, {
-        chunkSize: DOCUMENT_CHUNK_SIZE,
-        chunkOverlap: DOCUMENT_CHUNK_OVERLAP,
-        maxChunks: resolveDocumentMaxChunks({
-          textLength: normalized.length,
-          chunkSize: DOCUMENT_CHUNK_SIZE,
-          chunkOverlap: DOCUMENT_CHUNK_OVERLAP,
-        }),
-      })
-      updateTrackedUploadState({
-        status: 'loading',
-        sections: sections.length,
-        chunks: chunks.length,
-        stage: 'embedding',
-        message: t('views.spaceView.documentEmbedding'),
-        fileName: file.name,
-        characters: normalized.length,
-        progress: 45,
-      })
-
-      const enrichedChunks = []
-      const sanitizeChunkText = text =>
-        String(text || '')
-          .replace(/<[^>]+>/g, '')
-          .replace(/\[.*?\]/g, '')
-          .replace(/\n+/g, ' ')
-          .trim()
-
-      if (chunks.length > 0) {
-        for (let index = 0; index < chunks.length; index += 1) {
-          const chunk = chunks[index]
-          const sanitizedText = sanitizeChunkText(chunk.text)
-          const chunkPrompt = `passage: ${sanitizedText}`
-          const embedding = await fetchEmbeddingVector({
-            text: sanitizedText,
-            taskType: 'RETRIEVAL_DOCUMENT',
-            prompt: chunkPrompt,
-          })
-          const chunkHash = await computeSha256(chunk.text)
-          enrichedChunks.push({ ...chunk, embedding, chunkHash })
-          const progress = Math.min(85, 45 + Math.round(((index + 1) / chunks.length) * 35))
-          updateTrackedUploadState({
-            status: 'loading',
-            stage: 'embedding',
-            message: t('views.spaceView.documentEmbeddingProgress', {
-              current: index + 1,
-              total: chunks.length,
-            }),
-            fileName: file.name,
-            characters: normalized.length,
-            sections: sections.length,
-            chunks: chunks.length,
-            progress,
-          })
-        }
-      }
-
-      const fileType = getFileTypeLabel(file)
-      const { provider: embeddingProvider, model: embeddingModel } = resolveEmbeddingConfig()
       const { error: createError, data: doc } = await createSpaceDocument({
+        documentId: indexed.document_id,
         spaceId: activeSpace.id,
         name: file.name,
-        fileType,
+        fileType: indexed.file_type || 'file',
         contentText: normalized,
-        embeddingProvider,
-        embeddingModel,
       })
 
       if (createError || !doc) {
+        try {
+          await deleteDocumentIndexViaBackend({
+            spaceId: activeSpace.id,
+            documentId: indexed.document_id,
+          })
+        } catch (cleanupError) {
+          console.error('Failed to roll back TreeSearch index after metadata failure:', cleanupError)
+        }
         throw createError || new Error('Failed to create document record')
-      }
-
-      const { sectionMap, error: sectionsError } = await persistDocumentSections(doc.id, sections)
-      if (sectionsError) {
-        await deleteSpaceDocument(doc.id, activeSpace.id)
-        throw sectionsError
-      }
-
-      const { error: chunksError } = await persistDocumentChunks(doc.id, enrichedChunks, sectionMap)
-      if (chunksError) {
-        await deleteSpaceDocument(doc.id, activeSpace.id)
-        throw chunksError
       }
 
       updateTrackedUploadState({
@@ -524,9 +379,9 @@ const SpaceView = () => {
         stage: '',
         message: t('views.spaceView.documentUploaded'),
         fileName: file.name,
-        characters: normalized.length,
-        sections: sections.length,
-        chunks: enrichedChunks.length,
+        characters: Number(indexed?.character_count || normalized.length),
+        sections: Number(indexed?.section_count || 0),
+        chunks: Number(indexed?.node_count || 0),
         progress: 100,
       })
       await loadSpaceDocuments()
@@ -585,6 +440,12 @@ const SpaceView = () => {
       confirmText: t('confirmation.delete'),
       isDangerous: true,
       onConfirm: async () => {
+        try {
+          await deleteDocumentIndexViaBackend({ spaceId: activeSpace.id, documentId: doc.id })
+        } catch (error) {
+          console.error('Failed to delete TreeSearch index:', error)
+        }
+
         const { success, error } = await deleteSpaceDocument(doc.id, activeSpace.id)
 
         if (success) {
@@ -788,11 +649,6 @@ const SpaceView = () => {
                               </span>
                             </div>
                           </div>
-                          {formatEmbeddingMeta(doc) && (
-                            <div className="flex min-w-0 items-center gap-1.5 overflow-hidden">
-                              {renderEmbeddingMeta(doc)}
-                            </div>
-                          )}
                         </div>
                       </div>
 

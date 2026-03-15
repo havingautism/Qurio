@@ -5,12 +5,16 @@ import { useTranslation } from 'react-i18next'
 import { useAppContext } from '../App'
 import AgentAvatar from '../components/AgentAvatar'
 import { getAgentDisplayDescription, getAgentDisplayName } from '../lib/agentDisplay'
+import { SCRAPBOOK_AGENT_ID } from '../lib/systemAgents'
 import ColorBendsBackground from '../components/ui/ColorBendsBackground'
 
 const AgentsView = () => {
   const { t } = useTranslation()
   const { onCreateAgent, onEditAgent, isSidebarPinned, agents, agentsLoading, toggleSidebar } =
     useAppContext()
+  const visibleAgents = (agents || []).filter(
+    agent => String(agent?.id || '') !== SCRAPBOOK_AGENT_ID,
+  )
 
   return (
     <div
@@ -71,12 +75,12 @@ const AgentsView = () => {
                 </div>
 
                 {/* Agent Cards */}
-                {agentsLoading && agents.length === 0 ? (
+                {agentsLoading && visibleAgents.length === 0 ? (
                   <div className="col-span-full text-sm text-gray-500 dark:text-gray-400">
                     {t('agentsView.loading')}
                   </div>
                 ) : (
-                  [...agents]
+                  [...visibleAgents]
                     .sort((a, b) => Number(Boolean(b.isDefault)) - Number(Boolean(a.isDefault)))
                     .map(agent => (
                       <div

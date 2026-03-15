@@ -55,17 +55,23 @@ const mapAgent = agent => {
   })
 }
 
-export const listAgents = async ({ includeHidden = false } = {}) => {
+export const listAgents = async ({ includeHidden = false, excludeIds = [] } = {}) => {
   const supabase = getSupabaseClient()
   if (!supabase) return { data: [], error: new Error('Supabase not configured') }
 
-  const { data, error } = await supabase
-    .from(table)
-    .select('*')
-    .order('created_at', { ascending: true })
-
+  let query = supabase.from(table).select('*')
+  const excluded = (excludeIds || []).map(id => String(id || '').trim()).filter(Boolean)
+  if (excluded.length > 0 && typeof query.not === 'function') {
+    const values = excluded.map(id => JSON.stringify(id)).join(',')
+    query = query.not('id', 'in', `(${values})`)
+  }
+  const { data, error } = await query.order('created_at', { ascending: true })
   const mapped = (data || []).map(mapAgent)
-  return { data: includeHidden ? mapped : filterVisibleAgents(mapped), error }
+  const filteredExcluded =
+    excluded.length > 0
+      ? mapped.filter(agent => !excluded.includes(String(agent?.id || '').trim()))
+      : mapped
+  return { data: includeHidden ? filteredExcluded : filterVisibleAgents(filteredExcluded), error }
 }
 
 export const getAgentById = async id => {

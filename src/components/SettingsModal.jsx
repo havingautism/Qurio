@@ -54,8 +54,6 @@ import INIT_SQL_SCRIPT from '../assets/init-schema.sql'
 import DotLoader from './DotLoader'
 
 const ENV_VARS = {
-  supabaseUrl: getPublicEnv('PUBLIC_SUPABASE_URL'),
-  supabaseKey: getPublicEnv('PUBLIC_SUPABASE_KEY'),
   openAIKey: getPublicEnv('PUBLIC_OPENAI_API_KEY'),
   openAIBaseUrl: getPublicEnv('PUBLIC_OPENAI_BASE_URL'),
   googleApiKey: getPublicEnv('PUBLIC_GOOGLE_API_KEY'),
@@ -196,8 +194,6 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
   const [databaseProvider, setDatabaseProvider] = useState('')
   const [dbProviders, setDbProviders] = useState([])
   const [dbAccessKey, setDbAccessKey] = useState('')
-  const [supabaseUrl, setSupabaseUrl] = useState('')
-  const [supabaseKey, setSupabaseKey] = useState('')
   const initialDbConfigRef = useRef({ provider: '', accessKey: '' })
 
   const [backendHealthState, setBackendHealthState] = useState({
@@ -226,6 +222,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
   const [liteModelProvider, setLiteModelProvider] = useState('')
   const [defaultModelSource, setDefaultModelSource] = useState('list')
   const [liteModelSource, setLiteModelSource] = useState('list')
+  const [enableResponseCache, setEnableResponseCache] = useState(false)
   const [defaultCustomModel, setDefaultCustomModel] = useState('')
   const [liteCustomModel, setLiteCustomModel] = useState('')
   const [defaultTestAction, setDefaultTestAction] = useState({ status: 'idle', message: '' })
@@ -474,8 +471,6 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
         provider: settings.databaseProvider || '',
         accessKey: settings.dbAccessKey || '',
       }
-      if (settings.supabaseUrl) setSupabaseUrl(settings.supabaseUrl)
-      if (settings.supabaseKey) setSupabaseKey(settings.supabaseKey)
       if (settings.OpenAICompatibilityKey)
         setOpenAICompatibilityKey(settings.OpenAICompatibilityKey)
       if (settings.OpenAICompatibilityUrl)
@@ -524,6 +519,9 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       if (settings.liteModelProvider) setLiteModelProvider(settings.liteModelProvider)
       if (settings.defaultModelSource) setDefaultModelSource(settings.defaultModelSource)
       if (settings.liteModelSource) setLiteModelSource(settings.liteModelSource)
+      if (typeof settings.enableResponseCache === 'boolean') {
+        setEnableResponseCache(settings.enableResponseCache)
+      }
       if (settings.defaultModelSource === 'custom')
         setDefaultCustomModel(settings.defaultModel || '')
       if (settings.liteModelSource === 'custom') setLiteCustomModel(settings.liteModel || '')
@@ -610,6 +608,9 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
               setLiteModelProvider(data.liteModelProvider || '')
             if (data.defaultModelSource) setDefaultModelSource(data.defaultModelSource || 'list')
             if (data.liteModelSource) setLiteModelSource(data.liteModelSource || 'list')
+            if (data.enableResponseCache !== undefined) {
+              setEnableResponseCache(String(data.enableResponseCache) === 'true')
+            }
             if (data.defaultModelSource === 'custom') setDefaultCustomModel(data.defaultModel || '')
             if (data.liteModelSource === 'custom') setLiteCustomModel(data.liteModel || '')
             if (data.enableLongTermMemory !== undefined) {
@@ -1841,8 +1842,6 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
         databaseProvider: resolvedDatabaseProvider,
         databaseProviderLabel: selectedDbProvider?.label || '',
         dbAccessKey,
-        supabaseUrl,
-        supabaseKey,
         // UI
         themeColor,
         fontSize,
@@ -1867,6 +1866,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
         liteModelProvider,
         defaultModelSource,
         liteModelSource,
+        enableResponseCache,
         developerMode,
         embeddingCustomModel,
       }
@@ -1918,6 +1918,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
               'liteModelProvider',
               'defaultModelSource',
               'liteModelSource',
+              'enableResponseCache',
               'enableLongTermMemory',
               'userSelfIntro',
             ]
@@ -2888,6 +2889,23 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                           message: liteTestAction.message,
                         },
                       })}
+
+                      <div className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50/50 p-3 dark:border-zinc-800 dark:bg-zinc-800/50">
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-sm font-medium text-gray-900 dark:text-white">
+                            {t('settings.enableResponseCache')}
+                          </span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                            {t('settings.enableResponseCacheHint')}
+                          </span>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={enableResponseCache}
+                          onChange={event => setEnableResponseCache(event.target.checked)}
+                          className="text-primary-600 focus:ring-primary-500 h-4 w-4 rounded border-gray-300"
+                        />
+                      </div>
                     </div>
                   )}
                 </div>

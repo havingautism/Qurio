@@ -127,6 +127,10 @@ def _finalize_title(raw: Any, fallback: str = "New Conversation") -> str:
         "here is",
         "here's",
         "i can",
+        "i cannot",
+        "i can't",
+        "i am unable",
+        "i'm unable",
         "i would",
         "sure",
         "certainly",
@@ -134,6 +138,13 @@ def _finalize_title(raw: Any, fallback: str = "New Conversation") -> str:
         "user:",
         "assistant:",
         "system:",
+        "sorry",
+        "apologies",
+        "抱歉",
+        "对不起",
+        "无法",
+        "我目前",
+        "不能",
     )
     lowered = title.lower()
     if lowered.startswith(disallowed_starts):
@@ -146,11 +157,14 @@ def _finalize_title(raw: Any, fallback: str = "New Conversation") -> str:
 def _title_prompt(task_suffix: str = "") -> str:
     suffix = f"\n{task_suffix.strip()}" if task_suffix and task_suffix.strip() else ""
     return (
-        "Generate a short conversation title from the provided text.\n"
-        "The text may be a user message or a short transcript.\n\n"
+        "Generate a short conversation title from the user's request.\n"
+        "The provided text may be a user message or a short transcript, but the title must reflect the user's topic or intent.\n\n"
         "Rules:\n"
         "- Return only the title.\n"
         "- Maximum 5 words.\n"
+        "- Focus on the user's topic, question, or request.\n"
+        "- Do not turn the title into an answer.\n"
+        "- Do not mention apology, inability, refusal, lack of capability, or lack of real-time access.\n"
         "- Do not answer the user.\n"
         "- Do not explain.\n"
         "- Do not use quotes or markdown."
@@ -1039,6 +1053,7 @@ async def generate_related_questions(
     api_key: str,
     base_url: str | None = None,
     model: str | None = None,
+    language_instruction: str | None = None,
     tools: list[dict[str, Any]] | None = None,
     tool_ids: list[str] | None = None,
     user_tools: list[dict[str, Any]] | None = None,
@@ -1056,6 +1071,12 @@ async def generate_related_questions(
     user_timezone: str | None = None,
     user_locale: str | None = None,
 ) -> list[str]:
+    language_line = (
+        f"Strictly follow this output language instruction: {language_instruction.strip()}"
+        if isinstance(language_instruction, str) and language_instruction.strip()
+        else "Use the same language as the user's latest message."
+    )
+
     prompt_messages = [
         *(messages or []),
         {
@@ -1064,6 +1085,7 @@ async def generate_related_questions(
                 "Based on our conversation, suggest 3 short, relevant follow-up questions I (the user) might ask you next. "
                 "The questions MUST be from the user's perspective (e.g., 'How does X work?', 'Tell me more about Y'). "
                 "Do NOT generate questions from the assistant's perspective (e.g., 'Do you want to know about...?'). "
+                f"{language_line} "
                 "Return the result as JSON with a 'questions' key containing the array of strings."
             ),
         },

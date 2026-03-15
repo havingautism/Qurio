@@ -1,0 +1,288 @@
+# 2026-03-13 Citations 与 Sources 调整总结
+
+## 背景
+
+今天这轮调整的核心目标有两条：
+
+1. 让网络搜索来源和文档检索来源在产品语义上彻底分开。
+2. 让来源展示更诚实，同时避免把不可靠的前端推断结果伪装成句内精确引用。
+
+当前共识是：
+
+- 网络搜索来源不适合做正文内 citations。
+- 文档检索来源虽然相对可信，但当前前端仍然只是做相似度推断，不适合继续显示正文 citations。
+- “所有来源”应成为统一来源入口。
+
+## 今日已完成
+
+### 1. 正文不再显示 citations，只保留“所有来源”
+
+- 正文内不再渲染网络搜索 citations。
+- 正文内也不再渲染文档 citations。
+- “所有来源”继续同时承载网络搜索来源和文档来源。
+
+这意味着：
+
+- Web sources: 只进入来源面板，不进入正文。
+- Document sources: 只进入来源面板，不进入正文。
+
+这条规则当前已经覆盖：
+
+- 普通对话
+- expert mode 的主回答区
+- expert mode 的 plan 展示区
+- share canvas
+
+### 2. “所有来源”改为统一入口
+
+- 消息气泡下方旧的文档来源入口已移除。
+- 来源入口统一收敛到右上角“所有来源”。
+
+这样可以避免双入口造成的理解冲突：
+
+- 右上角负责统一查看来源。
+- 正文只负责回答本身，不再承担 citation 展示职责。
+
+### 3. “所有来源”支持来源类型分离
+
+- 来源面板已调整为分 tab 展示：
+  - 网络搜索来源
+  - 文档来源
+
+这样做的原因是：
+
+- 避免用户把两类来源误认为同一套 citation 体系。
+- 更符合“文档 citation 可追溯、web sources 仅供参考”的产品语义。
+
+### 4. 文档来源支持查看完整引用内容
+
+- 文档来源项现在支持 `show full quote / hide full quote`。
+- hover citation 视图和“所有来源”里的文档项，都能展开查看更完整的引用文本。
+- 展开/收起按钮样式已改为主题色。
+
+这样可以在保持 UI 简洁的同时，让用户按需查看完整引用内容。
+
+### 5. 文档来源不再做语义归并
+
+中间尝试过“把相似命中的文档来源归并成一个展示项”，后来已回退。
+
+当前策略是：
+
+- 一个原始文档命中 = 一个展示来源。
+- 即使标题、小标题、snippet 看起来相似，也先保留独立性。
+
+原因是：
+
+- 不同章节、不同位置可能出现相同内容。
+- 仅凭内容相似就归并，可能把两个真实不同的证据点误合并。
+
+### 6. 前端推断式正文 citation 已停用
+
+中间曾尝试继续保留文档 citations，并通过前端相似度匹配收紧逻辑来缓解误配。
+
+但最终结论是：
+
+- 即使文档来源相对可信，当前正文 citations 仍然只是前端根据回答文本和检索片段做推断。
+- 这种机制会制造“看起来像精确引用，实际上只是近似匹配”的误导。
+
+因此当前已收口为：
+
+- 不再在正文和分享页中注入文档 citations。
+- 引用查看统一交给“所有来源”及其完整引用内容展开能力。
+- `messageUtils.js` 中原有的 citation 推断与注入逻辑暂未删除，但当前已不参与业务渲染，先作为后续实验或回退的备用实现保留。
+
+已确认的前端状态：
+
+- 普通对话：不再注入正文 citations。
+- expert mode：不再注入正文 citations，expert plan 区域也不再注入 citations。
+- share canvas：不再注入正文 citations。
+
+需要注意：
+
+- 这里说的是“前端不再主动注入 citations”。
+- 如果某些模型或后端 prompt 自己在正文里直接输出了 `[1][2]` 这样的文本，那仍然可能显示出来；这属于模型原生输出，不属于前端 citation 渲染链。
+
+### 7. 文档来源展示时机延后
+
+文档检索本身仍然在发送请求前执行，以便给模型提供上下文；但 UI 展示时机已延后。
+
+现在的行为是：
+
+- 文档来源不会在流式生成一开始就出现在“整理参考资料”和右上角“所有来源”里。
+- 等回答结束后，再统一显示来源入口和来源列表。
+
+这让文档来源的显示时机更接近网络搜索来源的用户感知。
+
+## 当前系统行为总结
+
+### 正文 citations 的当前状态
+
+当前产品已经不再显示正文内 citations。
+
+原因是此前的文档 citations 机制并不是模型或后端结构化返回的“句子 -> 引用片段”映射，而是前端根据回答文本与文档片段做相似度推断。
+
+这类推断更适合用于内部排序或辅助调试，不适合继续作为面向用户的句内 citation 展示。
+
+### 网络搜索来源的当前定位
+
+网络搜索来源当前保留为：
+
+- “所有来源”中的来源列表
+- 非正文内联 citation
+
+这能显著降低“模型通过 prompt 自行标注 `[1][2][3]` 导致幻觉”的风险。
+
+### deep research / academic research 的当前状态
+
+这两条链路目前还没有彻底完成 citation 收口。
+
+已确认的情况是：
+
+- 前端当前已经不再为它们额外注入正文 citations。
+- 但 backend deep research / academic research prompt 中，仍然存在明确要求模型使用 `[1]`、`[2]` 这类格式引用来源的指令。
+
+因此当前风险点仍在：
+
+- deep research writer prompt 仍要求 citations
+- academic research agent prompt 仍要求 citations
+- 相关 step 执行与最终写作链路中，模型仍可能继续原生输出 `[1][2]`
+
+也就是说：
+
+- 前端展示层已经朝“只保留所有来源”收口
+- 但 deep research + academic research 在 prompt 层还没有完全去掉 citations
+
+## 已确认的问题与现状
+
+### 1. 来源面板现在承担了全部证据查看职责
+
+既然正文不再显示 citations，“所有来源”与文档来源卡片就成为唯一证据入口。
+
+这要求来源面板在以下方面继续保持清晰：
+
+- 文档来源与网络来源分离
+- 文档来源支持展开完整引用内容
+- 来源项可被用户明确区分
+
+### 3. 文档来源的章节区分能力仍不强
+
+有些来源虽然来自不同章节或不同位置，但当前展示字段不足以让用户一眼区分：
+
+- 文档名可能相同
+- 小标题可能相同
+- snippet 前半段可能相同
+
+这会让用户感知为“看起来重复”，即使底层其实是两个不同原始命中。
+
+### 4. deep research + academic research 仍然是 citation 高风险区
+
+虽然普通对话和 expert mode 的前端 citation 注入已经停用，但 deep research / academic research 的 prompt 仍然鼓励模型在正文中输出 citations。
+
+这意味着：
+
+- 这些模块仍然可能继续出现模型原生生成的 `[1][2]`
+- 这些 citations 仍然可能和真实使用的网页/论文不完全对应
+- 尤其 academic research 链路里，step 级 findings 到最终正文之间还会进一步放大 citation 漂移风险
+
+## 待优化
+
+### 1. 增强文档来源的位置信息展示
+
+当前最缺的是“如何让两个看起来很像的来源在 UI 上可区分”。
+
+可考虑补充：
+
+- 页码
+- chunk/node 的位置信息
+- 章节层级更完整的 titlePath
+- 在文档中的顺序号或锚点信息
+
+如果这些信息在数据层可用，UI 上的“看起来重复”问题会明显缓解。
+
+### 2. 统一来源展示完成态
+
+虽然文档来源已经延后到回答完成后再显示，但仍建议继续检查：
+
+- deep research 流程面板
+- expert mode
+- share canvas
+- workflow summary
+
+确认所有来源入口在不同消息模式下都遵循同一展示时机规则。
+
+### 3. 去掉 deep research + academic research prompt 中的 citations 要求
+
+这是后续很重要的一步。
+
+当前前端已经不再主动注入 citations，但如果后端 prompt 仍然要求模型用 `[1]` 格式写作，那么用户依然会看到正文里的 citations。
+
+后续需要检查并调整：
+
+- `backend-python/src/services/stream_chat.py`
+- `backend-python/src/services/deep_research.py`
+- `backend-python/src/prompts/deep_research_prompts.py`
+- `src/lib/academicResearchDefaults.js`
+
+目标应该是：
+
+- 对 deep research / academic research 也逐步收口到“正文不显示 citations，只保留来源列表”
+- 至少在没有结构化 source attribution 前，不再要求模型输出 `[1][2]`
+
+## 需要继续考虑的提升方向
+
+### 1. 是否要对 web sources 做进一步兜底清洗
+
+当前网络搜索来源虽然不再走正文 citation 渲染，但如果模型自身在正文里输出 `[1][2]` 这样的文本，仍可能造成误导。
+
+后续可考虑：
+
+- 在 prompt 层明确禁止 web inline citations
+- 或对 web-search answer 做正文 citation token 清洗
+
+### 2. 是否要让“所有来源”承担更多证据查看职责
+
+当前“所有来源”已经是统一入口，但后续还可以增强为更强的证据查看器，例如：
+
+- 文档来源默认摘要 + 可展开全文
+- 支持更明确的位置标签
+- 支持在文档中打开原位置
+
+当前方向已经是“正文不显示 citations”，因此后续完整证据查看能力应主要由来源面板承担。
+
+### 3. `messageUtils.js` 中停用逻辑的去留时机
+
+当前 `messageUtils.js` 中与 citations 推断相关的逻辑已经不参与业务渲染，但仍保留作为后续实验或回退的备用实现。
+
+后续需要决定的是：
+
+- 保留多久作为后备
+- 在什么时间点正式清理
+- 清理时是否连同测试一起删除
+
+## 建议的下一步
+
+如果继续沿今天这条线优化，建议优先顺序如下：
+
+1. 为文档来源补充更细的位置区分信息
+2. 去掉 deep research / academic research prompt 中对 citations 的强制要求
+3. 检查 deep research / expert / share 场景下的来源展示完成态是否一致
+4. 持续增强“所有来源”里的完整引用查看体验
+5. 评估 `messageUtils.js` 中停用 citations 逻辑的清理时机
+
+## 涉及的核心文件
+
+- `src/components/MessageBubble.jsx`
+- `src/components/ShareCanvas.jsx`
+- `src/components/message/messageUtils.js`
+- `src/lib/documentCitationViewModel.js`
+- `src/lib/documentCitationViewModel.test.js`
+- `src/components/DesktopSourcesSheet.jsx`
+- `src/components/MobileSourcesDrawer.jsx`
+- `src/components/DesktopSourcesSection.jsx`
+- `src/components/message/MessageActionBar.jsx`
+- `src/locales/en.json`
+- `src/locales/zh-CN.json`
+- `backend-python/src/services/stream_chat.py`
+- `backend-python/src/services/deep_research.py`
+- `backend-python/src/prompts/deep_research_prompts.py`
+- `src/lib/academicResearchDefaults.js`

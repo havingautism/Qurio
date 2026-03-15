@@ -242,6 +242,7 @@ const MEMORY_SETTINGS_KEYS = [
   'liteModelProvider',
   'defaultModelSource',
   'liteModelSource',
+  'enableResponseCache',
   'enableLongTermMemory',
   'userSelfIntro',
   'scrapbookProvider',
@@ -322,10 +323,6 @@ export const loadSettings = (overrides = {}) => {
   const localDatabaseProvider = localStorage.getItem('databaseProvider')
   const legacyDatabaseProviderId = localStorage.getItem('databaseProviderId')
   const localDatabaseProviderLabel = localStorage.getItem('databaseProviderLabel')
-  const localDatabaseSupabaseUrl = localStorage.getItem('databaseSupabaseUrl')
-  const localDatabaseSupabaseKey = localStorage.getItem('databaseSupabaseKey')
-  const localSupabaseUrl = localStorage.getItem('supabaseUrl')
-  const localSupabaseKey = localStorage.getItem('supabaseKey')
   const localDbAccessKey = localStorage.getItem('dbAccessKey')
   const localSearchProvider = localStorage.getItem('searchProvider')
   const localBackendUrl = localStorage.getItem('backendUrl')
@@ -361,6 +358,7 @@ export const loadSettings = (overrides = {}) => {
   const localLiteModelProvider = localStorage.getItem('liteModelProvider')
   const localDefaultModelSource = localStorage.getItem('defaultModelSource')
   const localLiteModelSource = localStorage.getItem('liteModelSource')
+  const localEnableResponseCache = localStorage.getItem('enableResponseCache')
   const localDeveloperMode = localStorage.getItem('developerMode')
   // Style settings
   const localStyleBaseTone = localStorage.getItem('styleBaseTone')
@@ -419,9 +417,9 @@ export const loadSettings = (overrides = {}) => {
     overrides?.databaseConfig?.supabase?.key ||
     ''
   const resolvedSupabaseUrl =
-    envSupabaseUrl || localDatabaseSupabaseUrl || localSupabaseUrl || overrideSupabaseUrl || ''
+    envSupabaseUrl || overrideSupabaseUrl || ''
   const resolvedSupabaseKey =
-    envSupabaseKey || localDatabaseSupabaseKey || localSupabaseKey || overrideSupabaseKey || ''
+    envSupabaseKey || overrideSupabaseKey || ''
 
   const settings = {
     // Database (local/env to connect)
@@ -482,6 +480,12 @@ export const loadSettings = (overrides = {}) => {
     defaultModelProvider: overrides.defaultModelProvider || localDefaultModelProvider || '',
     liteModelSource: overrides.liteModelSource || localLiteModelSource || 'list',
     defaultModelSource: overrides.defaultModelSource || localDefaultModelSource || 'list',
+    enableResponseCache:
+      typeof overrides.enableResponseCache === 'boolean'
+        ? overrides.enableResponseCache
+        : localEnableResponseCache !== null
+          ? localEnableResponseCache === 'true'
+          : false,
 
     // Backend API
     backendUrl:
@@ -639,20 +643,11 @@ export const saveSettings = async settings => {
     localStorage.setItem('databaseProviderLabel', settings.databaseProviderLabel)
   }
 
-  const supabaseConfig = settings?.databaseConfig?.supabase || {}
-  const resolvedSupabaseUrl =
-    settings.supabaseUrl ?? settings.databaseSupabaseUrl ?? supabaseConfig.url
-  const resolvedSupabaseKey =
-    settings.supabaseKey ?? settings.databaseSupabaseKey ?? supabaseConfig.key
-
-  if (resolvedSupabaseUrl !== undefined) {
-    localStorage.setItem('databaseSupabaseUrl', resolvedSupabaseUrl)
-    localStorage.setItem('supabaseUrl', resolvedSupabaseUrl)
-  }
-  if (resolvedSupabaseKey !== undefined) {
-    localStorage.setItem('databaseSupabaseKey', resolvedSupabaseKey)
-    localStorage.setItem('supabaseKey', resolvedSupabaseKey)
-  }
+  // Supabase credentials should not be persisted in frontend storage.
+  localStorage.removeItem('databaseSupabaseUrl')
+  localStorage.removeItem('databaseSupabaseKey')
+  localStorage.removeItem('supabaseUrl')
+  localStorage.removeItem('supabaseKey')
   if (settings.dbAccessKey !== undefined) {
     if (String(settings.dbAccessKey || '').trim()) {
       localStorage.setItem('dbAccessKey', String(settings.dbAccessKey))
@@ -805,6 +800,9 @@ export const saveSettings = async settings => {
   }
   if (settings.liteModelSource !== undefined) {
     localStorage.setItem('liteModelSource', settings.liteModelSource)
+  }
+  if (settings.enableResponseCache !== undefined) {
+    localStorage.setItem('enableResponseCache', String(!!settings.enableResponseCache))
   }
   localStorage.removeItem('userSelfIntro')
   if (settings.developerMode !== undefined) {

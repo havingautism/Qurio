@@ -15,6 +15,7 @@ from agno.run.agent import RunContentEvent, RunEvent
 from agno.tools.function import Function
 
 from .base import BaseProviderAdapter, ExecutionContext, ProviderConfig, StreamChunk
+from .thinking_params import normalize_thinking_mode
 
 # Tool registry for external execution - maps tool names to their definitions
 _tool_registry: dict[str, dict[str, Any]] = {}
@@ -113,13 +114,12 @@ class OpenAIAdapter(BaseProviderAdapter):
         extra_body: dict[str, Any] = {}
 
         # Handle thinking parameter for OpenAI-compatible APIs (e.g., GLM)
-        if thinking:
-            if isinstance(thinking, bool):
-                # Boolean true -> enable thinking with default config
-                extra_body["thinking"] = {"type": "enabled"}
-            elif isinstance(thinking, dict):
-                # Dict format -> pass through (e.g., {"type": "enabled", "budget_tokens": 1024})
-                extra_body["thinking"] = thinking
+        mode, _ = normalize_thinking_mode(thinking)
+        if mode is not None and isinstance(thinking, bool):
+            extra_body["thinking"] = {"type": mode}
+        elif isinstance(thinking, dict):
+            # Dict format -> pass through (e.g., {"type": "enabled", "budget_tokens": 1024})
+            extra_body["thinking"] = thinking
 
         # Add tools to extra_body for OpenAI-compatible APIs
         if tools:

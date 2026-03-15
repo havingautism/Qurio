@@ -24,6 +24,7 @@ async def related_questions(request: Request) -> Response:
     api_key = get_llm_api_key(request)
     base_url = body.get("baseUrl")
     model = body.get("model")
+    language_instruction = body.get("languageInstruction")
     user_timezone = body.get("userTimezone")
     user_locale = body.get("userLocale")
 
@@ -39,6 +40,7 @@ async def related_questions(request: Request) -> Response:
             api_key=api_key,
             base_url=base_url,
             model=model,
+            language_instruction=language_instruction,
             user_timezone=user_timezone,
             user_locale=user_locale,
         )
@@ -52,6 +54,7 @@ async def _build_related_questions_result(
     api_key: str,
     base_url: str | None,
     model: str | None,
+    language_instruction: str | None,
     user_timezone: str | None,
     user_locale: str | None,
 ) -> dict[str, list[str]]:
@@ -61,6 +64,7 @@ async def _build_related_questions_result(
         api_key=api_key,
         base_url=base_url,
         model=model,
+        language_instruction=language_instruction,
         user_timezone=user_timezone,
         user_locale=user_locale,
     )

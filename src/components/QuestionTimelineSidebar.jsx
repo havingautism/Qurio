@@ -25,7 +25,7 @@ const QuestionTimelineSidebar = ({
   className,
   messagesContainerRef,
 }) => {
-  const { i18n } = useTranslation()
+  const { i18n, t } = useTranslation()
   useScrollLock(isOpen)
 
   const [searchQuery, setSearchQuery] = useState('')
@@ -35,8 +35,10 @@ const QuestionTimelineSidebar = ({
   const [dragPreviewId, setDragPreviewId] = useState(null)
   const timelineRailRef = useRef(null)
   const overlayRef = useRef(null)
-  const dragFrameRef = useRef(null)
+  const desktopPositionFrameRef = useRef(null)
   const lastTouchIndexRef = useRef(null)
+  const touchStartYRef = useRef(null)
+  const touchHasMovedRef = useRef(false)
   // const [activeIndicatorTop, setActiveIndicatorTop] = useState(null) // Removed unused state
   const [desktopTimelinePosition, setDesktopTimelinePosition] = useState({
     top: '50%',
@@ -90,7 +92,7 @@ const QuestionTimelineSidebar = ({
     const groups = {}
 
     filteredItems.forEach(item => {
-      let groupKey = 'No Date'
+      let groupKey = t('chatInterface.timelineNoDate')
 
       if (item.timestamp) {
         try {
@@ -101,9 +103,9 @@ const QuestionTimelineSidebar = ({
           const locale = i18n.language === 'zh-CN' ? 'zh-CN' : 'en-US'
 
           if (date.toDateString() === today.toDateString()) {
-            groupKey = 'Today'
+            groupKey = t('chatInterface.timelineToday')
           } else if (date.toDateString() === yesterday.toDateString()) {
-            groupKey = 'Yesterday'
+            groupKey = t('chatInterface.timelineYesterday')
           } else {
             groupKey = date.toLocaleDateString(locale, {
               month: 'short',
@@ -123,7 +125,7 @@ const QuestionTimelineSidebar = ({
     })
 
     return groups
-  }, [filteredItems, i18n.language])
+  }, [filteredItems, i18n.language, t])
 
   const timelineGroupedItems = useMemo(() => {
     const ascSorted = [...filteredItems].sort((a, b) => {
@@ -136,7 +138,7 @@ const QuestionTimelineSidebar = ({
     const groups = {}
 
     ascSorted.forEach(item => {
-      let groupKey = 'No Date'
+      let groupKey = t('chatInterface.timelineNoDate')
 
       if (item.timestamp) {
         try {
@@ -147,9 +149,9 @@ const QuestionTimelineSidebar = ({
           const locale = i18n.language === 'zh-CN' ? 'zh-CN' : 'en-US'
 
           if (date.toDateString() === today.toDateString()) {
-            groupKey = 'Today'
+            groupKey = t('chatInterface.timelineToday')
           } else if (date.toDateString() === yesterday.toDateString()) {
-            groupKey = 'Yesterday'
+            groupKey = t('chatInterface.timelineYesterday')
           } else {
             groupKey = date.toLocaleDateString(locale, {
               month: 'short',
@@ -169,7 +171,7 @@ const QuestionTimelineSidebar = ({
     })
 
     return groups
-  }, [filteredItems, i18n.language])
+  }, [filteredItems, i18n.language, t])
 
   const flatTimelineItems = useMemo(
     () => Object.values(timelineGroupedItems).flat(),
@@ -217,8 +219,8 @@ const QuestionTimelineSidebar = ({
 
   useEffect(() => {
     return () => {
-      if (dragFrameRef.current) {
-        cancelAnimationFrame(dragFrameRef.current)
+      if (desktopPositionFrameRef.current) {
+        cancelAnimationFrame(desktopPositionFrameRef.current)
       }
     }
   }, [])
@@ -258,44 +260,30 @@ const QuestionTimelineSidebar = ({
     [flatTimelineItems.length],
   )
 
-  const activateTimelineIndex = useCallback(
-    idx => {
-      const item = flatTimelineItems[idx]
-      if (!item) return
-      setDragPreviewId(item.id)
-      if (onJump) onJump(item.id)
-    },
-    [flatTimelineItems, onJump],
-  )
-
-  const scheduleActivateIndex = useCallback(
-    idx => {
-      if (idx === null || idx === lastTouchIndexRef.current) return
-      lastTouchIndexRef.current = idx
-      if (dragFrameRef.current) {
-        cancelAnimationFrame(dragFrameRef.current)
-      }
-      dragFrameRef.current = requestAnimationFrame(() => {
-        activateTimelineIndex(idx)
-      })
-    },
-    [activateTimelineIndex],
-  )
-
   const handleTimelineTouchStart = useCallback(
     event => {
       if (!flatTimelineItems.length) return
-      event.preventDefault()
-      const idx = getIndexFromTouch(event.touches[0])
-      scheduleActivateIndex(idx)
+      touchStartYRef.current = event.touches[0]?.clientY ?? null
+      touchHasMovedRef.current = false
+      lastTouchIndexRef.current = null
     },
-    [flatTimelineItems.length, getIndexFromTouch, scheduleActivateIndex],
+    [flatTimelineItems.length],
   )
 
   const handleTimelineTouchMove = useCallback(
     event => {
       if (!flatTimelineItems.length) return
-      // optimization: prevent default to stop scrolling the page
+      const currentY = event.touches[0]?.clientY
+      if (typeof currentY !== 'number') return
+
+      if (typeof touchStartYRef.current !== 'number') {
+        touchStartYRef.current = currentY
+      }
+
+      const hasMovedEnough = Math.abs(currentY - touchStartYRef.current) >= 6
+      if (!touchHasMovedRef.current && !hasMovedEnough) return
+      touchHasMovedRef.current = true
+      // Once sliding starts, lock page scroll and treat movement as timeline scrubbing.
       if (event.cancelable) event.preventDefault()
 
       const idx = getIndexFromTouch(event.touches[0])
@@ -310,17 +298,15 @@ const QuestionTimelineSidebar = ({
   )
 
   const handleTimelineTouchEnd = useCallback(() => {
-    // If we have a preview ID (meaning we were dragging), jump to it now
-    if (dragPreviewId && onJump) {
+    // Mobile timeline: only commit jump after an actual slide gesture.
+    if (touchHasMovedRef.current && dragPreviewId && onJump) {
       onJump(dragPreviewId)
     }
 
     setDragPreviewId(null)
     lastTouchIndexRef.current = null
-    if (dragFrameRef.current) {
-      cancelAnimationFrame(dragFrameRef.current)
-      dragFrameRef.current = null
-    }
+    touchStartYRef.current = null
+    touchHasMovedRef.current = false
   }, [dragPreviewId, onJump])
 
   useEffect(() => {
@@ -371,7 +357,7 @@ const QuestionTimelineSidebar = ({
           isLargeScreen
             ? 'absolute top-0 left-full z-30 ml-16 h-full w-75 border-none bg-transparent shadow-none'
             : [
-                'fixed top-0 right-0 h-dvh w-75', // Fixed width for mobile sidebar instead of variable
+                'fixed top-0 right-0 h-dvh min-w-[16rem] w-[75vw] max-w-75',
                 'bg-background text-foreground z-50',
                 isOpen ? 'translate-x-0' : 'translate-x-full',
               ],
@@ -390,7 +376,7 @@ const QuestionTimelineSidebar = ({
             <button
               onClick={handleToggle}
               className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-gray-200/50 bg-white/90 p-0 leading-none text-gray-600 shadow-sm backdrop-blur-xl transition-all hover:bg-white hover:shadow-md xl:hidden dark:border-zinc-800/50 dark:bg-zinc-900/90 dark:text-gray-300 dark:hover:bg-zinc-900"
-              title="Close timeline"
+              title={t('chatInterface.closeTimeline')}
             >
               <PanelRightClose size={21} className="block" />
             </button>
@@ -405,7 +391,9 @@ const QuestionTimelineSidebar = ({
                   size={40}
                   className="mx-auto mb-3 text-gray-300 dark:text-zinc-600"
                 />
-                <p className="text-sm text-gray-500 dark:text-gray-400">No questions yet</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {t('chatInterface.noTimelineItems')}
+                </p>
               </div>
             ) : (
               <div ref={timelineRailRef} className="relative h-[55vh] w-full touch-none">
@@ -483,9 +471,10 @@ const QuestionTimelineSidebar = ({
 
     const container = messagesContainerRef?.current
     if (!container) {
-      setDesktopTimelinePosition({
-        top: '50%',
-        right: '32px',
+      setDesktopTimelinePosition(prev => {
+        const next = { top: '50%', right: '32px' }
+        if (prev.top === next.top && prev.right === next.right) return prev
+        return next
       })
       return
     }
@@ -496,23 +485,39 @@ const QuestionTimelineSidebar = ({
     const clampedRight = Math.min(desiredRight, 320)
     const midY = rect.top + rect.height / 2
 
-    setDesktopTimelinePosition({
-      top: `${midY}px`,
-      right: `${clampedRight}px`,
+    setDesktopTimelinePosition(prev => {
+      const next = {
+        top: `${midY}px`,
+        right: `${clampedRight}px`,
+      }
+      if (prev.top === next.top && prev.right === next.right) return prev
+      return next
     })
   }, [messagesContainerRef])
 
+  const scheduleDesktopTimelinePosition = useCallback(() => {
+    if (desktopPositionFrameRef.current) return
+    desktopPositionFrameRef.current = requestAnimationFrame(() => {
+      desktopPositionFrameRef.current = null
+      updateDesktopTimelinePosition()
+    })
+  }, [updateDesktopTimelinePosition])
+
   useEffect(() => {
-    updateDesktopTimelinePosition()
+    scheduleDesktopTimelinePosition()
     if (typeof window === 'undefined') return undefined
 
-    window.addEventListener('resize', updateDesktopTimelinePosition)
-    window.addEventListener('scroll', updateDesktopTimelinePosition, true)
+    window.addEventListener('resize', scheduleDesktopTimelinePosition)
+    window.addEventListener('scroll', scheduleDesktopTimelinePosition, true)
     return () => {
-      window.removeEventListener('resize', updateDesktopTimelinePosition)
-      window.removeEventListener('scroll', updateDesktopTimelinePosition, true)
+      window.removeEventListener('resize', scheduleDesktopTimelinePosition)
+      window.removeEventListener('scroll', scheduleDesktopTimelinePosition, true)
+      if (desktopPositionFrameRef.current) {
+        cancelAnimationFrame(desktopPositionFrameRef.current)
+        desktopPositionFrameRef.current = null
+      }
     }
-  }, [updateDesktopTimelinePosition])
+  }, [scheduleDesktopTimelinePosition])
 
   const DesktopTimeline = () => {
     if (flatTimelineItems.length === 0) return null

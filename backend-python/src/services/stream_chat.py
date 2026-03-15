@@ -1605,6 +1605,9 @@ class StreamChatService:
                                 # Ensure member is marked as ready if not already handled by TeamRunEvent.run_completed
                                 async for e in update_status_and_yield(active_id, "ready"):
                                     yield e
+                                # Hand control back to leader so the UI returns from waiting -> active
+                                async for e in update_status_and_yield(request.agent_id, "active"):
+                                    yield e
                                 continue
 
                             # Leader completed

@@ -6,10 +6,11 @@ import time
 from uuid import uuid4
 from zipfile import ZipFile
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from pypdf import PdfReader
 from xml.etree import ElementTree as ET
 
+from ._request_secrets import get_secret_header
 from ..services.document_search import TreeSearchDocumentService
 
 router = APIRouter(tags=["documents"])
@@ -255,12 +256,22 @@ async def get_document_index_status(space_id: str, document_id: str):
 
 @router.post("/documents/search")
 async def search_documents(
+    request: Request,
     payload: dict,
 ):
     space_id = str(payload.get("space_id") or "").strip()
     query_text = str(payload.get("query_text") or "").strip()
     document_ids = payload.get("document_ids") or []
     top_k = int(payload.get("top_k") or 5)
+    lite_provider = str(payload.get("lite_provider") or "").strip()
+    lite_model = str(payload.get("lite_model") or "").strip()
+    lite_base_url = str(payload.get("lite_base_url") or "").strip()
+    use_lite_retrieval_plan = bool(payload.get("use_lite_retrieval_plan", True))
+    lite_api_key = (
+        get_secret_header(request, "x-summary-api-key")
+        or get_secret_header(request, "x-llm-api-key")
+        or ""
+    )
 
     if not space_id:
         raise HTTPException(status_code=400, detail="space_id is required")
@@ -273,6 +284,11 @@ async def search_documents(
             document_ids=document_ids,
             query_text=query_text,
             top_k=top_k,
+            lite_provider=lite_provider,
+            lite_model=lite_model,
+            lite_api_key=lite_api_key,
+            lite_base_url=lite_base_url,
+            use_lite_retrieval_plan=use_lite_retrieval_plan,
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc

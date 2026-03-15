@@ -8,6 +8,7 @@ const spaceDocumentsCache = new Map()
 const spaceDocumentsInFlight = new Map()
 const conversationDocsCache = new Map()
 const conversationDocsInFlight = new Map()
+const conversationDocsWriteQueue = new Map()
 
 const getSpaceDocumentsCacheKey = spaceId => String(spaceId)
 const getConversationDocsCacheKey = conversationId => String(conversationId)
@@ -64,6 +65,30 @@ const invalidateConversationDocsCache = conversationId => {
   }
   conversationDocsCache.clear()
   conversationDocsInFlight.clear()
+}
+
+const normalizeDocumentIds = documentIds =>
+  Array.from(
+    new Set(
+      (documentIds || [])
+        .map(id => String(id || '').trim())
+        .filter(Boolean),
+    ),
+  )
+
+const enqueueConversationDocsWrite = (conversationId, task) => {
+  const queueKey = getConversationDocsCacheKey(conversationId)
+  const previous = conversationDocsWriteQueue.get(queueKey) || Promise.resolve()
+  const current = previous
+    .catch(() => {})
+    .then(task)
+    .finally(() => {
+      if (conversationDocsWriteQueue.get(queueKey) === current) {
+        conversationDocsWriteQueue.delete(queueKey)
+      }
+    })
+  conversationDocsWriteQueue.set(queueKey, current)
+  return current
 }
 
 export const listSpaceDocuments = async spaceId => {
@@ -185,32 +210,36 @@ export const listConversationDocumentIds = async conversationId => {
   }
 }
 
-export const setConversationDocuments = async (conversationId, documentIds = []) => {
-  const supabase = getSupabaseClient()
+export const setConversationDocuments = async (conversationId, documentIds = [], deps = {}) => {
+  const supabase = deps.supabase || getSupabaseClient()
   if (!supabase) return { success: false, error: new Error('Supabase not configured') }
   if (!conversationId) return { success: false, error: new Error('Conversation id is required') }
 
-  const normalized = (documentIds || []).map(String).filter(Boolean)
-  const { error: deleteError } = await supabase
-    .from(CONVERSATION_DOCUMENTS_TABLE)
-    .delete()
-    .eq('conversation_id', conversationId)
+  return enqueueConversationDocsWrite(conversationId, async () => {
+    const normalized = normalizeDocumentIds(documentIds)
+    const { error: deleteError } = await supabase
+      .from(CONVERSATION_DOCUMENTS_TABLE)
+      .delete()
+      .eq('conversation_id', conversationId)
 
-  if (deleteError) return { success: false, error: deleteError }
-  if (normalized.length === 0) {
-    setConversationDocsCache(conversationId, { data: [], error: null })
-    return { success: true, error: null }
-  }
+    if (deleteError) return { success: false, error: deleteError }
+    if (normalized.length === 0) {
+      setConversationDocsCache(conversationId, { data: [], error: null })
+      return { success: true, error: null }
+    }
 
-  const rows = normalized.map(documentId => ({
-    conversation_id: conversationId,
-    document_id: documentId,
-  }))
-  const { error: insertError } = await supabase.from(CONVERSATION_DOCUMENTS_TABLE).insert(rows)
+    const rows = normalized.map(documentId => ({
+      conversation_id: conversationId,
+      document_id: documentId,
+    }))
+    const { error: upsertError } = await supabase
+      .from(CONVERSATION_DOCUMENTS_TABLE)
+      .upsert(rows, { onConflict: 'conversation_id,document_id' })
 
-  if (!insertError) {
-    setConversationDocsCache(conversationId, { data: normalized, error: null })
-  }
+    if (!upsertError) {
+      setConversationDocsCache(conversationId, { data: normalized, error: null })
+    }
 
-  return { success: !insertError, error: insertError }
+    return { success: !upsertError, error: upsertError }
+  })
 }

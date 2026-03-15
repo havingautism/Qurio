@@ -13,6 +13,7 @@ from typing import Any, Awaitable, Callable
 import pypdfium2 as pdfium
 from pypdf import PdfReader
 from src.providers import ExecutionContext, get_provider_adapter
+from src.services.llm_utils import safe_json_parse
 
 logger = logging.getLogger(__name__)
 
@@ -108,6 +109,7 @@ class TreeSearchDocumentService:
         text_to_tree_fn: Callable[..., Any] | None = None,
         fts_index_cls: type | None = None,
         ocr_parse_fn: Callable[..., Awaitable[str]] | None = None,
+        retrieval_plan_fn: Callable[..., Awaitable[dict[str, Any]] | dict[str, Any]] | None = None,
     ):
         self.storage_root = Path(storage_root)
         self._treesearch_cls = treesearch_cls
@@ -116,6 +118,7 @@ class TreeSearchDocumentService:
         self._text_to_tree_fn = text_to_tree_fn
         self._fts_index_cls = fts_index_cls
         self._ocr_parse_fn = ocr_parse_fn
+        self._retrieval_plan_fn = retrieval_plan_fn
 
     def get_document_paths(self, *, space_id: str, document_id: str, filename: str) -> DocumentPaths:
         root = self.storage_root / "spaces" / str(space_id) / "documents" / str(document_id)
@@ -188,6 +191,380 @@ class TreeSearchDocumentService:
             if text:
                 parts.append(text)
         return "\n\n".join(parts).strip()
+
+    @staticmethod
+    def _default_retrieval_plan(query_text: str) -> dict[str, Any]:
+        query = str(query_text or "").strip()
+        return {
+            "primary_query": query,
+            "query_variants": [],
+            "must_terms": [],
+            "aliases": {},
+            "context_policy": "parent_and_siblings",
+        }
+
+    @staticmethod
+    def _normalize_retrieval_plan(query_text: str, raw_plan: Any) -> dict[str, Any]:
+        fallback = TreeSearchDocumentService._default_retrieval_plan(query_text)
+        if not isinstance(raw_plan, dict):
+            return fallback
+
+        primary = str(raw_plan.get("primary_query") or "").strip() or fallback["primary_query"]
+        raw_variants = raw_plan.get("query_variants")
+        variants = []
+        if isinstance(raw_variants, list):
+            seen = {primary.lower()}
+            for item in raw_variants:
+                text = str(item or "").strip()
+                if not text:
+                    continue
+                key = text.lower()
+                if key in seen:
+                    continue
+                variants.append(text)
+                seen.add(key)
+                if len(variants) >= 6:
+                    break
+
+        raw_must_terms = raw_plan.get("must_terms")
+        must_terms: list[str] = []
+        if isinstance(raw_must_terms, list):
+            for item in raw_must_terms:
+                term = str(item or "").strip()
+                if term:
+                    must_terms.append(term)
+                if len(must_terms) >= 8:
+                    break
+
+        aliases: dict[str, list[str]] = {}
+        raw_aliases = raw_plan.get("aliases")
+        if isinstance(raw_aliases, dict):
+            for key, value in raw_aliases.items():
+                alias_key = str(key or "").strip()
+                if not alias_key:
+                    continue
+                values = value if isinstance(value, list) else [value]
+                normalized_values = [str(item or "").strip() for item in values if str(item or "").strip()]
+                if normalized_values:
+                    aliases[alias_key] = normalized_values[:8]
+                if len(aliases) >= 8:
+                    break
+
+        context_policy = str(raw_plan.get("context_policy") or "").strip() or "parent_and_siblings"
+        if context_policy not in {"parent_and_siblings", "parent_only", "node_only"}:
+            context_policy = "parent_and_siblings"
+
+        return {
+            "primary_query": primary,
+            "query_variants": variants,
+            "must_terms": must_terms,
+            "aliases": aliases,
+            "context_policy": context_policy,
+        }
+
+    async def _plan_retrieval(
+        self,
+        *,
+        query_text: str,
+        lite_provider: str = "",
+        lite_model: str = "",
+        lite_api_key: str = "",
+        lite_base_url: str = "",
+        use_lite_retrieval_plan: bool = True,
+    ) -> dict[str, Any]:
+        trimmed_query = str(query_text or "").strip()
+        if not trimmed_query:
+            return self._default_retrieval_plan(trimmed_query)
+
+        if self._retrieval_plan_fn is not None:
+            raw = self._retrieval_plan_fn(
+                query_text=trimmed_query,
+                lite_provider=lite_provider,
+                lite_model=lite_model,
+                lite_api_key=lite_api_key,
+                lite_base_url=lite_base_url,
+                use_lite_retrieval_plan=use_lite_retrieval_plan,
+            )
+            if inspect.isawaitable(raw):
+                raw = await raw
+            return self._normalize_retrieval_plan(trimmed_query, raw)
+
+        if (
+            not use_lite_retrieval_plan
+            or not str(lite_provider or "").strip()
+            or not str(lite_model or "").strip()
+            or not str(lite_api_key or "").strip()
+        ):
+            return self._default_retrieval_plan(trimmed_query)
+
+        prompt = (
+            "Create a retrieval plan in STRICT JSON for lexical document search.\n"
+            "Return only one JSON object with keys:\n"
+            "primary_query (string), query_variants (string[]), must_terms (string[]), "
+            "aliases (object<string,string[]>), context_policy (string).\n"
+            "Rules:\n"
+            "- Keep primary_query concise and faithful to user intent.\n"
+            "- query_variants must be short lexical variants (max 6).\n"
+            "- must_terms include critical exact terms when necessary.\n"
+            "- aliases map user terms to possible synonyms for lexical retrieval.\n"
+            "- context_policy must be one of: parent_and_siblings, parent_only, node_only.\n"
+            f'User query: "{trimmed_query}"'
+        )
+        adapter = get_provider_adapter(str(lite_provider).strip())
+        context = ExecutionContext(
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a retrieval planner. Output JSON only. "
+                        "No markdown, no explanation."
+                    ),
+                },
+                {"role": "user", "content": prompt},
+            ],
+            stream=True,
+            temperature=0.1,
+            response_format={"type": "json_object"},
+        )
+
+        chunks: list[str] = []
+        try:
+            async for chunk in adapter.execute(
+                context=context,
+                api_key=str(lite_api_key).strip(),
+                model=str(lite_model).strip(),
+                base_url=str(lite_base_url or "").strip() or None,
+            ):
+                if chunk.type == "error":
+                    raise RuntimeError(chunk.error or "Retrieval planner failed")
+                if chunk.type == "text" and chunk.content:
+                    chunks.append(chunk.content)
+        except Exception as exc:
+            logger.warning("Lite retrieval planner failed, fallback to single-query search: %s", exc)
+            return self._default_retrieval_plan(trimmed_query)
+
+        raw_text = "".join(chunks).strip()
+        parsed = safe_json_parse(raw_text)
+        return self._normalize_retrieval_plan(trimmed_query, parsed)
+
+    async def _run_search_query(
+        self,
+        *,
+        search_fn: Callable[..., Any],
+        query: str,
+        documents: list[Any],
+        top_k: int,
+    ) -> dict[str, Any]:
+        result = search_fn(
+            query=query,
+            documents=documents,
+            top_k_docs=max(len(documents), 1),
+            max_nodes_per_doc=max(top_k, 1),
+            include_ancestors=True,
+            text_mode="full",
+            merge_strategy="interleave",
+        )
+        if inspect.isawaitable(result):
+            result = await result
+        return result if isinstance(result, dict) else {"documents": []}
+
+    @staticmethod
+    def _collect_alias_terms(aliases: dict[str, list[str]]) -> list[str]:
+        terms: list[str] = []
+        for key, values in aliases.items():
+            text_key = str(key or "").strip()
+            if text_key:
+                terms.append(text_key)
+            for value in values or []:
+                text_value = str(value or "").strip()
+                if text_value:
+                    terms.append(text_value)
+        return terms
+
+    @staticmethod
+    def _derive_anchor_terms(*, query_text: str, retrieval_plan: dict[str, Any]) -> list[str]:
+        stop_terms = {
+            "的",
+            "和",
+            "与",
+            "及",
+            "或",
+            "the",
+            "a",
+            "an",
+            "and",
+            "or",
+            "for",
+            "to",
+            "in",
+            "on",
+            "with",
+            "what",
+            "how",
+            "is",
+            "are",
+        }
+        candidates: list[str] = []
+        candidates.extend([str(v or "").strip() for v in retrieval_plan.get("must_terms", [])])
+        candidates.extend(TreeSearchDocumentService._collect_alias_terms(retrieval_plan.get("aliases", {})))
+        candidates.append(str(query_text or "").strip())
+        candidates.append(str(retrieval_plan.get("primary_query") or "").strip())
+        candidates.extend([str(v or "").strip() for v in retrieval_plan.get("query_variants", [])])
+
+        seen: set[str] = set()
+        anchor_terms: list[str] = []
+        for raw in candidates:
+            if not raw:
+                continue
+            parts = re.split(r"[\s,，。；;:：|/\\()\[\]{}<>\"'“”‘’!！?？]+", raw)
+            for part in parts:
+                term = str(part or "").strip()
+                if len(term) < 2:
+                    continue
+                lowered = term.lower()
+                if lowered in stop_terms or lowered in seen:
+                    continue
+                anchor_terms.append(term)
+                seen.add(lowered)
+                if len(anchor_terms) >= 12:
+                    return anchor_terms
+        return anchor_terms
+
+    @staticmethod
+    def _compute_min_anchor_hits(anchor_terms: list[str]) -> int:
+        size = len(anchor_terms or [])
+        if size <= 0:
+            return 0
+        if size <= 3:
+            return 1
+        if size <= 6:
+            return 2
+        return 3
+
+    @staticmethod
+    def _compute_qa_signal_bonus(combined_lower: str) -> float:
+        if not combined_lower:
+            return 0.0
+        qa_signals = [
+            "什么是",
+            "如何",
+            "区别",
+            "原理",
+            "优缺点",
+            "?",
+            "？",
+            "why",
+            "what is",
+            "how to",
+            "difference",
+            "pros and cons",
+        ]
+        hits = sum(1 for signal in qa_signals if signal in combined_lower)
+        if hits <= 0:
+            return 0.0
+        return min(0.22, 0.06 + (hits - 1) * 0.04)
+
+    def _merge_retrieval_results(
+        self,
+        *,
+        merged_documents: dict[str, dict[str, Any]],
+        raw_result: dict[str, Any],
+        query_label: str,
+        query_weight: float,
+        must_terms: list[str],
+        alias_terms: list[str],
+        anchor_terms: list[str],
+        min_anchor_hits: int,
+        allowed_doc_ids: set[str],
+    ) -> None:
+        must_terms_lower = [term.lower() for term in must_terms if term]
+        alias_terms_lower = [term.lower() for term in alias_terms if term]
+        anchor_terms_lower = [term.lower() for term in anchor_terms if term]
+        for item in raw_result.get("documents", []) if isinstance(raw_result, dict) else []:
+            doc_id = str(item.get("doc_id") or "").strip()
+            if not doc_id:
+                continue
+            if allowed_doc_ids and doc_id not in allowed_doc_ids:
+                continue
+            doc_entry = merged_documents.setdefault(
+                doc_id,
+                {
+                    "doc_id": doc_id,
+                    "doc_name": item.get("doc_name") or "Document",
+                    "_node_map": {},
+                },
+            )
+            if self._needs_doc_name_fallback(doc_entry.get("doc_name")):
+                doc_entry["doc_name"] = item.get("doc_name") or "Document"
+
+            for node in item.get("nodes", []) if isinstance(item.get("nodes"), list) else []:
+                node_id = str(node.get("node_id") or "").strip()
+                text = str(node.get("text") or "").strip()
+                summary = str(node.get("summary") or "").strip()
+                title = str(node.get("title") or "").strip()
+                candidate_text = summary if len(summary) > len(text) else text
+                if not candidate_text:
+                    candidate_text = title
+                ancestors = node.get("ancestors") if isinstance(node.get("ancestors"), list) else []
+                combined_text = " ".join(
+                    [
+                        title,
+                        text,
+                        summary,
+                        " ".join([str(value or "").strip() for value in ancestors if str(value or "").strip()]),
+                    ]
+                ).strip()
+                combined_lower = combined_text.lower()
+                key = node_id or f"text::{hash(text)}"
+                base_score = float(node.get("score") or 0.0)
+                matched_must_terms = [term for term in must_terms_lower if term in combined_lower]
+                if must_terms_lower and not matched_must_terms:
+                    continue
+                matched_anchor_terms = [term for term in anchor_terms_lower if term in combined_lower]
+                if min_anchor_hits > 0 and len(matched_anchor_terms) < min_anchor_hits:
+                    continue
+                must_coverage = (
+                    len(matched_must_terms) / len(must_terms_lower) if must_terms_lower else 1.0
+                )
+                must_factor = 0.55 + (0.45 * must_coverage)
+                if len(candidate_text) < 40:
+                    length_factor = 0.35
+                elif len(candidate_text) < 80:
+                    length_factor = 0.55
+                elif len(candidate_text) < 120:
+                    length_factor = 0.75
+                elif len(candidate_text) < 180:
+                    length_factor = 0.9
+                else:
+                    length_factor = 1.0
+                must_bonus = 0.15 if must_terms_lower and all(
+                    term in combined_lower for term in must_terms_lower
+                ) else 0.0
+                alias_bonus = 0.05 if alias_terms_lower and any(
+                    term in combined_lower for term in alias_terms_lower
+                ) else 0.0
+                qa_signal_bonus = self._compute_qa_signal_bonus(combined_lower)
+                rerank_score = (
+                    (base_score * query_weight * must_factor * length_factor)
+                    + must_bonus
+                    + alias_bonus
+                    + qa_signal_bonus
+                )
+
+                existing = doc_entry["_node_map"].get(key)
+                if existing is None:
+                    next_node = dict(node)
+                    next_node["text"] = candidate_text
+                    next_node["rerank_score"] = rerank_score
+                    next_node["matched_queries"] = [query_label]
+                    doc_entry["_node_map"][key] = next_node
+                else:
+                    existing["rerank_score"] = float(existing.get("rerank_score") or 0.0) + rerank_score
+                    if len(candidate_text) > len(str(existing.get("text") or "")):
+                        existing["text"] = candidate_text
+                    matched = existing.setdefault("matched_queries", [])
+                    if query_label not in matched:
+                        matched.append(query_label)
 
     @staticmethod
     def _extract_content_text(content: Any) -> str:
@@ -543,6 +920,11 @@ class TreeSearchDocumentService:
         document_ids: list[str],
         query_text: str,
         top_k: int = 5,
+        lite_provider: str = "",
+        lite_model: str = "",
+        lite_api_key: str = "",
+        lite_base_url: str = "",
+        use_lite_retrieval_plan: bool = True,
     ):
         trimmed_query = str(query_text or "").strip()
         normalized_ids = [str(document_id) for document_id in (document_ids or []) if str(document_id)]
@@ -561,27 +943,129 @@ class TreeSearchDocumentService:
 
         if not documents:
             return {"documents": [], "query": trimmed_query}
+        allowed_doc_ids = set(normalized_ids)
 
-        raw = await search_fn(
-            query=trimmed_query,
-            documents=documents,
-            top_k_docs=max(len(documents), 1),
-            max_nodes_per_doc=max(top_k, 1),
-            include_ancestors=True,
-            text_mode="full",
-            merge_strategy="interleave",
+        retrieval_plan = await self._plan_retrieval(
+            query_text=trimmed_query,
+            lite_provider=lite_provider,
+            lite_model=lite_model,
+            lite_api_key=lite_api_key,
+            lite_base_url=lite_base_url,
+            use_lite_retrieval_plan=use_lite_retrieval_plan,
         )
-        for item in raw.get("documents", []) if isinstance(raw, dict) else []:
-            doc_id = str(item.get("doc_id") or "").strip()
-            if not doc_id:
+        primary_query = str(retrieval_plan.get("primary_query") or trimmed_query).strip() or trimmed_query
+        variants = [
+            str(item).strip()
+            for item in retrieval_plan.get("query_variants", [])
+            if str(item).strip()
+        ][:4]
+        must_terms = [str(item).strip() for item in retrieval_plan.get("must_terms", []) if str(item).strip()]
+        alias_terms = self._collect_alias_terms(retrieval_plan.get("aliases", {}))
+        anchor_terms = self._derive_anchor_terms(query_text=trimmed_query, retrieval_plan=retrieval_plan)
+        min_anchor_hits = self._compute_min_anchor_hits(anchor_terms)
+
+        query_jobs: list[tuple[str, str, float, int]] = [(primary_query, "primary", 1.0, max(top_k * 2, 10))]
+        for variant in variants:
+            query_jobs.append((variant, "variant", 0.82, max(top_k, 5)))
+
+        merged_documents: dict[str, dict[str, Any]] = {}
+        debug_queries: list[dict[str, Any]] = []
+        raw_results: list[tuple[dict[str, Any], str, str, float]] = []
+        for query_value, label, weight, max_nodes in query_jobs:
+            raw = await self._run_search_query(
+                search_fn=search_fn,
+                query=query_value,
+                documents=documents,
+                top_k=max_nodes,
+            )
+            labeled_query = query_value if label == "primary" else f"{label}:{query_value}"
+            raw_results.append((raw, query_value, labeled_query, weight))
+            debug_queries.append(
+                {
+                    "query": query_value,
+                    "label": label,
+                    "weight": weight,
+                    "documents": len(raw.get("documents", []) if isinstance(raw, dict) else []),
+                }
+            )
+            self._merge_retrieval_results(
+                merged_documents=merged_documents,
+                raw_result=raw,
+                query_label=labeled_query,
+                query_weight=weight,
+                must_terms=must_terms,
+                alias_terms=alias_terms,
+                anchor_terms=anchor_terms,
+                min_anchor_hits=min_anchor_hits,
+                allowed_doc_ids=allowed_doc_ids,
+            )
+        fallback_triggered = False
+        effective_min_anchor_hits = min_anchor_hits
+        has_ranked_nodes = any(
+            isinstance(entry.get("_node_map"), dict) and bool(entry.get("_node_map"))
+            for entry in merged_documents.values()
+        )
+        if min_anchor_hits > 0 and not has_ranked_nodes:
+            fallback_triggered = True
+            effective_min_anchor_hits = 0
+            for raw, _query_value, labeled_query, weight in raw_results:
+                self._merge_retrieval_results(
+                    merged_documents=merged_documents,
+                    raw_result=raw,
+                    query_label=labeled_query,
+                    query_weight=weight,
+                    must_terms=must_terms,
+                    alias_terms=alias_terms,
+                    anchor_terms=anchor_terms,
+                    min_anchor_hits=0,
+                    allowed_doc_ids=allowed_doc_ids,
+                )
+
+        result_documents: list[dict[str, Any]] = []
+        for doc_id, entry in merged_documents.items():
+            nodes = list(entry.get("_node_map", {}).values())
+            nodes.sort(key=lambda node: float(node.get("rerank_score") or 0.0), reverse=True)
+            if not nodes:
                 continue
-            if self._needs_doc_name_fallback(item.get("doc_name")):
-                item["doc_name"] = self._resolve_document_display_name(
+            paragraph_nodes = [
+                node for node in nodes if len(str(node.get("text") or "").strip()) >= 90
+            ]
+            candidate_nodes = paragraph_nodes if paragraph_nodes else nodes
+            trimmed_nodes = candidate_nodes[: max(top_k, 1)]
+            doc_name = entry.get("doc_name")
+            if self._needs_doc_name_fallback(doc_name):
+                doc_name = self._resolve_document_display_name(
                     space_id=space_id,
                     document_id=doc_id,
                     fallback="Document",
                 )
-        return raw
+            result_documents.append(
+                {
+                    "doc_id": doc_id,
+                    "doc_name": doc_name,
+                    "nodes": trimmed_nodes,
+                }
+            )
+
+        result_documents.sort(
+            key=lambda item: float(
+                item.get("nodes", [{}])[0].get("rerank_score", 0.0) if item.get("nodes") else 0.0
+            ),
+            reverse=True,
+        )
+
+        return {
+            "documents": result_documents,
+            "query": trimmed_query,
+            "retrieval_plan": retrieval_plan,
+            "retrieval_debug": {
+                "queries": debug_queries,
+                "anchor_terms": anchor_terms,
+                "min_anchor_hits": min_anchor_hits,
+                "effective_min_anchor_hits": effective_min_anchor_hits,
+                "anchor_fallback_triggered": fallback_triggered,
+            },
+        }
 
     async def delete_document_index(self, *, space_id: str, document_id: str):
         paths = self.get_document_paths(space_id=space_id, document_id=document_id, filename="document")

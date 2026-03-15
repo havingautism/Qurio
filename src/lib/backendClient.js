@@ -364,6 +364,11 @@ export const searchDocumentsViaBackend = async ({
   documentIds = [],
   queryText,
   topK = 5,
+  liteProvider = '',
+  liteModel = '',
+  liteApiKey = '',
+  liteBaseUrl = '',
+  useLiteRetrievalPlan = true,
 }) => {
   const response = await fetchWithTimeout(
     `${getBackendUrl()}/api/documents/search`,
@@ -371,12 +376,17 @@ export const searchDocumentsViaBackend = async ({
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...buildSecretHeaders({ summaryApiKey: liteApiKey }),
       },
       body: JSON.stringify({
         space_id: spaceId,
         document_ids: documentIds,
         query_text: queryText,
         top_k: topK,
+        lite_provider: liteProvider,
+        lite_model: liteModel,
+        lite_base_url: liteBaseUrl,
+        use_lite_retrieval_plan: Boolean(useLiteRetrievalPlan),
       }),
     },
     30000,

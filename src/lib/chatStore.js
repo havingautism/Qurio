@@ -2196,11 +2196,24 @@ const useChatStore = create((set, get) => ({
             DOCUMENT_RETRIEVAL_CHUNK_LIMIT * Math.max(1, selectedDocuments.length),
             2000,
           )
+          const liteProvider = String(
+            settings?.liteModelProvider || settings?.apiProvider || '',
+          ).trim()
+          const liteModel = String(settings?.liteModel || '').trim()
+          const liteProviderClient = liteProvider ? getProvider(liteProvider) : null
+          const liteCredentials = liteProviderClient?.getCredentials?.(settings) || {}
+          const liteApiKey = String(liteCredentials?.apiKey || '').trim()
+          const liteBaseUrl = String(liteCredentials?.baseUrl || '').trim()
           const retrieval = await fetchDocumentChunkContext({
             documents: selectedDocuments,
             queryText,
             chunkLimit: dynamicChunkLimit,
             topChunks: DOCUMENT_RETRIEVAL_TOP_CHUNKS,
+            liteProvider,
+            liteModel,
+            liteApiKey,
+            liteBaseUrl,
+            useLiteRetrievalPlan: true,
           })
           if (retrieval?.sources?.length) {
             resolvedDocumentSources = retrieval.sources

@@ -242,6 +242,7 @@ const ChatInterface = ({
   const pendingDocumentIdsRef = useRef([])
   const selectedDocumentIdsRef = useRef([])
   const selectedDocumentsRef = useRef([])
+  const spaceDocumentsRef = useRef([])
   const normalizedInitialDocumentIds = useMemo(
     () => (initialDocumentIds || []).map(id => String(id)).filter(Boolean),
     [initialDocumentIds],
@@ -685,6 +686,10 @@ const ChatInterface = ({
     selectedDocumentsRef.current = selectedDocuments
   }, [selectedDocuments])
 
+  useEffect(() => {
+    spaceDocumentsRef.current = spaceDocuments || []
+  }, [spaceDocuments])
+
   // Agent selection is fully user-controlled:
   // - Auto mode: updated via onAgentResolved callback (preselection before sending)
   // - Manual mode: user's choice is preserved, no auto updates
@@ -727,6 +732,9 @@ const ChatInterface = ({
 
       setSelectedDocumentIds(next)
       selectedDocumentIdsRef.current = next
+      const nextIdSet = new Set(next.map(id => String(id)))
+      const docsSource = spaceDocumentsRef.current || []
+      selectedDocumentsRef.current = docsSource.filter(doc => nextIdSet.has(String(doc.id)))
 
       const conversationKey =
         !isPlaceholderConversation && (activeConversation?.id || conversationId)
@@ -1696,10 +1704,10 @@ const ChatInterface = ({
 
       const agentForSend =
         selectedAgent || (!isAgentAutoMode && initialAgentSelection) || defaultAgent || null
-      const documentsForSend =
-        selectedDocumentsRef.current && selectedDocumentsRef.current.length > 0
-          ? selectedDocumentsRef.current
-          : selectedDocuments
+      const currentSelectedIds = (selectedDocumentIdsRef.current || []).map(id => String(id))
+      const currentSelectedIdSet = new Set(currentSelectedIds)
+      const docsSource = spaceDocumentsRef.current || spaceDocuments || []
+      const documentsForSend = docsSource.filter(doc => currentSelectedIdSet.has(String(doc.id)))
 
       const skipDocumentRetrieval = false
 

@@ -23,6 +23,11 @@ export const fetchDocumentChunkContext = async ({
   documents = [],
   queryText = '',
   topChunks = DEFAULT_TOP_NODES,
+  liteProvider = '',
+  liteModel = '',
+  liteApiKey = '',
+  liteBaseUrl = '',
+  useLiteRetrievalPlan = true,
 } = {}) => {
   const trimmedQuery = String(queryText || '').trim()
   if (!trimmedQuery || !Array.isArray(documents) || documents.length === 0) {
@@ -46,6 +51,11 @@ export const fetchDocumentChunkContext = async ({
     documentIds,
     queryText: trimmedQuery,
     topK: Math.max(1, Number(topChunks || DEFAULT_TOP_NODES)),
+    liteProvider,
+    liteModel,
+    liteApiKey,
+    liteBaseUrl,
+    useLiteRetrievalPlan,
   })
 
   const rawDocuments = Array.isArray(result?.documents) ? result.documents : []

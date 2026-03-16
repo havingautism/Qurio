@@ -1366,6 +1366,31 @@
     "networkError": "Network error. Please check your connection.",
     "apiError": "API error. Please check your settings."
   },
+  "pipeline": {
+    "title": "Pipeline",
+    "header": "Execution Flow",
+    "empty": "No pipeline data available for this message yet.",
+    "nodes": {
+      "reasoning": "Reasoning",
+      "finalResponse": "Final Response",
+      "finalReport": "Final Report",
+      "researchPlan": "Research Plan"
+    },
+    "sections": {
+      "content": "Content",
+      "sources": "Sources",
+      "tool": "Tool",
+      "input": "Input",
+      "output": "Output",
+      "agent": "Agent",
+      "role": "Role",
+      "assignedTask": "Assigned Task",
+      "plan": "Plan",
+      "title": "Title",
+      "goal": "Goal",
+      "metadata": "Metadata"
+    }
+  },
   "messageBubble": {
     "workflow": "Workflow",
     "usedSpecificTools": "Used {{tools}}",

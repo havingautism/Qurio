@@ -39,6 +39,7 @@ JSON_COLUMNS: dict[str, set[str]] = {
         "sources",
         "document_sources",
         "grounding_supports",
+        "pipeline_trace",
         "stream_blocks",
     },
     "conversation_events": {"payload"},
@@ -300,6 +301,11 @@ class SQLiteAdapter:
                 cursor.execute(
                     "ALTER TABLE conversation_messages "
                     "ADD COLUMN stream_blocks TEXT NOT NULL DEFAULT '[]'"
+                )
+            if "pipeline_trace" not in columns:
+                cursor.execute(
+                    "ALTER TABLE conversation_messages "
+                    "ADD COLUMN pipeline_trace TEXT"
                 )
             if "stream_schema_version" not in columns:
                 cursor.execute(

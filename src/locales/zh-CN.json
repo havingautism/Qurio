@@ -1358,6 +1358,31 @@
     "networkError": "网络错误，请检查您的连接。",
     "apiError": "API 错误，请检查您的设置。"
   },
+  "pipeline": {
+    "title": "运行链路",
+    "header": "执行流程",
+    "empty": "当前这条消息还没有可用的链路数据。",
+    "nodes": {
+      "reasoning": "思考过程",
+      "finalResponse": "最终回答",
+      "finalReport": "最终报告",
+      "researchPlan": "研究规划"
+    },
+    "sections": {
+      "content": "内容",
+      "sources": "来源",
+      "tool": "工具",
+      "input": "入参",
+      "output": "结果",
+      "agent": "Agent",
+      "role": "角色",
+      "assignedTask": "分配任务",
+      "plan": "规划",
+      "title": "标题",
+      "goal": "目标",
+      "metadata": "元数据"
+    }
+  },
   "messageBubble": {
     "workflow": "工作流",
     "usedSpecificTools": "已调用 {{tools}}",

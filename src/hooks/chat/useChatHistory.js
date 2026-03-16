@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { listMessages } from '../../lib/conversationsService'
+import { buildMessagePipeline } from '../../lib/chat/pipelineViewModel'
 
 const parseJsonIfString = raw => {
   if (typeof raw !== 'string') return raw
@@ -146,6 +147,7 @@ const mapMessageFromApi = (m, effectiveDefaultModel, activeConversation) => {
   const sources = asArrayField(m.sources)
   const groundingSupports = asArrayField(m.grounding_supports)
   const documentSources = asArrayField(m.document_sources)
+  const persistedPipelineTrace = parseJsonIfString(m.pipeline_trace)
   const cleanedContent = typeof m.content === 'string' ? m.content : ''
   const researchPlan = extractResearchPlan(m)
   const finalAnswerDurationMs = extractFinalAnswerDurationMs(m)
@@ -197,7 +199,7 @@ const mapMessageFromApi = (m, effectiveDefaultModel, activeConversation) => {
   const hasResearchSteps = Array.isArray(researchStepHistory) && researchStepHistory.length > 0
   const isDeepResearch = hasResearchSteps || Boolean(researchPlan)
 
-  return {
+  const mappedMessage = {
     id: m.id,
     created_at: m.created_at,
     role: m.role === 'assistant' ? 'ai' : m.role,
@@ -230,7 +232,19 @@ const mapMessageFromApi = (m, effectiveDefaultModel, activeConversation) => {
     documentSources,
     thinkingEnabled: m.is_thinking_enabled ?? m.generated_with_thinking ?? undefined,
     finalAnswerDurationMs,
+    pipelineTrace:
+      persistedPipelineTrace &&
+      typeof persistedPipelineTrace === 'object' &&
+      Array.isArray(persistedPipelineTrace.nodes)
+        ? persistedPipelineTrace
+        : undefined,
   }
+
+  if (!mappedMessage.pipelineTrace) {
+    mappedMessage.pipelineTrace = buildMessagePipeline(mappedMessage)
+  }
+
+  return mappedMessage
 }
 
 /**

@@ -58,6 +58,7 @@ import AgentBannerSurface from './AgentBannerSurface'
 import InteractiveForm from './InteractiveForm'
 import DeepResearchGoalCard from './message/DeepResearchGoalCard'
 import MessageActionBar from './message/MessageActionBar'
+import PipelineDrawer from './message/PipelineDrawer'
 import { getHostname } from './message/messageUtils'
 import { formatMessageDate } from '../lib/dateUtils'
 import RelatedQuestions from './message/RelatedQuestions'
@@ -79,6 +80,7 @@ import {
   buildDocumentCitationPath,
   prepareDocumentCitationSources,
 } from '../lib/documentCitationViewModel'
+import { ensureMessagePipeline } from '../lib/chat/pipelineViewModel'
 
 const PROVIDER_META = {
   gemini: {
@@ -470,7 +472,11 @@ const MessageBubble = ({
     String(mergedMessage?.expertActiveAgentId || expertResponses[0]?.agentId || ''),
   )
   const [isExpertAgentSelectorOpen, setIsExpertAgentSelectorOpen] = useState(false)
+  const [isPipelineOpen, setIsPipelineOpen] = useState(false)
   const expertAgentSelectorRef = useRef(null)
+  useEffect(() => {
+    setIsPipelineOpen(false)
+  }, [mergedMessage?.id, mergedMessage?.localId])
   useEffect(() => {
     const hasCurrent = expertResponses.some(item => item.agentId === activeExpertAgentId)
     if (hasCurrent) return
@@ -529,6 +535,16 @@ const MessageBubble = ({
   const formToolHistory = toolCallHistory.filter(item => item.name === 'interactive_form')
   const hasInteractiveForm = formToolHistory.length > 0
   const mainContent = isExpertMessage ? activeExpertResponse?.content || '' : parsed.content
+  const pipelineTrace = useMemo(
+    () =>
+      ensureMessagePipeline({
+        ...mergedMessage,
+        content: mainContent,
+        expertMode: isExpertMessage,
+        expertResponses,
+      }),
+    [mergedMessage, mainContent, isExpertMessage, expertResponses],
+  )
   const documentCitationSources = useMemo(
     () =>
       prepareDocumentCitationSources(
@@ -4673,6 +4689,7 @@ const MessageBubble = ({
         isDownloadMenuOpen={isDownloadMenuOpen}
         setIsDownloadMenuOpen={setIsDownloadMenuOpen}
         downloadMenuRef={downloadMenuRef}
+        onOpenPipeline={pipelineTrace?.nodes?.length ? () => setIsPipelineOpen(true) : undefined}
         onDelete={() => {
           if (!onDelete) return
           showConfirmation({
@@ -4701,6 +4718,13 @@ const MessageBubble = ({
         onClose={() => setIsMobileDrawerOpen(false)}
         sources={mobileDrawerSources}
         title={mobileDrawerTitle}
+      />
+
+      <PipelineDrawer
+        isOpen={isPipelineOpen}
+        onClose={() => setIsPipelineOpen(false)}
+        pipeline={pipelineTrace}
+        t={t}
       />
 
       <div className="hidden" aria-hidden="true">

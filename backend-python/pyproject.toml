@@ -39,7 +39,7 @@ dependencies = [
     "x-reader",
     "yt-dlp>=2026.3.13",
     "exa-py>=2.9.0",
-    "pytreesearch[all]>=0.6.2",
+    "pytreesearch[all]>=0.6.3",
     "pypdfium2>=5.6.0",
     "pillow>=12.1.1",
 ]

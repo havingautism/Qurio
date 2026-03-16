@@ -1354,6 +1354,11 @@
     "searchSources": "Search Sources",
     "showFullExcerpt": "Show full quote",
     "hideFullExcerpt": "Hide full quote",
+    "expandQuote": "View full quote",
+    "collapseQuote": "Collapse",
+    "documentFragmentsCount": "{{count}} fragments",
+    "fragmentsShort": "fragments",
+    "fragmentLabel": "Fragment {{index}}",
     "relatedExcerpts": "Related excerpts"
   },
   "errors": {

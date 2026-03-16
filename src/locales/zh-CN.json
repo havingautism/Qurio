@@ -1345,6 +1345,11 @@
     "searchSources": "网络搜索来源",
     "showFullExcerpt": "显示完整引用",
     "hideFullExcerpt": "收起完整引用",
+    "expandQuote": "查看完整引用",
+    "collapseQuote": "收起",
+    "documentFragmentsCount": "{{count}} 个片段",
+    "fragmentsShort": "个片段",
+    "fragmentLabel": "片段 {{index}}",
     "relatedExcerpts": "相关片段",
     "viewDocumentContext": "查看 {{count}} 个文档来源"
   },

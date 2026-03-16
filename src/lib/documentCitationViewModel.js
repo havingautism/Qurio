@@ -70,3 +70,71 @@ export const prepareDocumentCitationSources = sources =>
       previewSnippet: truncateDocumentCitationPreview(fullSnippet),
     }
   })
+
+const buildDocumentGroupKey = source => {
+  const explicitDocumentId =
+    source?.documentId ||
+    source?.fileId ||
+    source?.attachmentId ||
+    source?.metadata?.documentId ||
+    source?.metadata?.fileId
+
+  if (explicitDocumentId) return `document:${explicitDocumentId}`
+
+  const title = String(source?.title || '').trim()
+  const path = buildDocumentCitationPath(source)
+  const fileType = String(source?.fileType || '').trim()
+  return `document:${title}::${path}::${fileType}`
+}
+
+export const groupPreparedDocumentCitationSources = sources => {
+  const grouped = new Map()
+
+  ;(Array.isArray(sources) ? sources : []).forEach((source, index) => {
+    const groupKey = buildDocumentGroupKey(source)
+    const fragment = {
+      ...source,
+      fragmentKey: `${groupKey}:fragment:${source?.originalIndex ?? index}`,
+    }
+
+    const existing = grouped.get(groupKey)
+    if (!existing) {
+      grouped.set(groupKey, {
+        ...source,
+        groupKey,
+        sourceKind: 'document',
+        originalIndex: source?.originalIndex ?? index,
+        fragments: [fragment],
+      })
+      return
+    }
+
+    existing.fragments.push(fragment)
+    existing.originalIndex = Math.min(
+      Number.isInteger(existing.originalIndex) ? existing.originalIndex : index,
+      Number.isInteger(source?.originalIndex) ? source.originalIndex : index,
+    )
+  })
+
+  return Array.from(grouped.values())
+    .map(group => ({
+      ...group,
+      fragments: group.fragments.sort((a, b) => {
+        const aIndex = Number.isInteger(a?.originalIndex)
+          ? a.originalIndex
+          : Number.MAX_SAFE_INTEGER
+        const bIndex = Number.isInteger(b?.originalIndex)
+          ? b.originalIndex
+          : Number.MAX_SAFE_INTEGER
+        return aIndex - bIndex
+      }),
+      fragmentCount: group.fragments.length,
+      previewSnippet: group.fragments[0]?.previewSnippet || '',
+      fullSnippet: group.fragments[0]?.fullSnippet || '',
+    }))
+    .sort((a, b) => {
+      const aIndex = Number.isInteger(a?.originalIndex) ? a.originalIndex : Number.MAX_SAFE_INTEGER
+      const bIndex = Number.isInteger(b?.originalIndex) ? b.originalIndex : Number.MAX_SAFE_INTEGER
+      return aIndex - bIndex
+    })
+}

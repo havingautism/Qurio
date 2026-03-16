@@ -1,10 +1,20 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Globe, ExternalLink, ChevronLeft, ChevronRight, X, FileText } from 'lucide-react'
+import {
+  Globe,
+  ExternalLink,
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
+  ChevronUp,
+  X,
+  FileText,
+} from 'lucide-react'
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
 import {
   canExpandDocumentCitation,
   buildDocumentCitationPath,
+  groupPreparedDocumentCitationSources,
   prepareDocumentCitationSources,
 } from '../lib/documentCitationViewModel'
 
@@ -26,6 +36,22 @@ const getSourceKey = source =>
   source?.href ||
   `${source?.citationIndex ?? source?.originalIndex ?? 'source'}:${source?.title || ''}:${buildDocumentCitationPath(source)}`
 
+const formatDocumentTypeBadge = fileType => {
+  const normalized = String(fileType || '')
+    .replace(/^\./, '')
+    .trim()
+  return normalized ? normalized.toUpperCase() : 'DOC'
+}
+
+const canExpandDocumentFragment = (fragment, fragmentPath = '') => {
+  const fullSnippet = fragment?.fullSnippet || fragment?.snippet || fragment?.content || ''
+  const previewSnippet = fragment?.previewSnippet || fullSnippet
+  return (
+    (canExpandDocumentCitation(fragment) && previewSnippet !== fullSnippet) ||
+    fragmentPath.length > 90
+  )
+}
+
 const DesktopSourcesSheet = ({ isOpen, onClose, sources = [], title }) => {
   const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState('document')
@@ -37,7 +63,9 @@ const DesktopSourcesSheet = ({ isOpen, onClose, sources = [], title }) => {
     const rawDocumentSources = sources.filter(source => getSourceKind(source) === 'document')
     return {
       web: webSources,
-      document: prepareDocumentCitationSources(rawDocumentSources),
+      document: groupPreparedDocumentCitationSources(
+        prepareDocumentCitationSources(rawDocumentSources),
+      ),
     }
   }, [sources])
 
@@ -168,12 +196,22 @@ const DesktopSourcesSheet = ({ isOpen, onClose, sources = [], title }) => {
                 const isDocumentSource = getSourceKind(source) === 'document'
                 const titlePath = buildDocumentCitationPath(source)
                 const sourceKey = getSourceKey(source)
-                const fullSnippet = source.fullSnippet || source.snippet || source.content || ''
-                const previewSnippet = source.previewSnippet || fullSnippet
-                const canExpand = isDocumentSource && canExpandDocumentCitation(source)
-                const isExpanded = expandedSourceKeys.has(sourceKey)
+                const fragments = isDocumentSource
+                  ? Array.isArray(source.fragments) && source.fragments.length > 0
+                    ? source.fragments
+                    : [source]
+                  : []
+                const documentMetaLabel = [
+                  source.fragmentCount > 1
+                    ? `${source.fragmentCount} ${t('sources.fragmentsShort', {
+                        defaultValue: 'fragments',
+                      })}`
+                    : null,
+                ]
+                  .filter(Boolean)
+                  .join(' • ')
                 const body = (
-                  <div className="glass-elite-soft group flex flex-col gap-2 rounded-[28px] p-4 transition-all hover:border-white/28 hover:bg-white/18 active:scale-[0.98] dark:hover:border-white/12 dark:hover:bg-white/[0.04]">
+                  <div className="glass-elite-soft group flex flex-col gap-3 rounded-[28px] p-4 transition-colors hover:border-white/28 hover:bg-white/18 dark:hover:border-white/12 dark:hover:bg-white/[0.04]">
                     <div className="flex items-center gap-3">
                       <div className="glass-elite-chip flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-gray-500 dark:text-gray-400">
                         {source.originalIndex !== undefined
@@ -204,35 +242,80 @@ const DesktopSourcesSheet = ({ isOpen, onClose, sources = [], title }) => {
                         />
                       )}
                     </div>
-                    <div className="pl-[2.25rem] text-xs text-gray-500 dark:text-gray-400">
-                      {isDocumentSource
-                        ? titlePath || source.fileType || t('sources.documentSources')
-                        : source.media || url}
+                    <div className="flex items-center gap-2 pl-[2.25rem] text-xs text-gray-500 dark:text-gray-400">
+                      {isDocumentSource ? (
+                        <>
+                          <span className="bg-primary-500/12 text-primary-700 dark:text-primary-300 border-primary-500/20 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold tracking-[0.12em] uppercase">
+                            {formatDocumentTypeBadge(source.fileType)}
+                          </span>
+                          {documentMetaLabel && <span>{documentMetaLabel}</span>}
+                        </>
+                      ) : (
+                        <span>{source.media || url}</span>
+                      )}
                     </div>
-                    {isDocumentSource && previewSnippet && (
-                      <div
-                        className={`pl-[2.25rem] text-sm leading-relaxed text-gray-600 dark:text-gray-300 ${
-                          isExpanded ? 'whitespace-pre-wrap' : 'line-clamp-3'
-                        }`}
-                      >
-                        {isExpanded ? fullSnippet : previewSnippet}
-                      </div>
-                    )}
-                    {canExpand && (
-                      <div className="pl-[2.25rem]">
-                        <button
-                          type="button"
-                          onClick={event => {
-                            event.preventDefault()
-                            event.stopPropagation()
-                            toggleExpandedSource(sourceKey)
-                          }}
-                          className="text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 text-xs font-medium transition-colors"
-                        >
-                          {isExpanded
-                            ? t('sources.hideFullExcerpt', 'Hide full quote')
-                            : t('sources.showFullExcerpt', 'Show full quote')}
-                        </button>
+                    {isDocumentSource && fragments.length > 0 && (
+                      <div className="space-y-2 pl-[2.25rem]">
+                        {fragments.map((fragment, fragmentIndex) => {
+                          const fragmentKey =
+                            fragment.fragmentKey || `${sourceKey}:fragment:${fragmentIndex}`
+                          const fragmentPath = buildDocumentCitationPath(fragment)
+                          const fullSnippet =
+                            fragment.fullSnippet || fragment.snippet || fragment.content || ''
+                          const previewSnippet = fragment.previewSnippet || fullSnippet
+                          const canExpand = canExpandDocumentFragment(fragment, fragmentPath)
+                          const isExpanded = expandedSourceKeys.has(fragmentKey)
+
+                          if (!previewSnippet) return null
+
+                          return (
+                            <div
+                              key={fragmentKey}
+                              className="rounded-2xl border border-white/10 bg-white/[0.035] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] dark:border-white/8 dark:bg-white/[0.02]"
+                            >
+                              <div className="mb-2 flex items-center gap-3">
+                                <div className="text-[11px] font-medium text-gray-400 dark:text-gray-500">
+                                  {t('sources.fragmentLabel', {
+                                    index: fragmentIndex + 1,
+                                    defaultValue: 'Fragment {{index}}',
+                                  })}
+                                </div>
+                              </div>
+                              {fragmentPath && (
+                                <div
+                                  className={`mb-2 text-[12px] leading-relaxed font-medium text-gray-500 dark:text-gray-400 ${
+                                    isExpanded ? 'whitespace-pre-wrap' : 'line-clamp-2'
+                                  }`}
+                                >
+                                  {fragmentPath}
+                                </div>
+                              )}
+                              <div
+                                className={`text-sm leading-relaxed text-gray-600 dark:text-gray-300 ${
+                                  isExpanded ? 'whitespace-pre-wrap' : 'line-clamp-3'
+                                }`}
+                              >
+                                {isExpanded ? fullSnippet : previewSnippet}
+                              </div>
+                              {canExpand && (
+                                <button
+                                  type="button"
+                                  onClick={event => {
+                                    event.preventDefault()
+                                    event.stopPropagation()
+                                    toggleExpandedSource(fragmentKey)
+                                  }}
+                                  className="text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 mt-2 inline-flex items-center gap-1 text-xs font-medium transition-colors"
+                                >
+                                  {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                                  {isExpanded
+                                    ? t('sources.collapseQuote', 'Collapse')
+                                    : t('sources.expandQuote', 'View full quote')}
+                                </button>
+                              )}
+                            </div>
+                          )
+                        })}
                       </div>
                     )}
                   </div>

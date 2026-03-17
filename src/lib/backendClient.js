@@ -452,13 +452,7 @@ export const generateResearchPlanViaBackend = async (
   return response.json()
 }
 
-export const selectThinkingModeViaBackend = async (
-  provider,
-  message,
-  apiKey,
-  baseUrl,
-  model,
-) => {
+export const selectThinkingModeViaBackend = async (provider, message, apiKey, baseUrl, model) => {
   const response = await fetchWithTimeout(
     `${getBackendUrl()}/api/thinking-mode`,
     {

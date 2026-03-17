@@ -19,7 +19,10 @@ const sanitizeMarkdownUrl = (value, { allowDataImage = false } = {}) => {
   if (trimmed.startsWith('#')) return trimmed
 
   try {
-    const parsed = new URL(trimmed, typeof window !== 'undefined' ? window.location.href : undefined)
+    const parsed = new URL(
+      trimmed,
+      typeof window !== 'undefined' ? window.location.href : undefined,
+    )
     if (['http:', 'https:', 'mailto:', 'tel:'].includes(parsed.protocol)) {
       return parsed.toString()
     }
@@ -52,8 +55,8 @@ const CodeBlock = ({ inline, className, children, isDark }) => {
 
   if (isBlock) {
     return (
-      <div className="group relative mb-4 overflow-hidden rounded-xl border border-gray-200 bg-user-bubble/20 dark:border-zinc-700 dark:bg-zinc-800/40">
-        <div className="flex items-center justify-between border-b border-gray-200 bg-user-bubble/50 px-4 py-2 text-[11px] font-semibold text-gray-600 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-gray-300">
+      <div className="group bg-user-bubble/20 relative mb-4 overflow-hidden rounded-xl border border-gray-200 dark:border-zinc-700 dark:bg-zinc-800/40">
+        <div className="bg-user-bubble/50 flex items-center justify-between border-b border-gray-200 px-4 py-2 text-[11px] font-semibold text-gray-600 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-gray-300">
           <span>{langLabel}</span>
           <button
             type="button"
@@ -136,17 +139,17 @@ export default function ConversationMarkdown({ content, className }) {
         </p>
       ),
       h1: ({ children, ...props }) => (
-        <h1 className="mb-4 mt-6 text-2xl font-bold text-[var(--color-text-primary)]" {...props}>
+        <h1 className="mt-6 mb-4 text-2xl font-bold text-(--color-text-primary)" {...props}>
           {parseChildrenWithEmojis(children)}
         </h1>
       ),
       h2: ({ children, ...props }) => (
-        <h2 className="mb-4 mt-6 text-xl font-bold text-[var(--color-text-primary)]" {...props}>
+        <h2 className="mt-6 mb-4 text-xl font-bold text-(--color-text-primary)" {...props}>
           {parseChildrenWithEmojis(children)}
         </h2>
       ),
       h3: ({ children, ...props }) => (
-        <h3 className="mb-4 mt-5 text-lg font-bold text-[var(--color-text-primary)]" {...props}>
+        <h3 className="mt-5 mb-4 text-lg font-bold text-(--color-text-primary)" {...props}>
           {parseChildrenWithEmojis(children)}
         </h3>
       ),
@@ -173,7 +176,7 @@ export default function ConversationMarkdown({ content, className }) {
       thead: ({ ...props }) => <thead className="bg-user-bubble dark:bg-zinc-800" {...props} />,
       tbody: ({ ...props }) => (
         <tbody
-          className="divide-y divide-gray-200 bg-user-bubble/20 dark:divide-zinc-700 dark:bg-zinc-900"
+          className="bg-user-bubble/20 divide-y divide-gray-200 dark:divide-zinc-700 dark:bg-zinc-900"
           {...props}
         />
       ),
@@ -201,7 +204,7 @@ export default function ConversationMarkdown({ content, className }) {
             href={safeHref}
             target="_blank"
             rel="noreferrer"
-            className="mx-0.5 rounded-lg bg-primary-200/50 px-1 py-0.5 text-[12px] text-primary-700 hover:bg-primary-300/50 dark:bg-primary-900/50 dark:text-primary-300 dark:hover:bg-primary-700/50"
+            className="bg-primary-200/50 text-primary-700 hover:bg-primary-300/50 dark:bg-primary-900/50 dark:text-primary-300 dark:hover:bg-primary-700/50 mx-0.5 rounded-lg px-1 py-0.5 text-[12px]"
             {...props}
           >
             {parseChildrenWithEmojis(children)}
@@ -236,7 +239,7 @@ export default function ConversationMarkdown({ content, className }) {
   if (!content) return null
 
   return (
-    <div className={clsx('max-w-none text-[var(--color-text-secondary)]', className)}>
+    <div className={clsx('max-w-none text-(--color-text-secondary)', className)}>
       <Streamdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
         {content}
       </Streamdown>

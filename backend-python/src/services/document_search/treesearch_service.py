@@ -1,17 +1,19 @@
 from __future__ import annotations
 
 import base64
-from dataclasses import dataclass
-from io import BytesIO
 import inspect
 import logging
-from pathlib import Path
 import re
 import shutil
-from typing import Any, Awaitable, Callable
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
+from io import BytesIO
+from pathlib import Path
+from typing import Any
 
 import pypdfium2 as pdfium
 from pypdf import PdfReader
+
 from src.providers import ExecutionContext, get_provider_adapter
 
 logger = logging.getLogger(__name__)

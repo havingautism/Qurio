@@ -211,7 +211,7 @@ const DesktopSourcesSheet = ({ isOpen, onClose, sources = [], title }) => {
                   .filter(Boolean)
                   .join(' • ')
                 const body = (
-                  <div className="glass-elite-soft group flex flex-col gap-3 rounded-[28px] p-4 transition-colors hover:border-white/28 hover:bg-white/18 dark:hover:border-white/12 dark:hover:bg-white/[0.04]">
+                  <div className="glass-elite-soft group flex flex-col gap-3 rounded-[28px] p-4 transition-colors hover:border-white/28 hover:bg-white/18 dark:hover:border-white/12 dark:hover:bg-white/4">
                     <div className="flex items-center gap-3">
                       <div className="glass-elite-chip flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-gray-500 dark:text-gray-400">
                         {source.originalIndex !== undefined
@@ -242,7 +242,7 @@ const DesktopSourcesSheet = ({ isOpen, onClose, sources = [], title }) => {
                         />
                       )}
                     </div>
-                    <div className="flex items-center gap-2 pl-[2.25rem] text-xs text-gray-500 dark:text-gray-400">
+                    <div className="flex items-center gap-2 pl-9 text-xs text-gray-500 dark:text-gray-400">
                       {isDocumentSource ? (
                         <>
                           <span className="bg-primary-500/12 text-primary-700 dark:text-primary-300 border-primary-500/20 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold tracking-[0.12em] uppercase">
@@ -255,7 +255,7 @@ const DesktopSourcesSheet = ({ isOpen, onClose, sources = [], title }) => {
                       )}
                     </div>
                     {isDocumentSource && fragments.length > 0 && (
-                      <div className="space-y-2 pl-[2.25rem]">
+                      <div className="space-y-2 pl-9">
                         {fragments.map((fragment, fragmentIndex) => {
                           const fragmentKey =
                             fragment.fragmentKey || `${sourceKey}:fragment:${fragmentIndex}`
@@ -271,7 +271,7 @@ const DesktopSourcesSheet = ({ isOpen, onClose, sources = [], title }) => {
                           return (
                             <div
                               key={fragmentKey}
-                              className="rounded-2xl border border-white/10 bg-white/[0.035] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] dark:border-white/8 dark:bg-white/[0.02]"
+                              className="rounded-2xl border border-white/10 bg-white/[0.035] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] dark:border-white/8 dark:bg-white/2"
                             >
                               <div className="mb-2 flex items-center gap-3">
                                 <div className="text-[11px] font-medium text-gray-400 dark:text-gray-500">

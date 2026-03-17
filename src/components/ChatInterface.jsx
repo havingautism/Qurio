@@ -674,7 +674,13 @@ const ChatInterface = ({
     const searchList = isScrapbook ? appAgents : selectableAgents
     const agent = searchList.find(agent => String(agent.id) === String(selectedAgentId)) || null
     return agent
-  }, [selectableAgents, selectedAgentId, appAgents, activeConversation?.scrapbook_id, scrapbookEntry?.id])
+  }, [
+    selectableAgents,
+    selectedAgentId,
+    appAgents,
+    activeConversation?.scrapbook_id,
+    scrapbookEntry?.id,
+  ])
 
   const selectedDocuments = useMemo(() => {
     const idSet = new Set((selectedDocumentIds || []).map(id => String(id)))
@@ -744,13 +750,7 @@ const ChatInterface = ({
         toast.error(t('chatInterface.documentsSelectionSaveFailed'))
       }
     },
-    [
-      activeConversation?.id,
-      conversationId,
-      isPlaceholderConversation,
-      t,
-      toast,
-    ],
+    [activeConversation?.id, conversationId, isPlaceholderConversation, t, toast],
   )
 
   const activeModelConfig = getModelConfig('streamChatCompletion')
@@ -1310,8 +1310,7 @@ const ChatInterface = ({
             (isScrapbook ? 'manual' : 'auto')
           setIsAgentAutoMode(agentSelectionMode !== 'manual')
           const resolvedAgentId =
-            conversationLastAgentId ||
-            (isScrapbook ? SCRAPBOOK_AGENT_ID : null)
+            conversationLastAgentId || (isScrapbook ? SCRAPBOOK_AGENT_ID : null)
           if (resolvedAgentId) {
             setSelectedAgentId(resolvedAgentId)
             setPendingAgentId(resolvedAgentId)
@@ -1732,12 +1731,12 @@ const ChatInterface = ({
           documentContextAppend: systemContextPrefix
             ? activeConversation?.scrapbook_id
               ? systemContextPrefix
-              : (!systemContextUsedRef.current && messages.length === 0
-                  ? (() => {
-                      systemContextUsedRef.current = true
-                      return systemContextPrefix
-                    })()
-                  : '')
+              : !systemContextUsedRef.current && messages.length === 0
+                ? (() => {
+                    systemContextUsedRef.current = true
+                    return systemContextPrefix
+                  })()
+                : ''
             : '',
           documentSources: [],
           documentSelection: {
@@ -1747,7 +1746,9 @@ const ChatInterface = ({
           editingInfo,
           callbacks: {
             // Skip title auto-generation for scrapbook conversations - title is already set to note title
-            onTitleAndSpaceGenerated: activeConversation?.scrapbook_id ? null : onTitleAndSpaceGenerated,
+            onTitleAndSpaceGenerated: activeConversation?.scrapbook_id
+              ? null
+              : onTitleAndSpaceGenerated,
             onSpaceResolved: space => {
               if (isSpaceSelectionLocked) return
               setSelectedSpace(space)
@@ -1755,7 +1756,10 @@ const ChatInterface = ({
             },
             onConversationReady: async conversation => {
               // Sync ID back to parent if this is a scrapbook entry
-              if (activeConversation?.scrapbook_id && typeof onTitleAndSpaceGenerated === 'function') {
+              if (
+                activeConversation?.scrapbook_id &&
+                typeof onTitleAndSpaceGenerated === 'function'
+              ) {
                 onTitleAndSpaceGenerated(conversation)
               }
 
@@ -2303,7 +2307,7 @@ const ChatInterface = ({
     <div
       className={clsx(
         'bg-background text-foreground relative isolate flex flex-col overflow-hidden transition-all duration-300',
-        !isEmbedded && 'h-[100dvh] sm:px-4',
+        !isEmbedded && 'h-dvh sm:px-4',
         isEmbedded && 'h-full',
         !isEmbedded && (isSidebarPinned ? 'md:ml-78' : 'md:ml-16'),
         !isEmbedded && !isXLScreen && 'sidebar-shift',

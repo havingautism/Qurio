@@ -2234,11 +2234,12 @@ Return the result as a JSON object with keys "title" and "spaceLabel".`,
   }
   const parsed = safeJsonParse(content) || {}
   const rawTitle = String(parsed.title || '').trim()
-  const title = /^(sorry|apologies|i can(?:not|'t)?|i am unable|i'm unable|抱歉|对不起|无法|我目前|不能)/i.test(
-    rawTitle,
-  )
-    ? 'New Conversation'
-    : rawTitle || 'New Conversation'
+  const title =
+    /^(sorry|apologies|i can(?:not|'t)?|i am unable|i'm unable|抱歉|对不起|无法|我目前|不能)/i.test(
+      rawTitle,
+    )
+      ? 'New Conversation'
+      : rawTitle || 'New Conversation'
   const spaceLabel = parsed.spaceLabel
   const selectedSpace = (spaces || []).find(s => s.label === spaceLabel) || null
   return { title, space: selectedSpace }
@@ -2368,11 +2369,12 @@ Return the result as JSON with keys "title", "spaceLabel", and "agentName".`,
   const parsed = safeJsonParse(content) || {}
   const rawTitle = String(parsed.title || '').trim()
   return {
-    title: /^(sorry|apologies|i can(?:not|'t)?|i am unable|i'm unable|抱歉|对不起|无法|我目前|不能)/i.test(
-      rawTitle,
-    )
-      ? 'New Conversation'
-      : rawTitle || 'New Conversation',
+    title:
+      /^(sorry|apologies|i can(?:not|'t)?|i am unable|i'm unable|抱歉|对不起|无法|我目前|不能)/i.test(
+        rawTitle,
+      )
+        ? 'New Conversation'
+        : rawTitle || 'New Conversation',
     spaceLabel: parsed.spaceLabel || null,
     agentName: parsed.agentName || null,
   }

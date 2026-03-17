@@ -16,29 +16,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   BookOpen,
-  ExternalLink,
-  Globe,
   Loader2,
   Plus,
   Search,
   Settings2,
-  Tag,
   Trash2,
   X,
   Video,
   Image as ImageIcon,
   Menu,
-  RefreshCw,
-  FileText,
   ChevronLeft,
   ChevronRight,
-  Hash,
-  Clock,
-  Laptop,
-  MessageSquare,
-  Pin,
-  PinOff,
-  Inbox,
   Info,
   AlertCircle,
 } from 'lucide-react'
@@ -59,10 +47,7 @@ import { useNavigate } from '@tanstack/react-router'
 import { useAppContext } from '../App'
 import { createAgent, updateAgent } from '../lib/agentsService'
 import { loadSettings } from '../lib/settings'
-import { PROVIDER_KEYS, FALLBACK_MODEL_OPTIONS } from '../lib/modelConstants'
-import { getModelsForProvider } from '../lib/models_api'
 import { getPublicEnv } from '../lib/publicEnv'
-import { Streamdown } from 'streamdown'
 import { buildScrapbookSystemAgentPayload, SCRAPBOOK_AGENT_ID } from '../lib/systemAgents'
 
 import ColorBendsBackground from '../components/ui/ColorBendsBackground'
@@ -75,7 +60,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-  DialogDescription,
 } from '@/components/ui/dialog'
 import {
   Select,
@@ -84,10 +68,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { getModelIcon, getModelIconClassName, renderProviderIcon } from '../lib/modelIcons'
 
-const STYLE_BASE_TONE_KEYS = ['technical', 'friendly', 'professional', 'academic', 'creative', 'casual']
-const STYLE_TRAIT_KEYS = ['default', 'concise', 'structured', 'detailed', 'actionable', 'analytical']
+const STYLE_BASE_TONE_KEYS = [
+  'technical',
+  'friendly',
+  'professional',
+  'academic',
+  'creative',
+  'casual',
+]
+const STYLE_TRAIT_KEYS = [
+  'default',
+  'concise',
+  'structured',
+  'detailed',
+  'actionable',
+  'analytical',
+]
 const STYLE_WARMTH_KEYS = ['default', 'gentle', 'empathetic', 'direct', 'supportive']
 const STYLE_ENTHUSIASM_KEYS = ['default', 'low', 'medium', 'high']
 const STYLE_HEADINGS_KEYS = ['default', 'minimal', 'structured', 'detailed']
@@ -360,8 +357,8 @@ const AddModal = ({ isOpen, onClose, onAdded }) => {
                 className={clsx(
                   'flex-1 rounded-lg py-2 text-sm font-medium transition-all',
                   tab === tObj.id
-                    ? 'bg-white text-[var(--color-accent)] shadow-sm dark:bg-[#3f3f46]'
-                    : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]',
+                    ? 'bg-white text-(--color-accent) shadow-sm dark:bg-[#3f3f46]'
+                    : 'text-(--color-text-secondary) hover:text-(--color-text-primary)',
                 )}
               >
                 {tObj.label}
@@ -374,7 +371,7 @@ const AddModal = ({ isOpen, onClose, onAdded }) => {
           {tab === 'url' ? (
             <div className="space-y-3">
               <div className="flex flex-col gap-1.5">
-                <span className="text-xs font-medium text-[var(--color-text-secondary)]">
+                <span className="text-xs font-medium text-(--color-text-secondary)">
                   {t('scrapbook.modal.urlLabel')}
                 </span>
                 <Input
@@ -388,7 +385,7 @@ const AddModal = ({ isOpen, onClose, onAdded }) => {
                   className="w-full rounded-xl border-none bg-black/5 px-4 py-3 text-sm focus-visible:ring-1 focus-visible:ring-black/10 dark:bg-white/5 dark:focus-visible:ring-white/10"
                 />
               </div>
-              <p className="text-xs text-[var(--color-text-tertiary)]">
+              <p className="text-xs text-(--color-text-tertiary)">
                 {t('scrapbook.modal.urlHint')}
               </p>
 
@@ -472,7 +469,7 @@ const AddModal = ({ isOpen, onClose, onAdded }) => {
                 </div>
               )}
               {isLoading && (
-                <div className="flex items-center gap-2 text-sm text-[var(--color-accent)]">
+                <div className="flex items-center gap-2 text-sm text-(--color-accent)">
                   <Loader2 size={16} className="animate-spin" />
                   <span>{loadingMsg}</span>
                 </div>
@@ -481,7 +478,7 @@ const AddModal = ({ isOpen, onClose, onAdded }) => {
           ) : (
             <div className="space-y-4">
               <div className="flex flex-col gap-1.5">
-                <span className="text-xs font-medium text-[var(--color-text-secondary)]">
+                <span className="text-xs font-medium text-(--color-text-secondary)">
                   {t('settings.provider')}
                 </span>
                 <Select value={manualPlatform} onValueChange={setManualPlatform}>
@@ -498,7 +495,7 @@ const AddModal = ({ isOpen, onClose, onAdded }) => {
                 </Select>
               </div>
               <div className="flex flex-col gap-1.5">
-                <span className="text-xs font-medium text-[var(--color-text-secondary)]">
+                <span className="text-xs font-medium text-(--color-text-secondary)">
                   {t('scrapbook.modal.titleLabel')}
                 </span>
                 <Input
@@ -510,7 +507,7 @@ const AddModal = ({ isOpen, onClose, onAdded }) => {
                 />
               </div>
               <div className="flex flex-col gap-1.5">
-                <span className="text-xs font-medium text-[var(--color-text-secondary)]">
+                <span className="text-xs font-medium text-(--color-text-secondary)">
                   {t('scrapbook.modal.summaryLabel')}
                 </span>
                 <Textarea
@@ -522,7 +519,7 @@ const AddModal = ({ isOpen, onClose, onAdded }) => {
                 />
               </div>
               <div className="flex flex-col gap-1.5">
-                <span className="text-xs font-medium text-[var(--color-text-secondary)]">
+                <span className="text-xs font-medium text-(--color-text-secondary)">
                   {t('scrapbook.modal.contentLabel')}
                 </span>
                 <Textarea
@@ -534,7 +531,7 @@ const AddModal = ({ isOpen, onClose, onAdded }) => {
                 />
               </div>
               <div className="flex flex-col gap-1.5">
-                <span className="text-xs font-medium text-[var(--color-text-secondary)]">
+                <span className="text-xs font-medium text-(--color-text-secondary)">
                   {t('scrapbook.detail.tagsTitle')}
                 </span>
                 <Input
@@ -660,16 +657,16 @@ const EntryCard = ({ entry, onDelete }) => {
 
       {/* Left Content */}
       <div className={clsx('flex min-w-0 flex-1 flex-col py-1', actualThumbnail && 'pr-2')}>
-        <h3 className="mb-2 min-h-[2.75rem] pr-1 text-base leading-snug font-bold tracking-tight text-gray-900 dark:text-gray-100">
+        <h3 className="mb-2 min-h-11 pr-1 text-base leading-snug font-bold tracking-tight text-gray-900 dark:text-gray-100">
           <span className="flex items-start gap-1.5">
-            {entry.emoji && <span className="mt-[1px] shrink-0 leading-none">{entry.emoji}</span>}
+            {entry.emoji && <span className="mt-px shrink-0 leading-none">{entry.emoji}</span>}
             <span className="line-clamp-2 min-w-0">{displayTitle}</span>
           </span>
         </h3>
 
         {/* Summary Snippet - hidden if very long, keep to 2 lines max */}
         {summarySnippet && (
-          <p className="mb-3 line-clamp-3 min-h-[3.75rem] text-[13px] leading-relaxed text-gray-500 dark:text-gray-400">
+          <p className="mb-3 line-clamp-3 min-h-15 text-[13px] leading-relaxed text-gray-500 dark:text-gray-400">
             {summarySnippet}
           </p>
         )}
@@ -817,7 +814,7 @@ export default function ScrapbookView() {
         {/* Fixed Header */}
         <div className="mx-auto w-full max-w-[1400px] shrink-0 px-4 pt-4 pb-2 sm:px-8 sm:pt-8 sm:pb-4">
           {/* Header */}
-          <div className="flex-shrink-0 px-0 pt-0">
+          <div className="shrink-0 px-0 pt-0">
             {/* Top Bar: Menu/Title + Actions */}
             <div className="mb-4 flex items-center justify-between">
               {/* Left Box: Menu Toggle & Title */}
@@ -831,7 +828,7 @@ export default function ScrapbookView() {
               </button>
 
              
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-500 text-white shadow-sm shadow-blue-500/20">
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-linear-to-br from-blue-500 to-indigo-500 text-white shadow-sm shadow-blue-500/20">
                 <PencilLine size={16} className="shrink-0" />
               </div>
 
@@ -991,7 +988,7 @@ export default function ScrapbookView() {
           className="absolute right-6 bottom-8 z-150 flex h-14 w-14 items-center justify-center rounded-[24px] bg-white text-gray-900 shadow-lg backdrop-blur-lg transition-all hover:scale-105 active:scale-95 dark:bg-zinc-800 dark:text-gray-100"
         >
           {/* Plus icon inside a colorful gradient container or just styled colorful */}
-          <div className="flex items-center gap-1.5 bg-gradient-to-r from-blue-500 via-purple-500 to-red-500 bg-clip-text text-transparent">
+          <div className="flex items-center gap-1.5 bg-linear-to-r from-blue-500 via-purple-500 to-red-500 bg-clip-text text-transparent">
             <Plus size={28} className="text-black dark:text-white" strokeWidth={2} />
           </div>
         </button>
@@ -1003,10 +1000,7 @@ export default function ScrapbookView() {
         />
 
         {/* Model Config Panel */}
-        <ModelConfigPanel
-          isOpen={showModelConfig}
-          onClose={() => setShowModelConfig(false)}
-        />
+        <ModelConfigPanel isOpen={showModelConfig} onClose={() => setShowModelConfig(false)} />
       </div>
       {/* End of z-10 relative flex h-full flex-col */}
     </div>

@@ -18,7 +18,6 @@ import {
   Terminal,
   X,
   Database,
-  ChevronDown,
 } from 'lucide-react'
 import {
   Select,
@@ -1237,15 +1236,11 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
   }
 
   const activeOcrModels = ocrGroupedModels[ocrProvider] || []
-  const ocrDisplayLabel = ocrModel
-    ? getOcrModelLabel(ocrModel)
-    : t('agents.model.notSelected')
+  const ocrDisplayLabel = ocrModel ? getOcrModelLabel(ocrModel) : t('agents.model.notSelected')
   const ocrProviderLabel = ocrProvider
     ? t(`settings.providers.${ocrProvider}`)
     : t('settings.ocrProvider')
-  const resolvedOcrModel = (
-    ocrModelSource === 'custom' ? ocrCustomModel : ocrModel
-  ).trim()
+  const resolvedOcrModel = (ocrModelSource === 'custom' ? ocrCustomModel : ocrModel).trim()
   const canEnablePdfOcr = Boolean(
     ocrProvider && resolvedOcrModel && providerConfiguredMap[ocrProvider],
   )
@@ -2434,9 +2429,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                 ) : (
                   <>
                     <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-                      <span>
-                        {t('settings.ocrModelsLoaded', { count: ocrModelCount })}
-                      </span>
+                      <span>{t('settings.ocrModelsLoaded', { count: ocrModelCount })}</span>
                       <button
                         type="button"
                         onClick={loadOcrModels}
@@ -2459,11 +2452,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                                 type="button"
                                 onClick={() => {
                                   setOcrModelSource('list')
-                                  if (
-                                    !activeOcrModels.some(
-                                      model => model.value === ocrModel,
-                                    )
-                                  ) {
+                                  if (!activeOcrModels.some(model => model.value === ocrModel)) {
                                     setOcrModel('')
                                   }
                                 }}
@@ -2562,8 +2551,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                                         />
                                       )}
                                       <span className="truncate">
-                                        {activeOcrModels.find(m => m.value === ocrModel)
-                                          ?.label ||
+                                        {activeOcrModels.find(m => m.value === ocrModel)?.label ||
                                           ocrModel ||
                                           t('agents.model.notSelected')}
                                       </span>
@@ -2614,9 +2602,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                     </div>
                   </>
                 )}
-                {ocrModelsError && (
-                  <div className="text-sm text-red-500">{ocrModelsError}</div>
-                )}
+                {ocrModelsError && <div className="text-sm text-red-500">{ocrModelsError}</div>}
               </div>
             )}
 
@@ -2682,7 +2668,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
 
                     <div className="h-px bg-gray-100 dark:bg-zinc-800" />
 
-                    <div className="rounded-xl border border-black/5 bg-black/[0.03] p-4 dark:border-white/5 dark:bg-white/[0.03]">
+                    <div className="rounded-xl border border-black/5 bg-black/3 p-4 dark:border-white/5 dark:bg-white/3">
                       <div className="flex flex-col gap-1">
                         <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
                           {t('settings.memory.fileSkillTitle')}

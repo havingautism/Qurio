@@ -18,6 +18,7 @@ from zoneinfo import ZoneInfo
 
 import httpx
 from agno.tools import Toolkit, tool
+
 try:
     from ddgs import DDGS
 except Exception:  # pragma: no cover - backward compatibility only
@@ -27,6 +28,8 @@ from .academic_domains import ACADEMIC_DOMAINS
 from .html_widget_schema import build_html_widget_payload
 from .skill_runtime import (
     execute_skill_script as execute_skill_script_runtime,
+)
+from .skill_runtime import (
     install_skill_dependency as install_skill_dependency_runtime,
 )
 
@@ -159,7 +162,7 @@ def interactive_form(
 ) -> str:
     """
     Display an interactive form to collect user input.
-    
+
     Args:
         id: Optional identifier for the form
         title: Optional form title displayed to the user

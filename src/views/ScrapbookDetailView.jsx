@@ -1,5 +1,5 @@
-import { useLoaderData, useParams, useNavigate } from '@tanstack/react-router'
-import { useCallback, useEffect, useState, useRef, useMemo } from 'react'
+import { useParams, useNavigate } from '@tanstack/react-router'
+import { useEffect, useState, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   ArrowLeft,
@@ -16,13 +16,7 @@ import {
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAppContext } from '../App'
-import {
-  buildScrapbookSystemAgentPayload,
-  DEFAULT_AGENT_ID,
-  DEEP_RESEARCH_AGENT_ID,
-  SCRAPBOOK_AGENT_ID,
-  isDeepResearchSystemAgent,
-} from '../lib/systemAgents'
+import { SCRAPBOOK_AGENT_ID } from '../lib/systemAgents'
 import {
   buildScrapbookStylePrompt,
   getScrapbookEntryById,
@@ -85,7 +79,7 @@ export default function ScrapbookDetailView() {
 
   // Embedded Chat states
   const [isChatOpen, setIsChatOpen] = useState(false)
-  
+
   useEffect(() => {
     // Open by default on desktop
     if (window.innerWidth >= 1024) {
@@ -420,14 +414,14 @@ ${entry.content}`
     return (
       <div
         className={clsx(
-          'relative flex h-full flex-1 items-center justify-center bg-[var(--color-bg-primary)] transition-all duration-300',
+          'relative flex h-full flex-1 items-center justify-center bg-(--color-bg-primary) transition-all duration-300',
           isSidebarPinned ? 'md:ml-[328px]' : 'md:ml-[72px]',
         )}
       >
         <div className="pointer-events-none absolute inset-0 z-0 opacity-40 dark:opacity-20">
           <ColorBendsBackground />
         </div>
-        <Loader2 size={32} className="relative z-10 animate-spin text-[var(--color-accent)]" />
+        <Loader2 size={32} className="relative z-10 animate-spin text-(--color-accent)" />
       </div>
     )
   }
@@ -436,7 +430,7 @@ ${entry.content}`
     return (
       <div
         className={clsx(
-          'relative flex h-full flex-1 flex-col items-center justify-center gap-4 bg-[var(--color-bg-primary)] transition-all duration-300',
+          'relative flex h-full flex-1 flex-col items-center justify-center gap-4 bg-(--color-bg-primary) transition-all duration-300',
           isSidebarPinned ? 'md:ml-[328px]' : 'md:ml-[72px]',
         )}
       >
@@ -444,12 +438,12 @@ ${entry.content}`
           <ColorBendsBackground />
         </div>
         <div className="relative z-10 flex flex-col items-center gap-4 rounded-3xl border border-white/40 bg-white/40 p-8 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-black/40">
-          <p className="text-[var(--color-text-secondary)]">
+          <p className="text-(--color-text-secondary)">
             {error || t('scrapbook.list.notFound')}
           </p>
           <button
             onClick={() => navigate({ to: '/scrapbook' })}
-            className="rounded-xl border border-[var(--color-border)] bg-white/50 px-4 py-2 transition-all hover:bg-white/80 dark:bg-black/40 dark:hover:bg-black/60"
+            className="rounded-xl border border-(--color-border) bg-white/50 px-4 py-2 transition-all hover:bg-white/80 dark:bg-black/40 dark:hover:bg-black/60"
           >
             {t('scrapbook.list.backToList')}
           </button>
@@ -474,7 +468,7 @@ ${entry.content}`
   return (
     <div
       className={clsx(
-        'relative isolate flex h-full flex-1 flex-col overflow-hidden bg-[var(--color-bg-primary)] transition-all duration-300',
+        'relative isolate flex h-full flex-1 flex-col overflow-hidden bg-(--color-bg-primary) transition-all duration-300',
         isSidebarPinned ? 'md:ml-[328px]' : 'md:ml-[72px]',
       )}
     >
@@ -484,191 +478,193 @@ ${entry.content}`
           <ColorBendsBackground />
         </div>
 
-      {/* Chat-like Header */}
-      <div className="pointer-events-none absolute top-0 right-0 left-0 z-40 flex w-full shrink-0 items-center justify-between gap-4 p-4">
-        {/* Transparent header with glassy fade */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 top-0 h-21 bg-gradient-to-b from-white/68 via-white/28 to-transparent [mask-image:linear-gradient(to_bottom,black_58%,transparent)] opacity-100 backdrop-blur-xl md:hidden dark:from-zinc-950/68 dark:via-zinc-950/28"
-        />
-        <div className="pointer-events-auto flex w-full items-center justify-between gap-2">
-          {/* Left Side: Back & Title Pill */}
-          <div className="flex min-w-0 flex-1 items-center gap-3">
-            <button
-              onClick={() => navigate({ to: '/scrapbook' })}
-              className="flex h-12 shrink-0 items-center justify-center gap-2 rounded-full border border-gray-200/50 bg-white/90 px-4 text-sm font-medium text-gray-700 shadow-sm backdrop-blur-xl transition-all hover:scale-105 hover:bg-white hover:shadow-md active:scale-95 dark:border-zinc-800/50 dark:bg-zinc-900/90 dark:text-gray-200 dark:hover:bg-zinc-900"
-              title={t('scrapbook.list.backToList')}
-            >
-              <ArrowLeft size={18} />
-              <span className="hidden sm:inline">{t('scrapbook.list.backToList')}</span>
-            </button>
-
-            {/* Title Pill */}
-            <div className="group relative z-10 flex h-12 min-w-0 items-center gap-1 rounded-full border border-gray-200/50 bg-white/90 py-1.5 pr-2 pl-4 shadow-sm backdrop-blur-xl transition-[background-color,box-shadow,border-color] hover:bg-white hover:shadow-md md:max-w-[500px] dark:border-zinc-800/50 dark:bg-zinc-900/90 dark:hover:bg-zinc-900">
-              <div className="flex min-w-0 items-center gap-2 truncate font-medium text-gray-800 dark:text-gray-100">
-                {entry?.emoji && (
-                  <span className="mb-0.5 shrink-0 text-[1.2rem] leading-none">{entry.emoji}</span>
-                )}
-                <span className="truncate text-base sm:text-lg">{displayTitle}</span>
-              </div>
+        {/* Chat-like Header */}
+        <div className="pointer-events-none absolute top-0 right-0 left-0 z-40 flex w-full shrink-0 items-center justify-between gap-4 p-4">
+          {/* Transparent header with glassy fade */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-0 top-0 h-21 bg-linear-to-b from-white/68 via-white/28 to-transparent mask-[linear-gradient(to_bottom,black_58%,transparent)] opacity-100 backdrop-blur-xl md:hidden dark:from-zinc-950/68 dark:via-zinc-950/28"
+          />
+          <div className="pointer-events-auto flex w-full items-center justify-between gap-2">
+            {/* Left Side: Back & Title Pill */}
+            <div className="flex min-w-0 flex-1 items-center gap-3">
               <button
-                onClick={handleRegenerateTitle}
-                disabled={isRegeneratingTitle || !entry}
-                className="relative z-20 ml-1 shrink-0 rounded-full p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-500 dark:hover:bg-zinc-800 dark:hover:text-gray-300"
-                title={t('scrapbook.detail.regenerateTitle')}
+                onClick={() => navigate({ to: '/scrapbook' })}
+                className="flex h-12 shrink-0 items-center justify-center gap-2 rounded-full border border-gray-200/50 bg-white/90 px-4 text-sm font-medium text-gray-700 shadow-sm backdrop-blur-xl transition-all hover:scale-105 hover:bg-white hover:shadow-md active:scale-95 dark:border-zinc-800/50 dark:bg-zinc-900/90 dark:text-gray-200 dark:hover:bg-zinc-900"
+                title={t('scrapbook.list.backToList')}
               >
-                {isRegeneratingTitle ? (
-                  <Loader2 size={14} className="animate-spin" />
-                ) : (
-                  <Sparkles size={14} />
-                )}
+                <ArrowLeft size={18} />
+                <span className="hidden sm:inline">{t('scrapbook.list.backToList')}</span>
+              </button>
+
+              {/* Title Pill */}
+              <div className="group relative z-10 flex h-12 min-w-0 items-center gap-1 rounded-full border border-gray-200/50 bg-white/90 py-1.5 pr-2 pl-4 shadow-sm backdrop-blur-xl transition-[background-color,box-shadow,border-color] hover:bg-white hover:shadow-md md:max-w-[500px] dark:border-zinc-800/50 dark:bg-zinc-900/90 dark:hover:bg-zinc-900">
+                <div className="flex min-w-0 items-center gap-2 truncate font-medium text-gray-800 dark:text-gray-100">
+                  {entry?.emoji && (
+                    <span className="mb-0.5 shrink-0 text-[1.2rem] leading-none">
+                      {entry.emoji}
+                    </span>
+                  )}
+                  <span className="truncate text-base sm:text-lg">{displayTitle}</span>
+                </div>
+                <button
+                  onClick={handleRegenerateTitle}
+                  disabled={isRegeneratingTitle || !entry}
+                  className="relative z-20 ml-1 shrink-0 rounded-full p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-500 dark:hover:bg-zinc-800 dark:hover:text-gray-300"
+                  title={t('scrapbook.detail.regenerateTitle')}
+                >
+                  {isRegeneratingTitle ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <Sparkles size={14} />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Right Side Actions */}
+            <div className="pointer-events-auto relative flex items-center gap-2">
+              {/* Ask Question Button */}
+              <button
+                onClick={handleAskQuestion}
+                disabled={!entry}
+                className="relative z-10 inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-full border border-gray-200/50 bg-white/90 px-4 text-sm font-medium text-gray-700 shadow-sm backdrop-blur-xl transition-all hover:scale-105 hover:bg-white hover:shadow-md active:scale-95 disabled:opacity-40 dark:border-zinc-800/50 dark:bg-zinc-900/90 dark:text-gray-200 dark:hover:bg-zinc-900"
+                title={t('scrapbook.detail.askQuestion')}
+              >
+                <MessageCircle size={17} />
+                <span className="hidden sm:inline">{t('scrapbook.detail.askQuestion')}</span>
+              </button>
+
+              <button
+                onClick={handleDelete}
+                className="relative z-10 inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-gray-200/50 bg-white/90 p-0 leading-none text-red-500 shadow-sm backdrop-blur-xl transition-all hover:scale-110 hover:bg-red-50 hover:text-red-600 hover:shadow-md active:scale-95 dark:border-zinc-800/50 dark:bg-zinc-900/90 dark:hover:bg-red-900/30 dark:hover:text-red-400"
+                title={t('scrapbook.detail.delete')}
+              >
+                <Trash2 size={18} />
               </button>
             </div>
           </div>
-
-          {/* Right Side Actions */}
-          <div className="pointer-events-auto relative flex items-center gap-2">
-            {/* Ask Question Button */}
-            <button
-              onClick={handleAskQuestion}
-              disabled={!entry}
-              className="relative z-10 inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-full border border-gray-200/50 bg-white/90 px-4 text-sm font-medium text-gray-700 shadow-sm backdrop-blur-xl transition-all hover:scale-105 hover:bg-white hover:shadow-md active:scale-95 disabled:opacity-40 dark:border-zinc-800/50 dark:bg-zinc-900/90 dark:text-gray-200 dark:hover:bg-zinc-900"
-              title={t('scrapbook.detail.askQuestion')}
-            >
-              <MessageCircle size={17} />
-              <span className="hidden sm:inline">{t('scrapbook.detail.askQuestion')}</span>
-            </button>
-
-            <button
-              onClick={handleDelete}
-              className="relative z-10 inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-gray-200/50 bg-white/90 p-0 leading-none text-red-500 shadow-sm backdrop-blur-xl transition-all hover:scale-110 hover:bg-red-50 hover:text-red-600 hover:shadow-md active:scale-95 dark:border-zinc-800/50 dark:bg-zinc-900/90 dark:hover:bg-red-900/30 dark:hover:text-red-400"
-              title={t('scrapbook.detail.delete')}
-            >
-              <Trash2 size={18} />
-            </button>
-          </div>
         </div>
-      </div>
 
-      <div className="relative z-10 flex h-full flex-col overflow-y-auto bg-white/40 pt-20 pb-20 backdrop-blur-3xl sm:px-2 sm:pt-24 sm:pb-8 dark:bg-black/40">
-        <div className="mx-auto w-full max-w-[44rem] px-2 pt-8 sm:px-5 sm:pt-12">
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-3">
-              <span
-                className={clsx(
-                  'rounded-full px-3 py-1 text-xs font-bold tracking-wide shadow-sm',
-                  platformColor,
-                )}
-              >
-                {getPlatformLabel(entry.platform, entry.source_url)}
-              </span>
-              <span className="flex items-center gap-1.5 text-sm font-medium text-[var(--color-text-tertiary)]">
-                <Calendar size={14} />
-                {dateStr}
-              </span>
-            </div>
-            {entry.source_url && (
-              <a
-                href={entry.source_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-xl bg-zinc-900 px-4 py-2 text-sm font-medium text-white shadow-md transition-all hover:-translate-y-0.5 hover:bg-zinc-800 hover:shadow-lg dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
-              >
-                <Globe size={15} />
-                {t('scrapbook.detail.visitOriginal')}
-                <ExternalLink size={13} className="opacity-70" />
-              </a>
-            )}
-          </div>
-
-          {entry.thumbnail && (
-            <img
-              src={entry.thumbnail}
-              alt="缩略图"
-              className="mb-10 max-h-[450px] w-full rounded-3xl object-cover shadow-md ring-1 ring-black/5 dark:ring-white/10"
-            />
-          )}
-
-          {/* Dynamic Summary Section */}
-          <div className="mb-10 rounded-3xl border border-white/40 bg-white/50 p-6 shadow-sm backdrop-blur-md sm:p-8 dark:border-white/10 dark:bg-black/40">
-            <h3 className="mb-4 flex items-center justify-between text-base font-bold text-[var(--color-text-primary)]">
-              <span className="flex items-center gap-2">
-                ✨ {t('scrapbook.detail.summaryTitle')}
-              </span>
-              {!entry.summary && !isGenerating && !streamedSummary && (
-                <button
-                  onClick={handleGenerateDeepSummary}
-                  className="flex items-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90"
+        <div className="relative z-10 flex h-full flex-col overflow-y-auto bg-white/40 pt-20 pb-20 backdrop-blur-3xl sm:px-2 sm:pt-24 sm:pb-8 dark:bg-black/40">
+          <div className="mx-auto w-full max-w-176 px-2 pt-8 sm:px-5 sm:pt-12">
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <span
+                  className={clsx(
+                    'rounded-full px-3 py-1 text-xs font-bold tracking-wide shadow-sm',
+                    platformColor,
+                  )}
                 >
+                  {getPlatformLabel(entry.platform, entry.source_url)}
+                </span>
+                <span className="flex items-center gap-1.5 text-sm font-medium text-(--color-text-tertiary)">
+                  <Calendar size={14} />
+                  {dateStr}
+                </span>
+              </div>
+              {entry.source_url && (
+                <a
+                  href={entry.source_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-xl bg-zinc-900 px-4 py-2 text-sm font-medium text-white shadow-md transition-all hover:-translate-y-0.5 hover:bg-zinc-800 hover:shadow-lg dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+                >
+                  <Globe size={15} />
+                  {t('scrapbook.detail.visitOriginal')}
+                  <ExternalLink size={13} className="opacity-70" />
+                </a>
+              )}
+            </div>
+
+            {entry.thumbnail && (
+              <img
+                src={entry.thumbnail}
+                alt="缩略图"
+                className="mb-10 max-h-[450px] w-full rounded-3xl object-cover shadow-md ring-1 ring-black/5 dark:ring-white/10"
+              />
+            )}
+
+            {/* Dynamic Summary Section */}
+            <div className="mb-10 rounded-3xl border border-white/40 bg-white/50 p-6 shadow-sm backdrop-blur-md sm:p-8 dark:border-white/10 dark:bg-black/40">
+              <h3 className="mb-4 flex items-center justify-between text-base font-bold text-(--color-text-primary)">
+                <span className="flex items-center gap-2">
+                  ✨ {t('scrapbook.detail.summaryTitle')}
+                </span>
+                {!entry.summary && !isGenerating && !streamedSummary && (
+                  <button
+                    onClick={handleGenerateDeepSummary}
+                    className="flex items-center gap-1.5 rounded-lg bg-(--color-accent) px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90"
+                  >
+                    {t('scrapbook.detail.regenerateSummary')}
+                  </button>
+                )}
+              </h3>
+
+              {generationError && (
+                <div className="mb-4 rounded-xl border border-red-200 bg-red-50/50 p-3 text-sm text-red-600 dark:border-red-900/30 dark:bg-red-900/20 dark:text-red-400">
+                  {t('scrapbook.generate.failed')}: {generationError}
+                </div>
+              )}
+
+              <div>
+                {entry.summary ? (
+                  <ConversationMarkdown content={entry.summary} />
+                ) : streamedSummary ? (
+                  <ConversationMarkdown content={streamedSummary} />
+                ) : isGenerating ? (
+                  <div className="flex items-center gap-2 text-(--color-text-tertiary) italic">
+                    <span className="animate-pulse">{t('messageBubble.statusThinking')}</span>
+                  </div>
+                ) : (
+                  <div className="text-sm text-(--color-text-tertiary) italic">
+                    {t('scrapbook.detail.noSummary')}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Regenerate button - always visible at bottom of summary section */}
+            {!isGenerating && entry?.content && (
+              <div className="mb-8 flex justify-center">
+                <button
+                  onClick={() => {
+                    // Clear existing summary state and regenerate
+                    setStreamedSummary('')
+                    setGenerationError(null)
+                    setEntry(prev => ({ ...prev, summary: null }))
+                    handleGenerateDeepSummary()
+                  }}
+                  className="flex items-center gap-2 rounded-xl border border-(--color-border) bg-white/60 px-4 py-2 text-sm font-medium text-(--color-text-secondary) shadow-sm backdrop-blur-sm transition-all hover:border-(--color-accent) hover:text-(--color-accent) dark:bg-black/30"
+                >
+                  <RotateCcw size={14} />
                   {t('scrapbook.detail.regenerateSummary')}
                 </button>
-              )}
-            </h3>
-
-            {generationError && (
-              <div className="mb-4 rounded-xl border border-red-200 bg-red-50/50 p-3 text-sm text-red-600 dark:border-red-900/30 dark:bg-red-900/20 dark:text-red-400">
-                {t('scrapbook.generate.failed')}: {generationError}
               </div>
             )}
-
-            <div>
-              {entry.summary ? (
-                <ConversationMarkdown content={entry.summary} />
-              ) : streamedSummary ? (
-                <ConversationMarkdown content={streamedSummary} />
-              ) : isGenerating ? (
-                <div className="flex items-center gap-2 text-[var(--color-text-tertiary)] italic">
-                  <span className="animate-pulse">{t('messageBubble.statusThinking')}</span>
+            {tags.length > 0 && (
+              <div className="mt-12 mb-12 border-t border-black/5 pt-8 dark:border-white/10">
+                <div className="flex flex-wrap items-center gap-2">
+                  {tags.map(tag => (
+                    <span
+                      key={tag}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-white/60 px-3 py-1 text-sm font-medium text-(--color-text-secondary) shadow-sm ring-1 ring-black/5 ring-inset dark:bg-black/40 dark:ring-white/10"
+                    >
+                      <Tag size={12} />
+                      {tag}
+                    </span>
+                  ))}
                 </div>
-              ) : (
-                <div className="text-sm text-[var(--color-text-tertiary)] italic">
-                  {t('scrapbook.detail.noSummary')}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Regenerate button - always visible at bottom of summary section */}
-          {!isGenerating && entry?.content && (
-            <div className="mb-8 flex justify-center">
-              <button
-                onClick={() => {
-                  // Clear existing summary state and regenerate
-                  setStreamedSummary('')
-                  setGenerationError(null)
-                  setEntry(prev => ({ ...prev, summary: null }))
-                  handleGenerateDeepSummary()
-                }}
-                className="flex items-center gap-2 rounded-xl border border-[var(--color-border)] bg-white/60 px-4 py-2 text-sm font-medium text-[var(--color-text-secondary)] shadow-sm backdrop-blur-sm transition-all hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] dark:bg-black/30"
-              >
-                <RotateCcw size={14} />
-                {t('scrapbook.detail.regenerateSummary')}
-              </button>
-            </div>
-          )}
-          {tags.length > 0 && (
-            <div className="mt-12 mb-12 border-t border-black/5 pt-8 dark:border-white/10">
-              <div className="flex flex-wrap items-center gap-2">
-                {tags.map(tag => (
-                  <span
-                    key={tag}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-white/60 px-3 py-1 text-sm font-medium text-[var(--color-text-secondary)] shadow-sm ring-1 ring-black/5 ring-inset dark:bg-black/40 dark:ring-white/10"
-                  >
-                    <Tag size={12} />
-                    {tag}
-                  </span>
-                ))}
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
         </div>
       </div>
 
       {isChatOpen && chatConversation && (
         <div
           className={clsx(
-            'fixed inset-0 z-[100] bg-black/20 backdrop-blur-sm lg:bg-transparent lg:backdrop-blur-none',
+            'fixed inset-0 z-100 bg-black/20 backdrop-blur-sm lg:bg-transparent lg:backdrop-blur-none',
             'flex items-end justify-center lg:items-stretch lg:justify-end lg:p-6',
           )}
           onClick={() => {
@@ -677,17 +673,17 @@ ${entry.content}`
         >
           <div
             className={clsx(
-              'relative flex h-[85vh] w-full flex-col overflow-hidden bg-white/80 shadow-2xl transition-all duration-500 ease-out sm:rounded-t-[2.5rem] lg:h-full lg:w-[460px] lg:rounded-[2rem] lg:border lg:border-white/20 lg:backdrop-blur-3xl xl:w-[540px] dark:bg-zinc-950/80',
+              'relative flex h-[85vh] w-full flex-col overflow-hidden bg-white/80 shadow-2xl transition-all duration-500 ease-out sm:rounded-t-[2.5rem] lg:h-full lg:w-[460px] lg:rounded-4xl lg:border lg:border-white/20 lg:backdrop-blur-3xl xl:w-[540px] dark:bg-zinc-950/80',
               isChatOpen
-                ? 'translate-y-0 opacity-100 scale-100'
-                : 'translate-y-full opacity-0 scale-95',
+                ? 'translate-y-0 scale-100 opacity-100'
+                : 'translate-y-full scale-95 opacity-0',
             )}
             onClick={e => e.stopPropagation()}
           >
             {/* Overlay Header/Close */}
             <div className="flex shrink-0 items-center justify-between border-b border-zinc-200/50 p-4 leading-none dark:border-white/5">
               <div className="flex items-center gap-2">
-                <div className="h-2 w-2 animate-pulse rounded-full bg-primary-500 shadow-[0_0_8px_rgba(var(--color-primary-500),0.8)]" />
+                <div className="bg-primary-500 h-2 w-2 animate-pulse rounded-full shadow-[0_0_8px_rgba(var(--color-primary-500),0.8)]" />
                 <span className="text-xs font-bold tracking-widest text-zinc-500 uppercase dark:text-zinc-400">
                   {t('scrapbook.chat.title')}
                 </span>
@@ -701,28 +697,28 @@ ${entry.content}`
             </div>
 
             <div className="flex-1 overflow-hidden">
-            {entry && (
-              <ChatInterface
-                isEmbedded={true}
-                activeConversation={chatConversation}
-                systemContextPrefix={scrapbookContext}
-                isSidebarPinned={false}
-                isSpaceSelectionLocked={true}
-                initialSpaceSelection={{ mode: 'manual', space: null }}
-                initialAgentSelection={scrapbookAgent}
-                initialIsAgentAutoMode={false}
-                scrapbookEntry={{
-                  id: entry.id,
-                  title: entry.title,
-                  source_url: entry.source_url || null,
-                  summary: entry.summary || null,
-                }}
-                onTitleAndSpaceGenerated={conv => {
-                  setChatConversation(conv)
-                  notifyConversationsChanged({ scopes: ['library'] })
-                }}
-              />
-            )}
+              {entry && (
+                <ChatInterface
+                  isEmbedded={true}
+                  activeConversation={chatConversation}
+                  systemContextPrefix={scrapbookContext}
+                  isSidebarPinned={false}
+                  isSpaceSelectionLocked={true}
+                  initialSpaceSelection={{ mode: 'manual', space: null }}
+                  initialAgentSelection={scrapbookAgent}
+                  initialIsAgentAutoMode={false}
+                  scrapbookEntry={{
+                    id: entry.id,
+                    title: entry.title,
+                    source_url: entry.source_url || null,
+                    summary: entry.summary || null,
+                  }}
+                  onTitleAndSpaceGenerated={conv => {
+                    setChatConversation(conv)
+                    notifyConversationsChanged({ scopes: ['library'] })
+                  }}
+                />
+              )}
             </div>
           </div>
         </div>

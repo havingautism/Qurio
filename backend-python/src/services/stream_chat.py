@@ -34,7 +34,7 @@ from ..models.stream_chat import (
     ToolCallEvent,
     ToolResultEvent,
 )
-from .agent_registry import get_agent_for_provider, build_team, resolve_agent_config
+from .agent_registry import build_team, get_agent_for_provider, resolve_agent_config
 from .hitl_storage import get_hitl_storage
 from .summary_service import update_session_summary
 from .tool_registry import resolve_tool_name
@@ -167,7 +167,7 @@ def _extract_agent_info_from_event(
     agent_name = getattr(run_event, "agent_name", None)
     agent_emoji = getattr(run_event, "agent_emoji", None)
 
-    # Check if this matches the leader. 
+    # Check if this matches the leader.
     # Important: some providers might use slightly different names, but if IDs match it's definitely leader.
     is_leader = False
     if leader_id and agent_id == leader_id:
@@ -177,8 +177,8 @@ def _extract_agent_info_from_event(
         is_leader = True
     elif not leader_id and agent_name == leader_name:
         is_leader = True
-    # If the ID starts with 'qurio-' (default Agno IDs often follow this pattern) 
-    # and we are in team mode, and it's not explicitly a member ID in our metadata, 
+    # If the ID starts with 'qurio-' (default Agno IDs often follow this pattern)
+    # and we are in team mode, and it's not explicitly a member ID in our metadata,
     # it's highly likely the leader's initialization event.
     elif str(agent_id or "").startswith("qurio-") and agent_metadata:
         is_leader = agent_id not in agent_metadata
@@ -884,7 +884,7 @@ class StreamChatService:
     ) -> AsyncGenerator[dict[str, Any], None]:
         """
         Stream chat completion with HITL support.
-        
+
         If request.run_id is present, this is a resumption request after form submission.
         Otherwise, this is a normal chat request.
         """
@@ -1321,7 +1321,7 @@ class StreamChatService:
                         leader_emoji=request.agent_emoji,
                         agent_metadata=agent_metadata,
                     )
-                    
+
                     # Log active agent switch in Team mode
                     if is_team_mode:
                         current_id = current_agent_info.get("agent_id")
@@ -1358,7 +1358,7 @@ class StreamChatService:
                                     f"[TEAM] >>> run_started: {active_name} ({active_role}) "
                                     f"| Model: {active_model} | Provider: {active_provider}"
                                 )
-                                
+
                                 # Member starts -> Leader waits, Member active
                                 if active_role == "member":
                                     # Lock content attribution to this member until it completes
@@ -1529,7 +1529,7 @@ class StreamChatService:
                                 inline_protocol_tail = ""
                                 if getattr(tool, "tool_call_id", None):
                                     tool_start_times[tool.tool_call_id] = time.time()
-                                
+
                                 current_id = current_agent_info.get("agent_id")
                                 # If leader calls a tool, it's either an internal tool (code, etc) or delegation.
                                 # During the tool call itself, the agent is "active".
@@ -1543,7 +1543,7 @@ class StreamChatService:
                                 )
                                 current_text_index = len(full_content)
                                 yield _build_tool_call_event(
-                                    tool, 
+                                    tool,
                                     current_text_index,
                                     agent_info=current_agent_info
                                 )
@@ -1626,7 +1626,7 @@ class StreamChatService:
                                 thought=full_thought.strip() or None,
                                 sources=list(sources_map.values()) or None,
                             ).model_dump()
-                            
+
                             if request:
                                     asyncio.create_task(self._maybe_optimize_memories(agent, request))
 
@@ -1715,7 +1715,7 @@ class StreamChatService:
     ) -> AsyncGenerator[dict[str, Any], None]:
         """
         Continue a paused HITL run after user submits form.
-        
+
         This method:
         1. Retrieves requirements from storage
         2. Rebuilds continuation messages with submitted form values
@@ -1906,7 +1906,7 @@ class StreamChatService:
                     last_event_run_id = str(raw_event_run_id) if raw_event_run_id else None
 
                     # Extract agent info for Team mode (though Team HITL is currently disabled)
-                    current_agent_info = _extract_agent_info_from_event(
+                    _extract_agent_info_from_event(
                         run_event,
                         leader_id=request.agent_id,
                         leader_name=request.agent_name,
@@ -2814,10 +2814,10 @@ class StreamChatService:
     def _map_field_type_to_frontend(self, field_type: Any) -> str:
         """
         Map Python/Agno field types to frontend form types.
-        
+
         Args:
             field_type: Python type (class or string)
-            
+
         Returns:
             Frontend form field type (text, number, checkbox, etc.)
         """

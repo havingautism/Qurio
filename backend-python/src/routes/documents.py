@@ -1,14 +1,14 @@
 from __future__ import annotations
 
+import time
 from io import BytesIO
 from pathlib import Path
-import time
 from uuid import uuid4
+from xml.etree import ElementTree as ET
 from zipfile import ZipFile
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pypdf import PdfReader
-from xml.etree import ElementTree as ET
 
 from ..services.document_search import TreeSearchDocumentService
 

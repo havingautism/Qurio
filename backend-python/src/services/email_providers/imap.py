@@ -20,9 +20,8 @@ import hashlib
 import imaplib
 import logging
 import socket
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from email.header import decode_header
-from typing import Any
 
 from .base import BaseEmailProvider, EmailMessage
 
@@ -298,9 +297,9 @@ class ImapProvider(BaseEmailProvider):
                 from email.utils import parsedate_to_datetime
                 received_at = parsedate_to_datetime(date_str)
                 if received_at.tzinfo is None:
-                    received_at = received_at.replace(tzinfo=timezone.utc)
+                    received_at = received_at.replace(tzinfo=UTC)
             except Exception:
-                received_at = datetime.now(tz=timezone.utc)
+                received_at = datetime.now(tz=UTC)
 
             body_text = _extract_body_text(msg)
 
@@ -329,7 +328,7 @@ class ImapProvider(BaseEmailProvider):
         app_password: str,
         imap_host: str = _DEFAULT_IMAP_HOST,
         imap_port: int = _DEFAULT_IMAP_PORT,
-    ) -> "ImapProvider":
+    ) -> ImapProvider:
         """
         Factory method — creates an ImapProvider and validates credentials.
         Raises ValueError if login fails.

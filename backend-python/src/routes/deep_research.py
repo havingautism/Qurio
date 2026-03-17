@@ -14,8 +14,8 @@ from sse_starlette.sse import EventSourceResponse
 from starlette.responses import Response
 
 from ..providers import is_provider_supported
-from ._request_secrets import apply_stream_secret_headers, get_llm_api_key
 from ..services.deep_research import stream_deep_research
+from ._request_secrets import apply_stream_secret_headers, get_llm_api_key
 
 router = APIRouter(tags=["deep-research"])
 

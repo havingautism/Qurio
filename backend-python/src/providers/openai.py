@@ -157,7 +157,6 @@ class OpenAIAdapter(BaseProviderAdapter):
         from agno.models.message import Message
 
         input_messages = []
-        system_message = None
 
         for msg in context.messages:
             role = msg.get("role")
@@ -165,7 +164,6 @@ class OpenAIAdapter(BaseProviderAdapter):
                 content = msg.get("content", "")
                 if isinstance(content, list):
                     content = self._convert_content_array(content)
-                system_message = content if content else None
             elif role == "tool":
                 # Add tool response as assistant message with tool_call_id
                 content = msg.get("content", "")

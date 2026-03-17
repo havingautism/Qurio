@@ -8,16 +8,16 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import threading
-from typing import Any, Union
-from pathlib import Path
 import sqlite3
+import threading
+from pathlib import Path
+from typing import Any, Union
 
 import psycopg2
 
+from ..config import get_settings
 from .db_adapters import SQLAlchemyAdapter, SQLiteAdapter, SupabaseAdapter, build_adapter
 from .db_registry import ProviderConfig, get_provider_registry, normalize_provider_type
-from ..config import get_settings
 
 logger = logging.getLogger(__name__)
 

@@ -1,7 +1,5 @@
 import clsx from 'clsx'
 import {
-  Bookmark,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   FileText,
@@ -161,7 +159,16 @@ const SpaceView = () => {
     if (!activeSpace?.id) return undefined
 
     const applyTrackedState = nextState => {
-      const resolved = nextState || { status: 'idle', message: '', fileName: '', characters: 0, sections: 0, chunks: 0, stage: '', progress: 0 }
+      const resolved = nextState || {
+        status: 'idle',
+        message: '',
+        fileName: '',
+        characters: 0,
+        sections: 0,
+        chunks: 0,
+        stage: '',
+        progress: 0,
+      }
       if (!isViewActiveRef.current) return
       setDocumentUploadState({
         status: resolved.status || 'idle',
@@ -322,7 +329,13 @@ const SpaceView = () => {
   }
 
   const estimatePdfPageCount = async file => {
-    if (!file || !String(file.name || '').toLowerCase().endsWith('.pdf')) return 0
+    if (
+      !file ||
+      !String(file.name || '')
+        .toLowerCase()
+        .endsWith('.pdf')
+    )
+      return 0
     try {
       const pdfjs = await import('pdfjs-dist')
       const data = await file.arrayBuffer()
@@ -371,7 +384,10 @@ const SpaceView = () => {
       const ocrCredentials = ocrAdapter?.getCredentials ? ocrAdapter.getCredentials(settings) : {}
       const estimatedPages = await estimatePdfPageCount(file)
       const isPdfOcr = Boolean(
-        settings.enablePdfOcr && String(file.name || '').toLowerCase().endsWith('.pdf'),
+        settings.enablePdfOcr &&
+        String(file.name || '')
+          .toLowerCase()
+          .endsWith('.pdf'),
       )
       const timeoutMs = isPdfOcr ? Math.max(600000, estimatedPages * 60000) : 600000
       const pollStatus = async () => {
@@ -448,7 +464,10 @@ const SpaceView = () => {
             documentId: indexed.document_id,
           })
         } catch (cleanupError) {
-          console.error('Failed to roll back TreeSearch index after metadata failure:', cleanupError)
+          console.error(
+            'Failed to roll back TreeSearch index after metadata failure:',
+            cleanupError,
+          )
         }
         throw createError || new Error('Failed to create document record')
       }
@@ -707,7 +726,7 @@ const SpaceView = () => {
                   spaceDocuments.map(doc => (
                     <div
                       key={doc.id}
-                      className="group flex items-center justify-between gap-2.5 rounded-[20px] border border-white/10 bg-black/[0.04] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] backdrop-blur-sm transition-colors hover:bg-black/[0.06] dark:border-zinc-800/80 dark:bg-zinc-900/40 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] dark:hover:bg-zinc-900/60"
+                      className="group flex items-center justify-between gap-2.5 rounded-[20px] border border-white/10 bg-black/4 px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] backdrop-blur-sm transition-colors hover:bg-black/6 dark:border-zinc-800/80 dark:bg-zinc-900/40 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] dark:hover:bg-zinc-900/60"
                     >
                       <div className="flex min-w-0 flex-1 items-center gap-2.5">
                         <div className="shrink-0 self-center rounded-2xl border border-white/10 bg-white/70 p-2 shadow-sm dark:border-zinc-700/70 dark:bg-zinc-800/90">
@@ -715,11 +734,11 @@ const SpaceView = () => {
                         </div>
                         <div className="flex min-w-0 flex-1 flex-col gap-1">
                           <div className="flex min-w-0 items-center gap-1.5">
-                            <div className="truncate pr-1 text-sm font-semibold leading-5 text-gray-950 dark:text-gray-100">
+                            <div className="truncate pr-1 text-sm leading-5 font-semibold text-gray-950 dark:text-gray-100">
                               {doc.name.replace(/\.[^/.]+$/, '')}
                             </div>
                             <div className="flex shrink-0 items-center gap-1.5 text-[10.5px] leading-4 text-gray-500 dark:text-gray-400">
-                              <span className="font-bold uppercase tracking-[0.08em] text-gray-400 dark:text-zinc-500">
+                              <span className="font-bold tracking-[0.08em] text-gray-400 uppercase dark:text-zinc-500">
                                 {formatFileType(doc.file_type)}
                               </span>
                               <span className="text-gray-300 dark:text-zinc-700">·</span>

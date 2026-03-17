@@ -263,12 +263,5 @@ export const createBackendProvider = provider => ({
   generateAgentForAuto: (userMessage, currentSpace, apiKey, baseUrl, model) =>
     generateAgentForAuto(provider, userMessage, currentSpace, apiKey, baseUrl, model),
   generateRelatedQuestions: (messages, apiKey, baseUrl, model, languageInstruction) =>
-    generateRelatedQuestions(
-      provider,
-      messages,
-      apiKey,
-      baseUrl,
-      model,
-      languageInstruction,
-    ),
+    generateRelatedQuestions(provider, messages, apiKey, baseUrl, model, languageInstruction),
 })

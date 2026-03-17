@@ -1419,7 +1419,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                   <div className="py-2">
                     {isLoadingModels ? (
                       <div className="flex items-center justify-center p-4">
-                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--color-primary-500)] border-t-transparent" />
+                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
                       </div>
                     ) : availableProviders.length === 0 ? (
                       <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-500/10 dark:text-red-400">
@@ -1454,7 +1454,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                                 )}
                               </SelectValue>
                             </SelectTrigger>
-                            <SelectContent className="z-[300] min-w-[200px] overflow-hidden rounded-xl border border-black/10 bg-white p-1 shadow-2xl dark:border-white/10 dark:bg-zinc-900">
+                            <SelectContent className="z-300 min-w-[200px] overflow-hidden rounded-xl border border-black/10 bg-white p-1 shadow-2xl dark:border-white/10 dark:bg-zinc-900">
                               {availableProviders.map(provKey => {
                                 const config = getProvider(provKey)
                                 return (
@@ -1480,7 +1480,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                                 onClick={() =>
                                   setAiModelSource(s => (s === 'custom' ? 'list' : 'custom'))
                                 }
-                                className="text-xs text-[var(--color-primary-500)] hover:underline"
+                                className="text-xs text-primary-500 hover:underline"
                               >
                                 {aiModelSource === 'custom'
                                   ? t('settings.selectFromList', 'Select from List')
@@ -1504,7 +1504,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                                 >
                                   {isLoadingModels ? (
                                     <div className="flex items-center gap-2">
-                                      <div className="h-3 w-3 animate-spin rounded-full border-2 border-[var(--color-primary-500)] border-t-transparent" />
+                                      <div className="h-3 w-3 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
                                       <span className="text-gray-400">
                                         {t('settings.loadingModels', 'Loading models...')}
                                       </span>
@@ -1542,7 +1542,7 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
                                   )}
                                 </SelectValue>
                               </SelectTrigger>
-                              <SelectContent className="z-[300] min-w-[200px] overflow-hidden rounded-xl border border-black/10 bg-white p-1 shadow-2xl dark:border-white/10 dark:bg-zinc-900">
+                              <SelectContent className="z-300 min-w-[200px] overflow-hidden rounded-xl border border-black/10 bg-white p-1 shadow-2xl dark:border-white/10 dark:bg-zinc-900">
                                 <SelectGroup>
                                   {(
                                     groupedModels[aiProvider] ||

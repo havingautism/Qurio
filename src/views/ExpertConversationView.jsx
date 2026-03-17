@@ -169,7 +169,9 @@ const ExpertConversationView = () => {
             </button>
           </div>
           <p className="text-muted-foreground mt-3 text-xs">
-            {fetchError?.message ? `Details: ${fetchError.message}` : 'No additional error details.'}
+            {fetchError?.message
+              ? `Details: ${fetchError.message}`
+              : 'No additional error details.'}
           </p>
         </div>
       </div>

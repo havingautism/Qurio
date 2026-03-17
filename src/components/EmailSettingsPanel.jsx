@@ -21,7 +21,6 @@ import {
   Trash2,
   Settings,
   X,
-  Check,
 } from 'lucide-react'
 import { useCallback, useEffect, useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'

@@ -28,7 +28,7 @@ const SuspensePage = ({ children, fallback = null }) => (
     fallback={
       fallback || (
         <div className="bg-background text-foreground flex min-h-screen items-center justify-center">
-          <div className="text-[var(--color-text-secondary)] drop-shadow-[0_4px_18px_rgba(0,0,0,0.18)]">
+          <div className="text-(--color-text-secondary) drop-shadow-[0_4px_18px_rgba(0,0,0,0.18)]">
             <DotLoader size="8px" gap="5px" />
           </div>
         </div>
@@ -41,7 +41,7 @@ const SuspensePage = ({ children, fallback = null }) => (
 
 const ConversationSuspenseFallback = () => (
   <div className="bg-background text-foreground flex min-h-screen items-center justify-center">
-    <div className="text-[var(--color-text-secondary)] drop-shadow-[0_4px_18px_rgba(0,0,0,0.18)]">
+    <div className="text-(--color-text-secondary) drop-shadow-[0_4px_18px_rgba(0,0,0,0.18)]">
       <DotLoader size="8px" gap="5px" />
     </div>
   </div>

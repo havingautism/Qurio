@@ -10,14 +10,13 @@ import { getUserTools } from './userToolsService'
 
 import {
   buildSpaceAgentOptions,
-  resolveAgentForSpace,
   resolveFallbackAgent,
   preselectSpaceAndAgentForAuto,
   preselectTitleForManual,
   preselectTitleForDeepResearch,
 } from './chat/conversationSetup'
-import { callAIAPI, finalizeMessage, generateDeepResearchPlan } from './chat/aiService'
-import { getModelConfigForAgent, resolveProviderConfigWithCredentials } from './chat/modelConfig'
+import { callAIAPI } from './chat/aiService'
+import { getModelConfigForAgent } from './chat/modelConfig'
 import {
   ensureConversationExists,
   persistUserMessage,
@@ -32,7 +31,7 @@ import { listSpaceAgents } from './spacesService'
 // Import constants
 import { DOCUMENT_RETRIEVAL_CHUNK_LIMIT, DOCUMENT_RETRIEVAL_TOP_CHUNKS } from './chat/constants'
 import { validateInput, sanitizeJson } from './chat/utils'
-import { buildUserMessage, normalizeMessageForSend } from './chat/formatters'
+import { buildUserMessage } from './chat/formatters'
 import {
   buildConversationMessages,
   getLanguageInstruction,
@@ -1983,7 +1982,12 @@ const useChatStore = create((set, get) => ({
                         updated.content = `${current.content || ''}${cleanText}`
                         updated.streamBlocks = [
                           ...(current.streamBlocks || []),
-                          { seq: ++st.streamSeq, global_seq: agentGlobalSeq, type: 'text', content: cleanText },
+                          {
+                            seq: ++st.streamSeq,
+                            global_seq: agentGlobalSeq,
+                            type: 'text',
+                            content: cleanText,
+                          },
                         ]
                       }
 

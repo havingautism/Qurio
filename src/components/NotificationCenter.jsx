@@ -269,7 +269,7 @@ const NotificationCenter = ({ buttonClassName = '' }) => {
             {/* Header */}
             <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/50 px-6 py-4 dark:border-zinc-800 dark:bg-zinc-800/50">
               <div className="flex items-center gap-3">
-                <div className="from-primary-400 to-primary-600 flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br">
+                <div className="from-primary-400 to-primary-600 flex h-10 w-10 items-center justify-center rounded-lg bg-linear-to-br">
                   <Mail size={20} className="text-white" />
                 </div>
                 <span className="text-base font-semibold text-gray-900 dark:text-gray-100">
@@ -368,7 +368,7 @@ const NotificationCenter = ({ buttonClassName = '' }) => {
   const modal = isOpen
     ? createPortal(
         <div
-          className="fixed inset-0 z-[9999] flex items-start justify-center px-4 pt-[10vh] pb-4"
+          className="fixed inset-0 z-9999 flex items-start justify-center px-4 pt-[10vh] pb-4"
           role="dialog"
           aria-modal="true"
         >
@@ -386,7 +386,7 @@ const NotificationCenter = ({ buttonClassName = '' }) => {
             {/* Header */}
             <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-zinc-800">
               <div className="flex items-center gap-2.5">
-                <div className="from-primary-400 to-primary-600 flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br shadow-sm">
+                <div className="from-primary-400 to-primary-600 flex h-8 w-8 items-center justify-center rounded-lg bg-linear-to-br shadow-sm">
                   <Inbox size={16} className="text-white" />
                 </div>
                 <div>
@@ -497,7 +497,7 @@ const NotificationCenter = ({ buttonClassName = '' }) => {
                     <div className="flex items-start gap-3">
                       {/* Unread indicator */}
                       <div
-                        className={`mt-2 h-2.5 w-2.5 flex-shrink-0 rounded-full ${notif.is_read ? 'bg-transparent' : 'bg-primary-500'}`}
+                        className={`mt-2 h-2.5 w-2.5 shrink-0 rounded-full ${notif.is_read ? 'bg-transparent' : 'bg-primary-500'}`}
                       />
 
                       <div className="min-w-0 flex-1">
@@ -508,7 +508,7 @@ const NotificationCenter = ({ buttonClassName = '' }) => {
                           >
                             {notif.subject || t('notificationCenter.noSubject')}
                           </p>
-                          <span className="mt-0.5 flex-shrink-0 text-xs text-gray-400 dark:text-zinc-500">
+                          <span className="mt-0.5 shrink-0 text-xs text-gray-400 dark:text-zinc-500">
                             {formatRelativeTime(notif.received_at || notif.created_at)}
                           </span>
                         </div>

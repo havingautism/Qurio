@@ -29,11 +29,7 @@ export const fetchDocumentChunkContext = async ({
     return null
   }
 
-  const docMap = new Map(
-    documents
-      .map(doc => [String(doc?.id || ''), doc])
-      .filter(([id]) => id),
-  )
+  const docMap = new Map(documents.map(doc => [String(doc?.id || ''), doc]).filter(([id]) => id))
   const documentIds = Array.from(docMap.keys())
   const firstDoc = documents[0]
   const spaceId = String(firstDoc?.space_id || firstDoc?.spaceId || '').trim()

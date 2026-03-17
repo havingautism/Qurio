@@ -210,7 +210,7 @@ const MobileSourcesDrawer = ({ isOpen, onClose, sources = [], title }) => {
                   .filter(Boolean)
                   .join(' • ')
                 const body = (
-                  <div className="glass-elite-soft group flex flex-col gap-3 rounded-[28px] px-4 py-4 transition-colors hover:border-white/28 hover:bg-white/18 dark:hover:border-white/12 dark:hover:bg-white/[0.04]">
+                  <div className="glass-elite-soft group flex flex-col gap-3 rounded-[28px] px-4 py-4 transition-colors hover:border-white/28 hover:bg-white/18 dark:hover:border-white/12 dark:hover:bg-white/4">
                     <div className="flex items-center gap-4">
                       <div className="glass-elite-chip flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-gray-500 dark:text-gray-400">
                         {source.originalIndex !== undefined
@@ -272,7 +272,7 @@ const MobileSourcesDrawer = ({ isOpen, onClose, sources = [], title }) => {
                           return (
                             <div
                               key={fragmentKey}
-                              className="rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-3 dark:border-white/8 dark:bg-white/[0.02]"
+                              className="rounded-2xl border border-white/10 bg-white/3 px-3 py-3 dark:border-white/8 dark:bg-white/2"
                             >
                               <div className="mb-2 flex items-center gap-3">
                                 <div className="text-[11px] font-medium text-gray-400 dark:text-gray-500">

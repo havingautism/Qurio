@@ -28,8 +28,8 @@ from ..routes import (
     mcp_tools,
     related_questions,
     research_plan,
-    thinking_mode,
     space_agent,
+    thinking_mode,
     title_and_space,
     title_space_agent,
 )
@@ -43,28 +43,28 @@ from ..routes import (
     documents as documents_route,
 )
 from ..routes import (
+    email as email_route,
+)
+from ..routes import (
     emoji as emoji_route,
 )
 from ..routes import (
+    env as env_route,
+)
+from ..routes import (
     memory as memory_route,
+)
+from ..routes import (
+    scrapbook as scrapbook_route,
+)
+from ..routes import (
+    skills as skills_route,
 )
 from ..routes import (
     stream_chat as stream_chat_route,
 )
 from ..routes import (
     title as title_route,
-)
-from ..routes import (
-    email as email_route,
-)
-from ..routes import (
-    scrapbook as scrapbook_route,
-)
-from ..routes import (
-    env as env_route,
-)
-from ..routes import (
-    skills as skills_route,
 )
 from .agent_registry import build_agent
 from .email_monitor import start_email_monitor, stop_email_monitor

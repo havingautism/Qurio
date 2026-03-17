@@ -3,7 +3,6 @@ import {
   X,
   Plus,
   Trash2,
-  Save,
   Search,
   Globe,
   Settings,

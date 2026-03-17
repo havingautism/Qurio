@@ -18,17 +18,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, timezone
-from types import SimpleNamespace
-
 import os
+
 from agno.agent import Agent
-from agno.utils.log import logger as agno_logger
 
 from ..config import get_settings
+from ..models.db import DbFilter, DbQueryRequest
 from ..services.agent_registry import _build_model
 from ..services.db_service import execute_db_async, get_db_adapter
-from ..models.db import DbFilter, DbQueryRequest
 from .email_providers.base import EmailMessage
 from .email_providers.imap import ImapProvider
 
@@ -231,7 +228,7 @@ async def _resolve_provider_api_key(provider: str, database_provider: str | None
     Priority: Environment variable (via get_settings) -> DB user_settings table.
     """
     settings = get_settings()
-    
+
     # Mapping of summary provider to DB key in user_settings
     db_key_map = {
         "gemini": "googleApiKey",
@@ -246,14 +243,14 @@ async def _resolve_provider_api_key(provider: str, database_provider: str | None
         "nvidia": "NvidiaKey",
         "minimax": "MinimaxKey",
     }
-    
+
     # 1. Check DB first (most specific to user UI)
     db_key = db_key_map.get(provider)
     if db_key:
         val = await _resolve_db_setting(db_key, database_provider, "")
         if val:
             return val
-            
+
     # 2. Fallback to settings / env
     # Note: summary_agent_api_key is usually mapped to OPENAI_API_KEY in get_settings()
     if provider in ["openai", "openai_compatibility"]:

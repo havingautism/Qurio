@@ -21,7 +21,10 @@ const normalizeDocumentQuery = query => {
   if (!normalized) return ''
 
   const truncated = normalized.length > 120 ? normalized.slice(0, 120).trim() : normalized
-  return truncated.replace(/[，、,;；|/]+/g, ' ').replace(/[ ]{2,}/g, ' ').trim()
+  return truncated
+    .replace(/[，、,;；|/]+/g, ' ')
+    .replace(/[ ]{2,}/g, ' ')
+    .trim()
 }
 
 export const parseMemoryDomainDecisionResponse = content => {

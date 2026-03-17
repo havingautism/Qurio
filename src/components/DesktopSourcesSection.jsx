@@ -493,7 +493,7 @@ const DesktopSourcesSection = ({ sources = [], isOpen, variant = 'default' }) =>
                 className={clsx(
                   'flex items-center justify-center rounded-full transition disabled:cursor-not-allowed',
                   isCompactVariant
-                    ? 'text-primary-600 dark:text-primary-300 h-7 w-7 border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] disabled:border-white/6 disabled:bg-white/[0.02] disabled:text-gray-500 dark:disabled:text-gray-600'
+                    ? 'text-primary-600 dark:text-primary-300 h-7 w-7 border border-white/10 bg-white/4 hover:bg-white/8 disabled:border-white/6 disabled:bg-white/2 disabled:text-gray-500 dark:disabled:text-gray-600'
                     : 'text-primary-600 dark:text-primary-400 h-8 w-8 hover:bg-gray-100 disabled:text-gray-300 dark:hover:bg-zinc-700 dark:disabled:text-gray-600',
                 )}
               >
@@ -515,7 +515,7 @@ const DesktopSourcesSection = ({ sources = [], isOpen, variant = 'default' }) =>
                 className={clsx(
                   'flex items-center justify-center rounded-full transition disabled:cursor-not-allowed',
                   isCompactVariant
-                    ? 'text-primary-600 dark:text-primary-300 h-7 w-7 border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] disabled:border-white/6 disabled:bg-white/[0.02] disabled:text-gray-500 dark:disabled:text-gray-600'
+                    ? 'text-primary-600 dark:text-primary-300 h-7 w-7 border border-white/10 bg-white/4 hover:bg-white/8 disabled:border-white/6 disabled:bg-white/2 disabled:text-gray-500 dark:disabled:text-gray-600'
                     : 'text-primary-600 dark:text-primary-400 h-8 w-8 hover:bg-gray-100 disabled:text-gray-300 dark:hover:bg-zinc-700 dark:disabled:text-gray-600',
                 )}
               >

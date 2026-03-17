@@ -1220,7 +1220,7 @@ const HomeView = () => {
       <div className="pointer-events-none absolute top-0 right-0 left-0 z-30 flex w-full shrink-0 items-center p-4 md:hidden">
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 top-0 h-21 bg-gradient-to-b from-white/68 via-white/28 to-transparent [mask-image:linear-gradient(to_bottom,black_58%,transparent)] opacity-100 backdrop-blur-xl dark:from-zinc-950/68 dark:via-zinc-950/28"
+          className="pointer-events-none absolute inset-x-0 top-0 h-21 bg-linear-to-b from-white/68 via-white/28 to-transparent mask-[linear-gradient(to_bottom,black_58%,transparent)] opacity-100 backdrop-blur-xl dark:from-zinc-950/68 dark:via-zinc-950/28"
         />
         <div className="pointer-events-auto flex w-full items-center">
           <button
@@ -1249,7 +1249,7 @@ const HomeView = () => {
               />
               <div
                 aria-hidden="true"
-                className="absolute inset-0 rounded-[28px] bg-white/62 [mask-image:radial-gradient(circle_at_center,black_52%,transparent_100%)] dark:hidden"
+                className="absolute inset-0 rounded-[28px] bg-white/62 mask-[radial-gradient(circle_at_center,black_52%,transparent_100%)] dark:hidden"
               />
               <Logo size={128} className="relative z-10 text-gray-900 dark:text-white" priority />
             </div>
@@ -1487,9 +1487,9 @@ const HomeView = () => {
                                     setIsHomeThinkingMenuOpen(false)
                                   }}
                                   className={clsx(
-                                    'glass-elite-soft flex w-full items-start justify-between rounded-[22px] px-4 py-3 text-left text-sm transition-colors hover:border-white/26 hover:bg-white/18 dark:hover:border-white/10 dark:hover:bg-white/[0.05]',
+                                    'glass-elite-soft flex w-full items-start justify-between rounded-[22px] px-4 py-3 text-left text-sm transition-colors hover:border-white/26 hover:bg-white/18 dark:hover:border-white/10 dark:hover:bg-white/5',
                                     isActive
-                                      ? 'border-primary-300/35 text-primary-600 dark:border-primary-500/35 dark:text-primary-300 bg-white/82 dark:bg-white/[0.12]'
+                                      ? 'border-primary-300/35 text-primary-600 dark:border-primary-500/35 dark:text-primary-300 bg-white/82 dark:bg-white/12'
                                       : 'text-gray-700 dark:text-gray-200',
                                   )}
                                 >
@@ -1725,9 +1725,9 @@ const HomeView = () => {
                                       type="button"
                                       onClick={() => handleSelectHomeSearchBackend(option.id)}
                                       className={clsx(
-                                        'glass-elite-soft flex w-full items-center justify-between rounded-[22px] px-4 py-3 text-left text-sm transition-colors hover:border-white/26 hover:bg-white/18 dark:hover:border-white/10 dark:hover:bg-white/[0.05]',
+                                        'glass-elite-soft flex w-full items-center justify-between rounded-[22px] px-4 py-3 text-left text-sm transition-colors hover:border-white/26 hover:bg-white/18 dark:hover:border-white/10 dark:hover:bg-white/5',
                                         isActive
-                                          ? 'border-primary-300/35 text-primary-600 dark:border-primary-500/35 dark:text-primary-300 bg-white/82 dark:bg-white/[0.12]'
+                                          ? 'border-primary-300/35 text-primary-600 dark:border-primary-500/35 dark:text-primary-300 bg-white/82 dark:bg-white/12'
                                           : 'text-gray-700 dark:text-gray-200',
                                       )}
                                     >
@@ -1768,9 +1768,9 @@ const HomeView = () => {
                                       disabled={isOptionDisabled}
                                       onClick={() => handleSelectHomeExaSearchTool(option.id)}
                                       className={clsx(
-                                        'glass-elite-soft flex w-full items-center justify-between rounded-[22px] px-4 py-3 text-left text-sm transition-colors hover:border-white/26 hover:bg-white/18 dark:hover:border-white/10 dark:hover:bg-white/[0.05]',
+                                        'glass-elite-soft flex w-full items-center justify-between rounded-[22px] px-4 py-3 text-left text-sm transition-colors hover:border-white/26 hover:bg-white/18 dark:hover:border-white/10 dark:hover:bg-white/5',
                                         isActive
-                                          ? 'border-primary-300/35 text-primary-600 dark:border-primary-500/35 dark:text-primary-300 bg-white/82 dark:bg-white/[0.12]'
+                                          ? 'border-primary-300/35 text-primary-600 dark:border-primary-500/35 dark:text-primary-300 bg-white/82 dark:bg-white/12'
                                           : 'text-gray-700 dark:text-gray-200',
                                         isOptionDisabled &&
                                           'cursor-not-allowed opacity-50 hover:border-transparent hover:bg-transparent',
@@ -1809,9 +1809,9 @@ const HomeView = () => {
                                       type="button"
                                       onClick={() => handleSelectHomeSearchTool(option.id)}
                                       className={clsx(
-                                        'glass-elite-soft flex w-full items-center justify-between rounded-[22px] px-4 py-3 text-left text-sm transition-colors hover:border-white/26 hover:bg-white/18 dark:hover:border-white/10 dark:hover:bg-white/[0.05]',
+                                        'glass-elite-soft flex w-full items-center justify-between rounded-[22px] px-4 py-3 text-left text-sm transition-colors hover:border-white/26 hover:bg-white/18 dark:hover:border-white/10 dark:hover:bg-white/5',
                                         isActive
-                                          ? 'border-primary-300/35 text-primary-600 dark:border-primary-500/35 dark:text-primary-300 bg-white/82 dark:bg-white/[0.12]'
+                                          ? 'border-primary-300/35 text-primary-600 dark:border-primary-500/35 dark:text-primary-300 bg-white/82 dark:bg-white/12'
                                           : 'text-gray-700 dark:text-gray-200',
                                       )}
                                     >
@@ -1837,7 +1837,7 @@ const HomeView = () => {
                             <button
                               type="button"
                               onClick={handleClearHomeSearch}
-                              className="glass-elite-soft flex w-full items-center justify-between rounded-[22px] px-4 py-3 text-left text-sm text-gray-500 transition-colors hover:border-white/26 hover:bg-white/18 dark:text-gray-400 dark:hover:border-white/10 dark:hover:bg-white/[0.05]"
+                              className="glass-elite-soft flex w-full items-center justify-between rounded-[22px] px-4 py-3 text-left text-sm text-gray-500 transition-colors hover:border-white/26 hover:bg-white/18 dark:text-gray-400 dark:hover:border-white/10 dark:hover:bg-white/5"
                             >
                               <span>{t('common.close')}</span>
                             </button>

@@ -19,8 +19,8 @@ const DeepResearchCard = memo(({ onClick }) => {
       <div className="group relative w-full cursor-pointer" onClick={onClick}>
         {/* Card Container: low-contrast light mode, original vivid dark mode */}
         <div className="relative z-10 h-32 overflow-hidden rounded-3xl border border-white/75 bg-white/58 p-6 shadow-[0_8px_26px_rgba(15,23,42,0.08)] backdrop-blur-xl transition-all duration-500 group-hover:scale-[1.02] group-hover:shadow-[0_12px_30px_rgba(15,23,42,0.14)] active:scale-[0.98] sm:h-36 dark:border-white/10 dark:bg-[#0f172a]/40">
-          <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/65 via-blue-100/35 to-cyan-100/45 dark:from-indigo-500/12 dark:via-blue-500/8 dark:to-cyan-400/10" />
-          <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.12)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.12)_1px,transparent_1px)] bg-[size:20px_20px] opacity-25 dark:opacity-20" />
+          <div className="absolute inset-0 bg-linear-to-br from-indigo-100/65 via-blue-100/35 to-cyan-100/45 dark:from-indigo-500/12 dark:via-blue-500/8 dark:to-cyan-400/10" />
+          <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.12)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.12)_1px,transparent_1px)] bg-size-[20px_20px] opacity-25 dark:opacity-20" />
 
           <div className="pointer-events-none absolute inset-0 z-0">
             {PARTICLES.map(p => (
@@ -59,7 +59,7 @@ const DeepResearchCard = memo(({ onClick }) => {
                 {t('homeView.deepResearchEntryHint')}
               </p>
 
-              <div className="rounded-full border border-white/75 bg-white/72 p-2 text-slate-600 shadow-md backdrop-blur-md transition-all duration-300 group-hover:translate-x-1 group-hover:bg-white/88 dark:border-white/12 dark:bg-white/[0.12] dark:text-white dark:shadow-lg dark:group-hover:bg-white/[0.2]">
+              <div className="rounded-full border border-white/75 bg-white/72 p-2 text-slate-600 shadow-md backdrop-blur-md transition-all duration-300 group-hover:translate-x-1 group-hover:bg-white/88 dark:border-white/12 dark:bg-white/12 dark:text-white dark:shadow-lg dark:group-hover:bg-white/20">
                 <ArrowRight size={20} />
               </div>
             </div>

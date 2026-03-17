@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect, useState } from 'react'
+import { useMemo, useEffect, useState } from 'react'
 import ColorBendsBackground from './ColorBendsBackground'
 import useSettings from '../../hooks/useSettings'
 import { THEMES } from '../../lib/themes'

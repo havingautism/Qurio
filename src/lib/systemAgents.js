@@ -17,8 +17,7 @@ export const SCRAPBOOK_AGENT_DESCRIPTION = 'Hidden system agent for Scrapbook ge
 export const SCRAPBOOK_AGENT_EMOJI = '📒'
 
 export const isDefaultSystemAgent = agent => String(agent?.id || '') === DEFAULT_AGENT_ID
-export const isDeepResearchSystemAgent = agent =>
-  String(agent?.id || '') === DEEP_RESEARCH_AGENT_ID
+export const isDeepResearchSystemAgent = agent => String(agent?.id || '') === DEEP_RESEARCH_AGENT_ID
 export const isScrapbookSystemAgent = agent => String(agent?.id || '') === SCRAPBOOK_AGENT_ID
 
 export const filterVisibleAgents = agents => (agents || []).filter(agent => !agent?.isHidden)

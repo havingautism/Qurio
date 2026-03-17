@@ -82,9 +82,7 @@ export const listSpaceDocuments = async spaceId => {
   const request = (async () => {
     const { data, error } = await supabase
       .from(DOCUMENTS_TABLE)
-      .select(
-        'id,space_id,name,file_type,content_text,created_at',
-      )
+      .select('id,space_id,name,file_type,content_text,created_at')
       .eq('space_id', spaceId)
       .order('created_at', { ascending: false })
 
@@ -191,11 +189,7 @@ export const setConversationDocuments = async (conversationId, documentIds = [])
   if (!conversationId) return { success: false, error: new Error('Conversation id is required') }
 
   const normalized = Array.from(
-    new Set(
-      (documentIds || [])
-        .map(id => String(id || '').trim())
-        .filter(Boolean),
-    ),
+    new Set((documentIds || []).map(id => String(id || '').trim()).filter(Boolean)),
   )
   const { error: deleteError } = await supabase
     .from(CONVERSATION_DOCUMENTS_TABLE)

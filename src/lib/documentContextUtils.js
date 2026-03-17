@@ -74,11 +74,7 @@ export const formatDocumentAppendText = sources => {
     const label = buildSourceLabel(source)
     const similarity = typeof source.similarity === 'number' ? source.similarity.toFixed(2) : null
     const path = buildSourcePath(source)
-    const meta = [
-      label,
-      path ? `Section: ${path}` : '',
-      similarity ? `score=${similarity}` : '',
-    ]
+    const meta = [label, path ? `Section: ${path}` : '', similarity ? `score=${similarity}` : '']
       .filter(Boolean)
       .join(' | ')
 

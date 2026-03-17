@@ -192,12 +192,14 @@ const PipelineDrawer = ({ isOpen, onClose, pipeline, t }) => {
                           : undefined
                       }
                       className={clsx(
-                        'w-full rounded-3xl border border-white/8 bg-white/[0.03] px-4 py-4 text-left',
+                        'w-full rounded-3xl border border-white/8 bg-white/3 px-4 py-4 text-left',
                         hasExpandableDetails &&
-                          'cursor-pointer transition-colors hover:bg-white/[0.05]',
+                          'cursor-pointer transition-colors hover:bg-white/5',
                       )}
                     >
-                      <div className={clsx('flex gap-3', hasSummary ? 'items-start' : 'items-center')}>
+                      <div
+                        className={clsx('flex gap-3', hasSummary ? 'items-start' : 'items-center')}
+                      >
                         <div
                           className={clsx(
                             'inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border',
@@ -208,7 +210,12 @@ const PipelineDrawer = ({ isOpen, onClose, pipeline, t }) => {
                           <Icon size={18} />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className={clsx('flex gap-3', hasSummary ? 'items-start' : 'items-center')}>
+                          <div
+                            className={clsx(
+                              'flex gap-3',
+                              hasSummary ? 'items-start' : 'items-center',
+                            )}
+                          >
                             <div className="min-w-0 flex-1">
                               <div className="flex flex-wrap items-center gap-2">
                                 <div className="text-sm font-semibold text-white">

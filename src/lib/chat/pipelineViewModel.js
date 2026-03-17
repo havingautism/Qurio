@@ -236,14 +236,12 @@ const buildToolCallNode = ({
     normalizedToolName === 'delegate_task_to_member' ? parseDelegateInfo(argumentsValue) : null
   const delegateDisplay = resolveDelegateDisplay(delegateInfo, actorNameById)
   const delegateSummary =
-    delegateDisplay?.targetName &&
-    `${actor || 'Leader'} -> ${delegateDisplay.targetName}`
+    delegateDisplay?.targetName && `${actor || 'Leader'} -> ${delegateDisplay.targetName}`
 
   return createNode({
     id: `tool-call-${toolId || normalizedToolName}`,
     type: 'tool_call',
-    title:
-      normalizedToolName === 'delegate_task_to_member' ? 'Delegate Task' : normalizedToolName,
+    title: normalizedToolName === 'delegate_task_to_member' ? 'Delegate Task' : normalizedToolName,
     badge: normalizedToolName === 'delegate_task_to_member' ? 'Delegate' : 'Tool',
     summary:
       delegateSummary ||
@@ -425,7 +423,10 @@ const extractOrderedNodesFromBlocks = ({
           actorNameById,
         }),
       )
-      if (type === 'tool' && (block?.output != null || toolStatus === 'done' || toolStatus === 'error')) {
+      if (
+        type === 'tool' &&
+        (block?.output != null || toolStatus === 'done' || toolStatus === 'error')
+      ) {
         nodes.push(
           buildToolResultNode({
             id: toolId,
@@ -820,8 +821,7 @@ const buildResearchPipeline = message => {
   const steps = Array.isArray(message?.researchSteps) ? message.researchSteps : []
   steps.forEach((step, index) => {
     const stepNo = step?.step || index + 1
-    const title =
-      String(step?.title || step?.goal || step?.task || '').trim() || `Step ${stepNo}`
+    const title = String(step?.title || step?.goal || step?.task || '').trim() || `Step ${stepNo}`
     nodes.push(
       createNode({
         id: `research-step-${stepNo}`,

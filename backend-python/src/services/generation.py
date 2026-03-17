@@ -4,8 +4,8 @@ Simple generation services (title, daily tip, related questions, agent selection
 
 from __future__ import annotations
 
-from datetime import datetime
 import re
+from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 

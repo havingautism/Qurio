@@ -48,7 +48,7 @@ const ExpertThinkingPanel = ({
         </div>
         <ChevronDown size={15} className="opacity-60 transition-transform group-open:rotate-180" />
       </summary>
-      <div className="always-visible-scrollbar mt-1 max-h-[220px] overflow-y-auto border-l border-gray-300/80 pr-2 pl-4 !whitespace-normal dark:border-zinc-700/80">
+      <div className="always-visible-scrollbar mt-1 max-h-[220px] overflow-y-auto border-l border-gray-300/80 pr-2 pl-4 whitespace-normal! dark:border-zinc-700/80">
         {parts.map((part, idx) => {
           const text = normalizeExpertThinkingForDisplay(
             normalizeExpertThinkingLines(String(part?.content || '')),
@@ -71,7 +71,7 @@ const ExpertThinkingPanel = ({
                   </span>
                 )}
               </div>
-              <div className="text-sm leading-relaxed !whitespace-normal text-gray-500 dark:text-gray-400">
+              <div className="text-sm leading-relaxed whitespace-normal! text-gray-500 dark:text-gray-400">
                 {text}
               </div>
             </div>

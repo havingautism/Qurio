@@ -52,7 +52,6 @@ import { getExpertTabIndicators, getExpertTaskCardModel } from '../lib/chat/expe
 import DesktopSourcesSection from './DesktopSourcesSection'
 import DesktopSourcesSheet from './DesktopSourcesSheet'
 import DotLoader from './DotLoader'
-import EmojiDisplay from './EmojiDisplay'
 import AgentAvatar from './AgentAvatar'
 import AgentBannerSurface from './AgentBannerSurface'
 import InteractiveForm from './InteractiveForm'
@@ -68,7 +67,6 @@ import ShareModal from './ShareModal'
 import YoutubeLogo from '../assets/youtube.svg?url'
 import BilibiliLogo from '../assets/bilibili.png?url'
 import useSettings from '../hooks/useSettings'
-import ScrapbookContextBanner from './ScrapbookContextBanner'
 import {
   AGENT_AVATAR_SHAPE_CIRCLE,
   getAgentAvatarShape,
@@ -2365,7 +2363,7 @@ const MessageBubble = ({
                 <img
                   src={platformMeta.logo}
                   alt={platformMeta.label}
-                  className="h-3.5 w-3.5 shrink-0 rounded-sm bg-white/90 p-[1px]"
+                  className="h-3.5 w-3.5 shrink-0 rounded-sm bg-white/90 p-px"
                   loading="lazy"
                 />
               ) : null}
@@ -3283,7 +3281,7 @@ const MessageBubble = ({
               // For Standard: right-aligned (user) or left-aligned (AI) but constrained width
               isDeepResearchContext
                 ? 'w-full max-w-full items-center'
-                : 'max-w-[85%] items-end sm:max-w-[42rem]',
+                : 'max-w-[85%] items-end sm:max-w-2xl',
             )}
           >
             {/* Message Content */}
@@ -3294,7 +3292,7 @@ const MessageBubble = ({
               return (
                 <div
                   className={clsx(
-                    'relative w-fit max-w-full rounded-[28px] border px-3.5 py-2.5 text-base shadow-[0_10px_24px_-20px_rgba(15,23,42,0.28)] backdrop-blur-xl sm:max-w-[42rem]',
+                    'relative w-fit max-w-full rounded-[28px] border px-3.5 py-2.5 text-base shadow-[0_10px_24px_-20px_rgba(15,23,42,0.28)] backdrop-blur-xl sm:max-w-2xl',
                     'border-primary-300/30 bg-primary-500/88 dark:border-primary-400/20 dark:bg-primary-900/58 text-white dark:text-gray-100',
                   )}
                 >
@@ -3634,7 +3632,7 @@ const MessageBubble = ({
 
               {/* Status Indicators */}
               {item.status === 'active' && (
-                <div className="animate-status-halo ring-primary-500/50 pointer-events-none absolute inset-[-1px] z-10 rounded-lg ring-1" />
+                <div className="animate-status-halo ring-primary-500/50 pointer-events-none absolute -inset-px z-10 rounded-lg ring-1" />
               )}
               {item.status === 'error' && (
                 <span className="absolute top-0.5 right-0.5 flex h-2 w-2">
@@ -5072,7 +5070,7 @@ const MessageBubble = ({
         messageImages.length > 0 &&
         createPortal(
           <div
-            className="animate-in fade-in fixed inset-0 z-[10001] flex flex-col items-center justify-center bg-black/95 backdrop-blur-xl duration-300"
+            className="animate-in fade-in fixed inset-0 z-10001 flex flex-col items-center justify-center bg-black/95 backdrop-blur-xl duration-300"
             onClick={() => setIsGalleryOpen(false)}
           >
             {/* Close Button */}

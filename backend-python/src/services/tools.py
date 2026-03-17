@@ -18,6 +18,8 @@ from .academic_domains import ACADEMIC_DOMAINS
 from .html_widget_schema import build_html_widget_payload
 from .skill_runtime import (
     execute_skill_script as execute_skill_script_runtime,
+)
+from .skill_runtime import (
     install_skill_dependency as install_skill_dependency_runtime,
 )
 from .tool_registry import (
@@ -647,7 +649,7 @@ async def execute_tool_by_name(
                 execute_local_tool(resolved_name, args, tool_config),
                 timeout=timeout_sec,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return {
                 "error": f"Tool '{resolved_name}' timed out after {timeout_sec:.1f}s",
                 "timed_out": True,

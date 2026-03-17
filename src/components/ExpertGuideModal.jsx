@@ -230,8 +230,8 @@ const ExpertGuideModal = ({
                     className={clsx(
                       'glass-elite-soft relative flex items-center gap-3 rounded-[20px] p-3 text-left transition-all',
                       isSelected
-                        ? 'border-primary-300/35 dark:border-primary-500/35 bg-white/82 dark:bg-white/[0.12]'
-                        : 'hover:border-white/26 hover:bg-white/18 dark:hover:border-white/10 dark:hover:bg-white/[0.05]',
+                        ? 'border-primary-300/35 dark:border-primary-500/35 bg-white/82 dark:bg-white/12'
+                        : 'hover:border-white/26 hover:bg-white/18 dark:hover:border-white/10 dark:hover:bg-white/5',
                     )}
                   >
                     <div className="glass-elite-chip flex h-9 w-9 shrink-0 items-center justify-center rounded-lg">
@@ -284,7 +284,7 @@ const ExpertGuideModal = ({
                             className={clsx(
                               'glass-elite-soft flex items-center gap-3 rounded-[20px] p-2.5 transition-all',
                               isLeader || isMember
-                                ? 'border-primary-300/35 dark:border-primary-500/35 bg-white/82 dark:bg-white/[0.12]'
+                                ? 'border-primary-300/35 dark:border-primary-500/35 bg-white/82 dark:bg-white/12'
                                 : 'border-gray-100 bg-transparent dark:border-zinc-800',
                             )}
                           >
@@ -365,8 +365,8 @@ const ExpertGuideModal = ({
                       isDisabled
                         ? 'cursor-not-allowed opacity-40'
                         : isActive
-                          ? 'border-primary-300/35 dark:border-primary-500/35 bg-white/82 dark:bg-white/[0.12]'
-                          : 'hover:border-white/26 hover:bg-white/18 dark:hover:border-white/10 dark:hover:bg-white/[0.05]',
+                          ? 'border-primary-300/35 dark:border-primary-500/35 bg-white/82 dark:bg-white/12'
+                          : 'hover:border-white/26 hover:bg-white/18 dark:hover:border-white/10 dark:hover:bg-white/5',
                     )}
                   >
                     <div
@@ -383,7 +383,7 @@ const ExpertGuideModal = ({
                           {option.label}
                         </span>
                         {isDisabled && (
-                          <span className="shrink-0 rounded px-1 py-0.5 text-[9px] font-bold tracking-wide uppercase bg-amber-100/80 text-amber-600 dark:bg-amber-900/30 dark:text-amber-500">
+                          <span className="shrink-0 rounded bg-amber-100/80 px-1 py-0.5 text-[9px] font-bold tracking-wide text-amber-600 uppercase dark:bg-amber-900/30 dark:text-amber-500">
                             {t('sidebar.expertMode.modes.comingSoon')}
                           </span>
                         )}
@@ -463,7 +463,7 @@ const ExpertGuideModal = ({
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/55 px-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-120 flex items-center justify-center bg-black/55 px-4 backdrop-blur-sm">
       <div className="glass-elite-panel flex max-h-[85vh] w-full max-w-xl flex-col rounded-[28px] border-0 p-5 shadow-2xl">
         {content}
       </div>

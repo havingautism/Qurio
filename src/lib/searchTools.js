@@ -4,8 +4,6 @@ import DuckDuckGoIcon from '../assets/search-icons/duckduckgo.svg?url'
 import BingIcon from '../assets/search-icons/bing.svg?url'
 import BraveIcon from '../assets/search-icons/brave.svg?url'
 import ExaIcon from '../assets/exa-color.svg?url'
-import YandexIcon from '../assets/search-icons/yandex.svg?url'
-import YahooIcon from '../assets/search-icons/yahoo.svg?url'
 import ArxivIcon from '../assets/search-icons/arxiv.svg?url'
 import WikipediaIcon from '../assets/search-icons/wikipedia.svg?url'
 

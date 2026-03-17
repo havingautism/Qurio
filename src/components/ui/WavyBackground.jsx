@@ -1,5 +1,5 @@
 import { cn } from '../../lib/utils'
-import React, { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { createNoise3D } from 'simplex-noise'
 
 const withAlpha = (color, alpha) => {

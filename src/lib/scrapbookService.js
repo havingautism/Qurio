@@ -42,22 +42,17 @@ export const notifyScrapbookChanged = detail => {
   window.dispatchEvent(new CustomEvent('scrapbook-changed', { detail: detail || {} }))
 }
 
-const SCRAPBOOK_AGENT_SYNC_KEYS = [
-  'name',
-  'description',
-  'emoji',
-  'isHidden',
-]
+const SCRAPBOOK_AGENT_SYNC_KEYS = ['name', 'description', 'emoji', 'isHidden']
 
 const isAgentStyleSource = source =>
   Boolean(
     source &&
-      typeof source === 'object' &&
-      ('useGlobalModelSettings' in source ||
-        'baseTone' in source ||
-        'base_tone' in source ||
-        'defaultModelProvider' in source ||
-        'default_model_provider' in source),
+    typeof source === 'object' &&
+    ('useGlobalModelSettings' in source ||
+      'baseTone' in source ||
+      'base_tone' in source ||
+      'defaultModelProvider' in source ||
+      'default_model_provider' in source),
   )
 
 const buildScrapbookAgentPatch = (currentAgent, nextAgent) => {
@@ -101,10 +96,7 @@ export const resolveScrapbookStyleSettingsFromAgent = (agent, settings = loadSet
 }
 
 /** Resolve the effective AI model config for Scrapbook. */
-export const resolveScrapbookModelConfig = async (
-  defaultAgent,
-  task = 'streamChatCompletion',
-) => {
+export const resolveScrapbookModelConfig = async (defaultAgent, task = 'streamChatCompletion') => {
   const settings = loadSettings()
   const { data: scrapbookAgent, error } = await ensureScrapbookAgent(settings)
   const resolvedAgent = error ? null : scrapbookAgent

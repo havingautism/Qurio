@@ -6,7 +6,6 @@ import { getConversation, isExpertConversation } from '../lib/conversationsServi
 import { useAppContext } from '../App'
 import ChatInterface from '../components/ChatInterface'
 import DeepResearchChatInterface from '../components/DeepResearchChatInterface'
-import ScrapbookContextBanner from '../components/ScrapbookContextBanner'
 import ConversationLoadingOverlay from '../components/ConversationLoadingOverlay'
 import { useShallow } from 'zustand/react/shallow'
 import useChatStore from '../lib/chatStore'

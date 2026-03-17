@@ -25,7 +25,7 @@ const ConfirmationModal = ({
     >
       <div
         onClick={e => e.stopPropagation()}
-        className="animate-in zoom-in-95 relative mx-auto w-full max-w-md scale-100 transform overflow-hidden rounded-[2rem] border border-white/20 bg-white/80 p-8 shadow-2xl backdrop-blur-2xl transition-all duration-200 dark:border-zinc-800/50 dark:bg-zinc-900/80"
+        className="animate-in zoom-in-95 relative mx-auto w-full max-w-md scale-100 transform overflow-hidden rounded-4xl border border-white/20 bg-white/80 p-8 shadow-2xl backdrop-blur-2xl transition-all duration-200 dark:border-zinc-800/50 dark:bg-zinc-900/80"
       >
         {/* Close Button */}
         <button

@@ -207,7 +207,6 @@ export const listConversations = async (options = {}) => {
     }
   }
 
-
   // 2. Exclude specific spaces (like Deep Research)
   if (Array.isArray(excludeSpaceIds) && excludeSpaceIds.length > 0) {
     const normalized = excludeSpaceIds.map(String).filter(Boolean)
@@ -392,17 +391,17 @@ export const getConversationByScrapbookId = async scrapbookId => {
   const supabase = getSupabaseClient()
   if (!supabase) return { data: null, error: new Error('Supabase not configured') }
   if (!scrapbookId) return { data: null, error: null }
-  
+
   const { data, error } = await supabase
     .from(table)
     .select(
-      'id,title,title_emojis,created_at,updated_at,space_id,api_provider,is_favorited,last_agent_id,agent_selection_mode,scrapbook_id'
+      'id,title,title_emojis,created_at,updated_at,space_id,api_provider,is_favorited,last_agent_id,agent_selection_mode,scrapbook_id',
     )
     .eq('scrapbook_id', scrapbookId)
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle()
-    
+
   return { data, error }
 }
 

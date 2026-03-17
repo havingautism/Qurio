@@ -52,6 +52,7 @@ EXTERNAL_SEARCH_TOOL_NAMES = {
     "search_wikipedia",
 }
 FIXED_SEARCH_MAX_RESULTS = 5
+MAX_HTML_WIDGET_SIZE = 20000
 
 
 def _tool_timeout_seconds(default: float = 20.0) -> float:
@@ -220,8 +221,47 @@ async def execute_local_tool(
             return await _execute_tavily_academic_search(args, tool_config)
         case "extract_url_content":
             return await _execute_url_extract(args)
+        case "render_html_widget":
+            return await _execute_render_html_widget(args)
         case _:
             raise ValueError(f"Unknown local tool: {resolved_name}")
+
+
+def _sanitize_html_widget_content(raw_html: str) -> str:
+    html = str(raw_html or "").strip()
+    if not html:
+        return ""
+    html = re.sub(r"<\s*script[\s\S]*?<\s*/\s*script\s*>", "", html, flags=re.IGNORECASE)
+    html = re.sub(r"\son\w+\s*=\s*\"[^\"]*\"", "", html, flags=re.IGNORECASE)
+    html = re.sub(r"\son\w+\s*=\s*'[^']*'", "", html, flags=re.IGNORECASE)
+    html = re.sub(r"\son\w+\s*=\s*[^\s>]+", "", html, flags=re.IGNORECASE)
+    html = re.sub(r"javascript\s*:", "", html, flags=re.IGNORECASE)
+    if len(html) > MAX_HTML_WIDGET_SIZE:
+        html = html[:MAX_HTML_WIDGET_SIZE]
+    return html
+
+
+async def _execute_render_html_widget(args: dict[str, Any]) -> dict[str, Any]:
+    title = str(args.get("title") or "").strip()
+    raw_html = str(args.get("html") or "")
+    safe_html = _sanitize_html_widget_content(raw_html)
+    if not safe_html:
+        return {
+            "type": "html_widget",
+            "error": "empty_html",
+            "message": "No valid HTML content after sanitization.",
+        }
+    try:
+        height = int(args.get("height") or 360)
+    except Exception:
+        height = 360
+    height = max(200, min(height, 900))
+    return {
+        "type": "html_widget",
+        "title": title,
+        "html": safe_html,
+        "height": height,
+    }
 
 
 async def _execute_local_time(args: dict[str, Any]) -> dict[str, Any]:

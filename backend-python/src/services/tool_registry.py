@@ -259,6 +259,33 @@ AGENT_TOOLS: list[dict[str, Any]] = [
             },
         },
     },
+    {
+        "id": "render_html_widget",
+        "name": "render_html_widget",
+        "category": "visualization",
+        "description": (
+            "Render a safe HTML widget for richer visualization in chat. "
+            "Use this when tabular, timeline, board, or card layouts are clearer than plain text."
+        ),
+        "parameters": {
+            "type": "object",
+            "required": ["html"],
+            "properties": {
+                "title": {
+                    "type": "string",
+                    "description": "Optional widget title shown above the iframe.",
+                },
+                "html": {
+                    "type": "string",
+                    "description": "HTML content for the widget body. Keep it self-contained.",
+                },
+                "height": {
+                    "type": "integer",
+                    "description": "Optional widget height in pixels. Defaults to 360.",
+                },
+            },
+        },
+    },
 ]
 
 AGNO_TOOLS: list[dict[str, Any]] = [

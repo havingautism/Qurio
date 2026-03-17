@@ -44,6 +44,8 @@
     "jsonRepairInfo": "Automatically fix malformed JSON data to ensure data structure integrity",
     "interactiveForm": "Interactive Form",
     "interactiveFormInfo": "Create dynamic forms within conversations to collect structured information and user input",
+    "renderHtmlWidget": "HTML Widget",
+    "renderHtmlWidgetInfo": "Render structured HTML visualizations (table, timeline, cards) in chat via iframe.",
     "installSkillDependency": "Install Skill Dependency",
     "installSkillDependencyInfo": "Install an approved Python dependency into a skill's isolated virtual environment.",
     "executeSkillScript": "Execute Skill Script",

@@ -43,6 +43,7 @@ export const TOOL_TRANSLATION_KEYS = {
   serpapi_image_search: 'tools.imageSearchSerpApi',
   duckduckgo_video_search: 'tools.videoSearchDuckDuckGo',
   search_youtube: 'tools.videoSearchYouTube',
+  render_html_widget: 'tools.renderHtmlWidget',
 }
 
 // Tool icons mapping (using lucide-react icon names)
@@ -91,6 +92,7 @@ export const TOOL_ICONS = {
   serpapi_image_search: 'ImageIcon',
   duckduckgo_video_search: 'Video',
   search_youtube: 'Youtube',
+  render_html_widget: 'ScanText',
 }
 
 // Tool usage info keys for translations
@@ -139,4 +141,5 @@ export const TOOL_INFO_KEYS = {
   serpapi_image_search: 'tools.imageSearchSerpApiInfo',
   duckduckgo_video_search: 'tools.videoSearchDuckDuckGoInfo',
   search_youtube: 'tools.videoSearchYouTubeInfo',
+  render_html_widget: 'tools.renderHtmlWidgetInfo',
 }

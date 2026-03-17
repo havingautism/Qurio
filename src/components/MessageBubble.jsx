@@ -1023,6 +1023,61 @@ const MessageBubble = ({
     return null
   }
 
+  const parseHtmlWidgetPayload = raw => {
+    if (!raw) return null
+    let payload = raw
+    if (typeof raw === 'string') {
+      try {
+        payload = JSON.parse(raw)
+      } catch {
+        return null
+      }
+    }
+    if (!payload || typeof payload !== 'object') return null
+    const html = typeof payload.html === 'string' ? payload.html.trim() : ''
+    if (!html) return null
+    const title = typeof payload.title === 'string' ? payload.title.trim() : ''
+    const rawHeight = Number(payload.height)
+    const height =
+      Number.isFinite(rawHeight) && rawHeight > 0
+        ? Math.max(220, Math.min(rawHeight, 900))
+        : 360
+    return {
+      type: 'html_widget',
+      title,
+      html,
+      height,
+    }
+  }
+
+  const buildWidgetSrcDoc = useCallback((widget, fallbackTitle) => {
+    const title = widget?.title || fallbackTitle || 'Widget'
+    const bodyHtml = widget?.html || ''
+    const escapedTitle = String(title)
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+    return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${escapedTitle}</title>
+  <style>
+    :root { color-scheme: dark; }
+    html, body { margin: 0; padding: 0; background: #0f1115; color: #e6e8ef; font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    body { padding: 10px; box-sizing: border-box; }
+    * { box-sizing: border-box; max-width: 100%; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid rgba(255,255,255,.12); padding: 8px 10px; text-align: left; }
+    th { background: rgba(255,255,255,.06); }
+  </style>
+</head>
+<body>${bodyHtml}</body>
+</html>`
+  }, [])
+
   const [isDark, setIsDark] = useState(document.documentElement.classList.contains('dark'))
   const mainContentRef = useRef(null)
   const researchExportRef = useRef(null)
@@ -2454,8 +2509,11 @@ const MessageBubble = ({
 
       if (part.type === 'tools' && Array.isArray(part.items)) {
         const formItems = part.items.filter(item => item?.name === 'interactive_form')
+        const htmlWidgetItems = part.items.filter(item => item?.name === 'render_html_widget')
         const regularTools = part.items.filter(
-          item => item?.name !== 'interactive_form' && item?.name !== 'form_submission_status',
+          item =>
+            item?.name !== 'interactive_form' &&
+            item?.name !== 'form_submission_status',
         )
 
         if (regularTools.length > 0) {
@@ -2486,6 +2544,14 @@ const MessageBubble = ({
             type: 'interactive_form',
             key: `${part.key || `interactive-form-${i}`}-form`,
             items: formItems,
+          })
+        }
+
+        if (htmlWidgetItems.length > 0) {
+          rawParts.push({
+            type: 'html_widget',
+            key: `${part.key || `html-widget-${i}`}-widget`,
+            items: htmlWidgetItems,
           })
         }
       }
@@ -2949,6 +3015,35 @@ const MessageBubble = ({
     )
   }
 
+  const renderHtmlWidgetItem = (item, widgetKey) => {
+    const payload = parseHtmlWidgetPayload(item.output) || parseHtmlWidgetPayload(item.result)
+    if (!payload) return null
+    const displayTitle =
+      payload.title || getToolDisplayName(item) || t('tools.renderHtmlWidget', 'HTML Widget')
+    const srcDoc = buildWidgetSrcDoc(payload, displayTitle)
+
+    return (
+      <div
+        key={widgetKey}
+        className="mb-4 overflow-hidden rounded-2xl border border-white/10 bg-black/15"
+      >
+        <div className="flex items-center justify-between border-b border-white/8 px-3 py-2">
+          <div className="truncate text-sm font-semibold text-zinc-200">{displayTitle}</div>
+          <span className="rounded-full border border-white/10 bg-white/6 px-2 py-0.5 text-[11px] font-medium text-zinc-400">
+            HTML
+          </span>
+        </div>
+        <iframe
+          title={displayTitle}
+          srcDoc={srcDoc}
+          sandbox=""
+          className="w-full border-0"
+          style={{ height: `${payload.height}px` }}
+        />
+      </div>
+    )
+  }
+
   const firstTextPartDisplayIndex = contentPartsOutsideWorkflow.findIndex(
     part => part.type === 'text',
   )
@@ -2999,6 +3094,16 @@ const MessageBubble = ({
         <React.Fragment key={part.key || `interactive-form-outside-${idx}`}>
           {part.items.map((item, formIdx) =>
             renderInteractiveFormItem(item, `form-inline-${part.key || idx}-${item.id || formIdx}`),
+          )}
+        </React.Fragment>
+      )
+    }
+
+    if (part.type === 'html_widget') {
+      return (
+        <React.Fragment key={part.key || `html-widget-outside-${idx}`}>
+          {part.items.map((item, widgetIdx) =>
+            renderHtmlWidgetItem(item, `html-widget-${part.key || idx}-${item.id || widgetIdx}`),
           )}
         </React.Fragment>
       )

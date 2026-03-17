@@ -30,6 +30,7 @@ from .skill_runtime import (
 )
 
 FIXED_SEARCH_MAX_RESULTS = 5
+MAX_HTML_WIDGET_SIZE = 20000
 
 
 def _tool_timeout_seconds(default: float = 20.0) -> float:
@@ -457,6 +458,7 @@ class QurioLocalTools(Toolkit):
             self.summarize_text,
             self.extract_text,
             self.json_repair,
+            self.render_html_widget,
             interactive_form,
             self.install_skill_dependency,
             self.execute_skill_script,
@@ -516,6 +518,33 @@ class QurioLocalTools(Toolkit):
                 return {"valid": False, "error": f"Unable to repair JSON: {exc}"}
         except Exception as exc:
             return {"valid": False, "error": f"Unable to repair JSON: {exc}"}
+
+    @tool(
+        name="render_html_widget",
+        description=(
+            "Render a safe HTML widget for visual display. "
+            "Use when structured visual output is more useful than plain text."
+        ),
+    )
+    def render_html_widget(self, html: str, title: str = "", height: int = 360) -> dict[str, Any]:
+        safe_html = self._sanitize_html_widget_content(html)
+        if not safe_html:
+            return {
+                "type": "html_widget",
+                "error": "empty_html",
+                "message": "No valid HTML content after sanitization.",
+            }
+        try:
+            resolved_height = int(height or 360)
+        except Exception:
+            resolved_height = 360
+        resolved_height = max(200, min(resolved_height, 900))
+        return {
+            "type": "html_widget",
+            "title": str(title or "").strip(),
+            "html": safe_html,
+            "height": resolved_height,
+        }
 
     @tool(
         name="install_skill_dependency",
@@ -786,6 +815,19 @@ class QurioLocalTools(Toolkit):
     def _split_sentences(self, text: str) -> list[str]:
         parts = re.split(r"[.!?\u3002\uff01\uff1f]+", text or "")
         return [s.strip() for s in parts if s.strip()]
+
+    def _sanitize_html_widget_content(self, raw_html: str) -> str:
+        html = str(raw_html or "").strip()
+        if not html:
+            return ""
+        html = re.sub(r"<\s*script[\s\S]*?<\s*/\s*script\s*>", "", html, flags=re.IGNORECASE)
+        html = re.sub(r"\son\w+\s*=\s*\"[^\"]*\"", "", html, flags=re.IGNORECASE)
+        html = re.sub(r"\son\w+\s*=\s*'[^']*'", "", html, flags=re.IGNORECASE)
+        html = re.sub(r"\son\w+\s*=\s*[^\s>]+", "", html, flags=re.IGNORECASE)
+        html = re.sub(r"javascript\s*:", "", html, flags=re.IGNORECASE)
+        if len(html) > MAX_HTML_WIDGET_SIZE:
+            html = html[:MAX_HTML_WIDGET_SIZE]
+        return html
 
     def _resolve_tavily_api_key(self) -> str:
         if self._tavily_api_key:

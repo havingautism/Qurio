@@ -13,13 +13,13 @@ from fastapi.responses import JSONResponse
 from sse_starlette.sse import EventSourceResponse
 
 from ..providers import is_provider_supported
-from ._request_secrets import get_llm_api_key
 from ..services.research_plan import (
     generate_academic_research_plan,
     generate_research_plan,
     stream_generate_academic_research_plan,
     stream_generate_research_plan,
 )
+from ._request_secrets import get_llm_api_key
 
 router = APIRouter(tags=["research-plan"])
 

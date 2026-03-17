@@ -1,15 +1,6 @@
-import React, { useState, useEffect } from 'react'
-import {
-  Key,
-  Link as LinkIcon,
-  AlertTriangle,
-  Check,
-  Loader2,
-  Database,
-  XCircle,
-} from 'lucide-react'
+import { useState } from 'react'
+import { Key, Link as LinkIcon, AlertTriangle, Check, Loader2, XCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { clsx } from 'clsx'
 import { saveSettings, loadSettings } from '../lib/settings'
 import { testConnection } from '../lib/supabase'
 import { MODAL_INPUT_WITH_ICON_CLASS } from '../lib/modalFieldStyles'

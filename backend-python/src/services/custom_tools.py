@@ -18,14 +18,18 @@ from zoneinfo import ZoneInfo
 
 import httpx
 from agno.tools import Toolkit, tool
+
 try:
     from ddgs import DDGS
 except Exception:  # pragma: no cover - backward compatibility only
     from duckduckgo_search import DDGS
 
 from .academic_domains import ACADEMIC_DOMAINS
+from .html_widget_schema import build_html_widget_payload
 from .skill_runtime import (
     execute_skill_script as execute_skill_script_runtime,
+)
+from .skill_runtime import (
     install_skill_dependency as install_skill_dependency_runtime,
 )
 
@@ -158,7 +162,7 @@ def interactive_form(
 ) -> str:
     """
     Display an interactive form to collect user input.
-    
+
     Args:
         id: Optional identifier for the form
         title: Optional form title displayed to the user
@@ -457,6 +461,7 @@ class QurioLocalTools(Toolkit):
             self.summarize_text,
             self.extract_text,
             self.json_repair,
+            self.render_html_widget,
             interactive_form,
             self.install_skill_dependency,
             self.execute_skill_script,
@@ -518,6 +523,16 @@ class QurioLocalTools(Toolkit):
             return {"valid": False, "error": f"Unable to repair JSON: {exc}"}
 
     @tool(
+        name="render_html_widget",
+        description=(
+            "Render a safe HTML widget for visual display. "
+            "Use when structured visual output is more useful than plain text."
+        ),
+    )
+    def render_html_widget(self, html: str, title: str = "", height: int = 360) -> dict[str, Any]:
+        return build_html_widget_payload({"html": html, "title": title, "height": height})
+
+    @tool(
         name="install_skill_dependency",
         description=(
             "Install a Python package into a skill-scoped virtual environment. "
@@ -571,7 +586,7 @@ class QurioLocalTools(Toolkit):
         Args:
             skill_id: Existing skill id containing the script.
             script_path: Relative path like scripts/foo.py or scripts/foo.sh.
-            args: Optional positional arguments.
+            args: Optional CLI token array (for example: ["--keyword", "cat"]).
             timeout_seconds: Optional timeout before aborting execution.
         """
         try:

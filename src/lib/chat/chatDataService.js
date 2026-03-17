@@ -34,7 +34,7 @@ export const ensureConversationExists = async (
     title: 'New Conversation',
     api_provider: providerOverride || '',
     agent_selection_mode: isDeepResearch || isScrapbook ? 'manual' : 'auto',
-    last_agent_id: (isDeepResearch || isScrapbook) ? selectedAgent?.id || null : null,
+    last_agent_id: isDeepResearch || isScrapbook ? selectedAgent?.id || null : null,
     scrapbook_id: toggles?.scrapbook_id || null,
   }
 

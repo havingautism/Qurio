@@ -582,7 +582,6 @@ export const fetchRemoteSettings = async () => {
   ) {
     settings.contextTurns = settings.contextMessageLimit
   }
-
   return { data: settings, error: null }
 }
 
@@ -614,9 +613,10 @@ export const saveRemoteSettings = async settings => {
     'serpapiApiKey',
     'NvidiaKey',
     'MinimaxKey',
-    'embeddingProvider',
-    'embeddingModel',
-    'embeddingModelSource',
+    'ocrProvider',
+    'ocrModel',
+    'ocrModelSource',
+    'enablePdfOcr',
     'enableLongTermMemory',
     'contextTurns',
     'defaultModel',

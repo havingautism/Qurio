@@ -32,7 +32,7 @@ const MessageCardSkeleton = ({ align = 'left', compact = false }) => (
 
 const ConversationPageSkeleton = () => {
   return (
-    <div className="relative flex h-full flex-1 flex-col overflow-hidden bg-[var(--color-bg-primary)]">
+    <div className="relative flex h-full flex-1 flex-col overflow-hidden bg-(--color-bg-primary)">
       <div className="pointer-events-none absolute inset-0 z-0 opacity-35 dark:opacity-20">
         <ColorBendsBackground blur={8} speed={0.12} autoRotate={0.35} />
       </div>
@@ -52,7 +52,7 @@ const ConversationPageSkeleton = () => {
         </div>
 
         <div className="relative flex-1 overflow-hidden px-4 py-4 sm:px-6">
-          <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-white/30 to-transparent dark:from-white/5" />
+          <div className="absolute inset-x-0 top-0 h-16 bg-linear-to-b from-white/30 to-transparent dark:from-white/5" />
           <div className="relative mx-auto flex h-full w-full max-w-5xl flex-col gap-4">
             <MessageCardSkeleton align="left" />
             <MessageCardSkeleton align="right" compact />

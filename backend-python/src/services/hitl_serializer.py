@@ -54,7 +54,7 @@ def deserialize_requirements(requirements_data: list[dict[str, Any]]) -> list:
 def extract_form_fields_for_frontend(tool_args: dict[str, Any]) -> list[dict[str, Any]]:
     """
     Extract form fields from interactive_form tool arguments for frontend rendering.
-    
+
     This maintains the original format expected by the frontend InteractiveForm component.
     """
     fields = tool_args.get("fields", [])

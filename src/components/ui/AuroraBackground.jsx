@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { cn } from '../../lib/utils'
 
 const toStops = colors => {
@@ -6,7 +6,9 @@ const toStops = colors => {
   const resolved =
     palette.length > 0 ? palette : ['#3b82f6', '#a5b4fc', '#93c5fd', '#ddd6fe', '#60a5fa']
   const count = resolved.length
-  return resolved.map((color, idx) => `${color} ${10 + (idx * 70) / Math.max(1, count - 1)}%`).join(', ')
+  return resolved
+    .map((color, idx) => `${color} ${10 + (idx * 70) / Math.max(1, count - 1)}%`)
+    .join(', ')
 }
 
 export const AuroraBackground = ({
@@ -52,10 +54,13 @@ export const AuroraBackground = ({
         window.clearTimeout(resumeTimerRef.current)
       }
       // Delay restart to avoid compositor flash when switching back to tab/window.
-      resumeTimerRef.current = window.setTimeout(() => {
-        setIsAnimationReady(true)
-        resumeTimerRef.current = null
-      }, Math.max(0, resumeDelayMs))
+      resumeTimerRef.current = window.setTimeout(
+        () => {
+          setIsAnimationReady(true)
+          resumeTimerRef.current = null
+        },
+        Math.max(0, resumeDelayMs),
+      )
     }
     document.addEventListener('visibilitychange', handleVisibility)
     return () => {
@@ -71,7 +76,7 @@ export const AuroraBackground = ({
   const darkStops = useMemo(() => toStops(darkColors), [darkColors])
 
   return (
-    <div className={cn('relative h-full w-full overflow-hidden isolate', containerClassName)}>
+    <div className={cn('relative isolate h-full w-full overflow-hidden', containerClassName)}>
       <style>
         {`
           @keyframes qurio-aurora-pan {
@@ -90,22 +95,20 @@ export const AuroraBackground = ({
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0"
-        style={
-          {
-            '--aurora-light': `repeating-linear-gradient(100deg, ${lightStops})`,
-            '--aurora-dark': `repeating-linear-gradient(100deg, ${darkStops || lightStops})`,
-            '--stripe-light':
-              'repeating-linear-gradient(100deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.95) 8%, transparent 11%, transparent 14%, rgba(255,255,255,0.95) 18%)',
-            '--stripe-dark':
-              'repeating-linear-gradient(100deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.95) 8%, transparent 11%, transparent 14%, rgba(0,0,0,0.95) 18%)',
-          }
-        }
+        style={{
+          '--aurora-light': `repeating-linear-gradient(100deg, ${lightStops})`,
+          '--aurora-dark': `repeating-linear-gradient(100deg, ${darkStops || lightStops})`,
+          '--stripe-light':
+            'repeating-linear-gradient(100deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.95) 8%, transparent 11%, transparent 14%, rgba(255,255,255,0.95) 18%)',
+          '--stripe-dark':
+            'repeating-linear-gradient(100deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.95) 8%, transparent 11%, transparent 14%, rgba(0,0,0,0.95) 18%)',
+        }}
       >
         <div
           className={cn(
             'absolute -inset-[12%] will-change-transform',
             showRadialGradient &&
-              '[mask-image:radial-gradient(ellipse_at_50%_48%,black_18%,transparent_75%)]',
+              'mask-[radial-gradient(ellipse_at_50%_48%,black_18%,transparent_75%)]',
           )}
           style={{
             filter: `blur(${blur}px)`,
@@ -127,7 +130,7 @@ export const AuroraBackground = ({
             className={cn(
               'absolute -inset-[12%] will-change-transform',
               showRadialGradient &&
-                '[mask-image:radial-gradient(ellipse_at_50%_48%,black_18%,transparent_75%)]',
+                'mask-[radial-gradient(ellipse_at_50%_48%,black_18%,transparent_75%)]',
             )}
             style={{
               filter: `blur(${Math.max(8, blur - 4)}px)`,
@@ -149,7 +152,7 @@ export const AuroraBackground = ({
           className={cn(
             'absolute -inset-[18%] will-change-transform',
             showRadialGradient &&
-              '[mask-image:radial-gradient(ellipse_at_50%_56%,black_10%,transparent_72%)]',
+              'mask-[radial-gradient(ellipse_at_50%_56%,black_10%,transparent_72%)]',
           )}
           style={{
             filter: `blur(${blur + 12}px)`,

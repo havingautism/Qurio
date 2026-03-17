@@ -1,10 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import clsx from 'clsx'
-import { ChevronLeft, ChevronRight, ExternalLink, FileText } from 'lucide-react'
+import {
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
+  FileText,
+} from 'lucide-react'
 import {
   canExpandDocumentCitation,
   buildDocumentCitationPath,
+  groupPreparedDocumentCitationSources,
   prepareDocumentCitationSources,
 } from '../lib/documentCitationViewModel'
 
@@ -26,6 +34,22 @@ const getSourceKey = source =>
   source?.href ||
   `${source?.citationIndex ?? source?.originalIndex ?? 'source'}:${source?.title || ''}:${buildDocumentCitationPath(source)}`
 
+const formatDocumentTypeBadge = fileType => {
+  const normalized = String(fileType || '')
+    .replace(/^\./, '')
+    .trim()
+  return normalized ? normalized.toUpperCase() : 'DOC'
+}
+
+const canExpandDocumentFragment = (fragment, fragmentPath = '') => {
+  const fullSnippet = fragment?.fullSnippet || fragment?.snippet || fragment?.content || ''
+  const previewSnippet = fragment?.previewSnippet || fullSnippet
+  return (
+    (canExpandDocumentCitation(fragment) && previewSnippet !== fullSnippet) ||
+    fragmentPath.length > 90
+  )
+}
+
 const DesktopSourcesSection = ({ sources = [], isOpen, variant = 'default' }) => {
   const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState('document')
@@ -41,7 +65,9 @@ const DesktopSourcesSection = ({ sources = [], isOpen, variant = 'default' }) =>
     const rawDocumentSources = sources.filter(source => getSourceKind(source) === 'document')
     return {
       web: webSources,
-      document: prepareDocumentCitationSources(rawDocumentSources),
+      document: groupPreparedDocumentCitationSources(
+        prepareDocumentCitationSources(rawDocumentSources),
+      ),
     }
   }, [sources])
 
@@ -114,7 +140,9 @@ const DesktopSourcesSection = ({ sources = [], isOpen, variant = 'default' }) =>
               const body = (
                 <div className="group/source flex min-h-[86px] items-stretch gap-2.5 rounded-xl border border-gray-200 bg-gray-50 p-2.5 transition-colors hover:bg-gray-100 dark:border-zinc-700/50 dark:bg-zinc-800/50 dark:hover:bg-zinc-800">
                   <div className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border border-gray-200 bg-white text-[9px]! font-medium text-gray-500 shadow-sm dark:border-zinc-600 dark:bg-zinc-700 dark:text-gray-400">
-                    {source.originalIndex !== undefined ? source.originalIndex + 1 : absoluteIndex + 1}
+                    {source.originalIndex !== undefined
+                      ? source.originalIndex + 1
+                      : absoluteIndex + 1}
                   </div>
                   <div className="flex min-w-0 flex-1 flex-col">
                     <div className="group-hover/source:text-primary-600 dark:group-hover/source:text-primary-400 line-clamp-4 text-[12px]! leading-tight font-semibold text-gray-800 transition-colors dark:text-gray-200">
@@ -140,12 +168,7 @@ const DesktopSourcesSection = ({ sources = [], isOpen, variant = 'default' }) =>
               )
 
               return url ? (
-                <a
-                  key={getSourceKey(source)}
-                  href={url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
+                <a key={getSourceKey(source)} href={url} target="_blank" rel="noopener noreferrer">
                   {body}
                 </a>
               ) : (
@@ -260,10 +283,20 @@ const DesktopSourcesSection = ({ sources = [], isOpen, variant = 'default' }) =>
               const isDocumentSource = getSourceKind(source) === 'document'
               const titlePath = buildDocumentCitationPath(source)
               const sourceKey = getSourceKey(source)
-              const fullSnippet = source.fullSnippet || source.snippet || source.content || ''
-              const previewSnippet = source.previewSnippet || fullSnippet
-              const canExpand = isDocumentSource && canExpandDocumentCitation(source)
-              const isExpanded = expandedSourceKeys.has(sourceKey)
+              const fragments = isDocumentSource
+                ? Array.isArray(source.fragments) && source.fragments.length > 0
+                  ? source.fragments
+                  : [source]
+                : []
+              const documentMetaLabel = [
+                source.fragmentCount > 1
+                  ? `${source.fragmentCount} ${t('sources.fragmentsShort', {
+                      defaultValue: 'fragments',
+                    })}`
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(' • ')
               const body = (
                 <div
                   className={clsx(
@@ -331,45 +364,100 @@ const DesktopSourcesSection = ({ sources = [], isOpen, variant = 'default' }) =>
                             />
                           </>
                         )}
-                        <div
-                          className={clsx(
-                            'truncate text-gray-400 dark:text-gray-500',
-                            isCompactVariant ? 'text-[11px]' : 'text-[12px]',
+                        <div className="flex items-center gap-2">
+                          {isDocumentSource ? (
+                            <>
+                              <span className="bg-primary-500/12 text-primary-700 dark:text-primary-300 border-primary-500/20 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold tracking-[0.12em] uppercase">
+                                {formatDocumentTypeBadge(source.fileType)}
+                              </span>
+                              {documentMetaLabel && (
+                                <div
+                                  className={clsx(
+                                    'truncate text-gray-400 dark:text-gray-500',
+                                    isCompactVariant ? 'text-[11px]' : 'text-[12px]',
+                                  )}
+                                >
+                                  {documentMetaLabel}
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <div
+                              className={clsx(
+                                'truncate text-gray-400 dark:text-gray-500',
+                                isCompactVariant ? 'text-[11px]' : 'text-[12px]',
+                              )}
+                            >
+                              {source.media || getHostname(url)}
+                            </div>
                           )}
-                        >
-                          {isDocumentSource
-                            ? titlePath || source.fileType || t('sources.documentSources')
-                            : source.media || getHostname(url)}
                         </div>
                       </div>
                     </div>
                   </div>
-                  {isDocumentSource && previewSnippet && (
-                    <div
-                      className={`${isCompactVariant ? 'pl-9 text-[12px]' : 'pl-6 text-xs'} leading-relaxed text-gray-500 dark:text-gray-400 ${
-                        isExpanded ? 'whitespace-pre-wrap' : 'line-clamp-3'
-                      }`}
-                    >
-                      {isExpanded ? fullSnippet : previewSnippet}
+                  {isDocumentSource && fragments.length > 0 && (
+                    <div className={clsx(isCompactVariant ? 'pl-9' : 'pl-6', 'space-y-2')}>
+                      {fragments.map((fragment, fragmentIndex) => {
+                        const fragmentKey =
+                          fragment.fragmentKey || `${sourceKey}:fragment:${fragmentIndex}`
+                        const fragmentPath = buildDocumentCitationPath(fragment)
+                        const fullSnippet =
+                          fragment.fullSnippet || fragment.snippet || fragment.content || ''
+                        const previewSnippet = fragment.previewSnippet || fullSnippet
+                        const canExpand = canExpandDocumentFragment(fragment, fragmentPath)
+                        const isExpanded = expandedSourceKeys.has(fragmentKey)
+
+                        if (!previewSnippet) return null
+
+                        return (
+                          <div
+                            key={fragmentKey}
+                            className="rounded-2xl border border-gray-200/70 bg-gray-100/55 px-3 py-3 dark:border-zinc-700/60 dark:bg-zinc-800/45"
+                          >
+                            <div className="mb-2 flex items-center gap-3">
+                              <div className="text-[11px] font-medium text-gray-400 dark:text-gray-500">
+                                {t('sources.fragmentLabel', {
+                                  index: fragmentIndex + 1,
+                                  defaultValue: 'Fragment {{index}}',
+                                })}
+                              </div>
+                            </div>
+                            {fragmentPath && (
+                              <div
+                                className={`mb-2 text-[12px] leading-relaxed font-medium text-gray-500 dark:text-gray-400 ${
+                                  isExpanded ? 'whitespace-pre-wrap' : 'line-clamp-2'
+                                }`}
+                              >
+                                {fragmentPath}
+                              </div>
+                            )}
+                            <div
+                              className={`${isCompactVariant ? 'text-[12px]' : 'text-xs'} leading-relaxed text-gray-500 dark:text-gray-400 ${
+                                isExpanded ? 'whitespace-pre-wrap' : 'line-clamp-3'
+                              }`}
+                            >
+                              {isExpanded ? fullSnippet : previewSnippet}
+                            </div>
+                            {canExpand && (
+                              <button
+                                type="button"
+                                onClick={event => {
+                                  event.preventDefault()
+                                  event.stopPropagation()
+                                  toggleExpandedSource(fragmentKey)
+                                }}
+                                className="text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 mt-2 inline-flex w-fit items-center gap-1 text-[11px] font-medium transition-colors"
+                              >
+                                {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                                {isExpanded
+                                  ? t('sources.collapseQuote', 'Collapse')
+                                  : t('sources.expandQuote', 'View full quote')}
+                              </button>
+                            )}
+                          </div>
+                        )
+                      })}
                     </div>
-                  )}
-                  {canExpand && (
-                    <button
-                      type="button"
-                      onClick={event => {
-                        event.preventDefault()
-                        event.stopPropagation()
-                        toggleExpandedSource(sourceKey)
-                      }}
-                      className={clsx(
-                        'text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 w-fit font-medium transition-colors',
-                        isCompactVariant ? 'pl-9 text-[11px]' : 'pl-6 text-[11px]',
-                      )}
-                    >
-                      {isExpanded
-                        ? t('sources.hideFullExcerpt', 'Hide full quote')
-                        : t('sources.showFullExcerpt', 'Show full quote')}
-                    </button>
                   )}
                 </div>
               )
@@ -405,7 +493,7 @@ const DesktopSourcesSection = ({ sources = [], isOpen, variant = 'default' }) =>
                 className={clsx(
                   'flex items-center justify-center rounded-full transition disabled:cursor-not-allowed',
                   isCompactVariant
-                    ? 'text-primary-600 dark:text-primary-300 h-7 w-7 border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] disabled:border-white/6 disabled:bg-white/[0.02] disabled:text-gray-500 dark:disabled:text-gray-600'
+                    ? 'text-primary-600 dark:text-primary-300 h-7 w-7 border border-white/10 bg-white/4 hover:bg-white/8 disabled:border-white/6 disabled:bg-white/2 disabled:text-gray-500 dark:disabled:text-gray-600'
                     : 'text-primary-600 dark:text-primary-400 h-8 w-8 hover:bg-gray-100 disabled:text-gray-300 dark:hover:bg-zinc-700 dark:disabled:text-gray-600',
                 )}
               >
@@ -427,7 +515,7 @@ const DesktopSourcesSection = ({ sources = [], isOpen, variant = 'default' }) =>
                 className={clsx(
                   'flex items-center justify-center rounded-full transition disabled:cursor-not-allowed',
                   isCompactVariant
-                    ? 'text-primary-600 dark:text-primary-300 h-7 w-7 border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] disabled:border-white/6 disabled:bg-white/[0.02] disabled:text-gray-500 dark:disabled:text-gray-600'
+                    ? 'text-primary-600 dark:text-primary-300 h-7 w-7 border border-white/10 bg-white/4 hover:bg-white/8 disabled:border-white/6 disabled:bg-white/2 disabled:text-gray-500 dark:disabled:text-gray-600'
                     : 'text-primary-600 dark:text-primary-400 h-8 w-8 hover:bg-gray-100 disabled:text-gray-300 dark:hover:bg-zinc-700 dark:disabled:text-gray-600',
                 )}
               >

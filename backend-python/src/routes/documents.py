@@ -1,13 +1,14 @@
 from __future__ import annotations
 
+import time
 from io import BytesIO
 from pathlib import Path
 from uuid import uuid4
+from xml.etree import ElementTree as ET
 from zipfile import ZipFile
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pypdf import PdfReader
-from xml.etree import ElementTree as ET
 
 from ..services.document_search import TreeSearchDocumentService
 
@@ -17,6 +18,21 @@ DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.docu
 WORD_NAMESPACE = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
 TREESEARCH_STORAGE_ROOT = Path(__file__).resolve().parents[2] / "data" / "document_index"
 _treesearch_service = TreeSearchDocumentService(storage_root=TREESEARCH_STORAGE_ROOT)
+_document_index_status: dict[str, dict] = {}
+
+
+def _make_status_key(space_id: str, document_id: str) -> str:
+    return f"{space_id}:{document_id}"
+
+
+def _set_index_status(space_id: str, document_id: str, payload: dict | None):
+    key = _make_status_key(space_id, document_id)
+    if payload is None:
+        _document_index_status.pop(key, None)
+        return
+    next_payload = dict(payload)
+    next_payload["updated_at"] = time.time()
+    _document_index_status[key] = next_payload
 
 
 def _extract_pdf_text(raw_bytes: bytes) -> str:
@@ -93,6 +109,11 @@ async def extract_document(file: UploadFile = File(...)):
 async def index_document(
     space_id: str = Form(...),
     document_id: str | None = Form(default=None),
+    enable_pdf_ocr: bool = Form(default=False),
+    ocr_provider: str | None = Form(default=None),
+    ocr_model: str | None = Form(default=None),
+    ocr_api_key: str | None = Form(default=None),
+    ocr_base_url: str | None = Form(default=None),
     file: UploadFile = File(...),
 ):
     filename = file.filename or "document"
@@ -101,6 +122,50 @@ async def index_document(
         raise HTTPException(status_code=400, detail="Uploaded document is empty")
 
     resolved_document_id = str(document_id or uuid4())
+    resolved_ocr_provider = str(ocr_provider or "").strip()
+    resolved_ocr_model = str(ocr_model or "").strip()
+    resolved_ocr_api_key = str(ocr_api_key or "").strip()
+    resolved_ocr_base_url = str(ocr_base_url or "").strip()
+    suffix = Path(filename).suffix.lower()
+    if enable_pdf_ocr and suffix == ".pdf":
+        if not resolved_ocr_provider or not resolved_ocr_model:
+            raise HTTPException(
+                status_code=400,
+                detail="PDF OCR is enabled, but OCR provider/model is missing",
+            )
+        if not resolved_ocr_api_key:
+            raise HTTPException(
+                status_code=400,
+                detail="PDF OCR is enabled, but OCR API key is missing",
+            )
+
+    _set_index_status(
+        str(space_id),
+        resolved_document_id,
+        {
+            "status": "loading",
+            "stage": "preparing",
+            "message": "Preparing document...",
+            "current": 0,
+            "total": 0,
+            "progress": 0,
+        },
+    )
+
+    def _handle_ocr_progress(current: int, total: int):
+        ratio = 0 if total <= 0 else min(max(current / total, 0), 1)
+        _set_index_status(
+            str(space_id),
+            resolved_document_id,
+            {
+                "status": "loading",
+                "stage": "ocr",
+                "message": f"OCR in progress ({current}/{total})",
+                "current": current,
+                "total": total,
+                "progress": ratio,
+            },
+        )
 
     try:
         result = await _treesearch_service.index_document(
@@ -108,11 +173,54 @@ async def index_document(
             document_id=resolved_document_id,
             filename=filename,
             raw_bytes=raw_bytes,
+            enable_pdf_ocr=enable_pdf_ocr,
+            ocr_provider=resolved_ocr_provider,
+            ocr_model=resolved_ocr_model,
+            ocr_api_key=resolved_ocr_api_key,
+            ocr_base_url=resolved_ocr_base_url,
+            progress_callback=_handle_ocr_progress if enable_pdf_ocr and suffix == ".pdf" else None,
         )
     except RuntimeError as exc:
+        _set_index_status(
+            str(space_id),
+            resolved_document_id,
+            {
+                "status": "error",
+                "stage": "",
+                "message": str(exc),
+                "current": 0,
+                "total": 0,
+                "progress": 0,
+            },
+        )
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     except Exception as exc:
+        _set_index_status(
+            str(space_id),
+            resolved_document_id,
+            {
+                "status": "error",
+                "stage": "",
+                "message": f"Document indexing failed: {exc}",
+                "current": 0,
+                "total": 0,
+                "progress": 0,
+            },
+        )
         raise HTTPException(status_code=400, detail=f"Document indexing failed: {exc}") from exc
+
+    _set_index_status(
+        str(space_id),
+        resolved_document_id,
+        {
+            "status": "success",
+            "stage": "",
+            "message": "Document indexed",
+            "current": result.get("ocr_debug", {}).get("total_pages", 0),
+            "total": result.get("ocr_debug", {}).get("total_pages", 0),
+            "progress": 1,
+        },
+    )
 
     file_type = Path(filename).suffix.lower().lstrip(".") or "file"
 
@@ -124,8 +232,25 @@ async def index_document(
         "character_count": result.get("character_count", 0),
         "section_count": result.get("section_count", 0),
         "node_count": result.get("node_count", 0),
+        "parse_mode": result.get("parse_mode", "native"),
+        "ocr_debug": result.get("ocr_debug", {}),
         "index_db": result.get("index_db"),
     }
+
+
+@router.get("/documents/index/status/{space_id}/{document_id}")
+async def get_document_index_status(space_id: str, document_id: str):
+    status = _document_index_status.get(_make_status_key(space_id, document_id))
+    if not status:
+        return {
+            "status": "idle",
+            "stage": "",
+            "message": "",
+            "current": 0,
+            "total": 0,
+            "progress": 0,
+        }
+    return status
 
 
 @router.post("/documents/search")

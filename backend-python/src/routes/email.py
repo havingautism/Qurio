@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
@@ -40,7 +39,7 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
-def _sync_monitor_db_provider(db_provider: Optional[str]) -> None:
+def _sync_monitor_db_provider(db_provider: str | None) -> None:
     """Update the background email scheduler DB provider from the current request, if provided."""
     if db_provider and str(db_provider).strip():
         set_email_monitor_provider(db_provider)
@@ -56,16 +55,16 @@ class EmailConnectRequest(BaseModel):
     email: str                        # Full email address
     app_password: str                 # App password (not the regular login password)
     poll_interval_minutes: int = 15   # How often to check for new emails
-    summary_provider: Optional[str] = "openai"
-    summary_model: Optional[str] = "gpt-4o-mini"
+    summary_provider: str | None = "openai"
+    summary_model: str | None = "gpt-4o-mini"
 
 
 class EmailConfigUpdate(BaseModel):
     """Fields the user can update after initial setup."""
-    poll_interval_minutes: Optional[int] = None
-    is_enabled: Optional[bool] = None
-    summary_provider: Optional[str] = None
-    summary_model: Optional[str] = None
+    poll_interval_minutes: int | None = None
+    is_enabled: bool | None = None
+    summary_provider: str | None = None
+    summary_model: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -94,7 +93,7 @@ def _get_imap_provider(provider: str, email_address: str, app_password: str):
 
 @router.post("/email/monitor/provider")
 async def sync_email_monitor_provider(
-    db_provider: Optional[str] = Query(default=None, alias="dbProvider"),
+    db_provider: str | None = Query(default=None, alias="dbProvider"),
 ):
     """Sync the background email monitor DB provider (lightweight, no email-table access)."""
     _sync_monitor_db_provider(db_provider)
@@ -103,7 +102,7 @@ async def sync_email_monitor_provider(
 @router.post("/email/connect")
 async def connect_email(
     body: EmailConnectRequest,
-    db_provider: Optional[str] = Query(default=None, alias="dbProvider"),
+    db_provider: str | None = Query(default=None, alias="dbProvider"),
 ):
     """
     Test IMAP credentials and add a new email config to DB.
@@ -112,7 +111,8 @@ async def connect_email(
     try:
         _sync_monitor_db_provider(db_provider)
         # Validate credentials by attempting a real IMAP login
-        import imaplib, socket
+        import imaplib
+        import socket
 
         host, port = _IMAP_SERVERS.get(body.provider, ("imap.gmail.com", 993))
         try:
@@ -175,7 +175,7 @@ async def connect_email(
 
 @router.get("/email/configs")
 async def get_email_configs(
-    db_provider: Optional[str] = Query(default=None, alias="dbProvider"),
+    db_provider: str | None = Query(default=None, alias="dbProvider"),
 ):
     """Get all email provider configs (passwords are omitted)."""
     try:
@@ -209,7 +209,7 @@ async def get_email_configs(
 async def update_email_config(
     config_id: str,
     body: EmailConfigUpdate,
-    db_provider: Optional[str] = Query(default=None, alias="dbProvider"),
+    db_provider: str | None = Query(default=None, alias="dbProvider"),
 ):
     """Update a specific email config settings (interval, enabled state, summary model)."""
     try:
@@ -245,7 +245,7 @@ async def update_email_config(
 @router.delete("/email/config/{config_id}")
 async def delete_email_config(
     config_id: str,
-    db_provider: Optional[str] = Query(default=None, alias="dbProvider"),
+    db_provider: str | None = Query(default=None, alias="dbProvider"),
 ):
     """Delete a specific email config and all associated notifications (via CASCADE)."""
     try:
@@ -274,11 +274,11 @@ async def delete_email_config(
 
 @router.get("/email/notifications")
 async def list_notifications(
-    config_id: Optional[str] = Query(default=None, alias="configId"),
+    config_id: str | None = Query(default=None, alias="configId"),
     unread_only: bool = Query(default=False, alias="unreadOnly"),
     limit: int = Query(default=20, le=100),
     offset: int = Query(default=0),
-    db_provider: Optional[str] = Query(default=None, alias="dbProvider"),
+    db_provider: str | None = Query(default=None, alias="dbProvider"),
 ):
     """List email notifications, newest first. Optionally filter by config_id."""
     try:
@@ -316,7 +316,7 @@ async def list_notifications(
 @router.patch("/email/notifications/{notification_id}/read")
 async def mark_notification_read(
     notification_id: str,
-    db_provider: Optional[str] = Query(default=None, alias="dbProvider"),
+    db_provider: str | None = Query(default=None, alias="dbProvider"),
 ):
     """Mark a single notification as read."""
     try:
@@ -347,8 +347,8 @@ async def mark_notification_read(
 
 @router.patch("/email/notifications/read-all")
 async def mark_all_notifications_read(
-    config_id: Optional[str] = Query(default=None, alias="configId"),
-    db_provider: Optional[str] = Query(default=None, alias="dbProvider"),
+    config_id: str | None = Query(default=None, alias="configId"),
+    db_provider: str | None = Query(default=None, alias="dbProvider"),
 ):
     """Mark all unread notifications as read. Optionally filter by config_id."""
     try:
@@ -379,7 +379,7 @@ async def mark_all_notifications_read(
 @router.delete("/email/notifications/{notification_id}")
 async def delete_notification(
     notification_id: str,
-    db_provider: Optional[str] = Query(default=None, alias="dbProvider"),
+    db_provider: str | None = Query(default=None, alias="dbProvider"),
 ):
     """Delete a single notification."""
     try:
@@ -411,7 +411,7 @@ async def delete_notification(
 
 @router.post("/email/poll")
 async def trigger_poll(
-    db_provider: Optional[str] = Query(default=None, alias="dbProvider"),
+    db_provider: str | None = Query(default=None, alias="dbProvider"),
 ):
     """Manually trigger an email poll cycle (for testing)."""
     try:
@@ -429,7 +429,7 @@ async def trigger_poll(
 
 @router.get("/email/notifications/stream")
 async def notification_stream(
-    db_provider: Optional[str] = Query(default=None, alias="dbProvider"),
+    db_provider: str | None = Query(default=None, alias="dbProvider"),
 ):
     """
     SSE endpoint for real-time notification updates.
@@ -449,7 +449,7 @@ async def notification_stream(
                     # Wait for notification events with timeout
                     event = await asyncio.wait_for(queue.get(), timeout=30.0)
                     yield {"data": json.dumps(event)}
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     # Send keepalive comment
                     yield {"comment": "keepalive"}
         except asyncio.CancelledError:

@@ -26,6 +26,7 @@ from ..prompts import (
     ACADEMIC_STEP_AGENT_PROMPT,
     GENERAL_STEP_AGENT_PROMPT,
 )
+
 # from ..prompts import (
 #     ACADEMIC_FINAL_REPORT_PROMPT,
 #     GENERAL_FINAL_REPORT_PROMPT,
@@ -992,7 +993,7 @@ async def stream_deep_research(params: dict[str, Any]) -> AsyncGenerator[dict[st
     ]
 
     report_skill_ids = ["academic-research"] if research_type == "academic" else ["deep-research"]
-    
+
     report_request = StreamChatRequest(
         provider=provider,
         apiKey=api_key,

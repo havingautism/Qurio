@@ -1,4 +1,4 @@
-import { BrainCircuit, Check } from 'lucide-react'
+import { Check } from 'lucide-react'
 import clsx from 'clsx'
 import React, { useMemo, useState } from 'react'
 import useIsMobile from '../../hooks/useIsMobile'

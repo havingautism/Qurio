@@ -140,8 +140,6 @@ CREATE TABLE IF NOT EXISTS public.space_documents (
   name TEXT NOT NULL,
   file_type TEXT NOT NULL,
   content_text TEXT NOT NULL,
-  embedding_provider TEXT,
-  embedding_model TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -151,35 +149,6 @@ CREATE TABLE IF NOT EXISTS public.conversation_documents (
   document_id TEXT NOT NULL REFERENCES public.space_documents(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (conversation_id, document_id)
-);
-
-CREATE TABLE IF NOT EXISTS public.document_sections (
-  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-  document_id TEXT NOT NULL REFERENCES public.space_documents(id) ON DELETE CASCADE,
-  external_section_id INTEGER NOT NULL,
-  title_path JSONB NOT NULL DEFAULT '[]'::jsonb,
-  level INTEGER DEFAULT 0,
-  loc JSONB,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS public.document_chunks (
-  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-  document_id TEXT NOT NULL REFERENCES public.space_documents(id) ON DELETE CASCADE,
-  section_id TEXT REFERENCES public.document_sections(id) ON DELETE CASCADE,
-  title_path JSONB NOT NULL DEFAULT '[]'::jsonb,
-  external_chunk_id TEXT,
-  chunk_index INTEGER,
-  content_type TEXT,
-  text TEXT NOT NULL,
-  token_count INTEGER,
-  chunk_hash TEXT,
-  loc JSONB,
-  source_hint TEXT,
-  embedding JSONB NOT NULL DEFAULT '[]'::jsonb,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS public.space_agents (
@@ -276,8 +245,6 @@ CREATE TABLE IF NOT EXISTS public.pending_form_runs (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_document_chunks_document_hash
-  ON public.document_chunks(document_id, chunk_hash);
 CREATE INDEX IF NOT EXISTS idx_space_agents_agent_id ON public.space_agents(agent_id);
 CREATE INDEX IF NOT EXISTS idx_space_agents_space_order ON public.space_agents(space_id, sort_order);
 CREATE INDEX IF NOT EXISTS idx_memory_domains_updated_at ON public.memory_domains(updated_at DESC);
@@ -310,16 +277,6 @@ FOR EACH ROW EXECUTE PROCEDURE public.touch_conversation_updated_at();
 DROP TRIGGER IF EXISTS trg_space_documents_updated_at ON public.space_documents;
 CREATE TRIGGER trg_space_documents_updated_at
 BEFORE UPDATE ON public.space_documents
-FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
-
-DROP TRIGGER IF EXISTS trg_document_sections_updated_at ON public.document_sections;
-CREATE TRIGGER trg_document_sections_updated_at
-BEFORE UPDATE ON public.document_sections
-FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
-
-DROP TRIGGER IF EXISTS trg_document_chunks_updated_at ON public.document_chunks;
-CREATE TRIGGER trg_document_chunks_updated_at
-BEFORE UPDATE ON public.document_chunks
 FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
 
 DROP TRIGGER IF EXISTS trg_scrapbook_updated_at ON public.scrapbook;

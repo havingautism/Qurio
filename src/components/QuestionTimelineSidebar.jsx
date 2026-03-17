@@ -357,7 +357,7 @@ const QuestionTimelineSidebar = ({
           isLargeScreen
             ? 'absolute top-0 left-full z-30 ml-16 h-full w-75 border-none bg-transparent shadow-none'
             : [
-                'fixed top-0 right-0 h-dvh min-w-[16rem] w-[75vw] max-w-75',
+                'fixed top-0 right-0 h-dvh w-[75vw] max-w-75 min-w-[16rem]',
                 'bg-background text-foreground z-50',
                 isOpen ? 'translate-x-0' : 'translate-x-full',
               ],

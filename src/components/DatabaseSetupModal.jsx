@@ -1,10 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import {
   Check,
   ChevronDown,
   ChevronRight,
-  Database,
   FileUp,
   FolderOpen,
   Key,
@@ -738,7 +737,7 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
                 </button>
               )}
             </div>
-            <div className="flex min-h-10 items-center gap-3 rounded-xl border border-black/10 bg-black/[0.03] px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]">
+            <div className="flex min-h-10 items-center gap-3 rounded-xl border border-black/10 bg-black/3 px-4 py-3 dark:border-white/10 dark:bg-white/3">
               {selectedProvider ? (
                 <>
                   {renderProviderIcon(selectedProvider.type || selectedProvider.id, {

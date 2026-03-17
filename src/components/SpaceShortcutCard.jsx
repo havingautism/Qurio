@@ -1,4 +1,4 @@
-import { LayoutGrid, ArrowRight } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { memo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { getSpaceDisplayLabel } from '../lib/spaceDisplay'
@@ -23,7 +23,7 @@ const SpaceShortcutCard = memo(({ spaces = [], selectedSpaceId, onSpaceSelect, o
               </div>
               <button
                 onClick={onManageClick}
-                className="text-primary-500 flex items-center gap-1 rounded-full border border-white/75 bg-white/78 px-2 py-1 text-[10px] font-bold uppercase backdrop-blur-md transition-colors hover:bg-white dark:border-white/12 dark:bg-white/[0.1] dark:hover:bg-white/[0.16]"
+                className="text-primary-500 flex items-center gap-1 rounded-full border border-white/75 bg-white/78 px-2 py-1 text-[10px] font-bold uppercase backdrop-blur-md transition-colors hover:bg-white dark:border-white/12 dark:bg-white/10 dark:hover:bg-white/16"
               >
                 {t('sidebar.seeAll')} <ArrowRight size={10} />
               </button>
@@ -40,7 +40,7 @@ const SpaceShortcutCard = memo(({ spaces = [], selectedSpaceId, onSpaceSelect, o
                     className="group/icon flex min-w-[64px] flex-none flex-col items-center gap-1.5 transition-all duration-300"
                   >
                     <div
-                      className={`flex h-12 w-12 items-center justify-center rounded-full border border-white/75 bg-white/78 backdrop-blur-md transition-all duration-300 group-hover/icon:-translate-x-0.5 dark:border-white/12 dark:bg-white/[0.1]`}
+                      className={`flex h-12 w-12 items-center justify-center rounded-full border border-white/75 bg-white/78 backdrop-blur-md transition-all duration-300 group-hover/icon:-translate-x-0.5 dark:border-white/12 dark:bg-white/10`}
                     >
                       <EmojiDisplay emoji={space.emoji} size="1.75rem" />
                     </div>

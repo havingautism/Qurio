@@ -14,7 +14,7 @@ const ConversationBanner = ({ agent, t, className = '' }) => {
             alt={getAgentDisplayName(agent, t) || 'Conversation banner'}
             className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/5 to-black/45" />
+          <div className="absolute inset-0 bg-linear-to-b from-black/10 via-black/5 to-black/45" />
         </div>
         <div className="absolute right-0 bottom-0 left-0 flex items-end gap-3 p-4 sm:p-5">
           <AgentAvatar

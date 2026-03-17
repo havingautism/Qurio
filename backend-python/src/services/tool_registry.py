@@ -250,11 +250,47 @@ AGENT_TOOLS: list[dict[str, Any]] = [
                 "args": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "Optional positional arguments passed to the script.",
+                    "description": "Optional CLI token array passed to the script, e.g. ['--keyword','cat'] (not an object).",
                 },
                 "timeout_seconds": {
                     "type": "number",
                     "description": "Optional timeout in seconds. Default 60.",
+                },
+            },
+        },
+    },
+    {
+        "id": "render_html_widget",
+        "name": "render_html_widget",
+        "category": "visualization",
+        "description": (
+            "Render a safe self-contained HTML widget for richer visualization in chat. "
+            "Use this when a table, timeline, board, card layout, dashboard, or calendar is clearer than plain text. "
+            "Return only self-contained HTML that works without external scripts or remote assets. "
+            "Prefer responsive layouts that fit a chat bubble width. "
+            "Avoid script tags, inline event handlers, javascript: URLs, and unnecessary decoration. "
+            "Returns {type, title, html, height} on success or {type: html_widget_error, code, message} on failure."
+        ),
+        "parameters": {
+            "type": "object",
+            "required": ["html"],
+            "properties": {
+                "title": {
+                    "type": "string",
+                    "maxLength": 120,
+                    "description": "Optional widget title shown above the iframe.",
+                },
+                "html": {
+                    "type": "string",
+                    "maxLength": 20000,
+                    "description": "HTML content for the widget body. Keep it self-contained.",
+                },
+                "height": {
+                    "type": "integer",
+                    "minimum": 220,
+                    "maximum": 900,
+                    "default": 360,
+                    "description": "Optional widget height in pixels. Defaults to 360.",
                 },
             },
         },

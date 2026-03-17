@@ -1,7 +1,5 @@
 import clsx from 'clsx'
 import {
-  Bookmark,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   FileText,
@@ -33,7 +31,10 @@ import {
 import {
   indexDocumentViaBackend,
   deleteDocumentIndexViaBackend,
+  getDocumentIndexStatusViaBackend,
 } from '../lib/backendClient'
+import { loadSettings } from '../lib/settings'
+import { getProvider } from '../lib/providers'
 import {
   createSpaceDocument,
   deleteSpaceDocument,
@@ -158,7 +159,16 @@ const SpaceView = () => {
     if (!activeSpace?.id) return undefined
 
     const applyTrackedState = nextState => {
-      const resolved = nextState || { status: 'idle', message: '', fileName: '', characters: 0, sections: 0, chunks: 0, stage: '', progress: 0 }
+      const resolved = nextState || {
+        status: 'idle',
+        message: '',
+        fileName: '',
+        characters: 0,
+        sections: 0,
+        chunks: 0,
+        stage: '',
+        progress: 0,
+      }
       if (!isViewActiveRef.current) return
       setDocumentUploadState({
         status: resolved.status || 'idle',
@@ -318,9 +328,32 @@ const SpaceView = () => {
     return text ? text.toUpperCase() : 'FILE'
   }
 
+  const estimatePdfPageCount = async file => {
+    if (
+      !file ||
+      !String(file.name || '')
+        .toLowerCase()
+        .endsWith('.pdf')
+    )
+      return 0
+    try {
+      const pdfjs = await import('pdfjs-dist')
+      const data = await file.arrayBuffer()
+      const task = pdfjs.getDocument({ data, disableWorker: true })
+      const pdf = await task.promise
+      return Number(pdf.numPages || 0)
+    } catch (error) {
+      console.warn('Failed to estimate PDF page count:', error)
+      return 0
+    }
+  }
+
   const handleDocumentUpload = async (event, droppedFile = null) => {
     const file = droppedFile || event.target.files?.[0]
     if (!file || !activeSpace?.id) return
+    const documentId = crypto.randomUUID()
+    let stopPolling = false
+    let pollingTimer = null
 
     updateTrackedUploadState({
       status: 'loading',
@@ -345,10 +378,72 @@ const SpaceView = () => {
         progress: 45,
       })
 
+      const settings = loadSettings()
+      const ocrProvider = String(settings.ocrProvider || '').trim()
+      const ocrAdapter = getProvider(ocrProvider)
+      const ocrCredentials = ocrAdapter?.getCredentials ? ocrAdapter.getCredentials(settings) : {}
+      const estimatedPages = await estimatePdfPageCount(file)
+      const isPdfOcr = Boolean(
+        settings.enablePdfOcr &&
+        String(file.name || '')
+          .toLowerCase()
+          .endsWith('.pdf'),
+      )
+      const timeoutMs = isPdfOcr ? Math.max(600000, estimatedPages * 60000) : 600000
+      const pollStatus = async () => {
+        if (stopPolling) return
+        try {
+          const status = await getDocumentIndexStatusViaBackend({
+            spaceId: activeSpace.id,
+            documentId,
+          })
+          if (status?.status === 'loading') {
+            const total = Number(status.total || estimatedPages || 0)
+            const current = Number(status.current || 0)
+            const ratio =
+              typeof status.progress === 'number' && status.progress > 0
+                ? status.progress
+                : total > 0
+                  ? current / total
+                  : 0.45
+            updateTrackedUploadState({
+              status: 'loading',
+              stage: status.stage || 'ocr',
+              message:
+                status.stage === 'ocr' && total > 0
+                  ? t('views.spaceView.documentOcrProgress', { current, total })
+                  : status.message || t('views.spaceView.documentIndexing'),
+              fileName: file.name,
+              characters: 0,
+              sections: 0,
+              chunks: 0,
+              progress: Math.max(0.45, Math.min(0.95, ratio)),
+            })
+          }
+        } catch (statusError) {
+          console.warn('Failed to poll document index status:', statusError)
+        } finally {
+          if (!stopPolling) {
+            pollingTimer = setTimeout(pollStatus, 1000)
+          }
+        }
+      }
+      if (isPdfOcr) {
+        pollingTimer = setTimeout(pollStatus, 500)
+      }
       const indexed = await indexDocumentViaBackend({
         spaceId: activeSpace.id,
+        documentId,
         file,
+        enablePdfOcr: Boolean(settings.enablePdfOcr),
+        ocrProvider,
+        ocrModel: String(settings.ocrModel || '').trim(),
+        ocrApiKey: String(ocrCredentials?.apiKey || '').trim(),
+        ocrBaseUrl: String(ocrCredentials?.baseUrl || '').trim(),
+        timeoutMs,
       })
+      stopPolling = true
+      if (pollingTimer) clearTimeout(pollingTimer)
       const normalized = String(indexed?.content_text || '').trim()
       if (!normalized) {
         throw new Error(t('views.spaceView.documentEmpty'))
@@ -369,7 +464,10 @@ const SpaceView = () => {
             documentId: indexed.document_id,
           })
         } catch (cleanupError) {
-          console.error('Failed to roll back TreeSearch index after metadata failure:', cleanupError)
+          console.error(
+            'Failed to roll back TreeSearch index after metadata failure:',
+            cleanupError,
+          )
         }
         throw createError || new Error('Failed to create document record')
       }
@@ -405,6 +503,8 @@ const SpaceView = () => {
         progress: 0,
       })
     } finally {
+      stopPolling = true
+      if (pollingTimer) clearTimeout(pollingTimer)
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
       }
@@ -626,7 +726,7 @@ const SpaceView = () => {
                   spaceDocuments.map(doc => (
                     <div
                       key={doc.id}
-                      className="group flex items-center justify-between gap-2.5 rounded-[20px] border border-white/10 bg-black/[0.04] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] backdrop-blur-sm transition-colors hover:bg-black/[0.06] dark:border-zinc-800/80 dark:bg-zinc-900/40 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] dark:hover:bg-zinc-900/60"
+                      className="group flex items-center justify-between gap-2.5 rounded-[20px] border border-white/10 bg-black/4 px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] backdrop-blur-sm transition-colors hover:bg-black/6 dark:border-zinc-800/80 dark:bg-zinc-900/40 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] dark:hover:bg-zinc-900/60"
                     >
                       <div className="flex min-w-0 flex-1 items-center gap-2.5">
                         <div className="shrink-0 self-center rounded-2xl border border-white/10 bg-white/70 p-2 shadow-sm dark:border-zinc-700/70 dark:bg-zinc-800/90">
@@ -634,11 +734,11 @@ const SpaceView = () => {
                         </div>
                         <div className="flex min-w-0 flex-1 flex-col gap-1">
                           <div className="flex min-w-0 items-center gap-1.5">
-                            <div className="truncate pr-1 text-sm font-semibold leading-5 text-gray-950 dark:text-gray-100">
+                            <div className="truncate pr-1 text-sm leading-5 font-semibold text-gray-950 dark:text-gray-100">
                               {doc.name.replace(/\.[^/.]+$/, '')}
                             </div>
                             <div className="flex shrink-0 items-center gap-1.5 text-[10.5px] leading-4 text-gray-500 dark:text-gray-400">
-                              <span className="font-bold uppercase tracking-[0.08em] text-gray-400 dark:text-zinc-500">
+                              <span className="font-bold tracking-[0.08em] text-gray-400 uppercase dark:text-zinc-500">
                                 {formatFileType(doc.file_type)}
                               </span>
                               <span className="text-gray-300 dark:text-zinc-700">·</span>

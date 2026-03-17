@@ -9,8 +9,8 @@ from fastapi.responses import JSONResponse
 from starlette.responses import Response
 
 from ..providers import is_provider_supported
-from ._request_secrets import get_llm_api_key
 from ..services.generation import generate_title_and_space
+from ._request_secrets import get_llm_api_key
 
 router = APIRouter(tags=["title-and-space"])
 

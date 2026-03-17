@@ -10,6 +10,7 @@ import { getModelConfigForAgent, resolveProviderConfigWithCredentials } from './
 import { selectThinkingModeViaBackend } from '../backendClient'
 import { getLanguageInstruction, applyLanguageInstructionToText } from './prompts'
 import { buildSpaceAgentOptions, resolveAgentForSpace } from './conversationSetup'
+import { buildMessagePipeline } from './pipelineViewModel'
 import { sanitizeJson } from './utils'
 
 const sanitizeModelOutputText = value => {
@@ -1725,6 +1726,21 @@ export const finalizeMessage = async (
       thoughtHistory: thoughtHistoryForPersistence || [],
       toolCallHistory: toolCallHistoryForPersistence || [],
     })
+    const pipelineForRuntime = buildMessagePipeline({
+      ...latestAi,
+      content: contentForPersistence,
+      streamBlocks: streamBlocksForRuntime,
+      expertMode: latestAi?.expertMode,
+      expertResponses: latestAi?.expertResponses,
+      researchPlan: planForPersistence,
+      researchSteps: researchStepsForPersistence || [],
+      sources:
+        (latestAi?.sources && latestAi.sources.length > 0 ? latestAi.sources : null) ||
+        result.sources ||
+        null,
+      documentSources: documentSources || latestAi?.documentSources || null,
+      finalAnswerDurationMs: finalAnswerDurationMsForPersistence,
+    })
     const shouldPersistStreamBlocks =
       databaseProviderKey.includes('sqlite') ||
       databaseProviderKey.includes('supabase') ||
@@ -1740,6 +1756,7 @@ export const finalizeMessage = async (
         updated[i] = {
           ...updated[i],
           streamBlocks: streamBlocksForRuntime,
+          pipelineTrace: pipelineForRuntime,
           streamSchemaVersion: 1,
           ...(Number.isFinite(finalAnswerDurationMsForPersistence) && {
             finalAnswerDurationMs: Number(finalAnswerDurationMsForPersistence),
@@ -1796,6 +1813,7 @@ export const finalizeMessage = async (
       ),
       document_sources: sanitizeJson(documentSources || null),
       grounding_supports: sanitizeJson(result.groundingSupports || null),
+      pipeline_trace: sanitizeJson(pipelineForRuntime || null),
       ...(shouldPersistStreamBlocks && {
         stream_blocks: sanitizeJson(streamBlocksForPersistence || []),
         stream_schema_version: 1,

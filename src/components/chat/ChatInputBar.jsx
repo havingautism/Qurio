@@ -270,7 +270,8 @@ const CapsuleSettingsMenu = React.memo(
               </button>
               {agents.map(agent => {
                 const isSelected = !isAgentAutoMode && selectedAgent?.id === agent.id
-                const isDefault = agent.isDefault || String(agent.id) === String(spacePrimaryAgentId)
+                const isDefault =
+                  agent.isDefault || String(agent.id) === String(spacePrimaryAgentId)
                 return (
                   <button
                     key={agent.id}
@@ -1213,7 +1214,7 @@ const ChatInputBar = React.memo(
                     className={clsx(
                       'glass-elite-chip rounded-full p-1.5 transition-colors sm:p-2',
                       thinkingMode !== 'fast' || isSearchActive || isCapsuleMenuOpen
-                        ? 'border-primary-400/45 text-primary-600 dark:border-primary-500/35 bg-white/84 dark:bg-white/[0.12]'
+                        ? 'border-primary-400/45 text-primary-600 dark:border-primary-500/35 bg-white/84 dark:bg-white/12'
                         : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100',
                     )}
                     title="Model & Settings"
@@ -1314,7 +1315,7 @@ const ChatInputBar = React.memo(
                       ? 'bg-white/88 text-gray-900 hover:bg-white dark:bg-white/[0.14] dark:text-white'
                       : inputValue.trim() || attachments.length > 0
                         ? 'border-primary-300/45 text-primary-600 dark:border-primary-500/35 bg-white/82 hover:scale-105 dark:bg-white/[0.14] dark:text-white'
-                        : 'cursor-not-allowed bg-white/60 text-gray-400 dark:bg-white/[0.06] dark:text-zinc-600',
+                        : 'cursor-not-allowed bg-white/60 text-gray-400 dark:bg-white/6 dark:text-zinc-600',
                   )}
                 >
                   {isLoading ? (
@@ -1502,7 +1503,7 @@ const ChatInputBar = React.memo(
                   className={clsx(
                     'glass-elite-chip flex items-center gap-2 rounded-xl p-2.5 text-sm font-medium transition-all duration-200',
                     thinkingMode !== 'fast'
-                      ? 'border-primary-400/45 text-primary-500 dark:border-primary-500/35 bg-white/84 dark:bg-white/[0.12]'
+                      ? 'border-primary-400/45 text-primary-500 dark:border-primary-500/35 bg-white/84 dark:bg-white/12'
                       : 'text-gray-500 dark:text-gray-400',
                     isThinkingLocked && 'cursor-not-allowed opacity-60',
                     !isThinkingLocked && '',
@@ -1530,7 +1531,7 @@ const ChatInputBar = React.memo(
                               setIsThinkingMenuOpen(false)
                             }}
                             className={clsx(
-                              'flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition-colors hover:bg-white/70 dark:hover:bg-white/[0.08]',
+                              'flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition-colors hover:bg-white/70 dark:hover:bg-white/8',
                               isActive
                                 ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
                                 : 'text-gray-700 dark:text-gray-200',
@@ -1601,7 +1602,7 @@ const ChatInputBar = React.memo(
                   className={clsx(
                     'glass-elite-chip flex items-center gap-2 rounded-xl p-2.5 text-sm font-medium transition-all duration-200',
                     isSearchActive
-                      ? 'border-primary-400/45 text-primary-500 dark:border-primary-500/35 bg-white/84 dark:bg-white/[0.12]'
+                      ? 'border-primary-400/45 text-primary-500 dark:border-primary-500/35 bg-white/84 dark:bg-white/12'
                       : 'text-gray-500 dark:text-gray-400',
                   )}
                 >
@@ -1737,126 +1738,123 @@ const ChatInputBar = React.memo(
                   </div>
                 )}
               </div>
-                {!isEmbedded && (
-                  <div className="relative" ref={agentSelectorRef}>
-                    <button
-                      type="button"
-                      onClick={e => {
-                        if (isInteractionLocked) return
-                        e.stopPropagation()
-                        e.preventDefault()
-                        onAgentSelectorToggle()
-                      }}
-                      className={clsx(
-                        'glass-elite-chip flex items-center gap-2 rounded-xl p-2.5 text-sm font-medium transition-all duration-200',
-                        selectedAgent || isAgentAutoMode
-                          ? 'border-primary-400/45 text-primary-500 dark:border-primary-500/35 bg-white/84 dark:bg-white/[0.12]'
-                          : 'text-gray-500 dark:text-gray-400',
-                      )}
-                      disabled={isInteractionLocked || agentsLoading}
-                      aria-label={t('chatInterface.agentsLabel')}
-                      aria-expanded={isAgentSelectorOpen}
-                      aria-haspopup="menu"
-                    >
-                      {isAgentAutoMode || !selectedAgent ? (
-                        <Smile size={18} strokeWidth={2} />
-                      ) : (
-                        <AgentAvatar agent={selectedAgent} size="1.125rem" />
-                      )}
-                      {agentsLoading && (
-                        <span className="inline-flex animate-pulse text-[10px] leading-none opacity-70">
-                          {agentsLoadingDots || '...'}
-                        </span>
-                      )}
-                      <span className="hidden max-w-[120px] truncate md:inline">
-                        {agentsLoading
-                          ? agentsLoadingLabel || t('chatInterface.agentsLoading')
-                          : isAgentAutoMode
-                            ? t('chatInterface.agentAuto')
-                            : getAgentDisplayName(selectedAgent, t) ||
-                              t('chatInterface.agentsLabel')}
-                      </span>
-                      <ChevronDown size={14} strokeWidth={2} />
-                    </button>
-                    {isAgentSelectorOpen && (
-                      <div className="glass-elite-dropdown animate-in slide-in-from-bottom-2 absolute bottom-full left-0 z-30 mb-2 w-64 overflow-hidden rounded-2xl">
-                        <div className="no-scrollbar flex max-h-[min(calc(100vh-140px),500px)] flex-col gap-1 overflow-y-auto scroll-smooth p-2">
-                          {/* Auto mode option */}
-                          <button
-                            type="button"
-                            disabled={isInteractionLocked}
-                            onClick={() => {
-                              onAgentAutoModeToggle(true)
-                              onAgentSelectorToggle()
-                            }}
-                            className={clsx(
-                              'group flex items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition-all duration-200',
-                              isAgentAutoMode
-                                ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
-                                : 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-zinc-800',
-                            )}
-                          >
-                            <div className="flex items-center gap-2.5">
-                              <div
-                                className={clsx(
-                                  'flex h-6 w-6 items-center justify-center rounded-lg transition-colors',
-                                  isAgentAutoMode
-                                    ? 'bg-primary-100 dark:bg-primary-800/40'
-                                    : 'bg-gray-100 dark:bg-zinc-800 group-hover:bg-gray-200 dark:group-hover:bg-zinc-700',
-                                )}
-                              >
-                                <Smile size={14} />
-                              </div>
-                              <span className="font-medium">{t('chatInterface.agentAuto')}</span>
-                            </div>
-                            {isAgentAutoMode && <Check size={14} className="text-primary-500" />}
-                          </button>
-
-                          <div className="my-1 h-px bg-gray-100 dark:bg-zinc-800" />
-
-                          {agents.map(agent => {
-                            const isSelected = !isAgentAutoMode && selectedAgent?.id === agent.id
-                            const isDefault =
-                              agent.isDefault || String(agent.id) === String(spacePrimaryAgentId)
-                            return (
-                              <button
-                                key={agent.id}
-                                type="button"
-                                disabled={isInteractionLocked}
-                                onClick={() => {
-                                  onAgentSelect(agent)
-                                  onAgentSelectorToggle()
-                                }}
-                                className={clsx(
-                                  'group flex items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition-all duration-200',
-                                  isSelected
-                                    ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
-                                    : 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-zinc-800',
-                                )}
-                              >
-                                <div className="flex items-center gap-2.5">
-                                  <AgentAvatar agent={agent} size="1.25rem" />
-                                  <span className="font-medium">
-                                    {getAgentDisplayName(agent, t)}
-                                  </span>
-                                  {isDefault && (
-                                    <span className="bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 rounded-md px-1.5 py-0.5 text-[10px] font-medium">
-                                      {t('chatInterface.default')}
-                                    </span>
-                                  )}
-                                </div>
-                                {isSelected && <Check size={14} className="text-primary-500" />}
-                              </button>
-                            )
-                          })}
-                        </div>
-                      </div>
+              {!isEmbedded && (
+                <div className="relative" ref={agentSelectorRef}>
+                  <button
+                    type="button"
+                    onClick={e => {
+                      if (isInteractionLocked) return
+                      e.stopPropagation()
+                      e.preventDefault()
+                      onAgentSelectorToggle()
+                    }}
+                    className={clsx(
+                      'glass-elite-chip flex items-center gap-2 rounded-xl p-2.5 text-sm font-medium transition-all duration-200',
+                      selectedAgent || isAgentAutoMode
+                        ? 'border-primary-400/45 text-primary-500 dark:border-primary-500/35 bg-white/84 dark:bg-white/12'
+                        : 'text-gray-500 dark:text-gray-400',
                     )}
-                  </div>
-                )}
-              </div>
+                    disabled={isInteractionLocked || agentsLoading}
+                    aria-label={t('chatInterface.agentsLabel')}
+                    aria-expanded={isAgentSelectorOpen}
+                    aria-haspopup="menu"
+                  >
+                    {isAgentAutoMode || !selectedAgent ? (
+                      <Smile size={18} strokeWidth={2} />
+                    ) : (
+                      <AgentAvatar agent={selectedAgent} size="1.125rem" />
+                    )}
+                    {agentsLoading && (
+                      <span className="inline-flex animate-pulse text-[10px] leading-none opacity-70">
+                        {agentsLoadingDots || '...'}
+                      </span>
+                    )}
+                    <span className="hidden max-w-[120px] truncate md:inline">
+                      {agentsLoading
+                        ? agentsLoadingLabel || t('chatInterface.agentsLoading')
+                        : isAgentAutoMode
+                          ? t('chatInterface.agentAuto')
+                          : getAgentDisplayName(selectedAgent, t) || t('chatInterface.agentsLabel')}
+                    </span>
+                    <ChevronDown size={14} strokeWidth={2} />
+                  </button>
+                  {isAgentSelectorOpen && (
+                    <div className="glass-elite-dropdown animate-in slide-in-from-bottom-2 absolute bottom-full left-0 z-30 mb-2 w-64 overflow-hidden rounded-2xl">
+                      <div className="no-scrollbar flex max-h-[min(calc(100vh-140px),500px)] flex-col gap-1 overflow-y-auto scroll-smooth p-2">
+                        {/* Auto mode option */}
+                        <button
+                          type="button"
+                          disabled={isInteractionLocked}
+                          onClick={() => {
+                            onAgentAutoModeToggle(true)
+                            onAgentSelectorToggle()
+                          }}
+                          className={clsx(
+                            'group flex items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition-all duration-200',
+                            isAgentAutoMode
+                              ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
+                              : 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-zinc-800',
+                          )}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <div
+                              className={clsx(
+                                'flex h-6 w-6 items-center justify-center rounded-lg transition-colors',
+                                isAgentAutoMode
+                                  ? 'bg-primary-100 dark:bg-primary-800/40'
+                                  : 'bg-gray-100 group-hover:bg-gray-200 dark:bg-zinc-800 dark:group-hover:bg-zinc-700',
+                              )}
+                            >
+                              <Smile size={14} />
+                            </div>
+                            <span className="font-medium">{t('chatInterface.agentAuto')}</span>
+                          </div>
+                          {isAgentAutoMode && <Check size={14} className="text-primary-500" />}
+                        </button>
 
-              <div className="flex gap-2">
+                        <div className="my-1 h-px bg-gray-100 dark:bg-zinc-800" />
+
+                        {agents.map(agent => {
+                          const isSelected = !isAgentAutoMode && selectedAgent?.id === agent.id
+                          const isDefault =
+                            agent.isDefault || String(agent.id) === String(spacePrimaryAgentId)
+                          return (
+                            <button
+                              key={agent.id}
+                              type="button"
+                              disabled={isInteractionLocked}
+                              onClick={() => {
+                                onAgentSelect(agent)
+                                onAgentSelectorToggle()
+                              }}
+                              className={clsx(
+                                'group flex items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition-all duration-200',
+                                isSelected
+                                  ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
+                                  : 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-zinc-800',
+                              )}
+                            >
+                              <div className="flex items-center gap-2.5">
+                                <AgentAvatar agent={agent} size="1.25rem" />
+                                <span className="font-medium">{getAgentDisplayName(agent, t)}</span>
+                                {isDefault && (
+                                  <span className="bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 rounded-md px-1.5 py-0.5 text-[10px] font-medium">
+                                    {t('chatInterface.default')}
+                                  </span>
+                                )}
+                              </div>
+                              {isSelected && <Check size={14} className="text-primary-500" />}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-2">
               <button
                 onClick={isLoading ? onStop : handleSend}
                 disabled={

@@ -10,7 +10,6 @@ from agno.agent import Agent
 
 from .agent_registry import _build_model
 
-
 THINKING_MODE_PROMPT = """You are a thinking-mode router for a chat assistant.
 
 Return STRICT JSON only.

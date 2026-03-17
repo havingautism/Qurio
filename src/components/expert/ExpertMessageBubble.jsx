@@ -2,10 +2,7 @@
 import { useShallow } from 'zustand/react/shallow'
 import useChatStore from '../../lib/chatStore'
 import useExpertAgentSelection from '../../hooks/expert/useExpertAgentSelection'
-import {
-  isExpertAiMessage,
-  normalizeExpertResponses,
-} from '../../lib/chat/expertViewAdapter'
+import { isExpertAiMessage, normalizeExpertResponses } from '../../lib/chat/expertViewAdapter'
 import MessageBubble from '../MessageBubble'
 
 const ExpertMessageBubble = props => {
@@ -32,13 +29,7 @@ const ExpertMessageBubble = props => {
     return <MessageBubble {...props} />
   }
 
-  return (
-    <MessageBubble
-      {...props}
-      messageOverride={syntheticMessage}
-      compactStreamingTextBlocks
-    />
-  )
+  return <MessageBubble {...props} messageOverride={syntheticMessage} compactStreamingTextBlocks />
 }
 
 export default React.memo(ExpertMessageBubble)

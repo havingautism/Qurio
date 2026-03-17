@@ -21,7 +21,7 @@ def get_skill_path(skill_id: str) -> str:
     ext_path = os.path.join(get_skills_dir(), skill_id)
     if os.path.isdir(ext_path):
         return ext_path
-    
+
     # 2. Check internal (_internal_skills) directory
     # Path relative to source file src/services/skill_runtime.py
     int_skills_dir = os.path.join(os.path.dirname(__file__), "..", "_internal_skills")
@@ -114,7 +114,7 @@ async def run_subprocess_with_timeout(
     )
     try:
         stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout_seconds)
-    except asyncio.TimeoutError:
+    except TimeoutError:
         process.kill()
         await process.communicate()
         raise RuntimeError(f"Script execution timed out after {timeout_seconds:.1f}s")
@@ -180,12 +180,12 @@ def resolve_skill_script_path(skill_id: str, script_path: str) -> tuple[str, str
     normalized_rel = str(script_path or "").strip().replace("\\", "/")
     if not normalized_rel:
         raise ValueError("script_path is required")
-    
+
     scripts_root = os.path.abspath(os.path.join(skill_path, "scripts"))
-    
+
     # Try the original path first
     abs_path = os.path.abspath(os.path.join(skill_path, normalized_rel))
-    
+
     # If not found and doesn't already start with scripts/, try prepending scripts/
     if not os.path.isfile(abs_path) and not normalized_rel.startswith("scripts/"):
         alt_path = os.path.abspath(os.path.join(scripts_root, normalized_rel))
@@ -195,10 +195,10 @@ def resolve_skill_script_path(skill_id: str, script_path: str) -> tuple[str, str
     # Security Check: Must stay inside scripts_root
     if not abs_path.startswith(scripts_root + os.sep) and abs_path != scripts_root:
         raise ValueError(f"Security error: script_path '{normalized_rel}' must stay inside the skill's scripts directory")
-        
+
     if not os.path.isfile(abs_path):
         raise FileNotFoundError(f"Script '{normalized_rel}' not found in skill '{skill_id}' (searched in scripts/ directory)")
-        
+
     return skill_path, abs_path
 
 
@@ -214,7 +214,7 @@ def build_skill_script_command(skill_id: str, script_path: str, args: list[str] 
     if ext in {".sh", ".bash"}:
         return skill_path, ["bash", abs_path, *cmd_args]
 
-    with open(abs_path, "r", encoding="utf-8", errors="ignore") as handle:
+    with open(abs_path, encoding="utf-8", errors="ignore") as handle:
         first_line = handle.readline().strip()
 
     if "python" in first_line:

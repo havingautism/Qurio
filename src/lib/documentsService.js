@@ -82,9 +82,7 @@ export const listSpaceDocuments = async spaceId => {
   const request = (async () => {
     const { data, error } = await supabase
       .from(DOCUMENTS_TABLE)
-      .select(
-        'id,space_id,name,file_type,content_text,created_at',
-      )
+      .select('id,space_id,name,file_type,content_text,created_at')
       .eq('space_id', spaceId)
       .order('created_at', { ascending: false })
 
@@ -190,7 +188,9 @@ export const setConversationDocuments = async (conversationId, documentIds = [])
   if (!supabase) return { success: false, error: new Error('Supabase not configured') }
   if (!conversationId) return { success: false, error: new Error('Conversation id is required') }
 
-  const normalized = (documentIds || []).map(String).filter(Boolean)
+  const normalized = Array.from(
+    new Set((documentIds || []).map(id => String(id || '').trim()).filter(Boolean)),
+  )
   const { error: deleteError } = await supabase
     .from(CONVERSATION_DOCUMENTS_TABLE)
     .delete()
@@ -206,7 +206,9 @@ export const setConversationDocuments = async (conversationId, documentIds = [])
     conversation_id: conversationId,
     document_id: documentId,
   }))
-  const { error: insertError } = await supabase.from(CONVERSATION_DOCUMENTS_TABLE).insert(rows)
+  const { error: insertError } = await supabase
+    .from(CONVERSATION_DOCUMENTS_TABLE)
+    .upsert(rows, { onConflict: 'conversation_id,document_id' })
 
   if (!insertError) {
     setConversationDocsCache(conversationId, { data: normalized, error: null })

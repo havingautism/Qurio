@@ -40,6 +40,7 @@ import AgentAvatar from './AgentAvatar'
 import AgentBannerSurface, { AGENT_BANNER_ASPECT_RATIO } from './AgentBannerSurface'
 import CustomEmojiPicker from './CustomEmojiPicker'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Switch } from '@/components/ui/switch'
 import clsx from 'clsx'
 import { getModelsForProvider } from '../lib/models_api'
 import { useAppContext } from '../App'
@@ -48,7 +49,6 @@ import {
   DEEP_RESEARCH_AGENT_DESCRIPTION,
   DEEP_RESEARCH_AGENT_NAME,
   DEEP_RESEARCH_AGENT_PROMPT,
-  DEEP_RESEARCH_EMOJI,
   DEEP_RESEARCH_PROFILE,
 } from '../lib/deepResearchDefaults'
 import { SILICONFLOW_BASE_URL } from '../lib/providerConstants'
@@ -1618,7 +1618,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
             </div>
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{description}</p>
           </div>
-          <Checkbox
+          <Switch
             checked={isEnabled}
             onCheckedChange={checked => {
               if (checked) {
@@ -1794,7 +1794,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                         <AgentAvatar
                           agent={{ emoji, avatarType, avatarImage, avatarShape, name: displayName }}
                           size="4rem"
-                          className="shrink-0 self-start border border-black/8 bg-white/70 shadow-sm sm:h-[4.5rem] sm:w-[4.5rem] dark:border-white/10 dark:bg-white/5"
+                          className="shrink-0 self-start border border-black/8 bg-white/70 shadow-sm sm:h-18 sm:w-18 dark:border-white/10 dark:bg-white/5"
                         />
                         <div className="min-w-0">
                           <div className="grid gap-3 sm:grid-cols-2">
@@ -2005,7 +2005,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     {t('agents.general.bannerTitle')}
                   </label>
                   <div className="border-t border-black/5 pt-6 dark:border-white/5">
-                    <div className="rounded-xl border border-black/5 bg-black/[0.03] p-4 dark:border-white/5 dark:bg-white/[0.03]">
+                    <div className="rounded-xl border border-black/5 bg-black/3 p-4 dark:border-white/5 dark:bg-white/3">
                       <div className="grid gap-4 lg:grid-cols-[minmax(0,0.86fr)_minmax(0,1.14fr)] lg:items-start">
                         <div className="space-y-3">
                           <div className="space-y-2">
@@ -2104,7 +2104,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                         </div>
                         <div>
                           {bannerImage ? (
-                            <div className="overflow-hidden rounded-[24px] border border-black/8 bg-white/70 dark:border-white/10 dark:bg-white/[0.04]">
+                            <div className="overflow-hidden rounded-[24px] border border-black/8 bg-white/70 dark:border-white/10 dark:bg-white/4">
                               <div style={{ aspectRatio: String(AGENT_BANNER_ASPECT_RATIO) }}>
                                 <img
                                   src={bannerImage}
@@ -2114,7 +2114,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                               </div>
                             </div>
                           ) : (
-                            <div className="flex min-h-36 items-center justify-center rounded-[24px] border border-dashed border-black/10 bg-white/30 px-5 text-center text-sm text-gray-500 dark:border-white/10 dark:bg-white/[0.02] dark:text-gray-400">
+                            <div className="flex min-h-36 items-center justify-center rounded-[24px] border border-dashed border-black/10 bg-white/30 px-5 text-center text-sm text-gray-500 dark:border-white/10 dark:bg-white/2 dark:text-gray-400">
                               {t('agents.general.bannerEmpty')}
                             </div>
                           )}
@@ -2124,7 +2124,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   </div>
                 </div>
 
-                <div className="flex min-h-[16rem] flex-1 flex-col gap-2">
+                <div className="flex min-h-64 flex-1 flex-col gap-2">
                   <label className="mb-2 text-base font-semibold tracking-tight text-gray-900 dark:text-white">
                     {t('agents.general.systemPrompt')}
                   </label>
@@ -2135,7 +2135,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                       placeholder={t('agents.general.systemPromptPlaceholder')}
                       rows={8}
                       disabled={isDeepResearchAgent}
-                      className={`min-h-[16rem] flex-1 resize-y leading-6 ${MODAL_TEXTAREA_MONO_CLASS}`}
+                      className={`min-h-64 flex-1 resize-y leading-6 ${MODAL_TEXTAREA_MONO_CLASS}`}
                     />
                   </div>
                 </div>
@@ -2161,11 +2161,10 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                       {t('agents.model.useGlobalHint')}
                     </span>
                   </div>
-                  <Checkbox
+                  <Switch
                     checked={useGlobalModelSettings}
                     disabled={isModelLocked}
                     onCheckedChange={checked => setUseGlobalModelSettings(Boolean(checked))}
-                    className="h-5 w-5"
                   />
                 </div>
 
@@ -2838,7 +2837,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
         </div>
       </div>
       {avatarCropSource && avatarPreviewLayout && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-120 flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
           <div className="w-full max-w-2xl rounded-[28px] border border-white/10 bg-white/95 p-5 shadow-2xl dark:bg-zinc-950/95">
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -2954,7 +2953,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     }
                   />
                 </label>
-                <div className="rounded-2xl border border-black/5 bg-black/[0.03] px-4 py-3 text-xs text-gray-500 dark:border-white/5 dark:bg-white/[0.03] dark:text-gray-400">
+                <div className="rounded-2xl border border-black/5 bg-black/3 px-4 py-3 text-xs text-gray-500 dark:border-white/5 dark:bg-white/3 dark:text-gray-400">
                   {t('agents.crop.avatarFrameLabel', {
                     shape: t(
                       avatarShape === AGENT_AVATAR_SHAPE_CIRCLE
@@ -2990,7 +2989,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
         </div>
       )}
       {isBannerPreviewOpen && bannerImage && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-120 flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
           <div className="w-full max-w-6xl rounded-[28px] border border-white/10 bg-white/95 p-5 shadow-2xl dark:bg-zinc-950/95">
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -3011,7 +3010,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
             </div>
 
             <div className="mt-5 grid gap-4 lg:grid-cols-2">
-              <section className="rounded-2xl border border-black/8 bg-black/[0.03] p-4 dark:border-white/10 dark:bg-white/[0.03]">
+              <section className="rounded-2xl border border-black/8 bg-black/3 p-4 dark:border-white/10 dark:bg-white/3">
                 <div className="mb-2 text-xs font-semibold tracking-[0.08em] text-gray-500 uppercase dark:text-gray-400">
                   {t('agents.preview.desktop')}
                 </div>
@@ -3028,7 +3027,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   />
                 </div>
               </section>
-              <section className="rounded-2xl border border-black/8 bg-black/[0.03] p-4 dark:border-white/10 dark:bg-white/[0.03]">
+              <section className="rounded-2xl border border-black/8 bg-black/3 p-4 dark:border-white/10 dark:bg-white/3">
                 <div className="mb-2 text-xs font-semibold tracking-[0.08em] text-gray-500 uppercase dark:text-gray-400">
                   {t('agents.preview.mobile')}
                 </div>
@@ -3052,7 +3051,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
         </div>
       )}
       {bannerCropSource && bannerPreviewLayout && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-120 flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
           <div className="w-full max-w-2xl rounded-[28px] border border-white/10 bg-white/95 p-5 shadow-2xl dark:bg-zinc-950/95">
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -3123,7 +3122,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
               </div>
 
               <div className="flex min-w-0 flex-col gap-4">
-                <div className="rounded-2xl border border-black/5 bg-black/[0.03] px-4 py-3 text-xs text-gray-500 dark:border-white/5 dark:bg-white/[0.03] dark:text-gray-400">
+                <div className="rounded-2xl border border-black/5 bg-black/3 px-4 py-3 text-xs text-gray-500 dark:border-white/5 dark:bg-white/3 dark:text-gray-400">
                   {t('agents.crop.dragToAdjustPosition')}
                 </div>
                 <label className="flex flex-col gap-2 text-sm text-gray-700 dark:text-gray-300">
@@ -3153,7 +3152,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     }}
                   />
                 </label>
-                <div className="rounded-2xl border border-black/5 bg-black/[0.03] px-4 py-3 text-xs text-gray-500 dark:border-white/5 dark:bg-white/[0.03] dark:text-gray-400">
+                <div className="rounded-2xl border border-black/5 bg-black/3 px-4 py-3 text-xs text-gray-500 dark:border-white/5 dark:bg-white/3 dark:text-gray-400">
                   {t('agents.crop.bannerHint')}
                 </div>
               </div>

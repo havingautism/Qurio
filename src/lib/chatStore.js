@@ -10,14 +10,13 @@ import { getUserTools } from './userToolsService'
 
 import {
   buildSpaceAgentOptions,
-  resolveAgentForSpace,
   resolveFallbackAgent,
   preselectSpaceAndAgentForAuto,
   preselectTitleForManual,
   preselectTitleForDeepResearch,
 } from './chat/conversationSetup'
-import { callAIAPI, finalizeMessage, generateDeepResearchPlan } from './chat/aiService'
-import { getModelConfigForAgent, resolveProviderConfigWithCredentials } from './chat/modelConfig'
+import { callAIAPI } from './chat/aiService'
+import { getModelConfigForAgent } from './chat/modelConfig'
 import {
   ensureConversationExists,
   persistUserMessage,
@@ -32,13 +31,14 @@ import { listSpaceAgents } from './spacesService'
 // Import constants
 import { DOCUMENT_RETRIEVAL_CHUNK_LIMIT, DOCUMENT_RETRIEVAL_TOP_CHUNKS } from './chat/constants'
 import { validateInput, sanitizeJson } from './chat/utils'
-import { buildUserMessage, normalizeMessageForSend } from './chat/formatters'
+import { buildUserMessage } from './chat/formatters'
 import {
   buildConversationMessages,
   getLanguageInstruction,
   applyLanguageInstructionToText,
 } from './chat/prompts'
 import { normalizeExpertBrokenTokenLines } from './chat/expertTextUtils'
+import { buildInitialExpertTasks, parseDelegatedExpertTask } from './chat/expertTaskUtils'
 
 const sanitizeExpertStreamChunk = value => {
   if (typeof value !== 'string') return ''
@@ -1015,7 +1015,7 @@ const useChatStore = create((set, get) => ({
    * @param {Array} params.documentSources - Optional metadata for document references (used by UI)
    * @param {Object|null} params.documentSelection - Optional document selection context
    * @param {Array} params.documentSelection.documents - Selected documents for retrieval
-   * @param {boolean} params.documentSelection.skipRetrieval - Skip retrieval when embedding config is incompatible
+   * @param {boolean} params.documentSelection.skipRetrieval - Skip retrieval when indexing config is incompatible
    * @param {Object|null} params.editingInfo - Information about message being edited { index, targetId, partnerId }
    * @param {Object|null} params.callbacks - Callback functions { onTitleAndSpaceGenerated, onSpaceResolved, onAgentResolved, onConversationReady }
    * @param {Array} params.spaces - Available spaces for auto-generation (optional)
@@ -1454,6 +1454,11 @@ const useChatStore = create((set, get) => ({
           const leaderAgent = resolvedToggles?.leaderAgentId
             ? (agents || []).find(a => String(a.id) === String(resolvedToggles.leaderAgentId))
             : null
+          const initialTasks = buildInitialExpertTasks({
+            teamMode: resolvedToggles?.teamMode || 'route',
+            userTask: text,
+            memberIds: expertAgents.map(agent => agent.id),
+          })
 
           updateExpertMessage(current => ({
             ...current,
@@ -1464,7 +1469,7 @@ const useChatStore = create((set, get) => ({
                 agentName: leaderAgent?.name || resolvedAgent?.name || 'Team',
                 agentEmoji: leaderAgent?.emoji || resolvedAgent?.emoji || '🤝',
                 agentRole: 'leader',
-                task: 'Leader Correlation',
+                task: initialTasks.leaderTask,
                 provider: leaderAgent?.provider || null,
                 model: leaderAgent?.defaultModel || null,
                 status: 'pending',
@@ -1487,7 +1492,7 @@ const useChatStore = create((set, get) => ({
                 agentName: agent.name || '',
                 agentEmoji: agent.emoji || '',
                 agentRole: 'member',
-                task: 'Expert Task',
+                task: initialTasks.memberTasks[String(agent.id)] || '',
                 provider: agent.provider || null,
                 model: agent.defaultModel || null,
                 status: 'pending',
@@ -1513,6 +1518,11 @@ const useChatStore = create((set, get) => ({
 
           // Initialize per-agent stream states
           const streamStates = new Map()
+          let expertGlobalSeq = 0
+          const nextExpertGlobalSeq = () => {
+            expertGlobalSeq += 1
+            return expertGlobalSeq
+          }
           const getAgentStreamState = agentId => {
             const key = agentId || 'leader'
             if (!streamStates.has(key)) {
@@ -1716,6 +1726,7 @@ const useChatStore = create((set, get) => ({
                       st.lastReasoningAtMs = now
 
                       updateExpertMessage(current => {
+                        const globalSeq = nextExpertGlobalSeq()
                         return {
                           ...current,
                           expertActiveAgentId:
@@ -1739,6 +1750,7 @@ const useChatStore = create((set, get) => ({
                                 textIndex: (item.content || '').length,
                                 content: cleanThought,
                                 streamOrder: ++st.thoughtStreamOrder,
+                                globalSeq,
                                 durationMs,
                               })
                             }
@@ -1748,6 +1760,7 @@ const useChatStore = create((set, get) => ({
                               : []
                             streamBlocks.push({
                               seq: ++st.streamSeq,
+                              global_seq: globalSeq,
                               type: 'reasoning',
                               content: cleanThought,
                               duration_ms: durationMs,
@@ -1770,17 +1783,43 @@ const useChatStore = create((set, get) => ({
                       typeof chunk === 'object' &&
                       (chunk.type === 'tool_call' || chunk.type === 'tool_call_started')
                     ) {
+                      const delegatedTask = parseDelegatedExpertTask({
+                        toolName: chunk.name || 'tool',
+                        argumentsText: chunk.arguments || '',
+                      })
+                      const globalSeq = nextExpertGlobalSeq()
                       updateExpertMessage(current => ({
                         ...current,
                         expertActiveAgentId:
                           chunkAgentId === 'leader' ? current.expertActiveAgentId : chunkAgentId,
                         expertResponses: (current.expertResponses || []).map(item => {
-                          if (String(item.agentId) !== String(chunkAgentId)) return item
+                          const itemAgentId = String(item.agentId)
+                          const matchesChunkAgent = itemAgentId === String(chunkAgentId)
+                          const matchesDelegatedTarget =
+                            delegatedTask &&
+                            ((delegatedTask.memberId &&
+                              itemAgentId === String(delegatedTask.memberId)) ||
+                              (delegatedTask.memberName &&
+                                String(item.agentName || '').trim() === delegatedTask.memberName))
+
+                          if (!matchesChunkAgent && !matchesDelegatedTarget) return item
                           const nextToolId = chunk.id || `${chunk.name || 'tool'}-${Date.now()}`
+                          const toolName = chunk.name || 'tool'
+                          const taskUpdate =
+                            matchesDelegatedTarget && delegatedTask?.task
+                              ? { task: delegatedTask.task }
+                              : {}
+
+                          if (!matchesChunkAgent) {
+                            return {
+                              ...item,
+                              ...taskUpdate,
+                            }
+                          }
+
                           const toolCallHistory = Array.isArray(item.toolCallHistory)
                             ? [...item.toolCallHistory]
                             : []
-                          const toolName = chunk.name || 'tool'
 
                           toolCallHistory.push({
                             id: nextToolId,
@@ -1792,6 +1831,7 @@ const useChatStore = create((set, get) => ({
                             step: typeof chunk.step === 'number' ? chunk.step : undefined,
                             total: typeof chunk.total === 'number' ? chunk.total : undefined,
                             streamOrder: ++st.toolStreamOrder,
+                            globalSeq,
                           })
                           st.toolStartedAt.set(nextToolId, Date.now())
                           const streamBlocks = Array.isArray(item.streamBlocks)
@@ -1799,13 +1839,14 @@ const useChatStore = create((set, get) => ({
                             : []
                           streamBlocks.push({
                             seq: ++st.streamSeq,
+                            global_seq: globalSeq,
                             type: 'tool_call',
                             tool_call_id: nextToolId,
                             name: toolName,
                             arguments: chunk.arguments || '',
                             status: 'calling',
                           })
-                          return { ...item, toolCallHistory, streamBlocks }
+                          return { ...item, ...taskUpdate, toolCallHistory, streamBlocks }
                         }),
                       }))
                       return
@@ -1816,6 +1857,7 @@ const useChatStore = create((set, get) => ({
                       typeof chunk === 'object' &&
                       (chunk.type === 'tool_result' || chunk.type === 'tool_call_completed')
                     ) {
+                      const globalSeq = nextExpertGlobalSeq()
                       updateExpertMessage(current => ({
                         ...current,
                         expertActiveAgentId:
@@ -1854,6 +1896,7 @@ const useChatStore = create((set, get) => ({
                                 typeof chunk.total === 'number'
                                   ? chunk.total
                                   : toolCallHistory[targetIndex].total,
+                              globalSeq,
                             }
                           } else {
                             const newToolId = chunk.id || `${chunk.name || 'tool'}-${Date.now()}`
@@ -1870,6 +1913,7 @@ const useChatStore = create((set, get) => ({
                               step: typeof chunk.step === 'number' ? chunk.step : undefined,
                               total: typeof chunk.total === 'number' ? chunk.total : undefined,
                               streamOrder: ++st.toolStreamOrder,
+                              globalSeq,
                             })
                           }
                           const streamBlocks = Array.isArray(item.streamBlocks)
@@ -1877,6 +1921,7 @@ const useChatStore = create((set, get) => ({
                             : []
                           streamBlocks.push({
                             seq: ++st.streamSeq,
+                            global_seq: globalSeq,
                             type: 'tool_result',
                             tool_call_id: chunk.id || null,
                             name: chunk.name || 'tool',
@@ -1898,6 +1943,7 @@ const useChatStore = create((set, get) => ({
                     if (!cleanText) return
 
                     updateExpertMessage(current => {
+                      const agentGlobalSeq = nextExpertGlobalSeq()
                       const updated = {
                         ...current,
                         expertActiveAgentId: chunkAgentId,
@@ -1909,9 +1955,21 @@ const useChatStore = create((set, get) => ({
                                 streamBlocks: Array.isArray(item.streamBlocks)
                                   ? [
                                       ...item.streamBlocks,
-                                      { seq: ++st.streamSeq, type: 'text', content: cleanText },
+                                      {
+                                        seq: ++st.streamSeq,
+                                        global_seq: agentGlobalSeq,
+                                        type: 'text',
+                                        content: cleanText,
+                                      },
                                     ]
-                                  : [{ seq: ++st.streamSeq, type: 'text', content: cleanText }],
+                                  : [
+                                      {
+                                        seq: ++st.streamSeq,
+                                        global_seq: agentGlobalSeq,
+                                        type: 'text',
+                                        content: cleanText,
+                                      },
+                                    ],
                               }
                             : item,
                         ),
@@ -1924,7 +1982,12 @@ const useChatStore = create((set, get) => ({
                         updated.content = `${current.content || ''}${cleanText}`
                         updated.streamBlocks = [
                           ...(current.streamBlocks || []),
-                          { seq: ++st.streamSeq, type: 'text', content: cleanText },
+                          {
+                            seq: ++st.streamSeq,
+                            global_seq: agentGlobalSeq,
+                            type: 'text',
+                            content: cleanText,
+                          },
                         ]
                       }
 

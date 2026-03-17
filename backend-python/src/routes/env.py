@@ -1,8 +1,7 @@
 import asyncio
 import os
-import subprocess
+
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import JSONResponse
 from loguru import logger
 
 router = APIRouter(prefix="/env", tags=["Environment"])
@@ -45,9 +44,8 @@ async def install_browsers():
     """
     try:
         logger.info("[Env] Triggering playwright install chromium...")
-        
+
         # We use uv run if available, otherwise direct playwright
-        cmd = ["playwright", "install", "chromium"]
         # Check if we are in uv environment
         if os.path.exists(".venv") or os.environ.get("VIRTUAL_ENV"):
             # Try to find which command works best
@@ -62,7 +60,7 @@ async def install_browsers():
 
         # Wait for completion (Real-time progress could be added via SSE later)
         stdout, stderr = await process.communicate()
-        
+
         if process.returncode == 0:
             logger.info("[Env] Scraper engine installed successfully.")
             return {"status": "success", "message": "Scraper engine installed successfully."}
@@ -70,7 +68,7 @@ async def install_browsers():
             err_msg = stderr.decode()
             logger.error("[Env] Scraper engine installation failed: %s", err_msg)
             raise HTTPException(status_code=500, detail=f"Installation failed: {err_msg}")
-            
+
     except Exception as e:
         logger.error("[Env] Error during browser installation: %s", e)
         raise HTTPException(status_code=500, detail=str(e))

@@ -8,6 +8,7 @@ import {
   RefreshCw,
   Trash2,
   FileText,
+  GitBranch,
 } from 'lucide-react'
 
 const MessageActionBar = ({
@@ -23,6 +24,7 @@ const MessageActionBar = ({
   isDownloadMenuOpen,
   setIsDownloadMenuOpen,
   downloadMenuRef,
+  onOpenPipeline,
   onDelete,
 }) => {
   return (
@@ -67,6 +69,17 @@ const MessageActionBar = ({
           </>
         )}
       </button>
+      {onOpenPipeline && (
+        <button
+          className="group flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-gray-500 transition-all duration-200 hover:bg-gray-100 hover:text-gray-700 dark:text-white dark:hover:bg-zinc-800 dark:hover:text-gray-200"
+          onClick={onOpenPipeline}
+        >
+          <GitBranch size={16} strokeWidth={2} />
+          <span className="hidden max-w-0 overflow-hidden text-xs font-medium whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[65px] group-hover:opacity-100 sm:block">
+            {t('pipeline.title', 'Pipeline')}
+          </span>
+        </button>
+      )}
       {isDeepResearch && (
         <div className="relative" ref={downloadMenuRef}>
           <button

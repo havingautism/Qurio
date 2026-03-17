@@ -39,7 +39,9 @@ dependencies = [
     "x-reader",
     "yt-dlp>=2026.3.13",
     "exa-py>=2.9.0",
-    "pytreesearch[all]>=0.6.1",
+    "pytreesearch[all]>=0.6.3",
+    "pypdfium2>=5.6.0",
+    "pillow>=12.1.1",
 ]
 
 
@@ -66,7 +68,7 @@ warn_unused_configs = true
 disallow_untyped_defs = false
 
 [tool.uv.sources]
-x-reader = { url = "https://github.com/runesleo/x-reader/archive/d3760a55d7422acd8f1a54843331a5a4adfcbcfd.tar.gz" }
+x-reader = { git = "https://github.com/runesleo/x-reader.git" }
 
 [dependency-groups]
 dev = [

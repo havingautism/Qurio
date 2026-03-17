@@ -18,7 +18,13 @@ export const isConfiguredApiSecret = (value, placeholders = []) => {
   if (!trimmed) return false
   const normalized = trimmed.toLowerCase()
   if (DEFAULT_SECRET_PLACEHOLDERS.has(normalized)) return false
-  return !placeholders.map(item => String(item || '').trim().toLowerCase()).includes(normalized)
+  return !placeholders
+    .map(item =>
+      String(item || '')
+        .trim()
+        .toLowerCase(),
+    )
+    .includes(normalized)
 }
 
 const isElectronRuntime = () =>
@@ -233,9 +239,10 @@ const MEMORY_SETTINGS_KEYS = [
   'MinimaxKey',
   'searchProvider',
   'backendUrl',
-  'embeddingProvider',
-  'embeddingModel',
-  'embeddingModelSource',
+  'ocrProvider',
+  'ocrModel',
+  'ocrModelSource',
+  'enablePdfOcr',
   'defaultModel',
   'liteModel',
   'defaultModelProvider',
@@ -250,11 +257,7 @@ const MEMORY_SETTINGS_KEYS = [
   'scrapbookModelSource',
 ]
 
-const LEGACY_LOCAL_SENSITIVE_KEYS = [
-  'tavilyApiKey',
-  'serpapiApiKey',
-  'exaApiKey',
-]
+const LEGACY_LOCAL_SENSITIVE_KEYS = ['tavilyApiKey', 'serpapiApiKey', 'exaApiKey']
 
 const SESSION_SENSITIVE_KEYS = [
   'OpenAICompatibilityKey',
@@ -339,9 +342,10 @@ export const loadSettings = (overrides = {}) => {
   const localFontSize = localStorage.getItem('fontSize')
   const localEnableLongTermMemory = localStorage.getItem('enableLongTermMemory')
   const localMemoryRecallLimit = localStorage.getItem('memoryRecallLimit')
-  const localEmbeddingProvider = localStorage.getItem('embeddingProvider')
-  const localEmbeddingModel = localStorage.getItem('embeddingModel')
-  const localEmbeddingModelSource = localStorage.getItem('embeddingModelSource')
+  const localOcrProvider = localStorage.getItem('ocrProvider')
+  const localOcrModel = localStorage.getItem('ocrModel')
+  const localOcrModelSource = localStorage.getItem('ocrModelSource')
+  const localEnablePdfOcr = localStorage.getItem('enablePdfOcr')
   const localScrapbookProvider = localStorage.getItem('scrapbookProvider')
   const localScrapbookModel = localStorage.getItem('scrapbookModel')
   const localScrapbookModelSource = localStorage.getItem('scrapbookModelSource')
@@ -400,10 +404,7 @@ export const loadSettings = (overrides = {}) => {
         : false
 
   const resolvedDatabaseProvider =
-    overrides.databaseProvider ||
-    localDatabaseProvider ||
-    legacyDatabaseProviderId ||
-    ''
+    overrides.databaseProvider || localDatabaseProvider || legacyDatabaseProviderId || ''
   const resolvedDatabaseProviderLabel =
     overrides.databaseProviderLabel || localDatabaseProviderLabel || ''
   const overrideSupabaseUrl =
@@ -416,10 +417,8 @@ export const loadSettings = (overrides = {}) => {
     overrides.databaseSupabaseKey ||
     overrides?.databaseConfig?.supabase?.key ||
     ''
-  const resolvedSupabaseUrl =
-    envSupabaseUrl || overrideSupabaseUrl || ''
-  const resolvedSupabaseKey =
-    envSupabaseKey || overrideSupabaseKey || ''
+  const resolvedSupabaseUrl = envSupabaseUrl || overrideSupabaseUrl || ''
+  const resolvedSupabaseKey = envSupabaseKey || overrideSupabaseKey || ''
 
   const settings = {
     // Database (local/env to connect)
@@ -514,9 +513,15 @@ export const loadSettings = (overrides = {}) => {
     fontSize: localFontSize || overrides.fontSize || overrides.messageFontSize || 'medium',
     enableLongTermMemory: resolvedLongTermMemoryPreference,
     memoryRecallLimit: resolvedMemoryRecallLimit,
-    embeddingProvider: localEmbeddingProvider || overrides.embeddingProvider || '',
-    embeddingModel: localEmbeddingModel || overrides.embeddingModel || '',
-    embeddingModelSource: localEmbeddingModelSource || overrides.embeddingModelSource || 'list',
+    ocrProvider: localOcrProvider || overrides.ocrProvider || '',
+    ocrModel: localOcrModel || overrides.ocrModel || '',
+    ocrModelSource: localOcrModelSource || overrides.ocrModelSource || 'list',
+    enablePdfOcr:
+      typeof overrides.enablePdfOcr === 'boolean'
+        ? overrides.enablePdfOcr
+        : localEnablePdfOcr !== null
+          ? localEnablePdfOcr === 'true'
+          : false,
     userSelfIntro: overrides.userSelfIntro || '',
     developerMode:
       localDeveloperMode !== null
@@ -585,16 +590,19 @@ export const loadSettings = (overrides = {}) => {
     mergedSettings.KimiKey = electronMode ? '' : getPublicEnv('PUBLIC_KIMI_API_KEY') || ''
   if (!mergedSettings.googleApiKey)
     mergedSettings.googleApiKey = electronMode ? '' : getPublicEnv('PUBLIC_GOOGLE_API_KEY') || ''
-  if (!mergedSettings.tavilyApiKey)
-    mergedSettings.tavilyApiKey = envTavilyApiKey || ''
+  if (!mergedSettings.tavilyApiKey) mergedSettings.tavilyApiKey = envTavilyApiKey || ''
   if (!mergedSettings.exaApiKey) mergedSettings.exaApiKey = envExaApiKey || ''
   if (!mergedSettings.serpapiApiKey)
-    mergedSettings.serpapiApiKey = (electronMode ? '' : getPublicEnv('PUBLIC_SERPAPI_API_KEY')) || ''
+    mergedSettings.serpapiApiKey =
+      (electronMode ? '' : getPublicEnv('PUBLIC_SERPAPI_API_KEY')) || ''
   if (!mergedSettings.NvidiaKey) mergedSettings.NvidiaKey = ''
   if (!mergedSettings.MinimaxKey)
     mergedSettings.MinimaxKey = electronMode ? '' : getPublicEnv('PUBLIC_MINIMAX_API_KEY') || ''
   if (typeof mergedSettings.enableLongTermMemory === 'string') {
     mergedSettings.enableLongTermMemory = mergedSettings.enableLongTermMemory === 'true'
+  }
+  if (typeof mergedSettings.enablePdfOcr === 'string') {
+    mergedSettings.enablePdfOcr = mergedSettings.enablePdfOcr === 'true'
   }
 
   return {
@@ -744,14 +752,17 @@ export const saveSettings = async settings => {
   if (settings.memoryRecallLimit !== undefined) {
     localStorage.setItem('memoryRecallLimit', String(settings.memoryRecallLimit))
   }
-  if (settings.embeddingProvider !== undefined) {
-    localStorage.setItem('embeddingProvider', settings.embeddingProvider)
+  if (settings.ocrProvider !== undefined) {
+    localStorage.setItem('ocrProvider', settings.ocrProvider ?? '')
   }
-  if (settings.embeddingModel !== undefined) {
-    localStorage.setItem('embeddingModel', settings.embeddingModel)
+  if (settings.ocrModel !== undefined) {
+    localStorage.setItem('ocrModel', settings.ocrModel ?? '')
   }
-  if (settings.embeddingModelSource !== undefined) {
-    localStorage.setItem('embeddingModelSource', settings.embeddingModelSource)
+  if (settings.ocrModelSource !== undefined) {
+    localStorage.setItem('ocrModelSource', settings.ocrModelSource ?? 'list')
+  }
+  if (settings.enablePdfOcr !== undefined) {
+    localStorage.setItem('enablePdfOcr', String(!!settings.enablePdfOcr))
   }
   if (settings.scrapbookProvider !== undefined) {
     localStorage.setItem('scrapbookProvider', settings.scrapbookProvider)

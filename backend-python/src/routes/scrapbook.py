@@ -17,14 +17,10 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
-from pydantic import BaseModel, Field
 
+from ..models.db import DbFilter, DbOrder, DbQueryRequest
 from ..services.db_service import get_db_adapter
 from ..services.generation import generate_emoji, generate_title
-from ..services.llm_utils import run_agent_completion, safe_json_parse
-from ..models.db import DbFilter, DbOrder, DbQueryRequest
-from ..models.stream_chat import StreamChatRequest
 from ._request_secrets import get_llm_api_key
 
 router = APIRouter(tags=["scrapbook"])
@@ -63,7 +59,7 @@ def _extract_domain(url: str) -> str:
 def _detect_platform_from_url(url: str) -> str:
     """Guess the platform from the URL pattern. Returns domain name for unknown platforms."""
     domain = _extract_domain(url)
-    
+
     if domain in ('youtube.com', 'youtu.be'):
         return 'youtube'
     if domain in ('bilibili.com', 'b23.tv'):
@@ -76,7 +72,7 @@ def _detect_platform_from_url(url: str) -> str:
         return 'twitter'
     if domain in ('t.me', 'telegram.org'):
         return 'telegram'
-    
+
     # For unknown platforms, use domain name instead of 'unknown' so it shows up nicely in the UI
     return domain
 
@@ -92,7 +88,7 @@ async def _is_browser_missing() -> bool:
         if not shutil.which("playwright"):
             # If playwright CLI is missing, it's definitely missing
             return True
-            
+
         # Try to see if we can find the chromium executable path via playwright CLI
         process = await asyncio.create_subprocess_exec(
             "playwright", "install", "--help",
@@ -103,9 +99,9 @@ async def _is_browser_missing() -> bool:
         # If we can't even run help, something is wrong
         if process.returncode != 0:
             return True
-            
+
         # Actually, the most reliable way without launching is checking the cache directory
-        # But that's platform dependent. 
+        # But that's platform dependent.
         # For now, we'll rely on catching the specific error message in the caller.
         return False
     except Exception:
@@ -120,16 +116,16 @@ async def _fetch_url_content(url: str) -> dict[str, str]:
     try:
         from x_reader.reader import UniversalReader  # type: ignore[import]
         reader = UniversalReader()
-        
-        # We use a consistent timeout for all requests. 
+
+        # We use a consistent timeout for all requests.
         # Browser-based fetching is naturally slower, so we allow 50s.
         result = await asyncio.wait_for(reader.read(url), timeout=50.0)
-        
+
         if result and getattr(result, "content", None):
             # x-reader uses 'source_type' (an Enum), not 'platform'
             raw_type = getattr(result, "source_type", None)
             platform_val = raw_type.value if raw_type else ""
-            
+
             # Override x-reader's buggy "x.com in url" check
             actual_platform = _detect_platform_from_url(url)
             if platform_val == "twitter" and actual_platform != "twitter":
@@ -138,7 +134,7 @@ async def _fetch_url_content(url: str) -> dict[str, str]:
             # If x-reader returned 'manual' (Jina fallback), use domain name instead
             if not platform_val or platform_val == "manual":
                 platform_val = actual_platform
-            
+
             return {
                 "title": getattr(result, "title", None) or "",
                 "content": result.content or "",
@@ -146,7 +142,7 @@ async def _fetch_url_content(url: str) -> dict[str, str]:
             }
     except ImportError:
         logger.warning("[Scrapbook] x-reader not installed")
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.warning("[Scrapbook] x-reader timed out for %s", url)
         # On timeout, we don't assume the engine is missing unless confirmed.
     except Exception as e:
@@ -211,7 +207,7 @@ async def list_scrapbook(
         filters.append(DbFilter(op="lt", column="created_at", value=cursor))
 
     from src.models.db import DbRange
-    
+
     range_val = None
     if page and page > 0:
         from_idx = (page - 1) * limit
@@ -244,11 +240,11 @@ async def list_scrapbook(
         return JSONResponse(status_code=500, content={"error": result.error})
 
     items = result.data if result.data else []
-    
+
     res_content = {"items": items}
     if page:
         res_content["count"] = result.count or 0
-        
+
     return JSONResponse(content=res_content)
 
 
@@ -302,7 +298,7 @@ async def create_scrapbook_entry(request: Request) -> JSONResponse:
 
     # ── Step 1: Detect platform and fetch content via x-reader if needed ────
     fetched_title = ""
-    
+
     # Try pattern matching on URL first if platform is manual or unknown
     if source_url and platform in ("manual", "unknown", ""):
         guessed_platform = _detect_platform_from_url(source_url)
@@ -319,7 +315,7 @@ async def create_scrapbook_entry(request: Request) -> JSONResponse:
         # Override platform with x-reader's detected value only if we still don't have a good one
         if fetched.get("platform") and fetched["platform"] not in ("", "unknown") and platform in ("manual", "unknown", ""):
             platform = fetched["platform"]
-            
+
         # If we STILL have no content after fetching, we must fail.
         # Otherwise we end up saving an empty scrapbook entry.
         if not content:

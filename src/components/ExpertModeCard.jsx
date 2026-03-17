@@ -18,8 +18,8 @@ const ExpertModeCard = memo(({ onClick }) => {
       <div className="group relative w-full cursor-pointer" onClick={onClick}>
         {/* Card Container: low-contrast light mode, vivid dark mode */}
         <div className="relative z-10 h-32 overflow-hidden rounded-3xl border border-white/75 bg-white/58 p-6 shadow-[0_8px_26px_rgba(15,23,42,0.08)] backdrop-blur-xl transition-all duration-500 group-hover:scale-[1.02] group-hover:shadow-[0_12px_30px_rgba(15,23,42,0.14)] active:scale-[0.98] sm:h-36 dark:border-white/10 dark:bg-[#0f172a]/40">
-          <div className="absolute inset-0 bg-gradient-to-br from-violet-100/65 via-fuchsia-100/35 to-sky-100/45 dark:from-violet-500/14 dark:via-fuchsia-500/10 dark:to-sky-400/10" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.12)_1px,transparent_1px)] bg-[size:24px_24px] opacity-25 dark:opacity-30" />
+          <div className="absolute inset-0 bg-linear-to-br from-violet-100/65 via-fuchsia-100/35 to-sky-100/45 dark:from-violet-500/14 dark:via-fuchsia-500/10 dark:to-sky-400/10" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.12)_1px,transparent_1px)] bg-size-[24px_24px] opacity-25 dark:opacity-30" />
 
           <div className="pointer-events-none absolute inset-0 z-0">
             {EXPERT_PARTICLES.map(p => (
@@ -58,7 +58,7 @@ const ExpertModeCard = memo(({ onClick }) => {
                 {t('homeView.expertEntryHint')}
               </p>
 
-              <div className="rounded-full border border-white/75 bg-white/72 p-2 text-slate-600 shadow-md backdrop-blur-md transition-all duration-300 group-hover:translate-x-1 group-hover:bg-white/88 dark:border-white/12 dark:bg-white/[0.12] dark:text-white dark:shadow-lg dark:group-hover:bg-white/[0.2]">
+              <div className="rounded-full border border-white/75 bg-white/72 p-2 text-slate-600 shadow-md backdrop-blur-md transition-all duration-300 group-hover:translate-x-1 group-hover:bg-white/88 dark:border-white/12 dark:bg-white/12 dark:text-white dark:shadow-lg dark:group-hover:bg-white/20">
                 <ArrowRight size={20} />
               </div>
             </div>

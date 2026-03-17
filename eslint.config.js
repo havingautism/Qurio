@@ -9,7 +9,14 @@ import { fixupPluginRules } from '@eslint/compat'
 
 export default [
   {
-    ignores: ['node_modules', 'dist', 'build'],
+    ignores: [
+      'node_modules',
+      'dist',
+      'build',
+      'backend-python/.venv',
+      'backend-python/**',
+      '**/.venv/**',
+    ],
   },
   {
     files: ['**/*.{js,jsx}'],
@@ -24,7 +31,7 @@ export default [
       },
     },
     plugins: {
-      react,
+      react: fixupPluginRules(react),
       'react-hooks': fixupPluginRules(reactHooks),
       'unused-imports': unusedImports,
       prettier: prettierPlugin,

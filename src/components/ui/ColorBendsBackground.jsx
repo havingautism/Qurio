@@ -98,7 +98,9 @@ void main() {
 `
 
 const hexToVec3 = hex => {
-  const cleaned = String(hex || '').replace('#', '').trim()
+  const cleaned = String(hex || '')
+    .replace('#', '')
+    .trim()
   if (cleaned.length !== 6) return new THREE.Vector3(0, 0, 0)
   const r = Number.parseInt(cleaned.slice(0, 2), 16)
   const g = Number.parseInt(cleaned.slice(2, 4), 16)
@@ -206,7 +208,11 @@ export default function ColorBendsBackground({
     }
 
     const loop = nowMs => {
-      const { deltaSeconds: dt, elapsedSeconds: elapsed, startedAtMs } = computeFrameTiming(
+      const {
+        deltaSeconds: dt,
+        elapsedSeconds: elapsed,
+        startedAtMs,
+      } = computeFrameTiming(
         frameRef.lastFrameAtMs === null
           ? null
           : {
@@ -262,10 +268,7 @@ export default function ColorBendsBackground({
     material.uniforms.uParallax.value = parallax
     material.uniforms.uNoise.value = noise
 
-    const arr = (colors || [])
-      .filter(Boolean)
-      .slice(0, MAX_COLORS)
-      .map(hexToVec3)
+    const arr = (colors || []).filter(Boolean).slice(0, MAX_COLORS).map(hexToVec3)
     for (let i = 0; i < MAX_COLORS; i += 1) {
       const vec = material.uniforms.uColors.value[i]
       if (i < arr.length) vec.copy(arr[i])

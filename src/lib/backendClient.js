@@ -304,12 +304,27 @@ export const extractDocumentTextViaBackend = async file => {
   return response.json()
 }
 
-export const indexDocumentViaBackend = async ({ spaceId, documentId = null, file }) => {
+export const indexDocumentViaBackend = async ({
+  spaceId,
+  documentId = null,
+  file,
+  enablePdfOcr = false,
+  ocrProvider = '',
+  ocrModel = '',
+  ocrApiKey = '',
+  ocrBaseUrl = '',
+  timeoutMs = 600000,
+}) => {
   const formData = new FormData()
   formData.append('space_id', spaceId)
   if (documentId) {
     formData.append('document_id', documentId)
   }
+  formData.append('enable_pdf_ocr', String(!!enablePdfOcr))
+  if (ocrProvider) formData.append('ocr_provider', String(ocrProvider))
+  if (ocrModel) formData.append('ocr_model', String(ocrModel))
+  if (ocrApiKey) formData.append('ocr_api_key', String(ocrApiKey))
+  if (ocrBaseUrl) formData.append('ocr_base_url', String(ocrBaseUrl))
   formData.append('file', file)
 
   const response = await fetchWithTimeout(
@@ -318,7 +333,22 @@ export const indexDocumentViaBackend = async ({ spaceId, documentId = null, file
       method: 'POST',
       body: formData,
     },
-    120000,
+    timeoutMs,
+  )
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Unknown error' }))
+    throw new Error(getBackendErrorMessage(error, response.status))
+  }
+
+  return response.json()
+}
+
+export const getDocumentIndexStatusViaBackend = async ({ spaceId, documentId }) => {
+  const response = await fetchWithTimeout(
+    `${getBackendUrl()}/api/documents/index/status/${encodeURIComponent(spaceId)}/${encodeURIComponent(documentId)}`,
+    {},
+    15000,
   )
 
   if (!response.ok) {
@@ -422,13 +452,7 @@ export const generateResearchPlanViaBackend = async (
   return response.json()
 }
 
-export const selectThinkingModeViaBackend = async (
-  provider,
-  message,
-  apiKey,
-  baseUrl,
-  model,
-) => {
+export const selectThinkingModeViaBackend = async (provider, message, apiKey, baseUrl, model) => {
   const response = await fetchWithTimeout(
     `${getBackendUrl()}/api/thinking-mode`,
     {

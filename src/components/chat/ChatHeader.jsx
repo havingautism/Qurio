@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Check, ChevronDown, LayoutGrid, Menu, PanelRightOpen, Sparkles } from 'lucide-react'
+import { Check, ChevronDown, Menu, PanelRightOpen, Sparkles } from 'lucide-react'
 import EmojiDisplay from '../EmojiDisplay'
 import { getSpaceDisplayLabel } from '../../lib/spaceDisplay'
 import DotLoader from '../DotLoader'
@@ -114,7 +114,7 @@ const ChatHeader = ({
       {/* Transparent header with glassy fade only where it overlaps content */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 h-21 bg-gradient-to-b from-white/68 via-white/28 to-transparent [mask-image:linear-gradient(to_bottom,black_58%,transparent)] opacity-100 backdrop-blur-xl md:hidden dark:from-zinc-950/68 dark:via-zinc-950/28"
+        className="pointer-events-none absolute inset-x-0 top-0 h-21 bg-linear-to-b from-white/68 via-white/28 to-transparent mask-[linear-gradient(to_bottom,black_58%,transparent)] opacity-100 backdrop-blur-xl md:hidden dark:from-zinc-950/68 dark:via-zinc-950/28"
       />
       <div className="pointer-events-auto flex w-full items-center gap-2">
         {/* Mobile Menu Button - visible only on mobile */}
@@ -131,7 +131,7 @@ const ChatHeader = ({
             {/* Desktop local glass mask: fit to actual button group width */}
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute -top-4 -right-3 -bottom-2 -left-3 hidden rounded-[22px] bg-gradient-to-b from-white/24 via-white/14 to-transparent backdrop-blur-md md:block dark:from-zinc-950/24 dark:via-zinc-950/14"
+              className="pointer-events-none absolute -top-4 -right-3 -bottom-2 -left-3 hidden rounded-[22px] bg-linear-to-b from-white/24 via-white/14 to-transparent backdrop-blur-md md:block dark:from-zinc-950/24 dark:via-zinc-950/14"
             />
             {/* Space Selector */}
             <div className="relative z-10 shrink-0" ref={selectorRef}>
@@ -268,7 +268,7 @@ const ChatHeader = ({
           {/* Desktop local glass mask: only under right button cluster */}
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute -top-4 -right-3 -bottom-2 -left-3 hidden rounded-[22px] bg-gradient-to-b from-white/24 via-white/14 to-transparent backdrop-blur-md md:block dark:from-zinc-950/24 dark:via-zinc-950/14"
+            className="pointer-events-none absolute -top-4 -right-3 -bottom-2 -left-3 hidden rounded-[22px] bg-linear-to-b from-white/24 via-white/14 to-transparent backdrop-blur-md md:block dark:from-zinc-950/24 dark:via-zinc-950/14"
           />
           {/* Timeline Button */}
           {!isTimelineSidebarOpen && (

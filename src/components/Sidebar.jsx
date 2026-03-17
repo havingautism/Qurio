@@ -1096,7 +1096,7 @@ const Sidebar = ({
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={event => {
           const nextTarget = event.relatedTarget
-          if (nextTarget && event.currentTarget.contains(nextTarget)) return
+          if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) return
           if (!isPinned) {
             setIsHovered(false)
             setHoveredTab(null)
@@ -1226,7 +1226,7 @@ const Sidebar = ({
                         : 'bg-primary-500/10 dark:bg-primary-500/20'
                       : isScrapbookSidebarTheme
                         ? glassTone(
-                            'border border-transparent bg-white/[0.03] opacity-0 group-hover:border-white/10 group-hover:opacity-100',
+                            'border border-transparent bg-white/3 opacity-0 group-hover:border-white/10 group-hover:opacity-100',
                             'border border-slate-200 bg-white/40 opacity-0 group-hover:opacity-100',
                           )
                         : 'bg-gray-100 opacity-0 group-hover:opacity-100 dark:bg-zinc-800/50',
@@ -1496,13 +1496,13 @@ const Sidebar = ({
                                 isActive
                                   ? isScrapbookSidebarTheme
                                     ? glassTone(
-                                        'border border-white/12 bg-white/[0.08] text-white shadow-[0_8px_20px_rgba(37,99,235,0.12)]',
+                                        'border border-white/12 bg-white/8 text-white shadow-[0_8px_20px_rgba(37,99,235,0.12)]',
                                         'border border-white/80 bg-white/68 text-slate-900 shadow-[0_8px_20px_rgba(37,99,235,0.08)]',
                                       )
                                     : 'bg-primary-500/10 dark:bg-primary-500/20 text-primary-500 dark:text-primary-400'
                                   : isScrapbookSidebarTheme
                                     ? glassTone(
-                                        'border border-transparent text-white/88 hover:border-white/8 hover:bg-white/[0.04]',
+                                        'border border-transparent text-white/88 hover:border-white/8 hover:bg-white/4',
                                         'border border-transparent text-slate-700 hover:border-slate-200/90 hover:bg-white/85 hover:shadow-[0_4px_14px_rgba(15,23,42,0.05)]',
                                       )
                                     : 'hover:bg-primary-50 text-gray-700 dark:text-gray-300 dark:hover:bg-zinc-800',
@@ -1525,11 +1525,11 @@ const Sidebar = ({
                                       isScrapbookSidebarTheme
                                         ? isActive
                                           ? glassTone(
-                                              'border border-white/15 bg-gradient-to-br from-blue-400/25 to-fuchsia-400/20',
-                                              'border border-white/80 bg-gradient-to-br from-blue-100/90 to-fuchsia-100/90',
+                                              'border border-white/15 bg-linear-to-br from-blue-400/25 to-fuchsia-400/20',
+                                              'border border-white/80 bg-linear-to-br from-blue-100/90 to-fuchsia-100/90',
                                             )
                                           : glassTone(
-                                              'border border-white/8 bg-white/[0.03]',
+                                              'border border-white/8 bg-white/3',
                                               'border border-white/75 bg-white/42',
                                             )
                                         : 'bg-primary-100 dark:bg-primary-900/30',
@@ -1584,7 +1584,7 @@ const Sidebar = ({
                                       isActive
                                         ? isScrapbookSidebarTheme
                                           ? glassTone(
-                                              'border border-white/10 bg-white/[0.08] text-white',
+                                              'border border-white/10 bg-white/8 text-white',
                                               'border border-white/80 bg-white/65 text-slate-800',
                                             )
                                           : 'text-primary-600 dark:text-primary-400 bg-primary-100 dark:bg-primary-900/30'
@@ -1627,7 +1627,7 @@ const Sidebar = ({
                                         : 'border-amber-200 bg-amber-50 text-amber-600 dark:border-amber-800/30 dark:bg-amber-900/20 dark:text-amber-400'
                                       : isScrapbookSidebarTheme
                                         ? glassTone(
-                                            'border border-white/8 text-white/70 hover:border-white/12 hover:bg-white/[0.05] hover:text-white',
+                                            'border border-white/8 text-white/70 hover:border-white/12 hover:bg-white/5 hover:text-white',
                                             'border border-white/70 text-slate-600 hover:border-slate-300 hover:bg-white/92 hover:text-slate-900 hover:shadow-sm',
                                           )
                                         : 'hover:bg-primary-50 hover:text-primary-600 dark:hover:text-primary-400 hover:border-primary-200 dark:hover:border-primary-800/30 border-transparent text-gray-500 dark:text-gray-400 dark:hover:bg-zinc-700',
@@ -1686,7 +1686,7 @@ const Sidebar = ({
                           'flex w-full items-center justify-center gap-2 rounded-xl py-2 text-xs font-medium transition-colors',
                           isScrapbookSidebarTheme
                             ? glassTone(
-                                'border border-white/8 bg-white/[0.03] text-white/80 hover:bg-white/[0.06]',
+                                'border border-white/8 bg-white/3 text-white/80 hover:bg-white/6',
                                 'border border-white/75 bg-white/45 text-slate-700 hover:bg-white/70',
                               )
                             : 'bg-user-bubble text-gray-700 hover:translate-y-[-2px] hover:transform dark:bg-zinc-800 dark:text-gray-200',
@@ -1738,7 +1738,7 @@ const Sidebar = ({
                           'relative flex w-full cursor-pointer items-center gap-3 rounded-xl p-2.5 text-left transition-all',
                           isScrapbookSidebarTheme
                             ? glassTone(
-                                'border border-white/8 bg-white/[0.03] text-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] hover:scale-[1.01] hover:border-white/12 hover:bg-white/[0.06]',
+                                'border border-white/8 bg-white/3 text-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] hover:scale-[1.01] hover:border-white/12 hover:bg-white/6',
                                 'border border-white/80 bg-white/52 text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] hover:scale-[1.01] hover:border-white hover:bg-white/74',
                               )
                             : 'bg-user-bubble/50 hover:bg-user-bubble dark:hover:bg-user-bubble/10 text-gray-600 transition-transform hover:scale-105 dark:bg-zinc-800 dark:text-gray-300',
@@ -1749,8 +1749,8 @@ const Sidebar = ({
                             'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-base',
                             isScrapbookSidebarTheme
                               ? glassTone(
-                                  'border border-white/12 bg-gradient-to-br from-cyan-400/20 via-blue-400/10 to-orange-300/20 text-white',
-                                  'border border-white/80 bg-gradient-to-br from-cyan-100/90 via-blue-50/90 to-amber-100/90 text-slate-700',
+                                  'border border-white/12 bg-linear-to-br from-cyan-400/20 via-blue-400/10 to-orange-300/20 text-white',
+                                  'border border-white/80 bg-linear-to-br from-cyan-100/90 via-blue-50/90 to-amber-100/90 text-slate-700',
                                 )
                               : 'bg-primary-100/70 dark:bg-primary-900/30 text-gray-700 dark:text-gray-100',
                           )}
@@ -1817,13 +1817,13 @@ const Sidebar = ({
                                     isActive
                                       ? isScrapbookSidebarTheme
                                         ? glassTone(
-                                            'border border-white/12 bg-white/[0.08] text-white shadow-[0_8px_20px_rgba(37,99,235,0.12)]',
+                                            'border border-white/12 bg-white/8 text-white shadow-[0_8px_20px_rgba(37,99,235,0.12)]',
                                             'border border-white/80 bg-white/68 text-slate-900 shadow-[0_8px_20px_rgba(37,99,235,0.08)]',
                                           )
                                         : 'bg-primary-500/10 dark:bg-primary-500/20 text-primary-500 dark:text-primary-400'
                                       : isScrapbookSidebarTheme
                                         ? glassTone(
-                                            'border border-transparent text-white/88 hover:border-white/8 hover:bg-white/[0.04]',
+                                            'border border-transparent text-white/88 hover:border-white/8 hover:bg-white/4',
                                             'border border-transparent text-slate-700 hover:border-slate-200/90 hover:bg-white/85 hover:shadow-[0_4px_14px_rgba(15,23,42,0.05)]',
                                           )
                                         : 'hover:bg-primary-50 text-gray-700 dark:text-gray-300 dark:hover:bg-zinc-800',
@@ -1845,11 +1845,11 @@ const Sidebar = ({
                                           isScrapbookSidebarTheme
                                             ? isActive
                                               ? glassTone(
-                                                  'border border-white/15 bg-gradient-to-br from-blue-400/25 to-fuchsia-400/20',
-                                                  'border border-white/80 bg-gradient-to-br from-blue-100/90 to-fuchsia-100/90',
+                                                  'border border-white/15 bg-linear-to-br from-blue-400/25 to-fuchsia-400/20',
+                                                  'border border-white/80 bg-linear-to-br from-blue-100/90 to-fuchsia-100/90',
                                                 )
                                               : glassTone(
-                                                  'border border-white/8 bg-white/[0.03]',
+                                                  'border border-white/8 bg-white/3',
                                                   'border border-white/75 bg-white/42',
                                                 )
                                             : 'bg-primary-100 dark:bg-primary-900/30',
@@ -1906,7 +1906,7 @@ const Sidebar = ({
                                           isActive
                                             ? isScrapbookSidebarTheme
                                               ? glassTone(
-                                                  'border border-white/10 bg-white/[0.08] text-white',
+                                                  'border border-white/10 bg-white/8 text-white',
                                                   'border border-white/80 bg-white/65 text-slate-800',
                                                 )
                                               : 'text-primary-600 dark:text-primary-400 bg-primary-100 dark:bg-primary-900/20'
@@ -1949,7 +1949,7 @@ const Sidebar = ({
                                             : 'bg-primary-50 text-primary-500 dark:bg-primary-600/20 dark:text-primary-500'
                                           : isScrapbookSidebarTheme
                                             ? glassTone(
-                                                'border border-white/8 text-white/70 hover:border-white/12 hover:bg-white/[0.05] hover:text-white',
+                                                'border border-white/8 text-white/70 hover:border-white/12 hover:bg-white/5 hover:text-white',
                                                 'border border-white/70 text-slate-600 hover:border-slate-300 hover:bg-white/92 hover:text-slate-900 hover:shadow-sm',
                                               )
                                             : 'hover:bg-primary-50 hover:text-primary-600 dark:hover:text-primary-400 text-gray-500 dark:text-gray-400 dark:hover:bg-zinc-700',
@@ -2035,7 +2035,7 @@ const Sidebar = ({
                           'relative flex w-full cursor-pointer items-center gap-3 rounded-xl p-2.5 text-left transition-all',
                           isScrapbookSidebarTheme
                             ? glassTone(
-                                'border border-white/8 bg-white/[0.03] text-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] hover:scale-[1.01] hover:border-white/12 hover:bg-white/[0.06]',
+                                'border border-white/8 bg-white/3 text-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] hover:scale-[1.01] hover:border-white/12 hover:bg-white/6',
                                 'border border-white/80 bg-white/52 text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] hover:scale-[1.01] hover:border-white hover:bg-white/74',
                               )
                             : 'bg-user-bubble/50 hover:bg-user-bubble dark:hover:bg-user-bubble/10 text-gray-600 transition-transform hover:scale-105 dark:bg-zinc-800 dark:text-gray-300',
@@ -2046,8 +2046,8 @@ const Sidebar = ({
                             'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-base',
                             isScrapbookSidebarTheme
                               ? glassTone(
-                                  'border border-white/12 bg-gradient-to-br from-cyan-400/20 via-blue-400/10 to-orange-300/20 text-white',
-                                  'border border-white/80 bg-gradient-to-br from-cyan-100/90 via-blue-50/90 to-amber-100/90 text-slate-700',
+                                  'border border-white/12 bg-linear-to-br from-cyan-400/20 via-blue-400/10 to-orange-300/20 text-white',
+                                  'border border-white/80 bg-linear-to-br from-cyan-100/90 via-blue-50/90 to-amber-100/90 text-slate-700',
                                 )
                               : 'bg-primary-100/70 dark:bg-primary-900/30 text-gray-700 dark:text-gray-100',
                           )}
@@ -2113,13 +2113,13 @@ const Sidebar = ({
                                     isActive
                                       ? isScrapbookSidebarTheme
                                         ? glassTone(
-                                            'border border-white/12 bg-white/[0.08] text-white shadow-[0_8px_20px_rgba(37,99,235,0.12)]',
+                                            'border border-white/12 bg-white/8 text-white shadow-[0_8px_20px_rgba(37,99,235,0.12)]',
                                             'border border-white/80 bg-white/68 text-slate-900 shadow-[0_8px_20px_rgba(37,99,235,0.08)]',
                                           )
                                         : 'bg-primary-500/10 dark:bg-primary-500/20 text-primary-500 dark:text-primary-400'
                                       : isScrapbookSidebarTheme
                                         ? glassTone(
-                                            'border border-transparent text-white/88 hover:border-white/8 hover:bg-white/[0.04]',
+                                            'border border-transparent text-white/88 hover:border-white/8 hover:bg-white/4',
                                             'border border-transparent text-slate-700 hover:border-slate-200/90 hover:bg-white/85 hover:shadow-[0_4px_14px_rgba(15,23,42,0.05)]',
                                           )
                                         : 'hover:bg-primary-50 text-gray-700 dark:text-gray-300 dark:hover:bg-zinc-800',
@@ -2141,11 +2141,11 @@ const Sidebar = ({
                                           isScrapbookSidebarTheme
                                             ? isActive
                                               ? glassTone(
-                                                  'border border-white/15 bg-gradient-to-br from-blue-400/25 to-fuchsia-400/20',
-                                                  'border border-white/80 bg-gradient-to-br from-blue-100/90 to-fuchsia-100/90',
+                                                  'border border-white/15 bg-linear-to-br from-blue-400/25 to-fuchsia-400/20',
+                                                  'border border-white/80 bg-linear-to-br from-blue-100/90 to-fuchsia-100/90',
                                                 )
                                               : glassTone(
-                                                  'border border-white/8 bg-white/[0.03]',
+                                                  'border border-white/8 bg-white/3',
                                                   'border border-white/75 bg-white/42',
                                                 )
                                             : 'bg-primary-100 dark:bg-primary-900/30',
@@ -2202,7 +2202,7 @@ const Sidebar = ({
                                           isActive
                                             ? isScrapbookSidebarTheme
                                               ? glassTone(
-                                                  'border border-white/10 bg-white/[0.08] text-white',
+                                                  'border border-white/10 bg-white/8 text-white',
                                                   'border border-white/80 bg-white/65 text-slate-800',
                                                 )
                                               : 'text-primary-600 dark:text-primary-400 bg-primary-100 dark:bg-primary-900/20'
@@ -2245,7 +2245,7 @@ const Sidebar = ({
                                             : 'bg-primary-50 text-primary-500 dark:bg-primary-600/20 dark:text-primary-500'
                                           : isScrapbookSidebarTheme
                                             ? glassTone(
-                                                'border border-white/8 text-white/70 hover:border-white/12 hover:bg-white/[0.05] hover:text-white',
+                                                'border border-white/8 text-white/70 hover:border-white/12 hover:bg-white/5 hover:text-white',
                                                 'border border-white/70 text-slate-600 hover:border-slate-300 hover:bg-white/92 hover:text-slate-900 hover:shadow-sm',
                                               )
                                             : 'hover:bg-primary-50 hover:text-primary-600 dark:hover:text-primary-400 text-gray-500 dark:text-gray-400 dark:hover:bg-zinc-700',
@@ -2340,13 +2340,13 @@ const Sidebar = ({
                             isActive
                               ? isScrapbookSidebarTheme
                                 ? glassTone(
-                                    'border border-white/12 bg-white/[0.08] text-white shadow-[0_8px_20px_rgba(37,99,235,0.12)]',
+                                    'border border-white/12 bg-white/8 text-white shadow-[0_8px_20px_rgba(37,99,235,0.12)]',
                                     'border border-white/80 bg-white/68 text-slate-900 shadow-[0_8px_20px_rgba(37,99,235,0.08)]',
                                   )
                                 : 'bg-primary-500/10 dark:bg-primary-500/20 text-primary-500 dark:text-primary-400'
                               : isScrapbookSidebarTheme
                                 ? glassTone(
-                                    'border border-transparent text-white/88 hover:border-white/8 hover:bg-white/[0.04]',
+                                    'border border-transparent text-white/88 hover:border-white/8 hover:bg-white/4',
                                     'border border-transparent text-slate-700 hover:border-slate-200/90 hover:bg-white/85 hover:shadow-[0_4px_14px_rgba(15,23,42,0.05)]',
                                   )
                                 : 'hover:bg-primary-50 text-gray-700 dark:text-gray-300 dark:hover:bg-zinc-800',
@@ -2368,11 +2368,11 @@ const Sidebar = ({
                                   isScrapbookSidebarTheme
                                     ? isActive
                                       ? glassTone(
-                                          'border border-white/15 bg-gradient-to-br from-blue-400/25 to-fuchsia-400/20',
-                                          'border border-white/80 bg-gradient-to-br from-blue-100/90 to-fuchsia-100/90',
+                                          'border border-white/15 bg-linear-to-br from-blue-400/25 to-fuchsia-400/20',
+                                          'border border-white/80 bg-linear-to-br from-blue-100/90 to-fuchsia-100/90',
                                         )
                                       : glassTone(
-                                          'border border-white/8 bg-white/[0.03]',
+                                          'border border-white/8 bg-white/3',
                                           'border border-white/75 bg-white/42',
                                         )
                                     : 'bg-primary-100 dark:bg-primary-900/30',
@@ -2423,7 +2423,7 @@ const Sidebar = ({
                                   isActive
                                     ? isScrapbookSidebarTheme
                                       ? glassTone(
-                                          'border border-white/10 bg-white/[0.08] text-white',
+                                          'border border-white/10 bg-white/8 text-white',
                                           'border border-white/80 bg-white/65 text-slate-800',
                                         )
                                       : 'text-primary-600 dark:text-primary-400 bg-primary-100 dark:bg-primary-900/20'
@@ -2466,7 +2466,7 @@ const Sidebar = ({
                                     : 'bg-primary-50 text-primary-500 dark:bg-primary-600/20 dark:text-primary-500'
                                   : isScrapbookSidebarTheme
                                     ? glassTone(
-                                        'border border-white/8 text-white/70 hover:border-white/12 hover:bg-white/[0.05] hover:text-white',
+                                        'border border-white/8 text-white/70 hover:border-white/12 hover:bg-white/5 hover:text-white',
                                         'border border-white/70 text-slate-600 hover:border-slate-300 hover:bg-white/92 hover:text-slate-900 hover:shadow-sm',
                                       )
                                     : 'hover:bg-primary-50 hover:text-primary-600 dark:hover:text-primary-400 text-gray-500 dark:text-gray-400 dark:hover:bg-zinc-700',
@@ -2530,7 +2530,7 @@ const Sidebar = ({
                           'flex w-full items-center justify-center gap-2 rounded-xl py-2 text-xs font-medium transition-colors',
                           isScrapbookSidebarTheme
                             ? glassTone(
-                                'border border-white/8 bg-white/[0.03] text-white/80 hover:bg-white/[0.06]',
+                                'border border-white/8 bg-white/3 text-white/80 hover:bg-white/6',
                                 'border border-white/75 bg-white/45 text-slate-700 hover:bg-white/70',
                               )
                             : 'bg-user-bubble hover:bg-user-bubble/10 text-gray-700 dark:bg-zinc-800 dark:text-gray-200 dark:hover:bg-zinc-700',
@@ -2557,7 +2557,7 @@ const Sidebar = ({
                           'relative flex w-full cursor-pointer items-center gap-3 rounded-xl p-2.5 text-left transition-all',
                           isScrapbookSidebarTheme
                             ? glassTone(
-                                'border border-white/8 bg-white/[0.03] text-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] hover:scale-[1.01] hover:border-white/12 hover:bg-white/[0.06]',
+                                'border border-white/8 bg-white/3 text-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] hover:scale-[1.01] hover:border-white/12 hover:bg-white/6',
                                 'border border-white/80 bg-white/52 text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] hover:scale-[1.01] hover:border-white hover:bg-white/74',
                               )
                             : 'bg-user-bubble/50 hover:bg-user-bubble dark:hover:bg-user-bubble/10 text-gray-600 transition-transform hover:scale-105 dark:bg-zinc-800 dark:text-gray-300',
@@ -2568,8 +2568,8 @@ const Sidebar = ({
                             'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-base',
                             isScrapbookSidebarTheme
                               ? glassTone(
-                                  'border border-white/12 bg-gradient-to-br from-cyan-400/20 via-blue-400/10 to-orange-300/20 text-white',
-                                  'border border-white/80 bg-gradient-to-br from-cyan-100/90 via-blue-50/90 to-amber-100/90 text-slate-700',
+                                  'border border-white/12 bg-linear-to-br from-cyan-400/20 via-blue-400/10 to-orange-300/20 text-white',
+                                  'border border-white/80 bg-linear-to-br from-cyan-100/90 via-blue-50/90 to-amber-100/90 text-slate-700',
                                 )
                               : 'bg-primary-100/70 dark:bg-primary-900/30 text-gray-700 dark:text-gray-100',
                           )}
@@ -2645,13 +2645,13 @@ const Sidebar = ({
                                   isActive
                                     ? isScrapbookSidebarTheme
                                       ? glassTone(
-                                          'border border-white/12 bg-white/[0.08] text-white shadow-[0_8px_20px_rgba(37,99,235,0.12)]',
+                                          'border border-white/12 bg-white/8 text-white shadow-[0_8px_20px_rgba(37,99,235,0.12)]',
                                           'border border-white/80 bg-white/68 text-slate-900 shadow-[0_8px_20px_rgba(37,99,235,0.08)]',
                                         )
                                       : 'bg-primary-500/10 text-primary-500 dark:bg-primary-500/20 dark:text-primary-400'
                                     : isScrapbookSidebarTheme
                                       ? glassTone(
-                                          'border border-transparent text-white/88 hover:border-white/8 hover:bg-white/[0.04]',
+                                          'border border-transparent text-white/88 hover:border-white/8 hover:bg-white/4',
                                           'border border-transparent text-slate-700 hover:border-slate-200/90 hover:bg-white/85 hover:shadow-[0_4px_14px_rgba(15,23,42,0.05)]',
                                         )
                                       : 'hover:bg-primary-50 text-gray-700 dark:text-gray-300 dark:hover:bg-zinc-800',
@@ -2665,11 +2665,11 @@ const Sidebar = ({
                                       isScrapbookSidebarTheme
                                         ? isActive
                                           ? glassTone(
-                                              'border border-white/15 bg-gradient-to-br from-blue-400/25 to-fuchsia-400/20',
-                                              'border border-white/80 bg-gradient-to-br from-blue-100/90 to-fuchsia-100/90',
+                                              'border border-white/15 bg-linear-to-br from-blue-400/25 to-fuchsia-400/20',
+                                              'border border-white/80 bg-linear-to-br from-blue-100/90 to-fuchsia-100/90',
                                             )
                                           : glassTone(
-                                              'border border-white/8 bg-white/[0.03]',
+                                              'border border-white/8 bg-white/3',
                                               'border border-white/75 bg-white/42',
                                             )
                                         : 'bg-primary-100 dark:bg-primary-900/30',
@@ -2715,7 +2715,7 @@ const Sidebar = ({
                                 'flex w-full items-center justify-center gap-2 rounded-xl py-2 text-xs font-medium transition-colors',
                                 isScrapbookSidebarTheme
                                   ? glassTone(
-                                      'border border-white/8 bg-white/[0.03] text-white/80 hover:bg-white/[0.06]',
+                                      'border border-white/8 bg-white/3 text-white/80 hover:bg-white/6',
                                       'border border-white/75 bg-white/45 text-slate-700 hover:bg-white/70',
                                     )
                                   : 'bg-primary-50 text-gray-700 hover:translate-y-[-2px] hover:transform dark:bg-zinc-800 dark:text-gray-200',
@@ -2771,7 +2771,7 @@ const Sidebar = ({
                       'relative flex w-full cursor-pointer items-center gap-3 rounded-xl p-2.5 text-left transition-all',
                       isScrapbookSidebarTheme
                         ? glassTone(
-                            'border border-white/8 bg-white/[0.03] text-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] hover:scale-[1.01] hover:border-white/12 hover:bg-white/[0.06]',
+                            'border border-white/8 bg-white/3 text-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] hover:scale-[1.01] hover:border-white/12 hover:bg-white/6',
                             'border border-white/80 bg-white/52 text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] hover:scale-[1.01] hover:border-white hover:bg-white/74',
                           )
                         : 'bg-user-bubble/50 hover:bg-user-bubble dark:hover:bg-user-bubble/10 text-gray-600 transition-transform hover:scale-105 dark:bg-zinc-800 dark:text-gray-300',
@@ -2782,8 +2782,8 @@ const Sidebar = ({
                         'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-base',
                         isScrapbookSidebarTheme
                           ? glassTone(
-                              'border border-white/12 bg-gradient-to-br from-cyan-400/20 via-blue-400/10 to-orange-300/20 text-white',
-                              'border border-white/80 bg-gradient-to-br from-cyan-100/90 via-blue-50/90 to-amber-100/90 text-slate-700',
+                              'border border-white/12 bg-linear-to-br from-cyan-400/20 via-blue-400/10 to-orange-300/20 text-white',
+                              'border border-white/80 bg-linear-to-br from-cyan-100/90 via-blue-50/90 to-amber-100/90 text-slate-700',
                             )
                           : 'bg-primary-100/70 dark:bg-primary-900/30 text-gray-700 dark:text-gray-100',
                       )}
@@ -2832,7 +2832,7 @@ const Sidebar = ({
                           'group relative mb-0.5 flex items-center rounded-xl transition-all duration-200',
                           isScrapbookSidebarTheme
                             ? glassTone(
-                                'border border-transparent hover:border-white/8 hover:bg-white/[0.04]',
+                                'border border-transparent hover:border-white/8 hover:bg-white/4',
                                 'border border-transparent hover:border-white/80 hover:bg-white/40 hover:shadow-sm',
                               )
                             : 'hover:bg-primary-50 dark:hover:bg-zinc-800/50',
@@ -2937,13 +2937,13 @@ const Sidebar = ({
                                   conv.id === activeConversationId
                                     ? isScrapbookSidebarTheme
                                       ? glassTone(
-                                          'border border-white/12 bg-white/[0.08] text-white shadow-[0_8px_20px_rgba(37,99,235,0.12)]',
+                                          'border border-white/12 bg-white/8 text-white shadow-[0_8px_20px_rgba(37,99,235,0.12)]',
                                           'border border-white/80 bg-white/68 text-slate-900 shadow-[0_8px_20px_rgba(37,99,235,0.08)]',
                                         )
                                       : 'bg-primary-500/10 dark:bg-primary-500/20 text-primary-500 dark:text-primary-400'
                                     : isScrapbookSidebarTheme
                                       ? glassTone(
-                                          'border border-transparent text-white/80 hover:border-white/8 hover:bg-white/[0.04]',
+                                          'border border-transparent text-white/80 hover:border-white/8 hover:bg-white/4',
                                           'border border-transparent text-slate-700 hover:border-slate-200/90 hover:bg-white/85 hover:shadow-[0_4px_14px_rgba(15,23,42,0.05)]',
                                         )
                                       : 'hover:bg-primary-50 text-gray-600 dark:text-gray-400 dark:hover:bg-zinc-800',
@@ -2957,7 +2957,7 @@ const Sidebar = ({
                                         'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-base',
                                         isScrapbookSidebarTheme
                                           ? glassTone(
-                                              'border border-white/8 bg-white/[0.03]',
+                                              'border border-white/8 bg-white/3',
                                               'border border-white/75 bg-white/42',
                                             )
                                           : 'bg-primary-100 dark:bg-primary-900/30',
@@ -3015,7 +3015,7 @@ const Sidebar = ({
                                     'flex w-full items-center justify-center gap-2 rounded-xl py-2 text-xs font-medium transition-colors',
                                     isScrapbookSidebarTheme
                                       ? glassTone(
-                                          'border border-white/8 bg-white/[0.03] text-white/80 hover:bg-white/[0.06]',
+                                          'border border-white/8 bg-white/3 text-white/80 hover:bg-white/6',
                                           'border border-white/75 bg-white/45 text-slate-700 hover:bg-white/70',
                                         )
                                       : 'bg-user-bubble hover:bg-user-bubble/10 text-gray-700 dark:bg-zinc-800 dark:text-gray-200 dark:hover:bg-zinc-700',
@@ -3060,7 +3060,7 @@ const Sidebar = ({
                             'flex w-full items-center justify-center gap-2 rounded-xl py-2 text-xs font-medium transition-colors',
                             isScrapbookSidebarTheme
                               ? glassTone(
-                                  'border border-white/8 bg-white/[0.03] text-white/80 hover:bg-white/[0.06]',
+                                  'border border-white/8 bg-white/3 text-white/80 hover:bg-white/6',
                                   'border border-white/75 bg-white/45 text-slate-700 hover:bg-white/70',
                                 )
                               : 'bg-user-bubble hover:bg-user-bubble/10 text-gray-700 dark:bg-zinc-800 dark:text-gray-200 dark:hover:bg-zinc-700',
@@ -3091,7 +3091,7 @@ const Sidebar = ({
                       'relative flex w-full cursor-pointer items-center gap-3 rounded-xl p-2.5 text-left transition-all',
                       isScrapbookSidebarTheme
                         ? glassTone(
-                            'border border-white/8 bg-white/[0.03] text-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] hover:scale-[1.01] hover:border-white/12 hover:bg-white/[0.06]',
+                            'border border-white/8 bg-white/3 text-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] hover:scale-[1.01] hover:border-white/12 hover:bg-white/6',
                             'border border-white/80 bg-white/52 text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] hover:scale-[1.01] hover:border-white hover:bg-white/74',
                           )
                         : 'bg-user-bubble/50 hover:bg-user-bubble dark:hover:bg-user-bubble/10 text-gray-600 transition-transform hover:scale-105 dark:bg-zinc-800 dark:text-gray-300',
@@ -3102,8 +3102,8 @@ const Sidebar = ({
                         'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-base',
                         isScrapbookSidebarTheme
                           ? glassTone(
-                              'border border-white/12 bg-gradient-to-br from-cyan-400/20 via-blue-400/10 to-orange-300/20 text-white',
-                              'border border-white/80 bg-gradient-to-br from-cyan-100/90 via-blue-50/90 to-amber-100/90 text-slate-700',
+                              'border border-white/12 bg-linear-to-br from-cyan-400/20 via-blue-400/10 to-orange-300/20 text-white',
+                              'border border-white/80 bg-linear-to-br from-cyan-100/90 via-blue-50/90 to-amber-100/90 text-slate-700',
                             )
                           : 'bg-primary-100/70 dark:bg-primary-900/30 text-gray-700 dark:text-gray-100',
                       )}
@@ -3154,7 +3154,7 @@ const Sidebar = ({
                         className={clsx(
                           'group relative flex cursor-pointer items-center justify-between rounded-xl p-2.5 transition-all duration-200',
                           isScrapbookSidebarTheme
-                            ? 'border border-transparent text-white/85 hover:border-white/8 hover:bg-white/[0.04]'
+                            ? 'border border-transparent text-white/85 hover:border-white/8 hover:bg-white/4'
                             : 'hover:bg-primary-50 dark:hover:bg-zinc-800',
                         )}
                       >
@@ -3166,7 +3166,7 @@ const Sidebar = ({
                               'shrink-0 text-base',
                               isScrapbookSidebarTheme
                                 ? glassTone(
-                                    'border border-white/8 bg-white/[0.03]',
+                                    'border border-white/8 bg-white/3',
                                     'border border-white/75 bg-white/42',
                                   )
                                 : 'bg-primary-100 dark:bg-primary-900/30',
@@ -3208,7 +3208,7 @@ const Sidebar = ({
                             'ml-2 shrink-0 rounded-lg p-2 opacity-100 transition-all sm:opacity-0 sm:group-hover:opacity-100',
                             isScrapbookSidebarTheme
                               ? glassTone(
-                                  'text-white/45 hover:bg-white/[0.05] hover:text-white',
+                                  'text-white/45 hover:bg-white/5 hover:text-white',
                                   'text-slate-400 hover:bg-white/60 hover:text-slate-800',
                                 )
                               : 'text-gray-400 hover:bg-gray-200 hover:text-gray-600 dark:hover:bg-zinc-700 dark:hover:text-gray-200',

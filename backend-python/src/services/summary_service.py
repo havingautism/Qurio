@@ -27,7 +27,7 @@ async def update_session_summary(
 ) -> None:
     """
     Async background task to update session summary.
-    
+
     Args:
         conversation_id: The conversation UUID
         old_summary: The current session summary JSON (or None)
@@ -141,7 +141,7 @@ Expected JSON Structure:
     "topics": ["topic1", "topic2"],
     "last_active_date": "YYYY-MM-DD"
 }}
-        
+
 Time: {datetime.now().isoformat()}
 """
 

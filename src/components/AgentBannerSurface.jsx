@@ -48,8 +48,8 @@ const AgentBannerSurface = ({
           loading="lazy"
         />
       )}
-      <div className="absolute inset-0 bg-gradient-to-r from-black/48 via-black/18 to-black/6 dark:from-black/78 dark:via-black/52 dark:to-black/16" />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-white/10 dark:from-black/36 dark:to-white/8" />
+      <div className="absolute inset-0 bg-linear-to-r from-black/48 via-black/18 to-black/6 dark:from-black/78 dark:via-black/52 dark:to-black/16" />
+      <div className="absolute inset-0 bg-linear-to-t from-black/20 via-transparent to-white/10 dark:from-black/36 dark:to-white/8" />
       <div className="absolute inset-x-0 bottom-0 flex items-end p-4 sm:p-5">
         <div
           className={clsx(

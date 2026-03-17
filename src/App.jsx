@@ -40,7 +40,6 @@ import {
   annotateSystemAgent,
   buildDefaultSystemAgentPayload,
   buildScrapbookSystemAgentPayload,
-  DEFAULT_AGENT_DESCRIPTION,
   DEFAULT_AGENT_ID,
   DEEP_RESEARCH_AGENT_ID,
   SCRAPBOOK_AGENT_ID,
@@ -916,7 +915,7 @@ function App() {
                       <div className="relative z-30 h-20 shrink-0 md:hidden">
                         <div
                           aria-hidden="true"
-                          className="pointer-events-none absolute inset-x-0 top-0 h-21 bg-gradient-to-b from-white/68 via-white/28 to-transparent [mask-image:linear-gradient(to_bottom,black_58%,transparent)] opacity-100 backdrop-blur-xl dark:from-zinc-950/68 dark:via-zinc-950/28"
+                          className="pointer-events-none absolute inset-x-0 top-0 h-21 bg-linear-to-b from-white/68 via-white/28 to-transparent mask-[linear-gradient(to_bottom,black_58%,transparent)] opacity-100 backdrop-blur-xl dark:from-zinc-950/68 dark:via-zinc-950/28"
                         />
                         <div className="pointer-events-none absolute inset-0 flex items-start px-4 pt-4">
                           <div className="pointer-events-auto flex w-full items-center justify-between gap-3">

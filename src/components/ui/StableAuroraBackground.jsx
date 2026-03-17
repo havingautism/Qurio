@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { cn } from '../../lib/utils'
 
 const withAlpha = (color, alpha) => {
@@ -153,7 +153,7 @@ export const StableAuroraBackground = ({
         className={cn(
           'pointer-events-none absolute inset-0 z-0',
           showRadialGradient
-            ? '[mask-image:radial-gradient(ellipse_at_50%_50%,black_26%,transparent_82%)]'
+            ? 'mask-[radial-gradient(ellipse_at_50%_50%,black_26%,transparent_82%)]'
             : '',
         )}
       />

@@ -340,11 +340,9 @@ export const loadSettings = (overrides = {}) => {
   const localFontSize = localStorage.getItem('fontSize')
   const localEnableLongTermMemory = localStorage.getItem('enableLongTermMemory')
   const localMemoryRecallLimit = localStorage.getItem('memoryRecallLimit')
-  const localOcrProvider =
-    localStorage.getItem('ocrProvider') || localStorage.getItem('embeddingProvider')
-  const localOcrModel = localStorage.getItem('ocrModel') || localStorage.getItem('embeddingModel')
-  const localOcrModelSource =
-    localStorage.getItem('ocrModelSource') || localStorage.getItem('embeddingModelSource')
+  const localOcrProvider = localStorage.getItem('ocrProvider')
+  const localOcrModel = localStorage.getItem('ocrModel')
+  const localOcrModelSource = localStorage.getItem('ocrModelSource')
   const localEnablePdfOcr = localStorage.getItem('enablePdfOcr')
   const localScrapbookProvider = localStorage.getItem('scrapbookProvider')
   const localScrapbookModel = localStorage.getItem('scrapbookModel')
@@ -518,11 +516,9 @@ export const loadSettings = (overrides = {}) => {
     fontSize: localFontSize || overrides.fontSize || overrides.messageFontSize || 'medium',
     enableLongTermMemory: resolvedLongTermMemoryPreference,
     memoryRecallLimit: resolvedMemoryRecallLimit,
-    ocrProvider:
-      localOcrProvider || overrides.ocrProvider || overrides.embeddingProvider || '',
-    ocrModel: localOcrModel || overrides.ocrModel || overrides.embeddingModel || '',
-    ocrModelSource:
-      localOcrModelSource || overrides.ocrModelSource || overrides.embeddingModelSource || 'list',
+    ocrProvider: localOcrProvider || overrides.ocrProvider || '',
+    ocrModel: localOcrModel || overrides.ocrModel || '',
+    ocrModelSource: localOcrModelSource || overrides.ocrModelSource || 'list',
     enablePdfOcr:
       typeof overrides.enablePdfOcr === 'boolean'
         ? overrides.enablePdfOcr
@@ -611,11 +607,6 @@ export const loadSettings = (overrides = {}) => {
   if (typeof mergedSettings.enablePdfOcr === 'string') {
     mergedSettings.enablePdfOcr = mergedSettings.enablePdfOcr === 'true'
   }
-
-  // Backward compatibility for older callers that still read embedding keys.
-  mergedSettings.embeddingProvider = mergedSettings.ocrProvider
-  mergedSettings.embeddingModel = mergedSettings.ocrModel
-  mergedSettings.embeddingModelSource = mergedSettings.ocrModelSource
 
   return {
     ...mergedSettings,
@@ -764,24 +755,18 @@ export const saveSettings = async settings => {
   if (settings.memoryRecallLimit !== undefined) {
     localStorage.setItem('memoryRecallLimit', String(settings.memoryRecallLimit))
   }
-  if (settings.ocrProvider !== undefined || settings.embeddingProvider !== undefined) {
-    localStorage.setItem('ocrProvider', settings.ocrProvider ?? settings.embeddingProvider ?? '')
+  if (settings.ocrProvider !== undefined) {
+    localStorage.setItem('ocrProvider', settings.ocrProvider ?? '')
   }
-  if (settings.ocrModel !== undefined || settings.embeddingModel !== undefined) {
-    localStorage.setItem('ocrModel', settings.ocrModel ?? settings.embeddingModel ?? '')
+  if (settings.ocrModel !== undefined) {
+    localStorage.setItem('ocrModel', settings.ocrModel ?? '')
   }
-  if (settings.ocrModelSource !== undefined || settings.embeddingModelSource !== undefined) {
-    localStorage.setItem(
-      'ocrModelSource',
-      settings.ocrModelSource ?? settings.embeddingModelSource ?? 'list',
-    )
+  if (settings.ocrModelSource !== undefined) {
+    localStorage.setItem('ocrModelSource', settings.ocrModelSource ?? 'list')
   }
   if (settings.enablePdfOcr !== undefined) {
     localStorage.setItem('enablePdfOcr', String(!!settings.enablePdfOcr))
   }
-  localStorage.removeItem('embeddingProvider')
-  localStorage.removeItem('embeddingModel')
-  localStorage.removeItem('embeddingModelSource')
   if (settings.scrapbookProvider !== undefined) {
     localStorage.setItem('scrapbookProvider', settings.scrapbookProvider)
   }

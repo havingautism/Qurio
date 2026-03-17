@@ -1016,7 +1016,7 @@ const useChatStore = create((set, get) => ({
    * @param {Array} params.documentSources - Optional metadata for document references (used by UI)
    * @param {Object|null} params.documentSelection - Optional document selection context
    * @param {Array} params.documentSelection.documents - Selected documents for retrieval
-   * @param {boolean} params.documentSelection.skipRetrieval - Skip retrieval when embedding config is incompatible
+   * @param {boolean} params.documentSelection.skipRetrieval - Skip retrieval when indexing config is incompatible
    * @param {Object|null} params.editingInfo - Information about message being edited { index, targetId, partnerId }
    * @param {Object|null} params.callbacks - Callback functions { onTitleAndSpaceGenerated, onSpaceResolved, onAgentResolved, onConversationReady }
    * @param {Array} params.spaces - Available spaces for auto-generation (optional)

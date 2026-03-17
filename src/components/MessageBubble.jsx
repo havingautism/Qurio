@@ -536,7 +536,9 @@ const MessageBubble = ({
   const hasInteractiveForm = formToolHistory.length > 0
   const mainContent = isExpertMessage ? activeExpertResponse?.content || '' : parsed.content
   const pipelineFinalContent =
-    isExpertMessage && typeof mergedMessage?.content === 'string' ? mergedMessage.content : mainContent
+    isExpertMessage && typeof mergedMessage?.content === 'string'
+      ? mergedMessage.content
+      : mainContent
   const pipelineBuildInput = useMemo(
     () => ({
       ...mergedMessage,
@@ -547,7 +549,10 @@ const MessageBubble = ({
     [mergedMessage, pipelineFinalContent, isExpertMessage, expertResponses],
   )
   const hasPipelineData = useMemo(() => {
-    if (Array.isArray(mergedMessage?.pipelineTrace?.nodes) && mergedMessage.pipelineTrace.nodes.length > 0) {
+    if (
+      Array.isArray(mergedMessage?.pipelineTrace?.nodes) &&
+      mergedMessage.pipelineTrace.nodes.length > 0
+    ) {
       return true
     }
     if (isExpertMessage) {
@@ -564,7 +569,14 @@ const MessageBubble = ({
       (Array.isArray(mergedMessage?.streamBlocks) && mergedMessage.streamBlocks.length > 0) ||
       (Array.isArray(baseToolCallHistory) && baseToolCallHistory.length > 0)
     )
-  }, [mergedMessage?.pipelineTrace, mergedMessage?.streamBlocks, isExpertMessage, expertResponses, mainContent, baseToolCallHistory])
+  }, [
+    mergedMessage?.pipelineTrace,
+    mergedMessage?.streamBlocks,
+    isExpertMessage,
+    expertResponses,
+    mainContent,
+    baseToolCallHistory,
+  ])
   const [pipelineTrace, setPipelineTrace] = useState(
     () =>
       (Array.isArray(mergedMessage?.pipelineTrace?.nodes) ? mergedMessage.pipelineTrace : null) ||
@@ -572,7 +584,8 @@ const MessageBubble = ({
   )
   useEffect(() => {
     setPipelineTrace(
-      (Array.isArray(mergedMessage?.pipelineTrace?.nodes) ? mergedMessage.pipelineTrace : null) || null,
+      (Array.isArray(mergedMessage?.pipelineTrace?.nodes) ? mergedMessage.pipelineTrace : null) ||
+        null,
     )
   }, [mergedMessage?.id, mergedMessage?.localId, mergedMessage?.pipelineTrace])
   useEffect(() => {
@@ -592,7 +605,11 @@ const MessageBubble = ({
   }, [isPipelineOpen, pipelineBuildInput, mergedMessage?.pipelineTrace])
   useEffect(() => {
     if (!hasPipelineData || isPipelineOpen) return
-    if (pipelineTrace?.version >= 5 && Array.isArray(pipelineTrace?.nodes) && pipelineTrace.nodes.length > 0) {
+    if (
+      pipelineTrace?.version >= 5 &&
+      Array.isArray(pipelineTrace?.nodes) &&
+      pipelineTrace.nodes.length > 0
+    ) {
       return
     }
     let canceled = false
@@ -2538,9 +2555,7 @@ const MessageBubble = ({
         const formItems = part.items.filter(item => item?.name === 'interactive_form')
         const htmlWidgetItems = part.items.filter(item => item?.name === 'render_html_widget')
         const regularTools = part.items.filter(
-          item =>
-            item?.name !== 'interactive_form' &&
-            item?.name !== 'form_submission_status',
+          item => item?.name !== 'interactive_form' && item?.name !== 'form_submission_status',
         )
 
         if (regularTools.length > 0) {
@@ -3043,8 +3058,7 @@ const MessageBubble = ({
   }
 
   const renderHtmlWidgetItem = (item, widgetKey) => {
-    const payload =
-      parseHtmlWidgetPayload(item.output) ||
+    const payload = parseHtmlWidgetPayload(item.output) ||
       parseHtmlWidgetPayload(item.result) || {
         type: 'html_widget_error',
         code: 'missing_payload',
@@ -3078,7 +3092,7 @@ const MessageBubble = ({
     return (
       <div
         key={widgetKey}
-        className="mb-4 overflow-hidden rounded-2xl border border-white/10 bg-black/15"
+        className="mb-4 overflow-hidden rounded-lg border border-white/10 bg-black/15"
       >
         <div className="flex items-center justify-between border-b border-white/8 px-3 py-2">
           <div className="truncate text-sm font-semibold text-zinc-200">{displayTitle}</div>
@@ -3092,7 +3106,7 @@ const MessageBubble = ({
           sandbox=""
           loading="lazy"
           referrerPolicy="no-referrer"
-          className="w-full border-0"
+          className="no-scrollbar! w-full border-0"
           style={{ height: `${payload.height}px` }}
         />
       </div>

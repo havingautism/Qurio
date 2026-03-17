@@ -1366,7 +1366,9 @@
       "reasoning": "思考过程",
       "finalResponse": "最终回答",
       "finalReport": "最终报告",
-      "researchPlan": "研究规划"
+      "researchPlan": "研究规划",
+      "modelResponse": "模型正文回复",
+      "modelReply": "模型回复"
     },
     "sections": {
       "content": "内容",

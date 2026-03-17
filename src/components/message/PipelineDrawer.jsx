@@ -37,11 +37,15 @@ const NODE_META = {
     icon: ChevronsRight,
     tone: 'text-primary-300 border-primary-500/30 bg-primary-500/10',
   },
+  model_output: {
+    icon: ChevronsRight,
+    tone: 'text-indigo-300 border-indigo-500/30 bg-indigo-500/10',
+  },
 }
 
 const formatDuration = value => {
   const num = Number(value)
-  if (!Number.isFinite(num) || num < 0) return null
+  if (!Number.isFinite(num) || num <= 0) return null
   if (num < 1000) return `${Math.round(num)} ms`
   return `${(num / 1000).toFixed(num >= 10000 ? 0 : 1)} s`
 }
@@ -71,9 +75,7 @@ const SectionBody = ({ section }) => {
 
 const PipelineDrawer = ({ isOpen, onClose, pipeline, t }) => {
   const nodes = Array.isArray(pipeline?.nodes) ? pipeline.nodes : []
-  const [expandedNodeIds, setExpandedNodeIds] = useState(() =>
-    nodes.length > 0 ? new Set([nodes[0].id]) : new Set(),
-  )
+  const [expandedNodeIds, setExpandedNodeIds] = useState(() => new Set())
 
   const panelTitle = useMemo(() => t('pipeline.title', 'Pipeline'), [t])
   const translateNodeTitle = node => {
@@ -86,6 +88,12 @@ const PipelineDrawer = ({ isOpen, onClose, pipeline, t }) => {
     }
     if (node.type === 'final_response' && node.title === 'Final Report') {
       return t('pipeline.nodes.finalReport', 'Final Report')
+    }
+    if (node.type === 'final_response' && node.title === 'Model Response') {
+      return t('pipeline.nodes.modelResponse', 'Model Response')
+    }
+    if (node.type === 'model_output' && node.title === 'Model Reply') {
+      return t('pipeline.nodes.modelReply', 'Model Reply')
     }
     if (node.type === 'workflow_step' && node.title === 'Research Plan') {
       return t('pipeline.nodes.researchPlan', 'Research Plan')
@@ -148,32 +156,59 @@ const PipelineDrawer = ({ isOpen, onClose, pipeline, t }) => {
                 const nodeMeta = NODE_META[node.type] || NODE_META.workflow_step
                 const Icon = nodeMeta.icon
                 const isExpanded = expandedNodeIds.has(node.id)
+                const hasSummary = Boolean(node.summary)
+                const hasExpandableDetails =
+                  Array.isArray(node.detailSections) && node.detailSections.length > 0
                 const duration = formatDuration(node.durationMs)
                 return (
                   <div key={node.id}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setExpandedNodeIds(current => {
-                          const next = new Set(current)
-                          if (next.has(node.id)) next.delete(node.id)
-                          else next.add(node.id)
-                          return next
-                        })
-                      }}
-                      className="w-full rounded-3xl border border-white/8 bg-white/[0.03] px-4 py-4 text-left transition-colors hover:bg-white/[0.05]"
+                    <div
+                      role={hasExpandableDetails ? 'button' : undefined}
+                      tabIndex={hasExpandableDetails ? 0 : undefined}
+                      onClick={
+                        hasExpandableDetails
+                          ? () => {
+                              setExpandedNodeIds(current => {
+                                const next = new Set(current)
+                                if (next.has(node.id)) next.delete(node.id)
+                                else next.add(node.id)
+                                return next
+                              })
+                            }
+                          : undefined
+                      }
+                      onKeyDown={
+                        hasExpandableDetails
+                          ? e => {
+                              if (e.key !== 'Enter' && e.key !== ' ') return
+                              e.preventDefault()
+                              setExpandedNodeIds(current => {
+                                const next = new Set(current)
+                                if (next.has(node.id)) next.delete(node.id)
+                                else next.add(node.id)
+                                return next
+                              })
+                            }
+                          : undefined
+                      }
+                      className={clsx(
+                        'w-full rounded-3xl border border-white/8 bg-white/[0.03] px-4 py-4 text-left',
+                        hasExpandableDetails &&
+                          'cursor-pointer transition-colors hover:bg-white/[0.05]',
+                      )}
                     >
-                      <div className="flex items-start gap-3">
+                      <div className={clsx('flex gap-3', hasSummary ? 'items-start' : 'items-center')}>
                         <div
                           className={clsx(
-                            'mt-0.5 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border',
+                            'inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border',
+                            hasSummary && 'mt-0.5',
                             nodeMeta.tone,
                           )}
                         >
                           <Icon size={18} />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-start gap-3">
+                          <div className={clsx('flex gap-3', hasSummary ? 'items-start' : 'items-center')}>
                             <div className="min-w-0 flex-1">
                               <div className="flex flex-wrap items-center gap-2">
                                 <div className="text-sm font-semibold text-white">
@@ -202,33 +237,35 @@ const PipelineDrawer = ({ isOpen, onClose, pipeline, t }) => {
                                   {duration}
                                 </span>
                               )}
-                              <ChevronDown
-                                size={18}
-                                className={clsx(
-                                  'text-zinc-500 transition-transform duration-200',
-                                  isExpanded && 'rotate-180',
-                                )}
-                              />
+                              {hasExpandableDetails && (
+                                <ChevronDown
+                                  size={18}
+                                  className={clsx(
+                                    'text-zinc-500 transition-transform duration-200',
+                                    isExpanded && 'rotate-180',
+                                  )}
+                                />
+                              )}
                             </div>
                           </div>
-                          {isExpanded && node.detailSections.length > 0 && (
-                            <div className="mt-4 space-y-3 border-t border-white/8 pt-4">
-                              {node.detailSections.map(section => (
-                                <div
-                                  key={`${node.id}-${section.label}`}
-                                  className="rounded-2xl border border-white/8 bg-black/10 p-3"
-                                >
-                                  <div className="mb-2 text-[11px] font-semibold tracking-[0.14em] text-zinc-500 uppercase">
-                                    {translateSectionLabel(section.label)}
-                                  </div>
-                                  <SectionBody section={section} />
-                                </div>
-                              ))}
-                            </div>
-                          )}
                         </div>
                       </div>
-                    </button>
+                      {hasExpandableDetails && isExpanded && node.detailSections.length > 0 && (
+                        <div className="mt-4 space-y-3 border-t border-white/8 pt-4">
+                          {node.detailSections.map(section => (
+                            <div
+                              key={`${node.id}-${section.label}`}
+                              className="rounded-2xl border border-white/8 bg-black/10 p-3"
+                            >
+                              <div className="mb-2 text-[11px] font-semibold tracking-[0.14em] text-zinc-500 uppercase">
+                                {translateSectionLabel(section.label)}
+                              </div>
+                              <SectionBody section={section} />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                     {index < nodes.length - 1 && (
                       <div className="flex justify-center py-1.5 text-zinc-600">
                         <ChevronDown size={18} />

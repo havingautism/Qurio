@@ -1374,7 +1374,9 @@
       "reasoning": "Reasoning",
       "finalResponse": "Final Response",
       "finalReport": "Final Report",
-      "researchPlan": "Research Plan"
+      "researchPlan": "Research Plan",
+      "modelResponse": "Model Response",
+      "modelReply": "Model Reply"
     },
     "sections": {
       "content": "Content",

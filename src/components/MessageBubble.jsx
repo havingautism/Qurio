@@ -535,16 +535,84 @@ const MessageBubble = ({
   const formToolHistory = toolCallHistory.filter(item => item.name === 'interactive_form')
   const hasInteractiveForm = formToolHistory.length > 0
   const mainContent = isExpertMessage ? activeExpertResponse?.content || '' : parsed.content
-  const pipelineTrace = useMemo(
-    () =>
-      ensureMessagePipeline({
-        ...mergedMessage,
-        content: mainContent,
-        expertMode: isExpertMessage,
-        expertResponses,
-      }),
-    [mergedMessage, mainContent, isExpertMessage, expertResponses],
+  const pipelineFinalContent =
+    isExpertMessage && typeof mergedMessage?.content === 'string' ? mergedMessage.content : mainContent
+  const pipelineBuildInput = useMemo(
+    () => ({
+      ...mergedMessage,
+      content: pipelineFinalContent,
+      expertMode: isExpertMessage,
+      expertResponses,
+    }),
+    [mergedMessage, pipelineFinalContent, isExpertMessage, expertResponses],
   )
+  const hasPipelineData = useMemo(() => {
+    if (Array.isArray(mergedMessage?.pipelineTrace?.nodes) && mergedMessage.pipelineTrace.nodes.length > 0) {
+      return true
+    }
+    if (isExpertMessage) {
+      return expertResponses.some(
+        item =>
+          String(item?.content || '').trim().length > 0 ||
+          (Array.isArray(item?.streamBlocks) && item.streamBlocks.length > 0) ||
+          (Array.isArray(item?.toolCallHistory) && item.toolCallHistory.length > 0) ||
+          (Array.isArray(item?.thoughtHistory) && item.thoughtHistory.length > 0),
+      )
+    }
+    return (
+      String(mainContent || '').trim().length > 0 ||
+      (Array.isArray(mergedMessage?.streamBlocks) && mergedMessage.streamBlocks.length > 0) ||
+      (Array.isArray(baseToolCallHistory) && baseToolCallHistory.length > 0)
+    )
+  }, [mergedMessage?.pipelineTrace, mergedMessage?.streamBlocks, isExpertMessage, expertResponses, mainContent, baseToolCallHistory])
+  const [pipelineTrace, setPipelineTrace] = useState(
+    () =>
+      (Array.isArray(mergedMessage?.pipelineTrace?.nodes) ? mergedMessage.pipelineTrace : null) ||
+      null,
+  )
+  useEffect(() => {
+    setPipelineTrace(
+      (Array.isArray(mergedMessage?.pipelineTrace?.nodes) ? mergedMessage.pipelineTrace : null) || null,
+    )
+  }, [mergedMessage?.id, mergedMessage?.localId, mergedMessage?.pipelineTrace])
+  useEffect(() => {
+    if (!isPipelineOpen) return
+    let canceled = false
+    if (Array.isArray(mergedMessage?.pipelineTrace?.nodes)) {
+      setPipelineTrace(mergedMessage.pipelineTrace)
+    }
+    const frame = requestAnimationFrame(() => {
+      if (canceled) return
+      setPipelineTrace(ensureMessagePipeline(pipelineBuildInput))
+    })
+    return () => {
+      canceled = true
+      cancelAnimationFrame(frame)
+    }
+  }, [isPipelineOpen, pipelineBuildInput, mergedMessage?.pipelineTrace])
+  useEffect(() => {
+    if (!hasPipelineData || isPipelineOpen) return
+    if (pipelineTrace?.version >= 5 && Array.isArray(pipelineTrace?.nodes) && pipelineTrace.nodes.length > 0) {
+      return
+    }
+    let canceled = false
+    const schedule =
+      typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function'
+        ? window.requestIdleCallback
+        : callback => window.setTimeout(callback, 24)
+    const cancelSchedule =
+      typeof window !== 'undefined' && typeof window.cancelIdleCallback === 'function'
+        ? window.cancelIdleCallback
+        : window.clearTimeout
+    const token = schedule(() => {
+      if (canceled) return
+      setPipelineTrace(ensureMessagePipeline(pipelineBuildInput))
+    })
+    return () => {
+      canceled = true
+      cancelSchedule(token)
+    }
+  }, [hasPipelineData, isPipelineOpen, pipelineTrace, pipelineBuildInput])
   const documentCitationSources = useMemo(
     () =>
       prepareDocumentCitationSources(
@@ -4689,7 +4757,7 @@ const MessageBubble = ({
         isDownloadMenuOpen={isDownloadMenuOpen}
         setIsDownloadMenuOpen={setIsDownloadMenuOpen}
         downloadMenuRef={downloadMenuRef}
-        onOpenPipeline={pipelineTrace?.nodes?.length ? () => setIsPipelineOpen(true) : undefined}
+        onOpenPipeline={hasPipelineData ? () => setIsPipelineOpen(true) : undefined}
         onDelete={() => {
           if (!onDelete) return
           showConfirmation({

@@ -75,27 +75,113 @@ const extractExpertState = message => {
       ? parsed.expertResponses
           .map(item => {
             if (!item || typeof item !== 'object') return null
-            const normalizedStreamBlocks = Array.isArray(item.streamBlocks)
+
+            const rawStreamBlocks = Array.isArray(item.streamBlocks)
               ? item.streamBlocks
-                  .map((block, index) => ({
-                    seq: Number.isFinite(block?.seq) ? Number(block.seq) : index + 1,
-                    type: String(block?.type || '').toLowerCase(),
-                    content: typeof block?.content === 'string' ? block.content : '',
-                    tool_call_id: block?.tool_call_id || block?.toolCallId || null,
-                    name: block?.name || null,
-                    status: block?.status || null,
-                    arguments: block?.arguments ?? null,
-                    output: block?.output ?? null,
-                    duration_ms: Number.isFinite(block?.duration_ms)
-                      ? Number(block.duration_ms)
+              : Array.isArray(item.stream_blocks)
+                ? item.stream_blocks
+                : []
+            const normalizedStreamBlocks = rawStreamBlocks
+              .map((block, index) => ({
+                seq: Number.isFinite(block?.seq) ? Number(block.seq) : index + 1,
+                global_seq: Number.isFinite(block?.global_seq)
+                  ? Number(block.global_seq)
+                  : Number.isFinite(block?.globalSeq)
+                    ? Number(block.globalSeq)
+                    : null,
+                type: String(block?.type || '').toLowerCase(),
+                content: typeof block?.content === 'string' ? block.content : '',
+                tool_call_id: block?.tool_call_id || block?.toolCallId || null,
+                name: block?.name || null,
+                status: block?.status || null,
+                arguments: block?.arguments ?? null,
+                output: block?.output ?? null,
+                duration_ms: Number.isFinite(block?.duration_ms)
+                  ? Number(block.duration_ms)
+                  : Number.isFinite(block?.durationMs)
+                    ? Number(block.durationMs)
+                    : null,
+              }))
+              .filter(block => block.type)
+              .sort((a, b) => {
+                const aOrder = Number.isFinite(a.global_seq) ? a.global_seq : a.seq
+                const bOrder = Number.isFinite(b.global_seq) ? b.global_seq : b.seq
+                return aOrder - bOrder
+              })
+
+            const rawToolCallHistory = Array.isArray(item.toolCallHistory)
+              ? item.toolCallHistory
+              : Array.isArray(item.tool_call_history)
+                ? item.tool_call_history
+                : []
+            const normalizedToolCallHistory = rawToolCallHistory
+              .map((tool, index) => {
+                if (!tool || typeof tool !== 'object') return null
+                return {
+                  ...tool,
+                  id: tool?.id || tool?.tool_call_id || tool?.toolCallId || `tool-${index + 1}`,
+                  name: tool?.name || tool?.tool_name || tool?.toolName || 'tool',
+                  arguments: tool?.arguments ?? tool?.input ?? null,
+                  output: tool?.output ?? tool?.result ?? null,
+                  durationMs: Number.isFinite(tool?.durationMs)
+                    ? Number(tool.durationMs)
+                    : Number.isFinite(tool?.duration_ms)
+                      ? Number(tool.duration_ms)
                       : null,
-                  }))
-                  .filter(block => block.type)
-                  .sort((a, b) => a.seq - b.seq)
-              : []
+                  streamOrder: Number.isFinite(tool?.streamOrder)
+                    ? Number(tool.streamOrder)
+                    : Number.isFinite(tool?.stream_order)
+                      ? Number(tool.stream_order)
+                      : null,
+                  globalSeq: Number.isFinite(tool?.globalSeq)
+                    ? Number(tool.globalSeq)
+                    : Number.isFinite(tool?.global_seq)
+                      ? Number(tool.global_seq)
+                      : null,
+                }
+              })
+              .filter(Boolean)
+
+            const rawThoughtHistory = Array.isArray(item.thoughtHistory)
+              ? item.thoughtHistory
+              : Array.isArray(item.thought_history)
+                ? item.thought_history
+                : []
+            const normalizedThoughtHistory = rawThoughtHistory
+              .map((thought, index) => {
+                if (!thought || typeof thought !== 'object') return null
+                return {
+                  ...thought,
+                  blockId: thought?.blockId ?? thought?.block_id ?? index + 1,
+                  streamOrder: Number.isFinite(thought?.streamOrder)
+                    ? Number(thought.streamOrder)
+                    : Number.isFinite(thought?.stream_order)
+                      ? Number(thought.stream_order)
+                      : null,
+                  durationMs: Number.isFinite(thought?.durationMs)
+                    ? Number(thought.durationMs)
+                    : Number.isFinite(thought?.duration_ms)
+                      ? Number(thought.duration_ms)
+                      : null,
+                }
+              })
+              .filter(Boolean)
+
             return {
               ...item,
+              agentId: String(item?.agentId || item?.agent_id || ''),
+              agentName: String(item?.agentName || item?.agent_name || ''),
+              agentEmoji: String(item?.agentEmoji || item?.agent_emoji || ''),
+              agentRole: String(item?.agentRole || item?.agent_role || item?.role || ''),
+              task: String(item?.task || item?.assigned_task || ''),
+              content: typeof item?.content === 'string' ? item.content : '',
+              thought: typeof item?.thought === 'string' ? item.thought : '',
+              status: String(item?.status || 'pending'),
+              provider: item?.provider || null,
+              model: item?.model || null,
               streamBlocks: normalizedStreamBlocks,
+              toolCallHistory: normalizedToolCallHistory,
+              thoughtHistory: normalizedThoughtHistory,
             }
           })
           .filter(Boolean)

@@ -1519,6 +1519,11 @@ const useChatStore = create((set, get) => ({
 
           // Initialize per-agent stream states
           const streamStates = new Map()
+          let expertGlobalSeq = 0
+          const nextExpertGlobalSeq = () => {
+            expertGlobalSeq += 1
+            return expertGlobalSeq
+          }
           const getAgentStreamState = agentId => {
             const key = agentId || 'leader'
             if (!streamStates.has(key)) {
@@ -1722,6 +1727,7 @@ const useChatStore = create((set, get) => ({
                       st.lastReasoningAtMs = now
 
                       updateExpertMessage(current => {
+                        const globalSeq = nextExpertGlobalSeq()
                         return {
                           ...current,
                           expertActiveAgentId:
@@ -1745,6 +1751,7 @@ const useChatStore = create((set, get) => ({
                                 textIndex: (item.content || '').length,
                                 content: cleanThought,
                                 streamOrder: ++st.thoughtStreamOrder,
+                                globalSeq,
                                 durationMs,
                               })
                             }
@@ -1754,6 +1761,7 @@ const useChatStore = create((set, get) => ({
                               : []
                             streamBlocks.push({
                               seq: ++st.streamSeq,
+                              global_seq: globalSeq,
                               type: 'reasoning',
                               content: cleanThought,
                               duration_ms: durationMs,
@@ -1780,6 +1788,7 @@ const useChatStore = create((set, get) => ({
                         toolName: chunk.name || 'tool',
                         argumentsText: chunk.arguments || '',
                       })
+                      const globalSeq = nextExpertGlobalSeq()
                       updateExpertMessage(current => ({
                         ...current,
                         expertActiveAgentId:
@@ -1823,6 +1832,7 @@ const useChatStore = create((set, get) => ({
                             step: typeof chunk.step === 'number' ? chunk.step : undefined,
                             total: typeof chunk.total === 'number' ? chunk.total : undefined,
                             streamOrder: ++st.toolStreamOrder,
+                            globalSeq,
                           })
                           st.toolStartedAt.set(nextToolId, Date.now())
                           const streamBlocks = Array.isArray(item.streamBlocks)
@@ -1830,6 +1840,7 @@ const useChatStore = create((set, get) => ({
                             : []
                           streamBlocks.push({
                             seq: ++st.streamSeq,
+                            global_seq: globalSeq,
                             type: 'tool_call',
                             tool_call_id: nextToolId,
                             name: toolName,
@@ -1847,6 +1858,7 @@ const useChatStore = create((set, get) => ({
                       typeof chunk === 'object' &&
                       (chunk.type === 'tool_result' || chunk.type === 'tool_call_completed')
                     ) {
+                      const globalSeq = nextExpertGlobalSeq()
                       updateExpertMessage(current => ({
                         ...current,
                         expertActiveAgentId:
@@ -1885,6 +1897,7 @@ const useChatStore = create((set, get) => ({
                                 typeof chunk.total === 'number'
                                   ? chunk.total
                                   : toolCallHistory[targetIndex].total,
+                              globalSeq,
                             }
                           } else {
                             const newToolId = chunk.id || `${chunk.name || 'tool'}-${Date.now()}`
@@ -1901,6 +1914,7 @@ const useChatStore = create((set, get) => ({
                               step: typeof chunk.step === 'number' ? chunk.step : undefined,
                               total: typeof chunk.total === 'number' ? chunk.total : undefined,
                               streamOrder: ++st.toolStreamOrder,
+                              globalSeq,
                             })
                           }
                           const streamBlocks = Array.isArray(item.streamBlocks)
@@ -1908,6 +1922,7 @@ const useChatStore = create((set, get) => ({
                             : []
                           streamBlocks.push({
                             seq: ++st.streamSeq,
+                            global_seq: globalSeq,
                             type: 'tool_result',
                             tool_call_id: chunk.id || null,
                             name: chunk.name || 'tool',
@@ -1929,6 +1944,7 @@ const useChatStore = create((set, get) => ({
                     if (!cleanText) return
 
                     updateExpertMessage(current => {
+                      const agentGlobalSeq = nextExpertGlobalSeq()
                       const updated = {
                         ...current,
                         expertActiveAgentId: chunkAgentId,
@@ -1940,9 +1956,21 @@ const useChatStore = create((set, get) => ({
                                 streamBlocks: Array.isArray(item.streamBlocks)
                                   ? [
                                       ...item.streamBlocks,
-                                      { seq: ++st.streamSeq, type: 'text', content: cleanText },
+                                      {
+                                        seq: ++st.streamSeq,
+                                        global_seq: agentGlobalSeq,
+                                        type: 'text',
+                                        content: cleanText,
+                                      },
                                     ]
-                                  : [{ seq: ++st.streamSeq, type: 'text', content: cleanText }],
+                                  : [
+                                      {
+                                        seq: ++st.streamSeq,
+                                        global_seq: agentGlobalSeq,
+                                        type: 'text',
+                                        content: cleanText,
+                                      },
+                                    ],
                               }
                             : item,
                         ),
@@ -1955,7 +1983,7 @@ const useChatStore = create((set, get) => ({
                         updated.content = `${current.content || ''}${cleanText}`
                         updated.streamBlocks = [
                           ...(current.streamBlocks || []),
-                          { seq: ++st.streamSeq, type: 'text', content: cleanText },
+                          { seq: ++st.streamSeq, global_seq: agentGlobalSeq, type: 'text', content: cleanText },
                         ]
                       }
 

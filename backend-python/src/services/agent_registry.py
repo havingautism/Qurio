@@ -306,6 +306,8 @@ def _has_selected_skills(request: Any) -> bool:
 
 def _has_skills(request: Any) -> bool:
     """Check if the agent will have any active skills (internal or external)."""
+    if getattr(request, "enable_long_term_memory", False):
+        return True
     if not getattr(request, "enable_skills", False):
         return False
     
@@ -314,11 +316,8 @@ def _has_skills(request: Any) -> bool:
         return True
     
     # 2. Check for internal skills.
-    # Note: agent-memory and skill-creator are handled specifically, but other 
+    # Note: agent-memory and skill-creator are handled specifically, but other
     # internal skills are loaded by default if enable_skills is True.
-    if getattr(request, "enable_long_term_memory", False):
-        return True
-    
     internal_skills_dir = os.path.join(os.path.dirname(__file__), '..', '_internal_skills')
     if os.path.isdir(internal_skills_dir):
         for item in os.listdir(internal_skills_dir):
@@ -336,6 +335,7 @@ def _build_tools(request: Any) -> list[Any]:
         not enabled_names
         and not request.user_tools
         and not getattr(request, "enable_skills", False)
+        and not getattr(request, "enable_long_term_memory", False)
     ):
         return []
     serpapi_api_key = getattr(request, "serpapi_api_key", None)
@@ -658,6 +658,23 @@ def build_agent(request: Any = None, **kwargs: Any) -> Agent:
     enabled_names.update(video_search_names)
 
     instructions_list = []
+    if _has_skills(request):
+        instructions_list.append(
+            "[SKILL EXECUTION PROTOCOL] For any active skill, you MUST read and follow that skill's SKILL.md instructions "
+            "before deciding tool/script workflow."
+        )
+        instructions_list.append(
+            "Treat SKILL.md as authoritative for script selection, argument format, and step order. "
+            "Do not replace required skill workflow with ad-hoc reasoning."
+        )
+        instructions_list.append(
+            "If a skill defines bundled scripts, execute them via execute_skill_script and rely on script output. "
+            "Do not merely summarize what the script would do."
+        )
+        instructions_list.append(
+            "Do not invent enum-like values (for example category names) when a skill requires runtime discovery from tool output."
+        )
+
     if "interactive_form" in enabled_names:
         instructions_list.append(
             "When using the interactive_form tool to collect user information: "
@@ -719,7 +736,7 @@ def build_agent(request: Any = None, **kwargs: Any) -> Agent:
     # Session context (history + summary) is injected manually in stream_chat.py
 
     skills = None
-    if getattr(request, "enable_skills", False):
+    if getattr(request, "enable_skills", False) or getattr(request, "enable_long_term_memory", False):
         skills_dir = os.path.join(os.path.dirname(__file__), '..', '..', '.skills')
         internal_skills_dir = os.path.join(os.path.dirname(__file__), '..', '_internal_skills')
         requested_skills = getattr(request, "skill_ids", [])
@@ -729,7 +746,7 @@ def build_agent(request: Any = None, **kwargs: Any) -> Agent:
             except (json.JSONDecodeError, TypeError):
                 requested_skills = []
         
-        paths = []
+        paths: list[str] = []
         
         # Inject built-in agent-memory skill if long term memory is enabled
         if getattr(request, "enable_long_term_memory", False):
@@ -746,8 +763,11 @@ def build_agent(request: Any = None, **kwargs: Any) -> Agent:
                 if os.path.isdir(item_path):
                     paths.append(item_path)
 
-        if requested_skills:
+        if requested_skills and getattr(request, "enable_skills", False):
             for skill_id in requested_skills:
+                # Built-in agent-memory is already injected by enable_long_term_memory.
+                if skill_id == "agent-memory" and getattr(request, "enable_long_term_memory", False):
+                    continue
                 internal_skill_path = os.path.join(internal_skills_dir, skill_id)
                 external_skill_path = os.path.join(skills_dir, skill_id)
                 
@@ -755,9 +775,19 @@ def build_agent(request: Any = None, **kwargs: Any) -> Agent:
                     paths.append(internal_skill_path)
                 elif os.path.isdir(external_skill_path):
                     paths.append(external_skill_path)
-            
+
         if paths:
-            skills = Skills(loaders=[LocalSkills(path) for path in paths])
+            # Deduplicate paths (same skill may be added by multiple branches).
+            # Prefer first-seen path to keep deterministic load order.
+            unique_paths: list[str] = []
+            seen: set[str] = set()
+            for raw_path in paths:
+                norm = os.path.realpath(raw_path)
+                if norm in seen:
+                    continue
+                seen.add(norm)
+                unique_paths.append(raw_path)
+            skills = Skills(loaders=[LocalSkills(path) for path in unique_paths])
 
     # Merge personalized prompt with tool-derived instructions
     personalized = getattr(request, "personalized_prompt", None)

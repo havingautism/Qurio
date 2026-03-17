@@ -2824,7 +2824,7 @@ requires-dist = [
     { name = "tavily-python", specifier = ">=0.7.23" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.41.0" },
     { name = "wikipedia", specifier = ">=1.4.0" },
-    { name = "x-reader", url = "https://github.com/runesleo/x-reader/archive/d3760a55d7422acd8f1a54843331a5a4adfcbcfd.tar.gz" },
+    { name = "x-reader", git = "https://github.com/runesleo/x-reader.git" },
     { name = "yfinance", specifier = ">=1.2.0" },
     { name = "yt-dlp", specifier = ">=2026.3.13" },
 ]
@@ -3809,7 +3809,7 @@ wheels = [
 [[package]]
 name = "x-reader"
 version = "0.2.0"
-source = { url = "https://github.com/runesleo/x-reader/archive/d3760a55d7422acd8f1a54843331a5a4adfcbcfd.tar.gz" }
+source = { git = "https://github.com/runesleo/x-reader.git#fdd582ccd39c70375d0dba176faeea2e59159ba9" }
 dependencies = [
     { name = "feedparser" },
     { name = "idna" },
@@ -3817,23 +3817,6 @@ dependencies = [
     { name = "python-dotenv" },
     { name = "requests" },
 ]
-sdist = { hash = "sha256:1d9b511ee20d8f7944e64d9273546c5cb3076e0b3c19de1574cb3f54f11de3d1" }
-
-[package.metadata]
-requires-dist = [
-    { name = "feedparser", specifier = ">=6.0" },
-    { name = "idna", specifier = ">=3.6" },
-    { name = "loguru", specifier = ">=0.7" },
-    { name = "mcp", extras = ["cli"], marker = "extra == 'all'", specifier = ">=1.0" },
-    { name = "mcp", extras = ["cli"], marker = "extra == 'mcp'", specifier = ">=1.0" },
-    { name = "playwright", marker = "extra == 'all'", specifier = ">=1.40" },
-    { name = "playwright", marker = "extra == 'browser'", specifier = ">=1.40" },
-    { name = "python-dotenv", specifier = ">=1.0" },
-    { name = "requests", specifier = ">=2.28" },
-    { name = "telethon", marker = "extra == 'all'", specifier = ">=1.34" },
-    { name = "telethon", marker = "extra == 'telegram'", specifier = ">=1.34" },
-]
-provides-extras = ["telegram", "mcp", "browser", "all"]
 
 [[package]]
 name = "yarl"

@@ -583,7 +583,7 @@ class QurioLocalTools(Toolkit):
         Args:
             skill_id: Existing skill id containing the script.
             script_path: Relative path like scripts/foo.py or scripts/foo.sh.
-            args: Optional positional arguments.
+            args: Optional CLI token array (for example: ["--keyword", "cat"]).
             timeout_seconds: Optional timeout before aborting execution.
         """
         try:

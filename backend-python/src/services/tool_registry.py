@@ -250,7 +250,7 @@ AGENT_TOOLS: list[dict[str, Any]] = [
                 "args": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "Optional positional arguments passed to the script.",
+                    "description": "Optional CLI token array passed to the script, e.g. ['--keyword','cat'] (not an object).",
                 },
                 "timeout_seconds": {
                     "type": "number",

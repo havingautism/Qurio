@@ -10,7 +10,7 @@ description: 'Use this skill for independent file-based memory: save durable fac
 Independent file-based memory system for knowledge that survives across conversations.
 
 **Location:** `backend-python/.skills/agent-memory/memories/`
-**Script:** `scripts/memory_store.py`
+**Scripts:** `scripts/list_categories.py`, `scripts/list_memories.py`, `scripts/search_memories.py`, `scripts/save_memory.py`, `scripts/delete_memory.py`
 
 ## Runtime Requirement
 
@@ -86,19 +86,45 @@ related: [src/core/file/fileProcessor.ts]
 
 ## Search Workflow
 
-Use folder-first, then summary-first retrieval:
+### Mandatory Retrieval Protocol
 
-```bash
-python scripts/memory_store.py categories
-python scripts/memory_store.py list
-python scripts/memory_store.py search --keyword "your keyword"
-```
+For any recall/search request, you MUST call `scripts/list_categories.py` first.
 
-**Strategy:**
-- First call `categories` to inspect the folder names under `memories/`.
-- Then choose the most likely category and call `list --category "that-category"` or `search --category "that-category" --keyword "keyword"`.
-- Only do a global `search` when the category is unclear or category-scoped search failed.
-- If `search` returns no results, try a broader keyword or inspect another category.
+Batch-first rule:
+- `scripts/list_memories.py` without `--category` is a GLOBAL BATCH retrieval.
+- This single call already returns memories across all categories.
+- After a global batch call, do not iterate `list_memories.py --category ...` for every category unless the user explicitly asks for per-category drill-down.
+
+Category names are runtime-discovered values, not semantic guesses.
+Never infer category names from the user request.
+Only use exact category strings returned by `list_categories.py`.
+
+Do not call `search_memories.py --category ...` unless that category was returned by the immediately preceding `list_categories.py` result.
+
+If the user asks for "recent memories", "last notes", or similarly vague recall:
+1. Call `list_categories.py`
+2. Call `list_memories.py` (without `--category`, global batch)
+3. Only then decide whether category-scoped or global search is needed
+
+Calling `search_memories.py` with an invented category is an invalid workflow.
+
+Global search is a fallback step, not the first retrieval step when categories are available.
+
+If `search` returns no results:
+1. Retry with a broader keyword
+2. Try another valid category from tool output
+3. Use global search only after category-scoped attempts are exhausted
+
+Do not ask the user for keyword/category before the first retrieval attempt.
+
+### Invalid Behaviors
+
+- Skipping `list_categories.py`
+- Inventing a category not seen in tool output
+- Using global search as the first retrieval step when categories are available
+- Calling `list_memories.py --category ...` repeatedly after a successful global batch list
+- Calling `search_memories.py --category ...` with a value not returned by the latest categories result
+- Asking user to provide category names before reading available categories from tool output
 
 When called by the model, prefer this tool call pattern:
 
@@ -107,8 +133,8 @@ When called by the model, prefer this tool call pattern:
   "name": "execute_skill_script",
   "arguments": {
     "skill_id": "agent-memory",
-    "script_path": "scripts/memory_store.py",
-    "args": ["categories"]
+    "script_path": "scripts/list_categories.py",
+    "args": []
   }
 }
 ```
@@ -120,16 +146,17 @@ Then follow with:
   "name": "execute_skill_script",
   "arguments": {
     "skill_id": "agent-memory",
-    "script_path": "scripts/memory_store.py",
-    "args": ["search", "--category", "pets", "--keyword", "cat"]
+    "script_path": "scripts/search_memories.py",
+    "args": ["--category", "pets", "--keyword", "cat"]
   }
 }
 ```
 
 Important:
 - `args` must be a JSON array of CLI tokens, not an object.
-- Correct: `"args": ["search", "--keyword", "cat"]`
+- Correct: `"args": ["--keyword", "cat"]`
 - Wrong: `"args": {"action": "recall", "query": "cat"}`
+- Runtime guardrail: retrieval calls are preflighted with `list_categories.py` before search execution.
 
 ## Operations
 
@@ -142,13 +169,13 @@ Important:
 5. Only then report success to user
 
 ```bash
-python scripts/memory_store.py save \
+python scripts/save_memory.py \
   --category "project-context" \
   --slug "my-topic" \
   --summary "What this memory is about" \
   --content "Detailed memory content"
 
-python scripts/memory_store.py search --keyword "my-topic"
+python scripts/search_memories.py --keyword "my-topic"
 ```
 
 ### Update
@@ -159,7 +186,7 @@ When information changes:
 - update `status` when relevant (`resolved`, `blocked`, etc.)
 
 ```bash
-python scripts/memory_store.py save \
+python scripts/save_memory.py \
   --category "project-context" \
   --slug "my-topic" \
   --summary "Updated summary" \
@@ -173,7 +200,7 @@ python scripts/memory_store.py save \
 - Prefer merge + keep one canonical file when possible
 - Safe delete:
   ```bash
-  python scripts/memory_store.py delete --category "project-context" --slug "my-topic"
+  python scripts/delete_memory.py --category "project-context" --slug "my-topic"
   ```
 
 ## Guidelines

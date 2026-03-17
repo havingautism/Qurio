@@ -4109,18 +4109,21 @@ const MessageBubble = ({
                         {isNotLast && (
                           <span className="pointer-events-none absolute top-6 bottom-[-16px] -left-5 border-l border-dashed border-gray-300/90 dark:border-zinc-700/90" />
                         )}
-                        <div className="absolute top-0.75 -left-7 flex h-4 w-4 items-center justify-center text-gray-400 dark:text-gray-500">
+                        <div className="absolute top-0.5 -left-7 flex h-4 w-4 items-center justify-center text-gray-400 dark:text-gray-500">
                           <BrainCircuit size={16} />
                         </div>
-                        {typeof thoughtDurationMs === 'number' && thoughtDurationMs > 0 && (
-                          <div className="mb-2 flex justify-end">
-                            <span className="text-xs! text-gray-500 dark:text-gray-400">
+                        <div className="mb-2 flex min-h-5 items-center justify-between gap-3">
+                          <span className="text-sm leading-5 font-medium text-gray-400 dark:text-zinc-500">
+                            {t('messageBubble.reasoningLabel', '思考过程')}
+                          </span>
+                          {typeof thoughtDurationMs === 'number' && thoughtDurationMs > 0 && (
+                            <span className="text-xs! leading-5 text-gray-500 dark:text-gray-400">
                               {t('messageBubble.toolDuration', {
                                 duration: (thoughtDurationMs / 1000).toFixed(2),
                               })}
                             </span>
-                          </div>
-                        )}
+                          )}
+                        </div>
                         <div className="text-base leading-relaxed text-gray-600 dark:text-gray-300">
                           <Streamdown
                             mermaid={mermaidOptions}
@@ -4355,13 +4358,13 @@ const MessageBubble = ({
                         {isNotLast && (
                           <span className="pointer-events-none absolute top-6 bottom-[-16px] -left-5 border-l border-dashed border-gray-300/90 dark:border-zinc-700/90" />
                         )}
-                        <div className="absolute top-0.75 -left-7 flex h-4 w-4 items-center justify-center text-gray-400 dark:text-gray-500">
+                        <div className="absolute top-0 -left-7 flex h-8 w-4 items-center justify-center text-gray-400 dark:text-gray-500">
                           <Wrench size={16} />
                         </div>
 
                         <div className="flex w-full flex-col gap-3 md:flex-row md:items-start md:gap-4">
                           {/* Label Section */}
-                          <div className="shrink-0 text-[11px] font-bold tracking-wider text-gray-400 uppercase select-none md:mt-1.5 dark:text-zinc-500">
+                          <div className="flex h-8 shrink-0 items-center text-[11px] leading-none font-bold tracking-wider text-gray-400 uppercase select-none dark:text-zinc-500">
                             {t('messageBubble.workflowToolCalledPrefix', '已调用')}
                           </div>
 

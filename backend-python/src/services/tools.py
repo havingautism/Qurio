@@ -53,6 +53,20 @@ EXTERNAL_SEARCH_TOOL_NAMES = {
     "search_wikipedia",
 }
 FIXED_SEARCH_MAX_RESULTS = 5
+AGENT_MEMORY_SCRIPT_COMMANDS = {
+    "memory_store.py": "multi",
+    "scripts/memory_store.py": "multi",
+    "save_memory.py": "save",
+    "scripts/save_memory.py": "save",
+    "list_memories.py": "list",
+    "scripts/list_memories.py": "list",
+    "list_categories.py": "categories",
+    "scripts/list_categories.py": "categories",
+    "search_memories.py": "search",
+    "scripts/search_memories.py": "search",
+    "delete_memory.py": "delete",
+    "scripts/delete_memory.py": "delete",
+}
 
 
 def _tool_timeout_seconds(default: float = 20.0) -> float:
@@ -86,22 +100,26 @@ def _parse_loose_object(value: Any) -> dict[str, Any] | None:
 
 def _coerce_agent_memory_args(script_path: str, raw_args: Any) -> list[str] | None:
     normalized_script = str(script_path or "").strip().replace("\\", "/").lower()
-    if normalized_script not in {"memory_store.py", "scripts/memory_store.py"}:
+    script_mode = AGENT_MEMORY_SCRIPT_COMMANDS.get(normalized_script)
+    if not script_mode:
         return None
 
     payload = _parse_loose_object(raw_args)
     if not payload:
         return None
 
-    command = str(
-        payload.get("command")
-        or payload.get("action")
-        or payload.get("operation")
-        or ""
-    ).strip().lower()
+    if script_mode == "multi":
+        command = str(
+            payload.get("command")
+            or payload.get("action")
+            or payload.get("operation")
+            or ""
+        ).strip().lower()
+    else:
+        command = script_mode
 
     if command in {"categories", "folders", "list-categories", "list-folders", "inspect"}:
-        return ["categories"]
+        return ["categories"] if script_mode == "multi" else []
 
     if command in {"recall", "search", "find", "lookup"}:
         keyword = str(
@@ -113,17 +131,26 @@ def _coerce_agent_memory_args(script_path: str, raw_args: Any) -> list[str] | No
         ).strip()
         category = str(payload.get("category") or "").strip()
         if not keyword:
-            return None
-        args = ["search", "--keyword", keyword]
+            args = []
+            if category:
+                args.extend(["--category", category])
+            if script_mode == "multi":
+                args.insert(0, "list")
+            return args
+        args = ["--keyword", keyword]
         if category:
             args.extend(["--category", category])
+        if script_mode == "multi":
+            args.insert(0, "search")
         return args
 
     if command in {"list", "ls"}:
         category = str(payload.get("category") or "").strip()
-        args = ["list"]
+        args = []
         if category:
             args.extend(["--category", category])
+        if script_mode == "multi":
+            args.insert(0, "list")
         return args
 
     if command in {"delete", "remove"}:
@@ -131,7 +158,10 @@ def _coerce_agent_memory_args(script_path: str, raw_args: Any) -> list[str] | No
         slug = str(payload.get("slug") or payload.get("name") or "").strip()
         if not category or not slug:
             return None
-        return ["delete", "--category", category, "--slug", slug]
+        args = ["--category", category, "--slug", slug]
+        if script_mode == "multi":
+            args.insert(0, "delete")
+        return args
 
     if command in {"save", "remember", "store"}:
         category = str(payload.get("category") or "").strip()
@@ -141,7 +171,6 @@ def _coerce_agent_memory_args(script_path: str, raw_args: Any) -> list[str] | No
         if not category or not slug or not summary or not content:
             return None
         args = [
-            "save",
             "--category",
             category,
             "--slug",
@@ -166,9 +195,61 @@ def _coerce_agent_memory_args(script_path: str, raw_args: Any) -> list[str] | No
             args.extend(["--related", ",".join(str(item).strip() for item in related if str(item).strip())])
         if overwrite:
             args.append("--overwrite")
+        if script_mode == "multi":
+            args.insert(0, "save")
         return args
 
     return None
+
+
+def _normalize_agent_memory_list_args(script_path: str, raw_args: list[Any]) -> list[str]:
+    normalized_script = str(script_path or "").strip().replace("\\", "/").lower()
+    script_mode = AGENT_MEMORY_SCRIPT_COMMANDS.get(normalized_script)
+    if not script_mode or script_mode == "multi":
+        return [str(item) for item in raw_args]
+
+    tokens = [str(item) for item in raw_args]
+    if tokens and tokens[0].strip().lower() == script_mode:
+        return tokens[1:]
+    return tokens
+
+
+def _is_agent_memory_search_call(script_path: str, raw_args: list[str]) -> bool:
+    normalized_script = str(script_path or "").strip().replace("\\", "/").lower()
+    script_mode = AGENT_MEMORY_SCRIPT_COMMANDS.get(normalized_script)
+    if script_mode == "search":
+        return True
+    if script_mode == "multi" and raw_args:
+        return raw_args[0].strip().lower() in {"search", "recall", "find", "lookup"}
+    return False
+
+
+def _extract_category_arg(raw_args: list[str]) -> str:
+    for index, token in enumerate(raw_args):
+        if token == "--category" and index + 1 < len(raw_args):
+            return str(raw_args[index + 1]).strip()
+    return ""
+
+
+def _drop_category_arg(raw_args: list[str]) -> list[str]:
+    next_args: list[str] = []
+    skip_next = False
+    for index, token in enumerate(raw_args):
+        if skip_next:
+            skip_next = False
+            continue
+        if token == "--category" and index + 1 < len(raw_args):
+            skip_next = True
+            continue
+        next_args.append(token)
+    return next_args
+
+
+def _has_keyword_arg(raw_args: list[str]) -> bool:
+    for index, token in enumerate(raw_args):
+        if token == "--keyword" and index + 1 < len(raw_args):
+            return bool(str(raw_args[index + 1]).strip())
+    return False
 
 
 def list_tools() -> list[dict[str, Any]]:
@@ -336,13 +417,63 @@ async def _execute_execute_skill_script(args: dict[str, Any]) -> dict[str, Any]:
 
     if not isinstance(raw_args, list):
         raw_args = [str(raw_args)]
+    if skill_id == "agent-memory":
+        raw_args = _normalize_agent_memory_list_args(script_path, raw_args)
     try:
-        return await execute_skill_script_runtime(
+        preflight_result: dict[str, Any] | None = None
+        if skill_id == "agent-memory" and _is_agent_memory_search_call(script_path, raw_args):
+            # Hard guardrail: memory retrieval must enumerate categories before search.
+            preflight_result = await execute_skill_script_runtime(
+                skill_id=skill_id,
+                script_path="scripts/list_categories.py",
+                args=[],
+                timeout_seconds=float(timeout_seconds),
+            )
+            if not preflight_result.get("success"):
+                return {
+                    "success": False,
+                    "error": "agent-memory preflight failed: unable to list categories before search",
+                    "skill_id": skill_id,
+                    "script_path": script_path,
+                    "preflight": preflight_result,
+                }
+            category = _extract_category_arg(raw_args)
+            if category:
+                valid_categories: set[str] = set()
+                try:
+                    parsed = json.loads(str(preflight_result.get("stdout") or "{}"))
+                    for item in parsed.get("items", []) or []:
+                        name = str(item.get("category") or "").strip()
+                        if name:
+                            valid_categories.add(name)
+                except Exception:
+                    valid_categories = set()
+                if valid_categories and category not in valid_categories:
+                    raw_args = _drop_category_arg(raw_args)
+            if not _has_keyword_arg(raw_args):
+                category_for_list = _extract_category_arg(raw_args)
+                list_args = ["--category", category_for_list] if category_for_list else []
+                list_result = await execute_skill_script_runtime(
+                    skill_id=skill_id,
+                    script_path="scripts/list_memories.py",
+                    args=list_args,
+                    timeout_seconds=float(timeout_seconds),
+                )
+                list_result["preflight"] = preflight_result
+                list_result["enforced_preflight"] = True
+                list_result["fallback_from_search"] = True
+                return list_result
+
+        result = await execute_skill_script_runtime(
             skill_id=skill_id,
             script_path=script_path,
             args=[str(item) for item in raw_args],
             timeout_seconds=float(timeout_seconds),
         )
+        if preflight_result is not None:
+            result["preflight"] = preflight_result
+            result["enforced_preflight"] = True
+        return result
     except (FileNotFoundError, ValueError, RuntimeError) as exc:
         return {
             "success": False,

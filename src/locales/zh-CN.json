@@ -1357,6 +1357,7 @@
     "workflowToolCallingPrefix": "调用中",
     "workflowToolCalledPrefix": "已调用",
     "workflowToolFailedPrefix": "调用失败",
+    "reasoningLabel": "思考过程",
     "htmlWidgetFallback": "HTML 小组件渲染失败，已显示回退信息。",
     "deepThinking": "已深度思考",
     "thinking": "深度思考中...",

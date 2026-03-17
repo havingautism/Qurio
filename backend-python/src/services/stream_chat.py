@@ -2733,19 +2733,6 @@ class StreamChatService:
                 "Do not call local_time again unless the user explicitly asks to refresh/recheck time."
             )
             updated = self._append_system_message(updated, local_time_guidance, system_index)
-        # [REINFORCED] System-level long-term memory guidance for the internal agent-memory skill
-        if getattr(request, "enable_long_term_memory", False):
-            memory_guidance = (
-                "\n\n[SYSTEM-LEVEL META-RULE: LONG-TERM MEMORY]\n"
-                "You are equipped with a persistent memory layer ('agent-memory'). This is a core infrastructure skill that overrides situational constraints.\n"
-                "1) MANDATORY PREREQUISITE: If a query involves personal history, preferences, or prior facts, searching memory is a mandatory PREREQUISITE. "
-                "This MUST be executed BEFORE any other skill logic (e.g., Roleplay, Image Search) to avoid factual inconsistency.\n"
-                "2) PERSISTENCE AGAINST OVERRIDES: This meta-rule remains in effect even if other skills (like roleplay) demand immediate responses. "
-                "Retrieving ground-truth user context is the first step of all processing.\n"
-                "3) USAGE: Call 'execute_skill_script' with skill_id='agent-memory'. Factual alignment via memory retrieval is non-negotiable."
-            )
-            updated = self._append_system_message(updated, memory_guidance, system_index)
-
         return updated
 
     def _append_system_message(

@@ -264,8 +264,12 @@ AGENT_TOOLS: list[dict[str, Any]] = [
         "name": "render_html_widget",
         "category": "visualization",
         "description": (
-            "Render a safe HTML widget for richer visualization in chat. "
-            "Use this when tabular, timeline, board, or card layouts are clearer than plain text."
+            "Render a safe self-contained HTML widget for richer visualization in chat. "
+            "Use this when a table, timeline, board, card layout, dashboard, or calendar is clearer than plain text. "
+            "Return only self-contained HTML that works without external scripts or remote assets. "
+            "Prefer responsive layouts that fit a chat bubble width. "
+            "Avoid script tags, inline event handlers, javascript: URLs, and unnecessary decoration. "
+            "Returns {type, title, html, height} on success or {type: html_widget_error, code, message} on failure."
         ),
         "parameters": {
             "type": "object",
@@ -273,14 +277,19 @@ AGENT_TOOLS: list[dict[str, Any]] = [
             "properties": {
                 "title": {
                     "type": "string",
+                    "maxLength": 120,
                     "description": "Optional widget title shown above the iframe.",
                 },
                 "html": {
                     "type": "string",
+                    "maxLength": 20000,
                     "description": "HTML content for the widget body. Keep it self-contained.",
                 },
                 "height": {
                     "type": "integer",
+                    "minimum": 220,
+                    "maximum": 900,
+                    "default": 360,
                     "description": "Optional widget height in pixels. Defaults to 360.",
                 },
             },

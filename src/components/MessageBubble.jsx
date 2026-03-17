@@ -1030,18 +1030,44 @@ const MessageBubble = ({
       try {
         payload = JSON.parse(raw)
       } catch {
-        return null
+        return {
+          type: 'html_widget_error',
+          code: 'invalid_json',
+          message: 'Widget payload is not valid JSON.',
+        }
       }
     }
     if (!payload || typeof payload !== 'object') return null
+
+    const payloadType = String(payload.type || '').trim()
+    if (payloadType === 'html_widget_error') {
+      return {
+        type: 'html_widget_error',
+        code: String(payload.code || 'invalid_payload'),
+        message: String(payload.message || 'HTML widget failed to render.'),
+      }
+    }
+
+    if (payloadType !== 'html_widget') {
+      return {
+        type: 'html_widget_error',
+        code: 'invalid_schema',
+        message: 'Widget payload does not match supported structure.',
+      }
+    }
+
     const html = typeof payload.html === 'string' ? payload.html.trim() : ''
-    if (!html) return null
+    if (!html) {
+      return {
+        type: 'html_widget_error',
+        code: 'empty_html',
+        message: 'No HTML content available.',
+      }
+    }
+
     const title = typeof payload.title === 'string' ? payload.title.trim() : ''
     const rawHeight = Number(payload.height)
-    const height =
-      Number.isFinite(rawHeight) && rawHeight > 0
-        ? Math.max(220, Math.min(rawHeight, 900))
-        : 360
+    const height = Number.isFinite(rawHeight) ? Math.max(220, Math.min(rawHeight, 900)) : 360
     return {
       type: 'html_widget',
       title,
@@ -1069,6 +1095,7 @@ const MessageBubble = ({
     html, body { margin: 0; padding: 0; background: #0f1115; color: #e6e8ef; font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
     body { padding: 10px; box-sizing: border-box; }
     * { box-sizing: border-box; max-width: 100%; }
+    img, video, canvas, svg { max-width: 100%; height: auto; }
     table { width: 100%; border-collapse: collapse; }
     th, td { border: 1px solid rgba(255,255,255,.12); padding: 8px 10px; text-align: left; }
     th { background: rgba(255,255,255,.06); }
@@ -3016,8 +3043,34 @@ const MessageBubble = ({
   }
 
   const renderHtmlWidgetItem = (item, widgetKey) => {
-    const payload = parseHtmlWidgetPayload(item.output) || parseHtmlWidgetPayload(item.result)
-    if (!payload) return null
+    const payload =
+      parseHtmlWidgetPayload(item.output) ||
+      parseHtmlWidgetPayload(item.result) || {
+        type: 'html_widget_error',
+        code: 'missing_payload',
+        message: 'No widget payload found in tool result.',
+      }
+
+    if (payload.type === 'html_widget_error') {
+      return (
+        <div
+          key={widgetKey}
+          className="mb-4 rounded-2xl border border-red-300/40 bg-red-500/8 p-3 text-sm text-red-200"
+        >
+          <div className="font-semibold">{t('tools.renderHtmlWidget', 'HTML Widget')}</div>
+          <div className="mt-1">
+            {t(
+              'messageBubble.htmlWidgetFallback',
+              'Unable to render HTML widget. Showing fallback info.',
+            )}
+          </div>
+          <div className="mt-1 opacity-80">
+            {payload.code}: {payload.message}
+          </div>
+        </div>
+      )
+    }
+
     const displayTitle =
       payload.title || getToolDisplayName(item) || t('tools.renderHtmlWidget', 'HTML Widget')
     const srcDoc = buildWidgetSrcDoc(payload, displayTitle)
@@ -3037,6 +3090,8 @@ const MessageBubble = ({
           title={displayTitle}
           srcDoc={srcDoc}
           sandbox=""
+          loading="lazy"
+          referrerPolicy="no-referrer"
           className="w-full border-0"
           style={{ height: `${payload.height}px` }}
         />

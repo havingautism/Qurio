@@ -24,13 +24,13 @@ except Exception:  # pragma: no cover - backward compatibility only
     from duckduckgo_search import DDGS
 
 from .academic_domains import ACADEMIC_DOMAINS
+from .html_widget_schema import build_html_widget_payload
 from .skill_runtime import (
     execute_skill_script as execute_skill_script_runtime,
     install_skill_dependency as install_skill_dependency_runtime,
 )
 
 FIXED_SEARCH_MAX_RESULTS = 5
-MAX_HTML_WIDGET_SIZE = 20000
 
 
 def _tool_timeout_seconds(default: float = 20.0) -> float:
@@ -527,24 +527,7 @@ class QurioLocalTools(Toolkit):
         ),
     )
     def render_html_widget(self, html: str, title: str = "", height: int = 360) -> dict[str, Any]:
-        safe_html = self._sanitize_html_widget_content(html)
-        if not safe_html:
-            return {
-                "type": "html_widget",
-                "error": "empty_html",
-                "message": "No valid HTML content after sanitization.",
-            }
-        try:
-            resolved_height = int(height or 360)
-        except Exception:
-            resolved_height = 360
-        resolved_height = max(200, min(resolved_height, 900))
-        return {
-            "type": "html_widget",
-            "title": str(title or "").strip(),
-            "html": safe_html,
-            "height": resolved_height,
-        }
+        return build_html_widget_payload({"html": html, "title": title, "height": height})
 
     @tool(
         name="install_skill_dependency",
@@ -815,19 +798,6 @@ class QurioLocalTools(Toolkit):
     def _split_sentences(self, text: str) -> list[str]:
         parts = re.split(r"[.!?\u3002\uff01\uff1f]+", text or "")
         return [s.strip() for s in parts if s.strip()]
-
-    def _sanitize_html_widget_content(self, raw_html: str) -> str:
-        html = str(raw_html or "").strip()
-        if not html:
-            return ""
-        html = re.sub(r"<\s*script[\s\S]*?<\s*/\s*script\s*>", "", html, flags=re.IGNORECASE)
-        html = re.sub(r"\son\w+\s*=\s*\"[^\"]*\"", "", html, flags=re.IGNORECASE)
-        html = re.sub(r"\son\w+\s*=\s*'[^']*'", "", html, flags=re.IGNORECASE)
-        html = re.sub(r"\son\w+\s*=\s*[^\s>]+", "", html, flags=re.IGNORECASE)
-        html = re.sub(r"javascript\s*:", "", html, flags=re.IGNORECASE)
-        if len(html) > MAX_HTML_WIDGET_SIZE:
-            html = html[:MAX_HTML_WIDGET_SIZE]
-        return html
 
     def _resolve_tavily_api_key(self) -> str:
         if self._tavily_api_key:

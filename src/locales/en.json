@@ -1414,6 +1414,7 @@
     "workflowToolCallingPrefix": "Calling",
     "workflowToolCalledPrefix": "Used",
     "workflowToolFailedPrefix": "Failed",
+    "htmlWidgetFallback": "Unable to render HTML widget. Showing fallback info.",
     "deepThinking": "Thinking Content",
     "thinking": "Thinking...",
     "deepThinkingStreaming": "Deep thinking...",

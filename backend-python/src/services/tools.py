@@ -15,6 +15,7 @@ from typing import Any
 import httpx
 
 from .academic_domains import ACADEMIC_DOMAINS
+from .html_widget_schema import build_html_widget_payload
 from .skill_runtime import (
     execute_skill_script as execute_skill_script_runtime,
     install_skill_dependency as install_skill_dependency_runtime,
@@ -52,7 +53,6 @@ EXTERNAL_SEARCH_TOOL_NAMES = {
     "search_wikipedia",
 }
 FIXED_SEARCH_MAX_RESULTS = 5
-MAX_HTML_WIDGET_SIZE = 20000
 
 
 def _tool_timeout_seconds(default: float = 20.0) -> float:
@@ -227,41 +227,8 @@ async def execute_local_tool(
             raise ValueError(f"Unknown local tool: {resolved_name}")
 
 
-def _sanitize_html_widget_content(raw_html: str) -> str:
-    html = str(raw_html or "").strip()
-    if not html:
-        return ""
-    html = re.sub(r"<\s*script[\s\S]*?<\s*/\s*script\s*>", "", html, flags=re.IGNORECASE)
-    html = re.sub(r"\son\w+\s*=\s*\"[^\"]*\"", "", html, flags=re.IGNORECASE)
-    html = re.sub(r"\son\w+\s*=\s*'[^']*'", "", html, flags=re.IGNORECASE)
-    html = re.sub(r"\son\w+\s*=\s*[^\s>]+", "", html, flags=re.IGNORECASE)
-    html = re.sub(r"javascript\s*:", "", html, flags=re.IGNORECASE)
-    if len(html) > MAX_HTML_WIDGET_SIZE:
-        html = html[:MAX_HTML_WIDGET_SIZE]
-    return html
-
-
 async def _execute_render_html_widget(args: dict[str, Any]) -> dict[str, Any]:
-    title = str(args.get("title") or "").strip()
-    raw_html = str(args.get("html") or "")
-    safe_html = _sanitize_html_widget_content(raw_html)
-    if not safe_html:
-        return {
-            "type": "html_widget",
-            "error": "empty_html",
-            "message": "No valid HTML content after sanitization.",
-        }
-    try:
-        height = int(args.get("height") or 360)
-    except Exception:
-        height = 360
-    height = max(200, min(height, 900))
-    return {
-        "type": "html_widget",
-        "title": title,
-        "html": safe_html,
-        "height": height,
-    }
+    return build_html_widget_payload(args)
 
 
 async def _execute_local_time(args: dict[str, Any]) -> dict[str, Any]:

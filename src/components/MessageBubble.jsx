@@ -3009,6 +3009,70 @@ const MessageBubble = ({
     [workflowTextParts],
   )
 
+  const renderToolLoadingCard = (key, { title, badge, kind = 'form' }) => {
+    const isForm = kind === 'form'
+
+    return (
+      <div
+        key={key}
+        className="mb-4 overflow-hidden rounded-2xl border border-white/10 bg-black/10 opacity-100 transition-all duration-300 ease-[cubic-bezier(0.2,0.6,0.2,1)]"
+      >
+        <div className="flex items-center justify-between border-b border-white/8 px-3 py-2">
+          <div className="flex items-center gap-2">
+            <div className="h-4 w-4 rounded-full border border-primary-400/25 bg-primary-500/10">
+              <div className="h-full w-full animate-pulse rounded-full bg-primary-500/35" />
+            </div>
+            <div className="truncate text-sm font-semibold text-zinc-200">{title}</div>
+          </div>
+          <span className="rounded-full border border-white/10 bg-white/6 px-2 py-0.5 text-[11px] font-medium text-zinc-400">
+            {badge}
+          </span>
+        </div>
+        <div className="space-y-3 px-4 py-4">
+          <div className="flex items-center gap-2 text-xs font-medium text-zinc-400">
+            <DotLoader size="sm" />
+            <span>
+              {isForm
+                ? t('tools.interactiveForm', 'Interactive Form')
+                : t('tools.renderHtmlWidget', 'HTML Widget')}
+              {t('messageBubble.toolStatusCalling', '调用中')}
+            </span>
+          </div>
+          {isForm ? (
+            <div className="rounded-2xl border border-white/8 bg-white/4 p-4">
+              <div className="mb-4 h-4 w-30 animate-pulse rounded-full bg-white/8" />
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <div className="h-3 w-16 animate-pulse rounded-full bg-white/10" />
+                  <div className="h-11 w-full animate-pulse rounded-xl bg-white/7" />
+                </div>
+                <div className="space-y-2">
+                  <div className="h-3 w-20 animate-pulse rounded-full bg-white/10" />
+                  <div className="h-11 w-full animate-pulse rounded-xl bg-white/7" />
+                </div>
+                <div className="mt-4 h-10 w-28 animate-pulse rounded-xl bg-primary-500/20" />
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-white/8 bg-linear-to-b from-zinc-900/80 to-black/35 p-4">
+              <div className="mb-4 flex items-center justify-between">
+                <div className="h-4 w-32 animate-pulse rounded-full bg-white/10" />
+                <div className="h-5 w-14 animate-pulse rounded-full bg-white/8" />
+              </div>
+              <div className="space-y-3">
+                <div className="h-22 animate-pulse rounded-2xl bg-white/6" />
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="h-16 animate-pulse rounded-xl bg-white/5" />
+                  <div className="h-16 animate-pulse rounded-xl bg-white/5" />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   const renderInteractiveFormItem = (item, formKey) => {
     const formData = parseFormPayload(item.arguments) || parseFormPayload(item.output)
 
@@ -3022,26 +3086,31 @@ const MessageBubble = ({
 
     if (formData) {
       return (
-        <InteractiveForm
+        <div
           key={formKey}
-          formData={formData}
-          onSubmit={handleFormSubmit}
-          messageId={message.id}
-          isSubmitted={shouldDisableForm}
-          submittedValues={parseFormPayload(item.result) || parseFormPayload(item.output) || {}}
-          developerMode={developerMode}
-          onShowDetails={() => setActiveToolDetail(item)}
-        />
+          className="opacity-100 transition-all duration-300 ease-[cubic-bezier(0.2,0.6,0.2,1)]"
+        >
+          <InteractiveForm
+            formData={formData}
+            onSubmit={handleFormSubmit}
+            messageId={message.id}
+            isSubmitted={shouldDisableForm}
+            submittedValues={parseFormPayload(item.result) || parseFormPayload(item.output) || {}}
+            developerMode={developerMode}
+            onShowDetails={() => setActiveToolDetail(item)}
+          />
+        </div>
       )
     }
 
-    const shouldShowSkeleton = isStreaming || item.status !== 'done'
+    const shouldShowSkeleton =
+      isStreaming || item.status === 'calling' || item.status === 'running' || item.status !== 'done'
     if (shouldShowSkeleton) {
-      return (
-        <div key={`form-skeleton-${formKey}`} className="mb-4 flex items-center py-3">
-          <DotLoader />
-        </div>
-      )
+      return renderToolLoadingCard(`form-skeleton-${formKey}`, {
+        title: getToolDisplayName(item) || t('tools.interactiveForm', 'Interactive Form'),
+        badge: 'FORM',
+        kind: 'form',
+      })
     }
 
     console.error('Failed to parse interactive form arguments:', item)
@@ -3056,14 +3125,26 @@ const MessageBubble = ({
   }
 
   const renderHtmlWidgetItem = (item, widgetKey) => {
-    const payload = parseHtmlWidgetPayload(item.output) ||
-      parseHtmlWidgetPayload(item.result) || {
-        type: 'html_widget_error',
-        code: 'missing_payload',
-        message: 'No widget payload found in tool result.',
-      }
+    const payload = parseHtmlWidgetPayload(item.output) || parseHtmlWidgetPayload(item.result)
+    const shouldShowSkeleton =
+      !payload &&
+      (isStreaming || item.status === 'calling' || item.status === 'running' || item.status !== 'done')
 
-    if (payload.type === 'html_widget_error') {
+    if (shouldShowSkeleton) {
+      return renderToolLoadingCard(`html-widget-skeleton-${widgetKey}`, {
+        title: getToolDisplayName(item) || t('tools.renderHtmlWidget', 'HTML Widget'),
+        badge: 'HTML',
+        kind: 'html',
+      })
+    }
+
+    const resolvedPayload = payload || {
+      type: 'html_widget_error',
+      code: 'missing_payload',
+      message: 'No widget payload found in tool result.',
+    }
+
+    if (resolvedPayload.type === 'html_widget_error') {
       return (
         <div
           key={widgetKey}
@@ -3077,20 +3158,20 @@ const MessageBubble = ({
             )}
           </div>
           <div className="mt-1 opacity-80">
-            {payload.code}: {payload.message}
+            {resolvedPayload.code}: {resolvedPayload.message}
           </div>
         </div>
       )
     }
 
     const displayTitle =
-      payload.title || getToolDisplayName(item) || t('tools.renderHtmlWidget', 'HTML Widget')
-    const srcDoc = buildWidgetSrcDoc(payload, displayTitle)
+      resolvedPayload.title || getToolDisplayName(item) || t('tools.renderHtmlWidget', 'HTML Widget')
+    const srcDoc = buildWidgetSrcDoc(resolvedPayload, displayTitle)
 
     return (
       <div
         key={widgetKey}
-        className="mb-4 overflow-hidden rounded-lg border border-white/10 bg-black/15"
+        className="mb-4 overflow-hidden rounded-lg border border-white/10 bg-black/15 opacity-100 transition-all duration-300 ease-[cubic-bezier(0.2,0.6,0.2,1)]"
       >
         <div className="flex items-center justify-between border-b border-white/8 px-3 py-2">
           <div className="truncate text-sm font-semibold text-zinc-200">{displayTitle}</div>
@@ -3105,7 +3186,7 @@ const MessageBubble = ({
           loading="lazy"
           referrerPolicy="no-referrer"
           className="no-scrollbar! w-full border-0"
-          style={{ height: `${payload.height}px` }}
+          style={{ height: `${resolvedPayload.height}px` }}
         />
       </div>
     )

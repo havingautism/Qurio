@@ -159,3 +159,4 @@ cython_debug/
 test_*.py
 
 src/data/*
+/.runtime/exports/pptx/

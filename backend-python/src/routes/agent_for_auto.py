@@ -4,7 +4,9 @@ Agent for auto mode API routes.
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import os
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
@@ -17,6 +19,17 @@ from ._request_secrets import get_llm_api_key
 
 router = APIRouter(tags=["agent-for-auto"])
 logger = logging.getLogger(__name__)
+
+
+def _agent_for_auto_timeout_seconds() -> float:
+    raw = os.getenv("AGENT_FOR_AUTO_TIMEOUT_MS", "8000")
+    try:
+        timeout_ms = int(raw)
+    except (TypeError, ValueError):
+        timeout_ms = 8000
+    if timeout_ms <= 0:
+        timeout_ms = 8000
+    return timeout_ms / 1000
 
 
 @router.post("/agent-for-auto")
@@ -67,17 +80,23 @@ async def _build_agent_for_auto_result(
     user_locale: str | None,
 ) -> dict[str, str | None]:
     try:
-        agent_name = await generate_agent_for_auto(
-            provider=provider,
-            user_message=message,
-            current_space=current_space,
-            api_key=api_key,
-            base_url=base_url,
-            model=model,
-            user_timezone=user_timezone,
-            user_locale=user_locale,
+        agent_name = await asyncio.wait_for(
+            generate_agent_for_auto(
+                provider=provider,
+                user_message=message,
+                current_space=current_space,
+                api_key=api_key,
+                base_url=base_url,
+                model=model,
+                user_timezone=user_timezone,
+                user_locale=user_locale,
+            ),
+            timeout=_agent_for_auto_timeout_seconds(),
         )
         return {"agentName": agent_name}
+    except TimeoutError:
+        logger.warning("agent-for-auto timed out, fallback to null agent")
+        return {"agentName": None}
     except Exception as exc:  # noqa: BLE001
         logger.warning("agent-for-auto failed, fallback to null agent: %s", exc)
         return {"agentName": None}

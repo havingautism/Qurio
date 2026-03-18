@@ -78,7 +78,7 @@ const HtmlWidgetCard = ({ widgetKey, widget, displayTitle, t }) => {
         <iframe
           title={displayTitle}
           srcDoc={srcDoc}
-          sandbox=""
+          sandbox="allow-scripts"
           loading="lazy"
           referrerPolicy="no-referrer"
           className="no-scrollbar! w-full border-0"
@@ -114,7 +114,7 @@ const HtmlWidgetCard = ({ widgetKey, widget, displayTitle, t }) => {
               <iframe
                 title={`${displayTitle}-modal`}
                 srcDoc={srcDoc}
-                sandbox=""
+                sandbox="allow-scripts"
                 loading="lazy"
                 referrerPolicy="no-referrer"
                 className="h-full w-full border-0 bg-[#0f1115]"

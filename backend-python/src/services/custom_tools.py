@@ -26,6 +26,9 @@ except Exception:  # pragma: no cover - backward compatibility only
 
 from .academic_domains import ACADEMIC_DOMAINS
 from .html_widget_schema import build_html_widget_payload
+from .pptx_builder import build_pptx_file_async
+from .pptx_schema import build_pptx_payload
+from .pptx_store import create_pptx_path, register_pptx_file
 from .skill_runtime import (
     execute_skill_script as execute_skill_script_runtime,
 )
@@ -142,6 +145,14 @@ def _normalize_list_input(val: Any) -> list[str]:
             return [i.strip() for i in val.split(",") if i.strip()]
         return [val]
     return []
+
+
+def _sanitize_pptx_filename(raw_title: Any) -> str:
+    title = str(raw_title or "presentation").strip() or "presentation"
+    safe = re.sub(r'[\\/:*?"<>|]+', "-", title).strip().strip(".")
+    if not safe:
+        safe = "presentation"
+    return f"{safe}.pptx"
 
 
 @tool(
@@ -462,6 +473,7 @@ class QurioLocalTools(Toolkit):
             self.extract_text,
             self.json_repair,
             self.render_html_widget,
+            self.ppt_generator,
             interactive_form,
             self.install_skill_dependency,
             self.execute_skill_script,
@@ -531,6 +543,63 @@ class QurioLocalTools(Toolkit):
     )
     def render_html_widget(self, html: str, title: str = "", height: int = 360) -> dict[str, Any]:
         return build_html_widget_payload({"html": html, "title": title, "height": height})
+
+    @tool(
+        name="ppt_generator",
+        description=(
+            "Generate a real downloadable PPTX file with automatic pagination."
+        ),
+    )
+    def ppt_generator(
+        self,
+        html: str = "",
+        slides_html: Any = None,
+        title: str = "Generated Presentation",
+        render_mode: str = "auto",
+        template_mode: str = "off",
+        qa_preview_mode: str = "basic",
+        page: Any = None,
+        paginate: Any = None,
+        theme: Any = None,
+    ) -> dict[str, Any]:
+        request_payload = build_pptx_payload(
+            {
+                "html": html,
+                "slides_html": slides_html if slides_html is not None else [],
+                "title": title,
+                "render_mode": render_mode,
+                "template_mode": template_mode,
+                "qa_preview_mode": qa_preview_mode,
+                "page": page if page is not None else {},
+                "paginate": paginate if paginate is not None else {},
+                "theme": theme if theme is not None else {},
+            }
+        )
+        if request_payload.get("type") == "pptx_error":
+            return request_payload
+
+        output_path = create_pptx_path()
+        render_result = _run_async_tool_sync(
+            lambda: build_pptx_file_async(request_payload, str(output_path)),
+            90.0,
+        )
+        if render_result.get("type") == "pptx_error":
+            return render_result
+
+        file_name = _sanitize_pptx_filename(request_payload.get("title"))
+        registered = register_pptx_file(file_path=str(output_path), filename=file_name)
+        return {
+            "type": "pptx_file",
+            "title": request_payload.get("title") or "Generated Presentation",
+            "slide_count": int(render_result.get("slide_count") or 0),
+            "filename": file_name,
+            "download_url": registered["download_url"],
+            "expires_at": registered["expires_at"],
+            "preview_html": str(render_result.get("preview_html") or ""),
+            "preview_height": 360,
+            "qa_issues": render_result.get("qa_issues") if isinstance(render_result.get("qa_issues"), list) else [],
+            "render_mode_used": str(render_result.get("render_mode_used") or "semantic"),
+        }
 
     @tool(
         name="install_skill_dependency",

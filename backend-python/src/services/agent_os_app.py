@@ -52,6 +52,9 @@ from ..routes import (
     env as env_route,
 )
 from ..routes import (
+    files as files_route,
+)
+from ..routes import (
     memory as memory_route,
 )
 from ..routes import (
@@ -134,6 +137,7 @@ def _build_base_app() -> FastAPI:
     app.include_router(email_route.router, prefix="/api")
     app.include_router(scrapbook_route.router, prefix="/api")
     app.include_router(env_route.router, prefix="/api")
+    app.include_router(files_route.router, prefix="/api")
     app.include_router(skills_route.router, prefix="/api")
     return app
 

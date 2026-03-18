@@ -16,6 +16,9 @@ import httpx
 
 from .academic_domains import ACADEMIC_DOMAINS
 from .html_widget_schema import build_html_widget_payload
+from .pptx_builder import build_pptx_file_async
+from .pptx_schema import build_pptx_payload
+from .pptx_store import create_pptx_path, register_pptx_file
 from .skill_runtime import (
     execute_skill_script as execute_skill_script_runtime,
 )
@@ -254,6 +257,14 @@ def _has_keyword_arg(raw_args: list[str]) -> bool:
     return False
 
 
+def _sanitize_pptx_filename(raw_title: Any) -> str:
+    title = str(raw_title or "presentation").strip() or "presentation"
+    safe = re.sub(r'[\\/:*?"<>|]+', "-", title).strip().strip(".")
+    if not safe:
+        safe = "presentation"
+    return f"{safe}.pptx"
+
+
 def list_tools() -> list[dict[str, Any]]:
     return list_tool_registry()
 
@@ -306,12 +317,42 @@ async def execute_local_tool(
             return await _execute_url_extract(args)
         case "render_html_widget":
             return await _execute_render_html_widget(args)
+        case "ppt_generator":
+            return await _execute_ppt_generator(args)
+        case "html_to_pptx":
+            return await _execute_ppt_generator(args)
         case _:
             raise ValueError(f"Unknown local tool: {resolved_name}")
 
 
 async def _execute_render_html_widget(args: dict[str, Any]) -> dict[str, Any]:
     return build_html_widget_payload(args)
+
+
+async def _execute_ppt_generator(args: dict[str, Any]) -> dict[str, Any]:
+    request_payload = build_pptx_payload(args)
+    if request_payload.get("type") == "pptx_error":
+        return request_payload
+
+    output_path = create_pptx_path()
+    render_result = await build_pptx_file_async(request_payload, str(output_path))
+    if render_result.get("type") == "pptx_error":
+        return render_result
+
+    filename = _sanitize_pptx_filename(request_payload.get("title"))
+    registered = register_pptx_file(file_path=str(output_path), filename=filename)
+    return {
+        "type": "pptx_file",
+        "title": request_payload.get("title") or "Generated Presentation",
+        "slide_count": int(render_result.get("slide_count") or 0),
+        "filename": filename,
+        "download_url": registered["download_url"],
+        "expires_at": registered["expires_at"],
+        "preview_html": str(render_result.get("preview_html") or ""),
+        "preview_height": 360,
+        "qa_issues": render_result.get("qa_issues") if isinstance(render_result.get("qa_issues"), list) else [],
+        "render_mode_used": str(render_result.get("render_mode_used") or "semantic"),
+    }
 
 
 async def _execute_local_time(args: dict[str, Any]) -> dict[str, Any]:

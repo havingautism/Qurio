@@ -80,6 +80,7 @@ import {
   prepareDocumentCitationSources,
 } from '../lib/documentCitationViewModel'
 import { ensureMessagePipeline } from '../lib/chat/pipelineViewModel'
+import { getBackendUrl } from '../lib/settings'
 
 const PROVIDER_META = {
   gemini: {
@@ -1091,6 +1092,65 @@ const MessageBubble = ({
       height,
     }
   }
+
+  const parsePptxPayload = raw => {
+    if (!raw) return null
+    let payload = raw
+    if (typeof raw === 'string') {
+      try {
+        payload = JSON.parse(raw)
+      } catch {
+        return null
+      }
+    }
+    if (!payload || typeof payload !== 'object') return null
+    if (String(payload.type || '').trim() !== 'pptx_file') return null
+
+    const downloadUrl = typeof payload.download_url === 'string' ? payload.download_url.trim() : ''
+    if (!downloadUrl) return null
+
+    const filename = typeof payload.filename === 'string' ? payload.filename.trim() : 'presentation.pptx'
+    const title = typeof payload.title === 'string' ? payload.title.trim() : ''
+    const slideCount = Number(payload.slide_count)
+    const expiresAt = typeof payload.expires_at === 'string' ? payload.expires_at.trim() : ''
+    const previewHtml = typeof payload.preview_html === 'string' ? payload.preview_html.trim() : ''
+    const previewHeightRaw = Number(payload.preview_height)
+    const previewHeight = Number.isFinite(previewHeightRaw)
+      ? Math.max(220, Math.min(previewHeightRaw, 900))
+      : 320
+    const qaIssues = Array.isArray(payload.qa_issues)
+      ? payload.qa_issues
+          .map(item =>
+            String(item || '')
+              .trim()
+              .replace(/_/g, ' '),
+          )
+          .filter(Boolean)
+      : []
+    const renderModeUsed =
+      typeof payload.render_mode_used === 'string' ? payload.render_mode_used.trim() : ''
+    return {
+      type: 'pptx_file',
+      filename: filename || 'presentation.pptx',
+      title,
+      slideCount: Number.isFinite(slideCount) ? Math.max(0, Math.floor(slideCount)) : 0,
+      downloadUrl,
+      expiresAt,
+      previewHtml,
+      previewHeight,
+      qaIssues,
+      renderModeUsed,
+    }
+  }
+
+  const resolveBackendDownloadUrl = useCallback(rawUrl => {
+    const value = String(rawUrl || '').trim()
+    if (!value) return ''
+    if (/^https?:\/\//i.test(value)) return value
+    const backendBase = String(getBackendUrl() || '').replace(/\/+$/, '')
+    if (!backendBase) return value
+    return value.startsWith('/') ? `${backendBase}${value}` : `${backendBase}/${value}`
+  }, [])
 
   const [isDark, setIsDark] = useState(document.documentElement.classList.contains('dark'))
   const mainContentRef = useRef(null)
@@ -2524,8 +2584,15 @@ const MessageBubble = ({
       if (part.type === 'tools' && Array.isArray(part.items)) {
         const formItems = part.items.filter(item => item?.name === 'interactive_form')
         const htmlWidgetItems = part.items.filter(item => item?.name === 'render_html_widget')
+        const pptxItems = part.items.filter(
+          item => item?.name === 'ppt_generator' || item?.name === 'html_to_pptx',
+        )
         const regularTools = part.items.filter(
-          item => item?.name !== 'interactive_form' && item?.name !== 'form_submission_status',
+          item =>
+            item?.name !== 'interactive_form' &&
+            item?.name !== 'form_submission_status' &&
+            item?.name !== 'ppt_generator' &&
+            item?.name !== 'html_to_pptx',
         )
 
         if (regularTools.length > 0) {
@@ -2564,6 +2631,14 @@ const MessageBubble = ({
             type: 'html_widget',
             key: `${part.key || `html-widget-${i}`}-widget`,
             items: htmlWidgetItems,
+          })
+        }
+
+        if (pptxItems.length > 0) {
+          rawParts.push({
+            type: 'pptx_file',
+            key: `${part.key || `pptx-file-${i}`}-file`,
+            items: pptxItems,
           })
         }
       }
@@ -2991,8 +3066,8 @@ const MessageBubble = ({
       >
         <div className="flex items-center justify-between border-b border-white/8 px-3 py-2">
           <div className="flex items-center gap-2">
-            <div className="h-4 w-4 rounded-full border border-primary-400/25 bg-primary-500/10">
-              <div className="h-full w-full animate-pulse rounded-full bg-primary-500/35" />
+            <div className="bg-pr00/10 h-4 w-4 rounded-full border">
+              <div className="bg-primary-500/35 bg-primary-500/35 animate- h-full w-full" />
             </div>
             <div className="truncate text-sm font-semibold text-zinc-200">{title}</div>
           </div>
@@ -3022,7 +3097,7 @@ const MessageBubble = ({
                   <div className="h-3 w-20 animate-pulse rounded-full bg-white/10" />
                   <div className="h-11 w-full animate-pulse rounded-xl bg-white/7" />
                 </div>
-                <div className="mt-4 h-10 w-28 animate-pulse rounded-xl bg-primary-500/20" />
+                <div className="bg-primary-500/20 bg-primary-500/20 animat mt-4 h-10 w-28" />
               </div>
             </div>
           ) : (
@@ -3076,7 +3151,10 @@ const MessageBubble = ({
     }
 
     const shouldShowSkeleton =
-      isStreaming || item.status === 'calling' || item.status === 'running' || item.status !== 'done'
+      isStreaming ||
+      item.status === 'calling' ||
+      item.status === 'running' ||
+      item.status !== 'done'
     if (shouldShowSkeleton) {
       return renderToolLoadingCard(`form-skeleton-${formKey}`, {
         title: getToolDisplayName(item) || t('tools.interactiveForm', 'Interactive Form'),
@@ -3100,7 +3178,10 @@ const MessageBubble = ({
     const payload = parseHtmlWidgetPayload(item.output) || parseHtmlWidgetPayload(item.result)
     const shouldShowSkeleton =
       !payload &&
-      (isStreaming || item.status === 'calling' || item.status === 'running' || item.status !== 'done')
+      (isStreaming ||
+        item.status === 'calling' ||
+        item.status === 'running' ||
+        item.status !== 'done')
 
     if (shouldShowSkeleton) {
       return renderToolLoadingCard(`html-widget-skeleton-${widgetKey}`, {
@@ -3137,7 +3218,9 @@ const MessageBubble = ({
     }
 
     const displayTitle =
-      resolvedPayload.title || getToolDisplayName(item) || t('tools.renderHtmlWidget', 'HTML Widget')
+      resolvedPayload.title ||
+      getToolDisplayName(item) ||
+      t('tools.renderHtmlWidget', 'HTML Widget')
     return (
       <HtmlWidgetCard
         key={widgetKey}
@@ -3146,6 +3229,76 @@ const MessageBubble = ({
         displayTitle={displayTitle}
         t={t}
       />
+    )
+  }
+
+  const renderPptxFileItem = (item, pptxKey) => {
+    const payload = parsePptxPayload(item.output) || parsePptxPayload(item.result)
+    const shouldShowSkeleton =
+      !payload &&
+      (isStreaming ||
+        item.status === 'calling' ||
+        item.status === 'running' ||
+        item.status !== 'done')
+
+    if (shouldShowSkeleton) {
+      return renderToolLoadingCard(`pptx-skeleton-${pptxKey}`, {
+        title: getToolDisplayName(item) || t('tools.pptGenerator', 'PPT Generator'),
+        badge: 'PPTX',
+        kind: 'html',
+      })
+    }
+
+    if (!payload) {
+      return (
+        <div
+          key={pptxKey}
+          className="mb-4 rounded-2xl border border-red-300/40 bg-red-500/8 p-3 text-sm text-red-200"
+        >
+          <div className="font-semibold">{t('tools.pptGenerator', 'PPT Generator')}</div>
+          <div className="mt-1">No PPTX payload found in tool result.</div>
+        </div>
+      )
+    }
+
+    return (
+      <div key={pptxKey}>
+        {payload.previewHtml ? (
+          <HtmlWidgetCard
+            widgetKey={`${pptxKey}-preview`}
+            widget={{
+              title: `${payload.title || t('tools.pptGenerator', 'PPT Generator')} Preview`,
+              html: payload.previewHtml,
+              height: payload.previewHeight,
+            }}
+            displayTitle={`${payload.title || t('tools.pptGenerator', 'PPT Generator')} Preview`}
+            t={t}
+          />
+        ) : null}
+        <div className="mb-4 rounded-2xl border border-white/10 bg-black/15 p-4 text-sm text-zinc-200">
+          <div className="mb-1 text-sm font-semibold">
+            {payload.title || getToolDisplayName(item) || t('tools.pptGenerator', 'PPT Generator')}
+          </div>
+          <div className="mb-3 text-xs text-zinc-400">
+            {payload.filename}
+            {payload.slideCount > 0 ? ` · ${payload.slideCount} slides` : ''}
+            {payload.renderModeUsed ? ` · ${payload.renderModeUsed}` : ''}
+          </div>
+          {payload.qaIssues?.length ? (
+            <div className="mb-3 rounded-xl border border-amber-400/25 bg-amber-500/8 px-3 py-2 text-[11px] text-amber-100">
+              {payload.qaIssues.slice(0, 3).join(' · ')}
+            </div>
+          ) : null}
+          <a
+            href={resolveBackendDownloadUrl(payload.downloadUrl)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center rounded-full border border-white/15 bg-white/8 px-3 py-1.5 text-xs font-medium text-zinc-100 transition-colors hover:bg-white/14"
+          >
+            {t('messageBubble.download', 'Download')}
+          </a>
+        </div>
+      </div>
     )
   }
 
@@ -3209,6 +3362,16 @@ const MessageBubble = ({
         <React.Fragment key={part.key || `html-widget-outside-${idx}`}>
           {part.items.map((item, widgetIdx) =>
             renderHtmlWidgetItem(item, `html-widget-${part.key || idx}-${item.id || widgetIdx}`),
+          )}
+        </React.Fragment>
+      )
+    }
+
+    if (part.type === 'pptx_file') {
+      return (
+        <React.Fragment key={part.key || `pptx-file-outside-${idx}`}>
+          {part.items.map((item, fileIdx) =>
+            renderPptxFileItem(item, `pptx-file-${part.key || idx}-${item.id || fileIdx}`),
           )}
         </React.Fragment>
       )

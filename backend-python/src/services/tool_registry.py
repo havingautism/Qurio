@@ -19,6 +19,7 @@ TOOL_ALIASES: dict[str, str] = {
     "get_company_news": "yfinance_tools",
     "get_technical_indicators": "yfinance_tools",
     "get_historical_stock_prices": "yfinance_tools",
+    "html_to_pptx": "ppt_generator",
 }
 
 GLOBAL_TOOLS: list[dict[str, Any]] = [
@@ -291,6 +292,80 @@ AGENT_TOOLS: list[dict[str, Any]] = [
                     "maximum": 900,
                     "default": 360,
                     "description": "Optional widget height in pixels. Defaults to 360.",
+                },
+            },
+        },
+    },
+    {
+        "id": "ppt_generator",
+        "name": "ppt_generator",
+        "category": "visualization",
+        "description": (
+            "Generate a real downloadable .pptx presentation with automatic pagination. "
+            "Returns {type: pptx_file, slide_count, filename, download_url, expires_at} on success."
+        ),
+        "parameters": {
+            "type": "object",
+            "required": [],
+            "properties": {
+                "html": {
+                    "type": "string",
+                    "description": "Single HTML content for PPT generation. Use with slides_html omitted.",
+                },
+                "slides_html": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Preferred: per-slide HTML list. Each item is assembled into paged preview and slide generation.",
+                },
+                "title": {
+                    "type": "string",
+                    "description": "Presentation title and default filename prefix.",
+                },
+                "render_mode": {
+                    "type": "string",
+                    "enum": ["auto", "semantic", "fidelity"],
+                    "description": "auto tries fidelity first for slide-based HTML then falls back to semantic.",
+                },
+                "template_mode": {
+                    "type": "string",
+                    "enum": ["off", "keep_layout"],
+                    "description": "Reserved for template-based rendering. Currently supports off/keep_layout flags.",
+                },
+                "qa_preview_mode": {
+                    "type": "string",
+                    "enum": ["off", "basic", "strict"],
+                    "description": "Controls quality hints in output preview.",
+                },
+                "page": {
+                    "type": "object",
+                    "properties": {
+                        "width_in": {"type": "number"},
+                        "height_in": {"type": "number"},
+                        "margin_px": {"type": "integer"},
+                    },
+                },
+                "paginate": {
+                    "type": "object",
+                    "properties": {
+                        "mode": {"type": "string", "enum": ["auto", "selector"]},
+                        "selector": {"type": "string"},
+                        "max_chars_per_slide": {"type": "integer"},
+                        "respect_page_break": {"type": "boolean"},
+                    },
+                },
+                "theme": {
+                    "anyOf": [
+                        {"type": "string", "description": "Theme preset, e.g. modern-gradient."},
+                        {
+                            "type": "object",
+                            "properties": {
+                                "font_family": {"type": "string"},
+                                "title_color": {"type": "string"},
+                                "text_color": {"type": "string"},
+                                "background_color": {"type": "string"},
+                            },
+                        },
+                    ],
                 },
             },
         },

@@ -56,6 +56,7 @@ import AgentAvatar from './AgentAvatar'
 import AgentBannerSurface from './AgentBannerSurface'
 import InteractiveForm from './InteractiveForm'
 import DeepResearchGoalCard from './message/DeepResearchGoalCard'
+import HtmlWidgetCard from './message/HtmlWidgetCard'
 import MessageActionBar from './message/MessageActionBar'
 import PipelineDrawer from './message/PipelineDrawer'
 import { getHostname } from './message/messageUtils'
@@ -1090,35 +1091,6 @@ const MessageBubble = ({
       height,
     }
   }
-
-  const buildWidgetSrcDoc = useCallback((widget, fallbackTitle) => {
-    const title = widget?.title || fallbackTitle || 'Widget'
-    const bodyHtml = widget?.html || ''
-    const escapedTitle = String(title)
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;')
-      .replaceAll('"', '&quot;')
-    return `<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>${escapedTitle}</title>
-  <style>
-    :root { color-scheme: dark; }
-    html, body { margin: 0; padding: 0; background: #0f1115; color: #e6e8ef; font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-    body { padding: 10px; box-sizing: border-box; }
-    * { box-sizing: border-box; max-width: 100%; }
-    img, video, canvas, svg { max-width: 100%; height: auto; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { border: 1px solid rgba(255,255,255,.12); padding: 8px 10px; text-align: left; }
-    th { background: rgba(255,255,255,.06); }
-  </style>
-</head>
-<body>${bodyHtml}</body>
-</html>`
-  }, [])
 
   const [isDark, setIsDark] = useState(document.documentElement.classList.contains('dark'))
   const mainContentRef = useRef(null)
@@ -3166,29 +3138,14 @@ const MessageBubble = ({
 
     const displayTitle =
       resolvedPayload.title || getToolDisplayName(item) || t('tools.renderHtmlWidget', 'HTML Widget')
-    const srcDoc = buildWidgetSrcDoc(resolvedPayload, displayTitle)
-
     return (
-      <div
+      <HtmlWidgetCard
         key={widgetKey}
-        className="mb-4 overflow-hidden rounded-lg border border-white/10 bg-black/15 opacity-100 transition-all duration-300 ease-[cubic-bezier(0.2,0.6,0.2,1)]"
-      >
-        <div className="flex items-center justify-between border-b border-white/8 px-3 py-2">
-          <div className="truncate text-sm font-semibold text-zinc-200">{displayTitle}</div>
-          <span className="rounded-full border border-white/10 bg-white/6 px-2 py-0.5 text-[11px] font-medium text-zinc-400">
-            HTML
-          </span>
-        </div>
-        <iframe
-          title={displayTitle}
-          srcDoc={srcDoc}
-          sandbox=""
-          loading="lazy"
-          referrerPolicy="no-referrer"
-          className="no-scrollbar! w-full border-0"
-          style={{ height: `${resolvedPayload.height}px` }}
-        />
-      </div>
+        widgetKey={widgetKey}
+        widget={resolvedPayload}
+        displayTitle={displayTitle}
+        t={t}
+      />
     )
   }
 

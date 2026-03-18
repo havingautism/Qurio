@@ -28,6 +28,7 @@ import {
 import {
   createConversation,
   getConversationByScrapbookId,
+  listMessages,
   notifyConversationsChanged,
 } from '../lib/conversationsService'
 import ChatInterface from '../components/ChatInterface'
@@ -79,16 +80,20 @@ export default function ScrapbookDetailView() {
 
   // Embedded Chat states
   const [isChatOpen, setIsChatOpen] = useState(false)
-
-  useEffect(() => {
-    // Open by default on desktop
-    if (window.innerWidth >= 1024) {
-      setIsChatOpen(true)
-    }
-  }, [])
+  const [askMessageCount, setAskMessageCount] = useState(0)
   const [chatConversation, setChatConversation] = useState(null)
   const [chatLoading, setChatLoading] = useState(false)
   const creationInFlightRef = useRef(false)
+
+  const refreshAskMessageCount = async conversationId => {
+    if (!conversationId) {
+      setAskMessageCount(0)
+      return
+    }
+    const { data, error } = await listMessages(conversationId)
+    if (error) return
+    setAskMessageCount(Array.isArray(data) ? data.length : 0)
+  }
 
   useEffect(() => {
     async function load() {
@@ -105,6 +110,7 @@ export default function ScrapbookDetailView() {
           const { data: conv } = await getConversationByScrapbookId(entryId)
           if (conv) {
             setChatConversation(conv)
+            await refreshAskMessageCount(conv.id)
           } else {
             if (creationInFlightRef.current) return
             creationInFlightRef.current = true
@@ -117,6 +123,7 @@ export default function ScrapbookDetailView() {
             })
             if (newConv) {
               setChatConversation(newConv)
+              await refreshAskMessageCount(newConv.id)
               notifyConversationsChanged({ scopes: ['library'] })
             }
             creationInFlightRef.current = false
@@ -454,6 +461,7 @@ ${entry.content}`
 
   const tags = Array.isArray(entry.tags) ? entry.tags : []
   const displayTitle = stripGeneratedTitlePrefix(entry.title) || t('scrapbook.detail.untitled')
+  const askMessageCountLabel = askMessageCount > 99 ? '99+' : String(askMessageCount)
   const platformColor = PLATFORM_COLORS[entry.platform] || PLATFORM_COLORS.unknown
   const dateStr = entry.created_at
     ? new Date(entry.created_at).toLocaleString('zh-CN', {
@@ -528,11 +536,38 @@ ${entry.content}`
               <button
                 onClick={handleAskQuestion}
                 disabled={!entry}
-                className="relative z-10 inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-full border border-gray-200/50 bg-white/90 px-4 text-sm font-medium text-gray-700 shadow-sm backdrop-blur-xl transition-all hover:scale-105 hover:bg-white hover:shadow-md active:scale-95 disabled:opacity-40 dark:border-zinc-800/50 dark:bg-zinc-900/90 dark:text-gray-200 dark:hover:bg-zinc-900"
+                className={clsx(
+                  'relative z-10 inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-full border px-2.5 pr-3 text-sm font-medium shadow-sm backdrop-blur-xl transition-all active:scale-95 disabled:opacity-40',
+                  isChatOpen
+                    ? 'border-(--color-accent)/28 bg-linear-to-r from-slate-100/95 via-white/90 to-(--color-accent)/10 text-slate-800 shadow-[0_10px_24px_rgba(0,0,0,0.10),0_0_0_1px_rgba(255,255,255,0.20)] dark:from-zinc-900/96 dark:via-zinc-900/92 dark:to-(--color-accent)/14 dark:text-zinc-100'
+                    : 'border-slate-200/70 bg-linear-to-r from-slate-50/94 via-white/88 to-zinc-100/78 text-slate-700 hover:scale-105 hover:from-white hover:to-slate-100/92 hover:shadow-md dark:border-zinc-800/70 dark:from-zinc-900/92 dark:via-zinc-900/88 dark:to-zinc-950/84 dark:text-zinc-200 dark:hover:from-zinc-900 dark:hover:to-zinc-900',
+                )}
                 title={t('scrapbook.detail.askQuestion')}
               >
-                <MessageCircle size={17} />
-                <span className="hidden sm:inline">{t('scrapbook.detail.askQuestion')}</span>
+                <span
+                  className={clsx(
+                    'inline-flex h-8 w-8 items-center justify-center rounded-full border transition-colors',
+                    isChatOpen
+                      ? 'border-(--color-accent)/24 bg-(--color-accent)/12 text-(--color-accent)'
+                      : 'border-slate-300/55 bg-slate-200/55 text-slate-600 dark:border-zinc-700/80 dark:bg-zinc-800/80 dark:text-zinc-300',
+                  )}
+                >
+                  <MessageCircle size={16} />
+                </span>
+                <span className="hidden sm:inline truncate text-sm font-semibold">
+                  {t('scrapbook.detail.askQuestion')}
+                </span>
+                {isChatOpen && (
+                  <span className="h-1.5 w-1.5 rounded-full bg-(--color-accent) shadow-[0_0_10px_rgba(var(--color-accent-rgb,99,102,241),0.75)]" />
+                )}
+                {askMessageCount > 0 && (
+                  <span
+                    className="ml-0.5 inline-flex h-6 min-w-6 items-center justify-center rounded-full border border-white/40 px-1.5 text-[11px] font-bold leading-none text-white shadow-[0_0_0_1px_rgba(0,0,0,0.12),0_4px_12px_rgba(0,0,0,0.20)] dark:border-white/15 dark:shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_4px_12px_rgba(0,0,0,0.35)]"
+                    style={{ backgroundColor: 'var(--color-primary-500)' }}
+                  >
+                    {askMessageCountLabel}
+                  </span>
+                )}
               </button>
 
               <button
@@ -713,6 +748,7 @@ ${entry.content}`
                     source_url: entry.source_url || null,
                     summary: entry.summary || null,
                   }}
+                  onMessageCountChange={setAskMessageCount}
                   onTitleAndSpaceGenerated={conv => {
                     setChatConversation(conv)
                     notifyConversationsChanged({ scopes: ['library'] })

@@ -538,7 +538,8 @@ class QurioLocalTools(Toolkit):
         name="render_html_widget",
         description=(
             "Render a safe HTML widget for visual display. "
-            "Use when structured visual output is more useful than plain text."
+            "Use when structured visual output is more useful than plain text. "
+            "Prefer stable responsive layouts that fit a chat bubble and remain usable on desktop and mobile."
         ),
     )
     def render_html_widget(self, html: str, title: str = "", height: int = 360) -> dict[str, Any]:
@@ -547,7 +548,10 @@ class QurioLocalTools(Toolkit):
     @tool(
         name="ppt_generator",
         description=(
-            "Generate a real downloadable PPTX file with automatic pagination."
+            "Generate a real downloadable PPTX file with preview support. "
+            "For multi-slide decks, prefer slides_html with one complete HTML slide per item, "
+            "or provide a single HTML document with explicit .slide wrappers. "
+            "Design for a 16:9 presentation canvas and use stable responsive layout so preview and fidelity export stay visually close."
         ),
     )
     def ppt_generator(
@@ -596,7 +600,7 @@ class QurioLocalTools(Toolkit):
             "download_url": registered["download_url"],
             "expires_at": registered["expires_at"],
             "preview_html": str(render_result.get("preview_html") or ""),
-            "preview_height": 360,
+            "preview_height": int(render_result.get("preview_height") or 560),
             "qa_issues": render_result.get("qa_issues") if isinstance(render_result.get("qa_issues"), list) else [],
             "render_mode_used": str(render_result.get("render_mode_used") or "semantic"),
         }

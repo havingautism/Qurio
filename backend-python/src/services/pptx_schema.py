@@ -36,6 +36,13 @@ PPTX_THEME_PRESETS: dict[str, dict[str, str]] = {
     },
 }
 
+PPTX_RENDER_MODE_ALIASES: dict[str, str] = {
+    "presentable": "fidelity",
+    "editable": "fidelity",
+    "styled": "fidelity",
+    "visual": "fidelity",
+}
+
 
 def build_pptx_error(code: str, message: str) -> dict[str, Any]:
     return {
@@ -110,6 +117,7 @@ def build_pptx_payload(args: dict[str, Any] | None) -> dict[str, Any]:
         mode = "selector"
 
     render_mode = str(payload.get("render_mode") or PPTX_DEFAULT_RENDER_MODE).strip().lower()
+    render_mode = PPTX_RENDER_MODE_ALIASES.get(render_mode, render_mode)
     if render_mode not in {"auto", "semantic", "fidelity"}:
         render_mode = PPTX_DEFAULT_RENDER_MODE
 
@@ -127,6 +135,7 @@ def build_pptx_payload(args: dict[str, Any] | None) -> dict[str, Any]:
         "slides_html": slides_html,
         "title": str(payload.get("title") or PPTX_DEFAULT_TITLE).strip() or PPTX_DEFAULT_TITLE,
         "render_mode": render_mode,
+        "strict_fidelity": bool(payload.get("strict_fidelity", False)),
         "template_mode": template_mode,
         "qa_preview_mode": qa_preview_mode,
         "page": {

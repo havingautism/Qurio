@@ -43,6 +43,7 @@ dependencies = [
     "pypdfium2>=5.6.0",
     "pillow>=12.1.1",
     "python-pptx>=1.0.2",
+    "playwright>=1.55.0",
 ]
 
 

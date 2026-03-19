@@ -59,6 +59,7 @@ import DeepResearchGoalCard from './message/DeepResearchGoalCard'
 import HtmlWidgetCard from './message/HtmlWidgetCard'
 import MessageActionBar from './message/MessageActionBar'
 import PipelineDrawer from './message/PipelineDrawer'
+import PptxResultCard from './message/PptxResultCard'
 import { getHostname } from './message/messageUtils'
 import { formatMessageDate } from '../lib/dateUtils'
 import RelatedQuestions from './message/RelatedQuestions'
@@ -1117,14 +1118,10 @@ const MessageBubble = ({
     const previewHeightRaw = Number(payload.preview_height)
     const previewHeight = Number.isFinite(previewHeightRaw)
       ? Math.max(220, Math.min(previewHeightRaw, 900))
-      : 320
-    const qaIssues = Array.isArray(payload.qa_issues)
+      : 560
+    const qaIssuesRaw = Array.isArray(payload.qa_issues)
       ? payload.qa_issues
-          .map(item =>
-            String(item || '')
-              .trim()
-              .replace(/_/g, ' '),
-          )
+          .map(item => String(item || '').trim())
           .filter(Boolean)
       : []
     const renderModeUsed =
@@ -1138,7 +1135,7 @@ const MessageBubble = ({
       expiresAt,
       previewHtml,
       previewHeight,
-      qaIssues,
+      qaIssuesRaw,
       renderModeUsed,
     }
   }
@@ -2647,18 +2644,53 @@ const MessageBubble = ({
     // Some streaming paths (e.g. expert synthetic message) can produce many tiny
     // adjacent text segments; merge them before rendering to avoid per-chunk line breaks.
     const shouldMergeAdjacentText = isExpertMessage || compactStreamingTextBlocks
-    if (!shouldMergeAdjacentText) return rawParts
-    const merged = []
-    for (const part of rawParts) {
-      const prev = merged[merged.length - 1]
+    const mergedTextParts = []
+    const sourceParts = shouldMergeAdjacentText ? rawParts : rawParts
+    for (const part of sourceParts) {
+      const prev = mergedTextParts[mergedTextParts.length - 1]
       if (part.type === 'text' && prev?.type === 'text') {
         prev.content = `${prev.content || ''}${part.content || ''}`
         continue
       }
-      merged.push({ ...part })
+      mergedTextParts.push({ ...part })
     }
-    return merged
-  }, [compactStreamingTextBlocks, interleavedContent, isExpertMessage])
+
+    const pptPartIndexes = mergedTextParts
+      .map((part, index) => (part.type === 'pptx_file' ? index : -1))
+      .filter(index => index >= 0)
+
+    if (pptPartIndexes.length <= 1) return mergedTextParts
+
+    let winnerIndex = pptPartIndexes[pptPartIndexes.length - 1]
+    for (let i = pptPartIndexes.length - 1; i >= 0; i--) {
+      const index = pptPartIndexes[i]
+      const part = mergedTextParts[index]
+      const hasSuccessfulPayload = Array.isArray(part?.items)
+        ? part.items.some(item => Boolean(parsePptxPayload(item?.output) || parsePptxPayload(item?.result)))
+        : false
+      if (hasSuccessfulPayload) {
+        winnerIndex = index
+        break
+      }
+    }
+
+    const collapsed = []
+    const hiddenRetryCount = pptPartIndexes.length - 1
+    for (let i = 0; i < mergedTextParts.length; i++) {
+      const part = mergedTextParts[i]
+      if (part.type !== 'pptx_file') {
+        collapsed.push(part)
+        continue
+      }
+      if (i !== winnerIndex) continue
+      collapsed.push({
+        ...part,
+        retryCountHidden: hiddenRetryCount,
+      })
+    }
+
+    return collapsed
+  }, [compactStreamingTextBlocks, interleavedContent, isExpertMessage, parsePptxPayload])
   const allSources = useMemo(
     () => [
       ...(Array.isArray(mergedMessage.sources)
@@ -3256,49 +3288,25 @@ const MessageBubble = ({
           className="mb-4 rounded-2xl border border-red-300/40 bg-red-500/8 p-3 text-sm text-red-200"
         >
           <div className="font-semibold">{t('tools.pptGenerator', 'PPT Generator')}</div>
-          <div className="mt-1">No PPTX payload found in tool result.</div>
+          <div className="mt-1">
+            {t(
+              'messageBubble.ppt.missingPayload',
+              'No PPTX payload found in the tool result.',
+            )}
+          </div>
         </div>
       )
     }
 
     return (
-      <div key={pptxKey}>
-        {payload.previewHtml ? (
-          <HtmlWidgetCard
-            widgetKey={`${pptxKey}-preview`}
-            widget={{
-              title: `${payload.title || t('tools.pptGenerator', 'PPT Generator')} Preview`,
-              html: payload.previewHtml,
-              height: payload.previewHeight,
-            }}
-            displayTitle={`${payload.title || t('tools.pptGenerator', 'PPT Generator')} Preview`}
-            t={t}
-          />
-        ) : null}
-        <div className="mb-4 rounded-2xl border border-white/10 bg-black/15 p-4 text-sm text-zinc-200">
-          <div className="mb-1 text-sm font-semibold">
-            {payload.title || getToolDisplayName(item) || t('tools.pptGenerator', 'PPT Generator')}
-          </div>
-          <div className="mb-3 text-xs text-zinc-400">
-            {payload.filename}
-            {payload.slideCount > 0 ? ` · ${payload.slideCount} slides` : ''}
-            {payload.renderModeUsed ? ` · ${payload.renderModeUsed}` : ''}
-          </div>
-          {payload.qaIssues?.length ? (
-            <div className="mb-3 rounded-xl border border-amber-400/25 bg-amber-500/8 px-3 py-2 text-[11px] text-amber-100">
-              {payload.qaIssues.slice(0, 3).join(' · ')}
-            </div>
-          ) : null}
-          <a
-            href={resolveBackendDownloadUrl(payload.downloadUrl)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center rounded-full border border-white/15 bg-white/8 px-3 py-1.5 text-xs font-medium text-zinc-100 transition-colors hover:bg-white/14"
-          >
-            {t('messageBubble.download', 'Download')}
-          </a>
-        </div>
-      </div>
+      <PptxResultCard
+        key={pptxKey}
+        item={item}
+        payload={payload}
+        displayTitle={getToolDisplayName(item) || t('tools.pptGenerator', 'PPT Generator')}
+        resolveBackendDownloadUrl={resolveBackendDownloadUrl}
+        t={t}
+      />
     )
   }
 
@@ -3370,6 +3378,13 @@ const MessageBubble = ({
     if (part.type === 'pptx_file') {
       return (
         <React.Fragment key={part.key || `pptx-file-outside-${idx}`}>
+          {Number(part.retryCountHidden) > 0 ? (
+            <div className="mb-3 text-xs text-zinc-400">
+              {t('messageBubble.pptRetriesHidden', {
+                defaultValue: 'Earlier PPT attempts were hidden. Showing the latest result.',
+              })}
+            </div>
+          ) : null}
           {part.items.map((item, fileIdx) =>
             renderPptxFileItem(item, `pptx-file-${part.key || idx}-${item.id || fileIdx}`),
           )}

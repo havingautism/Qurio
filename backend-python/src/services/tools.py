@@ -349,7 +349,7 @@ async def _execute_ppt_generator(args: dict[str, Any]) -> dict[str, Any]:
         "download_url": registered["download_url"],
         "expires_at": registered["expires_at"],
         "preview_html": str(render_result.get("preview_html") or ""),
-        "preview_height": 360,
+        "preview_height": int(render_result.get("preview_height") or 560),
         "qa_issues": render_result.get("qa_issues") if isinstance(render_result.get("qa_issues"), list) else [],
         "render_mode_used": str(render_result.get("render_mode_used") or "semantic"),
     }

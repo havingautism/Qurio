@@ -11,6 +11,7 @@ import io
 import re
 from typing import Any
 
+import httpx
 from bs4 import BeautifulSoup
 
 from .pptx_schema import build_pptx_error
@@ -112,7 +113,7 @@ def _extract_blocks_from_container(container: Any, respect_page_break: bool) -> 
 
         if tag_name == "img":
             src = str(child.attrs.get("src") or "").strip()
-            if src.startswith("data:image/") and ";base64," in src:
+            if src:
                 blocks.append({"type": "image", "src": src})
             continue
 
@@ -348,6 +349,33 @@ def _parse_data_image(image_src: str) -> io.BytesIO | None:
         return None
 
 
+async def _fetch_remote_image_bytes(image_url: str, max_bytes: int = 8 * 1024 * 1024) -> io.BytesIO | None:
+    url = str(image_url or "").strip()
+    if not url.startswith(("http://", "https://")):
+        return None
+    try:
+        timeout = httpx.Timeout(8.0, connect=4.0)
+        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+            resp = await client.get(url)
+            if resp.status_code >= 400:
+                return None
+            data = resp.content or b""
+            if not data or len(data) > max_bytes:
+                return None
+            return io.BytesIO(data)
+    except Exception:
+        return None
+
+
+async def _load_image_stream(image_src: str) -> io.BytesIO | None:
+    src = str(image_src or "").strip()
+    if not src:
+        return None
+    if src.startswith("data:image/") and ";base64," in src:
+        return _parse_data_image(src)
+    return await _fetch_remote_image_bytes(src)
+
+
 def _selector_candidate_order(explicit_selector: str = "") -> list[str]:
     candidates: list[str] = []
     if explicit_selector:
@@ -414,6 +442,42 @@ def _normalize_slide_html_units(request_payload: dict[str, Any]) -> tuple[list[s
     return [html], "single_html", _extract_stylesheet_tags(html)
 
 
+def collect_pptx_input_qa_issues(raw_html: str) -> list[str]:
+    raw = str(raw_html or "").strip()
+    if not raw:
+        return ["empty_html"]
+
+    issues: list[str] = []
+    raw_soup = BeautifulSoup(raw, "html.parser")
+    soup = BeautifulSoup(_sanitize_html(raw), "html.parser")
+    style_tags = soup.find_all("style")
+    stylesheet_links = []
+    for tag in raw_soup.find_all("link"):
+        rel = " ".join(tag.get("rel") or [])
+        if "stylesheet" in rel.lower():
+            stylesheet_links.append(tag)
+
+    class_nodes = [node for node in soup.find_all(True) if node.get("class")]
+    slide_like_nodes = []
+    try:
+        slide_like_nodes = list((soup.body or soup).select(".slide"))
+    except Exception:
+        slide_like_nodes = []
+
+    if stylesheet_links and not style_tags:
+        issues.append("external_css_only")
+    if class_nodes and not style_tags:
+        issues.append("missing_inline_styles")
+    if len(slide_like_nodes) <= 1 and len(class_nodes) > 4:
+        issues.append("single_html_preview_may_not_match_export_pagination")
+
+    deduped: list[str] = []
+    for item in issues:
+        if item not in deduped:
+            deduped.append(item)
+    return deduped
+
+
 def _truncate_issue(message: str, max_len: int = 220) -> str:
     text = str(message or "").strip().replace("\n", " ")
     if len(text) <= max_len:
@@ -461,7 +525,7 @@ def _build_html_deck_preview(slide_html_units: list[str], shared_styles: str = "
         ".qurio-ppt-actions{display:flex;gap:6px;}"
         ".qurio-ppt-btn{font-size:11px;padding:4px 8px;border-radius:999px;border:1px solid #334155;background:#111827;color:#dbe7ff;cursor:pointer;}"
         ".qurio-ppt-btn:disabled{opacity:.45;cursor:not-allowed;}"
-        ".qurio-ppt-frame{width:100%;height:360px;border:1px solid #2a3140;border-radius:12px;background:#0b0f17;}"
+        ".qurio-ppt-frame{width:100%;height:540px;border:1px solid #2a3140;border-radius:12px;background:#0b0f17;}"
         ".qurio-ppt-dots{margin-top:8px;display:flex;gap:6px;flex-wrap:wrap}"
         ".qurio-ppt-dot{font-size:11px;line-height:1;padding:5px 8px;border-radius:999px;border:1px solid #334155;background:#111827;color:#dbe7ff;cursor:pointer;}"
         ".qurio-ppt-dot.active{border-color:#7aa2ff;background:#1e293b;color:#ffffff;}"
@@ -503,6 +567,28 @@ def _build_html_deck_preview(slide_html_units: list[str], shared_styles: str = "
     )
 
 
+def _build_fidelity_slide_document(raw_slide: str, shared_styles: str = "") -> str:
+    safe_slide = _sanitize_html(raw_slide)
+    return (
+        "<!doctype html><html><head><meta charset='utf-8'/>"
+        "<meta name='viewport' content='width=device-width, initial-scale=1'/>"
+        "<style>"
+        "html,body{margin:0;padding:0;width:100%;height:100%;background:transparent;overflow:hidden;}"
+        "*{box-sizing:border-box;max-width:100%;}"
+        "img,video,canvas,svg{max-width:100%;height:auto;}"
+        ".qurio-slide-stage{width:100vw;height:100vh;overflow:hidden;}"
+        ".qurio-slide-stage .slide{opacity:1!important;display:flex!important;position:relative!important;left:auto!important;top:auto!important;transform:none!important;}"
+        ".qurio-slide-stage .slide.active{opacity:1!important;}"
+        ".qurio-slide-stage .dots-container,.qurio-slide-stage .navigation,.qurio-slide-stage .nav,.qurio-slide-stage [class*='nav-dot'],"
+        ".qurio-slide-stage .swiper-pagination,.qurio-slide-stage .swiper-button-prev,.qurio-slide-stage .swiper-button-next{display:none!important;}"
+        "</style>"
+        + shared_styles
+        + "</head><body><div class='qurio-slide-stage'>"
+        + safe_slide
+        + "</div></body></html>"
+    )
+
+
 def _slides_from_html_units(
     units: list[str],
     *,
@@ -532,6 +618,145 @@ def _slides_from_html_units(
         )
         output.extend(paged)
     return output
+
+
+def _estimate_paragraph_height(text: str) -> float:
+    lines = max(1, (len(str(text or "")) // 70) + 1)
+    return max(0.2, 0.32 * lines + 0.12)
+
+
+def _estimate_bullets_height(items: list[str]) -> float:
+    return max(0.8, len(items) * 0.36 + 0.12)
+
+
+def _estimate_table_height(rows: list[list[str]]) -> float:
+    return max(1.0, len(rows) * 0.35 + 0.2)
+
+
+def _split_block_for_available_height(
+    block: dict[str, Any],
+    available_height: float,
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    block_type = block.get("type")
+    if block_type == "paragraph":
+        text = str(block.get("text") or "").strip()
+        if not text:
+            return None, None
+        line_budget = int((available_height - 0.12) // 0.32)
+        if line_budget <= 0:
+            return None, block
+        char_budget = max(40, line_budget * 70)
+        chunks = _split_text_chunks(text, char_budget)
+        if not chunks:
+            return None, block
+        head = {"type": "paragraph", "text": chunks[0]}
+        tail_text = " ".join(chunks[1:]).strip()
+        tail = {"type": "paragraph", "text": tail_text} if tail_text else None
+        return head, tail
+
+    if block_type == "bullets":
+        items = [str(i).strip() for i in block.get("items", []) if str(i).strip()]
+        if not items:
+            return None, None
+        max_items = int((available_height - 0.12) // 0.36)
+        if max_items <= 0:
+            return None, block
+        if max_items >= len(items):
+            return block, None
+        head = {"type": "bullets", "ordered": bool(block.get("ordered")), "items": items[:max_items]}
+        tail = {"type": "bullets", "ordered": bool(block.get("ordered")), "items": items[max_items:]}
+        return head, tail
+
+    if block_type == "table":
+        rows = block.get("rows", [])
+        if not rows:
+            return None, None
+        rows_budget = int((available_height - 0.2) // 0.35)
+        if rows_budget <= 1:
+            return None, block
+        if rows_budget >= len(rows):
+            return block, None
+        header = rows[0]
+        slice_count = max(2, rows_budget)
+        head_rows = rows[:slice_count]
+        tail_rows = [header, *rows[slice_count:]]
+        head = {"type": "table", "rows": head_rows}
+        tail = {"type": "table", "rows": tail_rows} if len(tail_rows) > 1 else None
+        return head, tail
+
+    return None, block
+
+
+def _semantic_block_height(block: dict[str, Any]) -> float:
+    block_type = block.get("type")
+    if block_type == "heading":
+        return 0.88
+    if block_type == "paragraph":
+        return _estimate_paragraph_height(str(block.get("text") or ""))
+    if block_type == "bullets":
+        return _estimate_bullets_height([str(i) for i in block.get("items", []) if str(i).strip()])
+    if block_type == "table":
+        return _estimate_table_height(block.get("rows", []))
+    if block_type == "image":
+        return 2.0
+    return 0.4
+
+
+def _build_semantic_slide_doc(slide_blocks: list[dict[str, Any]], slide_index: int) -> str:
+    title = f"Slide {slide_index + 1}"
+    fragments: list[str] = []
+    for block in slide_blocks:
+        block_type = block.get("type")
+        if block_type == "heading":
+            text = str(block.get("text") or "").strip()
+            if text:
+                if title.startswith("Slide"):
+                    title = text
+                fragments.append(f"<h2>{text}</h2>")
+        elif block_type == "paragraph":
+            text = str(block.get("text") or "").strip()
+            if text:
+                fragments.append(f"<p>{text}</p>")
+        elif block_type == "bullets":
+            items = [str(i).strip() for i in block.get("items", []) if str(i).strip()]
+            if items:
+                items_html = "".join(f"<li>{item}</li>" for item in items)
+                tag = "ol" if bool(block.get("ordered")) else "ul"
+                fragments.append(f"<{tag}>{items_html}</{tag}>")
+        elif block_type == "table":
+            rows = block.get("rows", [])
+            if rows:
+                row_html = []
+                for row_index, row in enumerate(rows):
+                    cell_tag = "th" if row_index == 0 else "td"
+                    cells = "".join(f"<{cell_tag}>{str(cell)}</{cell_tag}>" for cell in row)
+                    row_html.append(f"<tr>{cells}</tr>")
+                fragments.append(f"<table>{''.join(row_html)}</table>")
+        elif block_type == "image":
+            src = str(block.get("src") or "").strip()
+            if src:
+                fragments.append(f"<img src=\"{src}\" alt=\"slide image\" />")
+
+    body = "".join(fragments) or "<p>(No slide content)</p>"
+    return (
+        "<style>"
+        ".semantic-slide{padding:28px;min-height:100vh;box-sizing:border-box;background:#0b0f17;color:#e8edf8;font-family:ui-sans-serif,system-ui,sans-serif;}"
+        ".semantic-slide .title{font-size:12px;letter-spacing:.08em;text-transform:uppercase;opacity:.65;margin-bottom:12px;}"
+        ".semantic-slide h1,.semantic-slide h2,.semantic-slide h3{margin:0 0 12px;line-height:1.3;color:#f4f7ff;}"
+        ".semantic-slide p{margin:0 0 10px;line-height:1.6;}"
+        ".semantic-slide ul,.semantic-slide ol{margin:0 0 12px 1.1rem;padding:0;}"
+        ".semantic-slide li{margin:0 0 6px;line-height:1.5;}"
+        ".semantic-slide table{width:100%;border-collapse:collapse;margin:0 0 12px;background:#111827;border:1px solid #2b3448;}"
+        ".semantic-slide th,.semantic-slide td{border:1px solid #2b3448;padding:8px 10px;font-size:13px;text-align:left;}"
+        ".semantic-slide th{background:#182235;}"
+        ".semantic-slide img{max-width:100%;height:auto;border-radius:10px;border:1px solid #2b3448;display:block;}"
+        "</style>"
+        "<div class='semantic-slide'>"
+        f"<div class='title'>Slide {slide_index + 1}</div>"
+        f"<h1>{title}</h1>"
+        f"{body}"
+        "</div>"
+    )
 
 
 async def _render_fidelity_png_slides(
@@ -603,6 +828,38 @@ async def _render_fidelity_png_slides(
     return images, [_truncate_issue(item) for item in issues], selector_used
 
 
+async def _render_fidelity_png_units(
+    slide_html_units: list[str],
+    *,
+    shared_styles: str = "",
+    width_px: int = 1600,
+    height_px: int = 900,
+) -> tuple[list[bytes], list[str]]:
+    issues: list[str] = []
+    images: list[bytes] = []
+
+    try:
+        from playwright.async_api import async_playwright
+    except Exception as exc:
+        return [], [f"fidelity_unavailable_playwright_missing:{exc}"]
+
+    try:
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=True)
+            page = await browser.new_page(viewport={"width": width_px, "height": height_px})
+            for raw_slide in slide_html_units:
+                doc = _build_fidelity_slide_document(raw_slide, shared_styles=shared_styles)
+                await page.set_content(doc, wait_until="networkidle", timeout=20000)
+                await page.wait_for_timeout(250)
+                png = await page.locator("body").screenshot(type="png")
+                images.append(png)
+            await browser.close()
+    except Exception as exc:
+        issues.append(f"fidelity_render_failed_or_browser_missing:{exc}")
+
+    return images, [_truncate_issue(item) for item in issues]
+
+
 async def build_pptx_file_async(request_payload: dict[str, Any], output_path: str) -> dict[str, Any]:
     try:
         from pptx import Presentation
@@ -654,19 +911,29 @@ async def build_pptx_file_async(request_payload: dict[str, Any], output_path: st
     title_color = _normalize_hex_color(str(theme.get("title_color") or ""), "1F2937")
     text_color = _normalize_hex_color(str(theme.get("text_color") or ""), "111827")
 
-    qa_issues: list[str] = []
+    qa_issues: list[str] = collect_pptx_input_qa_issues(request_payload.get("html") or "")
     render_mode_requested = str(request_payload.get("render_mode") or "auto")
+    strict_fidelity = bool(request_payload.get("strict_fidelity", False))
     render_mode_used = "semantic"
     preview_html = _build_html_deck_preview(slide_units, shared_styles=shared_styles)
+    preview_height = 560
 
     selector = str(request_payload.get("paginate", {}).get("selector") or "")
-    should_try_fidelity = False
+    has_slide_units = bool(slide_units)
+    has_multi_slide_preview = has_explicit_slides or len(slide_units) >= 2
+    should_try_fidelity = render_mode_requested == "fidelity" or (
+        render_mode_requested == "auto" and has_multi_slide_preview
+    )
     if should_try_fidelity:
-        png_slides, fidelity_issues, selector_used = await _render_fidelity_png_slides(
-            request_payload.get("html") or "",
-            selector=selector,
-            width_px=1600,
-            height_px=900,
+        page_width_in = float(page.get("width_in") or 13.333)
+        page_height_in = float(page.get("height_in") or 7.5)
+        fidelity_width_px = 1600
+        fidelity_height_px = max(720, int(fidelity_width_px * (page_height_in / max(page_width_in, 0.1))))
+        png_slides, fidelity_issues = await _render_fidelity_png_units(
+            slide_units if has_slide_units else [request_payload.get("html") or ""],
+            shared_styles=shared_styles,
+            width_px=fidelity_width_px,
+            height_px=fidelity_height_px,
         )
         qa_issues.extend(fidelity_issues)
         if png_slides:
@@ -680,101 +947,162 @@ async def build_pptx_file_async(request_payload: dict[str, Any], output_path: st
                     width=prs.slide_width,
                     height=prs.slide_height,
                 )
-            preview_html = _build_html_deck_preview(slide_units, shared_styles=shared_styles)
         elif render_mode_requested == "fidelity":
+            if strict_fidelity:
+                detail = next(
+                    (
+                        issue.split(":", 1)[1]
+                        for issue in fidelity_issues
+                        if issue.startswith("fidelity_unavailable_playwright_missing:")
+                        or issue.startswith("fidelity_render_failed_or_browser_missing:")
+                    ),
+                    "",
+                )
+                message = "High-fidelity export is not available right now."
+                if detail:
+                    message = f"{message} {detail}"
+                return build_pptx_error("fidelity_unavailable", message)
             qa_issues.append("fidelity_requested_but_fallback_to_semantic")
+        else:
+            qa_issues.append("fidelity_auto_fallback_to_semantic")
 
     if render_mode_used == "semantic":
-        for slide_blocks in slides:
-            slide = prs.slides.add_slide(prs.slide_layouts[6])
-            top_in = margin_in
-            usable_width = float(page.get("width_in") or 13.333) - (margin_in * 2)
-            usable_height = float(page.get("height_in") or 7.5) - (margin_in * 2)
+        usable_width = float(page.get("width_in") or 13.333) - (margin_in * 2)
+        usable_height = float(page.get("height_in") or 7.5) - (margin_in * 2)
+        rendered_slides: list[list[dict[str, Any]]] = []
 
-            for block in slide_blocks:
-                block_type = block.get("type")
-                if block_type == "heading":
-                    box_h = 0.8
-                    shape = slide.shapes.add_textbox(Inches(margin_in), Inches(top_in), Inches(usable_width), Inches(box_h))
-                    tf = shape.text_frame
-                    tf.clear()
-                    p = tf.paragraphs[0]
-                    p.text = str(block.get("text") or "")
-                    p.font.bold = True
-                    p.font.size = Pt(32 if int(block.get("level") or 2) == 1 else 26)
-                    p.font.name = font_family
-                    p.font.color.rgb = RGBColor.from_string(title_color)
-                    p.alignment = PP_ALIGN.LEFT
-                    top_in += box_h + 0.08
-                elif block_type == "paragraph":
-                    text = str(block.get("text") or "")
-                    lines = max(1, (len(text) // 70) + 1)
-                    box_h = min(usable_height - (top_in - margin_in), 0.32 * lines + 0.12)
-                    if box_h <= 0.2:
-                        continue
-                    shape = slide.shapes.add_textbox(Inches(margin_in), Inches(top_in), Inches(usable_width), Inches(box_h))
-                    tf = shape.text_frame
-                    tf.clear()
-                    p = tf.paragraphs[0]
-                    p.text = text
-                    p.font.size = Pt(18)
-                    p.font.name = font_family
-                    p.font.color.rgb = RGBColor.from_string(text_color)
-                    top_in += box_h + 0.05
-                elif block_type == "bullets":
-                    items = block.get("items", [])
-                    box_h = min(usable_height - (top_in - margin_in), max(0.8, len(items) * 0.36 + 0.12))
-                    if box_h <= 0.2:
-                        continue
-                    shape = slide.shapes.add_textbox(Inches(margin_in), Inches(top_in), Inches(usable_width), Inches(box_h))
-                    tf = shape.text_frame
-                    tf.clear()
-                    ordered = bool(block.get("ordered"))
-                    for idx, item in enumerate(items):
-                        para = tf.paragraphs[0] if idx == 0 else tf.add_paragraph()
-                        para.text = f"{idx + 1}. {item}" if ordered else str(item)
-                        para.level = 0
-                        para.font.size = Pt(17)
-                        para.font.name = font_family
-                        para.font.color.rgb = RGBColor.from_string(text_color)
-                        para.space_after = Pt(2)
-                        if not ordered:
-                            para.bullet = True
-                    top_in += box_h + 0.05
-                elif block_type == "table":
-                    rows = block.get("rows", [])
-                    if not rows:
-                        continue
-                    row_count = len(rows)
-                    col_count = max(len(row) for row in rows)
-                    box_h = min(usable_height - (top_in - margin_in), max(1.0, row_count * 0.35 + 0.2))
-                    if box_h <= 0.25:
-                        continue
-                    table_shape = slide.shapes.add_table(
-                        row_count,
-                        col_count,
-                        Inches(margin_in),
-                        Inches(top_in),
-                        Inches(usable_width),
-                        Inches(box_h),
-                    )
-                    table = table_shape.table
-                    for r, row in enumerate(rows):
-                        for c in range(col_count):
-                            table.cell(r, c).text = str(row[c]) if c < len(row) else ""
-                    top_in += box_h + 0.08
-                elif block_type == "image":
-                    image_data = _parse_data_image(str(block.get("src") or ""))
-                    if image_data is None:
-                        continue
-                    img_h = min(usable_height - (top_in - margin_in), 2.0)
-                    if img_h <= 0.25:
-                        continue
-                    slide.shapes.add_picture(image_data, Inches(margin_in), Inches(top_in), height=Inches(img_h))
-                    top_in += img_h + 0.08
+        for source_slide in slides:
+            block_queue = [dict(block) for block in source_slide]
+            while block_queue:
+                slide = prs.slides.add_slide(prs.slide_layouts[6])
+                current_slide_blocks: list[dict[str, Any]] = []
+                top_in = margin_in
+                next_queue: list[dict[str, Any]] = []
+                consumed_all = True
 
-                if top_in >= margin_in + usable_height - 0.2:
-                    break
+                for index, original_block in enumerate(block_queue):
+                    block = dict(original_block)
+                    force_next_slide_after_render = False
+                    block_type = block.get("type")
+                    gap_after = 0.08 if block_type in {"heading", "table", "image"} else 0.05
+                    required_h = _semantic_block_height(block)
+                    available_h = (margin_in + usable_height) - top_in
+                    if required_h + gap_after > available_h:
+                        head, tail = _split_block_for_available_height(block, available_h - gap_after)
+                        if head is None:
+                            consumed_all = False
+                            next_queue.append(original_block)
+                            next_queue.extend(block_queue[index + 1 :])
+                            break
+                        block = head
+                        if tail is not None:
+                            next_queue.append(tail)
+                        next_queue.extend(block_queue[index + 1 :])
+                        consumed_all = False
+                        force_next_slide_after_render = True
+
+                    block_type = block.get("type")
+                    if block_type == "heading":
+                        box_h = 0.8
+                        shape = slide.shapes.add_textbox(Inches(margin_in), Inches(top_in), Inches(usable_width), Inches(box_h))
+                        tf = shape.text_frame
+                        tf.clear()
+                        p = tf.paragraphs[0]
+                        p.text = str(block.get("text") or "")
+                        p.font.bold = True
+                        p.font.size = Pt(32 if int(block.get("level") or 2) == 1 else 26)
+                        p.font.name = font_family
+                        p.font.color.rgb = RGBColor.from_string(title_color)
+                        p.alignment = PP_ALIGN.LEFT
+                        current_slide_blocks.append(block)
+                        top_in += box_h + 0.08
+                    elif block_type == "paragraph":
+                        text = str(block.get("text") or "")
+                        box_h = _estimate_paragraph_height(text)
+                        shape = slide.shapes.add_textbox(Inches(margin_in), Inches(top_in), Inches(usable_width), Inches(box_h))
+                        tf = shape.text_frame
+                        tf.clear()
+                        p = tf.paragraphs[0]
+                        p.text = text
+                        p.font.size = Pt(18)
+                        p.font.name = font_family
+                        p.font.color.rgb = RGBColor.from_string(text_color)
+                        current_slide_blocks.append(block)
+                        top_in += box_h + 0.05
+                    elif block_type == "bullets":
+                        items = [str(i) for i in block.get("items", []) if str(i).strip()]
+                        if not items:
+                            continue
+                        box_h = _estimate_bullets_height(items)
+                        shape = slide.shapes.add_textbox(Inches(margin_in), Inches(top_in), Inches(usable_width), Inches(box_h))
+                        tf = shape.text_frame
+                        tf.clear()
+                        ordered = bool(block.get("ordered"))
+                        for bullet_index, item in enumerate(items):
+                            para = tf.paragraphs[0] if bullet_index == 0 else tf.add_paragraph()
+                            para.text = f"{bullet_index + 1}. {item}" if ordered else str(item)
+                            para.level = 0
+                            para.font.size = Pt(17)
+                            para.font.name = font_family
+                            para.font.color.rgb = RGBColor.from_string(text_color)
+                            para.space_after = Pt(2)
+                            if not ordered:
+                                para.bullet = True
+                        current_slide_blocks.append({"type": "bullets", "ordered": ordered, "items": items})
+                        top_in += box_h + 0.05
+                    elif block_type == "table":
+                        rows = block.get("rows", [])
+                        if not rows:
+                            continue
+                        row_count = len(rows)
+                        col_count = max(len(row) for row in rows)
+                        box_h = _estimate_table_height(rows)
+                        table_shape = slide.shapes.add_table(
+                            row_count,
+                            col_count,
+                            Inches(margin_in),
+                            Inches(top_in),
+                            Inches(usable_width),
+                            Inches(box_h),
+                        )
+                        table = table_shape.table
+                        for r, row in enumerate(rows):
+                            for c in range(col_count):
+                                table.cell(r, c).text = str(row[c]) if c < len(row) else ""
+                        current_slide_blocks.append({"type": "table", "rows": rows})
+                        top_in += box_h + 0.08
+                    elif block_type == "image":
+                        image_data = await _load_image_stream(str(block.get("src") or ""))
+                        if image_data is None:
+                            continue
+                        img_h = min((margin_in + usable_height) - top_in, 2.0)
+                        if img_h <= 0.25:
+                            continue
+                        slide.shapes.add_picture(image_data, Inches(margin_in), Inches(top_in), height=Inches(img_h))
+                        current_slide_blocks.append(block)
+                        top_in += img_h + 0.08
+
+                    if top_in >= margin_in + usable_height - 0.2:
+                        next_queue.extend(block_queue[index + 1 :])
+                        consumed_all = False
+                        break
+                    if force_next_slide_after_render:
+                        break
+
+                block_queue = [] if consumed_all else next_queue
+                rendered_slides.append(current_slide_blocks or [{"type": "paragraph", "text": "(blank slide)"}])
+
+                # Avoid infinite loops on impossible blocks.
+                if not current_slide_blocks and block_queue:
+                    qa_issues.append("semantic_overflow_forced_truncate")
+                    block_queue = block_queue[1:]
+
+        slides = rendered_slides
+        # Keep preview tied to the original HTML/CSS whenever possible.
+        # Semantic mode is only the export fallback.
+        if not preview_html:
+            preview_units = [_build_semantic_slide_doc(blocks, i) for i, blocks in enumerate(slides)]
+            preview_html = _build_html_deck_preview(preview_units)
 
     def _preview_from_slides(slides_data: list[list[dict[str, Any]]]) -> str:
         cards: list[str] = []
@@ -825,6 +1153,7 @@ async def build_pptx_file_async(request_payload: dict[str, Any], output_path: st
         "type": "pptx_render_result",
         "slide_count": len(prs.slides),
         "preview_html": preview_html,
+        "preview_height": preview_height,
         "qa_issues": [_truncate_issue(item) for item in qa_issues],
         "render_mode_used": render_mode_used,
     }

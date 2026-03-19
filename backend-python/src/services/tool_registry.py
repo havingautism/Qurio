@@ -268,7 +268,7 @@ AGENT_TOOLS: list[dict[str, Any]] = [
             "Render a safe self-contained HTML widget for richer visualization in chat. "
             "Use this when a table, timeline, board, card layout, dashboard, or calendar is clearer than plain text. "
             "Return only self-contained HTML that works without external scripts or remote assets. "
-            "Prefer responsive layouts that fit a chat bubble width. "
+            "Prefer stable responsive layouts that fit a chat bubble width and remain usable on both desktop and mobile. "
             "Avoid script tags, inline event handlers, javascript: URLs, and unnecessary decoration. "
             "Returns {type, title, html, height} on success or {type: html_widget_error, code, message} on failure."
         ),
@@ -302,6 +302,10 @@ AGENT_TOOLS: list[dict[str, Any]] = [
         "category": "visualization",
         "description": (
             "Generate a real downloadable .pptx presentation with automatic pagination. "
+            "For multi-slide decks, strongly prefer `slides_html` with one complete HTML slide per item, "
+            "or provide a single HTML document with explicit slide wrappers like `.slide`. "
+            "Design each slide for a 16:9 presentation canvas and use stable responsive layout so both the smaller preview viewport and the larger fidelity export viewport keep a similar structure. "
+            "Prefer robust flex/grid layouts, avoid extreme viewport-dependent sizing that can cause overflow, and keep each slide self-contained. "
             "Returns {type: pptx_file, slide_count, filename, download_url, expires_at} on success."
         ),
         "parameters": {
@@ -310,12 +314,12 @@ AGENT_TOOLS: list[dict[str, Any]] = [
             "properties": {
                 "html": {
                     "type": "string",
-                    "description": "Single HTML content for PPT generation. Use with slides_html omitted.",
+                    "description": "Single HTML content for PPT generation. Best for one-page decks or HTML with explicit slide wrappers.",
                 },
                 "slides_html": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "Preferred: per-slide HTML list. Each item is assembled into paged preview and slide generation.",
+                    "description": "Preferred for multi-slide decks: one complete HTML slide per array item. This gives the most accurate preview and fidelity export.",
                 },
                 "title": {
                     "type": "string",
@@ -324,7 +328,7 @@ AGENT_TOOLS: list[dict[str, Any]] = [
                 "render_mode": {
                     "type": "string",
                     "enum": ["auto", "semantic", "fidelity"],
-                    "description": "auto tries fidelity first for slide-based HTML then falls back to semantic.",
+                    "description": "auto prefers fidelity for explicit slides and falls back to semantic when needed. fidelity tries to preserve CSS/layout/images as closely as possible.",
                 },
                 "template_mode": {
                     "type": "string",

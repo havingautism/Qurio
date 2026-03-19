@@ -86,9 +86,24 @@ export default function PptxResultCard({
   const [fidelityError, setFidelityError] = useState('')
   const [showInstallDialog, setShowInstallDialog] = useState(false)
   const [variantDownloads, setVariantDownloads] = useState(() => buildVariantDownloadsFromPayload(payload))
+  const [adaptivePreviewHeight, setAdaptivePreviewHeight] = useState(() => {
+    if (typeof window === 'undefined') return 680
+    const vh = window.innerHeight || 900
+    const vw = window.innerWidth || 1360
+    const preferred = Math.round(vh * 0.74)
+    const byWidth = Math.round(vw * 0.6)
+    return Math.max(520, Math.min(920, preferred, byWidth))
+  })
 
   const rawQaIssues = Array.isArray(payload?.qaIssuesRaw) ? payload.qaIssuesRaw : []
   const requestPayload = useMemo(() => parseToolArguments(item?.arguments), [item?.arguments])
+  const previewHeight = useMemo(() => {
+    const raw = Number(payload?.previewHeight)
+    const payloadHeight = Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 0
+    const fallback = Math.max(adaptivePreviewHeight, 680)
+    if (!payloadHeight) return fallback
+    return Math.max(fallback, Math.min(920, payloadHeight))
+  }, [payload?.previewHeight, adaptivePreviewHeight])
   const previewTitle = `${payload?.title || displayTitle} ${t('messageBubble.ppt.previewSuffix', 'Preview')}`
   const hasPlaywrightMissing = hasIssuePrefix(rawQaIssues, 'fidelity_unavailable_playwright_missing:')
   const hasFidelityFallback =
@@ -98,6 +113,19 @@ export default function PptxResultCard({
   useEffect(() => {
     setVariantDownloads(buildVariantDownloadsFromPayload(payload))
   }, [payload])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined
+    const updatePreviewHeight = () => {
+      const vh = window.innerHeight || 900
+      const vw = window.innerWidth || 1360
+      const preferred = Math.round(vh * 0.74)
+      const byWidth = Math.round(vw * 0.6)
+      setAdaptivePreviewHeight(Math.max(520, Math.min(920, preferred, byWidth)))
+    }
+    window.addEventListener('resize', updatePreviewHeight)
+    return () => window.removeEventListener('resize', updatePreviewHeight)
+  }, [])
 
   const semanticVariant = variantDownloads.semantic
   const fidelityVariant = variantDownloads.fidelity
@@ -256,18 +284,18 @@ export default function PptxResultCard({
           widget={{
             title: previewTitle,
             html: payload.previewHtml,
-            height: payload.previewHeight,
+            height: previewHeight,
           }}
           displayTitle={previewTitle}
           t={t}
         />
       ) : null}
 
-      <div className="rounded-2xl border border-white/10 bg-black/15 p-4 text-sm text-zinc-200">
-        <div className="mb-1 text-sm font-semibold">
+      <div className="rounded-2xl border border-black/10 bg-white/80 p-4 text-sm text-zinc-800 shadow-sm dark:border-white/10 dark:bg-black/15 dark:text-zinc-200 dark:shadow-none">
+        <div className="mb-1 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
           {payload.title || displayTitle || t('tools.pptGenerator', 'PPT Generator')}
         </div>
-        <div className="mb-3 text-xs text-zinc-400">
+        <div className="mb-3 text-xs text-zinc-500 dark:text-zinc-400">
           {payload.filename}
           {payload.slideCount > 0
             ? ` · ${t('messageBubble.ppt.slideCount', {
@@ -281,7 +309,7 @@ export default function PptxResultCard({
         </div>
 
         {(semanticError || fidelityError || installError) && (
-          <div className="mb-3 rounded-xl border border-red-400/25 bg-red-500/8 px-3 py-2 text-[11px] text-red-100">
+          <div className="mb-3 rounded-xl border border-red-300/70 bg-red-50 px-3 py-2 text-[11px] text-red-700 dark:border-red-400/25 dark:bg-red-500/8 dark:text-red-100">
             {semanticError || fidelityError || installError}
           </div>
         )}
@@ -291,7 +319,7 @@ export default function PptxResultCard({
             type="button"
             onClick={handleSemanticDownload}
             disabled={(!payload?.downloadUrl && !requestPayload) || isGeneratingSemantic || isGeneratingFidelity}
-            className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/8 px-3 py-1.5 text-xs font-medium text-zinc-100 transition-colors hover:bg-white/14"
+            className="inline-flex items-center gap-2 rounded-full border border-black/15 bg-black/4 px-3 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-black/7 dark:border-white/15 dark:bg-white/8 dark:text-zinc-100 dark:hover:bg-white/14"
           >
             {isGeneratingSemantic ? (
               <LoaderCircle size={14} className="animate-spin" />
@@ -305,7 +333,7 @@ export default function PptxResultCard({
             type="button"
             onClick={handleFidelityDownload}
             disabled={!requestPayload || isGeneratingFidelity}
-            className="inline-flex items-center gap-2 rounded-full border border-primary-400/20 bg-primary-500/10 px-3 py-1.5 text-xs font-medium text-primary-100 transition-colors hover:bg-primary-500/16 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-full border border-primary-400/45 bg-primary-50 px-3 py-1.5 text-xs font-medium text-primary-700 transition-colors hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-primary-400/20 dark:bg-primary-500/10 dark:text-primary-100 dark:hover:bg-primary-500/16"
           >
             {isGeneratingFidelity ? (
               <LoaderCircle size={14} className="animate-spin" />
@@ -318,20 +346,20 @@ export default function PptxResultCard({
       </div>
 
       <Dialog open={showInstallDialog} onOpenChange={setShowInstallDialog}>
-        <DialogContent className="h-[calc(100vh-16px)] max-h-[calc(100vh-16px)] w-[calc(100vw-16px)] max-w-[760px] overflow-hidden border-white/10 bg-[#111217] p-0 sm:h-auto sm:max-h-[88vh] sm:w-[calc(100vw-48px)] sm:max-w-[760px]">
-          <DialogHeader className="border-b border-white/8 px-5 pt-5 pb-4 sm:px-6 sm:pt-6 sm:pb-5">
+        <DialogContent className="h-[calc(100vh-16px)] max-h-[calc(100vh-16px)] w-[calc(100vw-16px)] max-w-[760px] overflow-hidden border-black/12 bg-white p-0 sm:h-auto sm:max-h-[88vh] sm:w-[calc(100vw-48px)] sm:max-w-[760px] dark:border-white/10 dark:bg-[#111217]">
+          <DialogHeader className="border-b border-black/10 px-5 pt-5 pb-4 sm:px-6 sm:pt-6 sm:pb-5 dark:border-white/8">
             <div className="mb-3 flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-amber-400/20 bg-amber-500/10 text-amber-300">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-amber-300/50 bg-amber-100/75 text-amber-700 dark:border-amber-400/20 dark:bg-amber-500/10 dark:text-amber-300">
                 <AlertTriangle size={20} />
               </div>
               <div className="min-w-0">
-                <DialogTitle className="text-left text-lg font-semibold text-white sm:text-xl">
+                <DialogTitle className="text-left text-lg font-semibold text-zinc-900 sm:text-xl dark:text-white">
                   {t(
                     'messageBubble.ppt.installDialogTitle',
                     'Install Chromium for high-fidelity export',
                   )}
                 </DialogTitle>
-                <DialogDescription className="mt-1 text-left text-sm leading-6 text-zinc-400">
+                <DialogDescription className="mt-1 text-left text-sm leading-6 text-zinc-600 dark:text-zinc-400">
                   {t(
                     'messageBubble.ppt.installDialogBody',
                     'High-fidelity PPT export requires Playwright Chromium. Semantic download is already available, but if you want the closer HTML-to-PPT version, install Chromium and continue.',
@@ -341,8 +369,8 @@ export default function PptxResultCard({
             </div>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-6 sm:py-6">
-            <div className="rounded-3xl border border-amber-400/20 bg-linear-to-br from-amber-500/10 via-amber-500/6 to-transparent p-4 sm:p-5">
-              <div className="text-sm font-medium text-amber-100">
+            <div className="rounded-3xl border border-amber-300/50 bg-linear-to-br from-amber-100/80 via-amber-50/40 to-transparent p-4 sm:p-5 dark:border-amber-400/20 dark:from-amber-500/10 dark:via-amber-500/6">
+              <div className="text-sm font-medium text-amber-900 dark:text-amber-100">
                 {hasPlaywrightMissing
                   ? t(
                       'messageBubble.ppt.chromiumMissingTitle',
@@ -353,7 +381,7 @@ export default function PptxResultCard({
                       'This file was generated with semantic fallback.',
                     )}
               </div>
-              <div className="mt-2 text-sm leading-6 text-amber-50/90">
+              <div className="mt-2 text-sm leading-6 text-amber-800/95 dark:text-amber-50/90">
                 {hasPlaywrightMissing
                   ? t(
                       'messageBubble.ppt.chromiumMissingBody',
@@ -367,16 +395,16 @@ export default function PptxResultCard({
             </div>
 
             {installError ? (
-              <div className="mt-4 rounded-2xl border border-red-400/25 bg-red-500/8 px-3 py-3 text-[12px] leading-6 text-red-100">
+              <div className="mt-4 rounded-2xl border border-red-300/70 bg-red-50 px-3 py-3 text-[12px] leading-6 text-red-700 dark:border-red-400/25 dark:bg-red-500/8 dark:text-red-100">
                 {installError}
               </div>
             ) : null}
           </div>
-          <DialogFooter className="border-t border-white/8 px-5 py-4 sm:px-6">
+          <DialogFooter className="border-t border-black/10 px-5 py-4 sm:px-6 dark:border-white/8">
             <button
               type="button"
               onClick={() => setShowInstallDialog(false)}
-              className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-zinc-200 transition-colors hover:bg-white/10"
+              className="inline-flex items-center justify-center rounded-full border border-black/15 bg-black/4 px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-black/8 dark:border-white/10 dark:bg-white/5 dark:text-zinc-200 dark:hover:bg-white/10"
             >
               {t('common.cancel', 'Cancel')}
             </button>
@@ -384,7 +412,7 @@ export default function PptxResultCard({
               type="button"
               onClick={handleInstallAndContinue}
               disabled={isInstalling}
-              className="inline-flex items-center justify-center gap-2 rounded-full border border-primary-400/20 bg-primary-500/12 px-4 py-2 text-sm font-medium text-primary-100 transition-colors hover:bg-primary-500/18 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex items-center justify-center gap-2 rounded-full border border-primary-400/45 bg-primary-50 px-4 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-primary-400/20 dark:bg-primary-500/12 dark:text-primary-100 dark:hover:bg-primary-500/18"
             >
               {isInstalling ? <LoaderCircle size={16} className="animate-spin" /> : <Sparkles size={16} />}
               {t('messageBubble.ppt.installAndContinue', 'Install and continue')}

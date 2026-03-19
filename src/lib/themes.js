@@ -62,21 +62,55 @@ const TINT_WEIGHT_LIGHT = 0.02 // 2%
 const TINT_WEIGHT_DARK = 0.02 // 2%
 
 export const THEMES = {
-  violet: {
-    label: 'Royal Violet',
+  denim: {
+    label: 'Denim Ink',
     colors: {
-      '--color-primary-50': '#f5f3ff',
-      '--color-primary-100': '#ede9fe',
-      '--color-primary-200': '#ddd6fe',
-      '--color-primary-300': '#c4b5fd',
-      '--color-primary-400': '#a78bfa',
-      '--color-primary-500': '#8b5cf6',
-      '--color-primary-600': '#7c3aed',
-      '--color-primary-700': '#6d28d9',
-      '--color-primary-800': '#5b21b6',
-      '--color-primary-900': '#4c1d95',
-      '--color-primary-950': '#2e1065',
-      '--user-bubble': '#f5f3ff',
+      '--color-primary-50': '#f4f7fb',
+      '--color-primary-100': '#e9eef7',
+      '--color-primary-200': '#d3dfef',
+      '--color-primary-300': '#b0c5e2',
+      '--color-primary-400': '#85a4d1',
+      '--color-primary-500': '#577fb9',
+      '--color-primary-600': '#476aa6',
+      '--color-primary-700': '#3e588a',
+      '--color-primary-800': '#374b73',
+      '--color-primary-900': '#32405f',
+      '--color-primary-950': '#22293f',
+      '--user-bubble': '#edf2fa',
+    },
+  },
+  mauve: {
+    label: 'Mauve Mist',
+    colors: {
+      '--color-primary-50': '#faf7fb',
+      '--color-primary-100': '#f2ecf7',
+      '--color-primary-200': '#e5dcef',
+      '--color-primary-300': '#d2c4e1',
+      '--color-primary-400': '#b8a3cf',
+      '--color-primary-500': '#9b7bb8',
+      '--color-primary-600': '#8663a3',
+      '--color-primary-700': '#6f5287',
+      '--color-primary-800': '#5e466f',
+      '--color-primary-900': '#503d5c',
+      '--color-primary-950': '#33253c',
+      '--user-bubble': '#f4eff8',
+    },
+  },
+  midnight: {
+    label: 'Midnight Blue',
+    colors: {
+      '--color-primary-50': '#f2f5fa',
+      '--color-primary-100': '#e7ecf6',
+      '--color-primary-200': '#d0daec',
+      '--color-primary-300': '#adbfdf',
+      '--color-primary-400': '#819ccc',
+      '--color-primary-500': '#5b79b6',
+      '--color-primary-600': '#4a639c',
+      '--color-primary-700': '#3f5280',
+      '--color-primary-800': '#39466b',
+      '--color-primary-900': '#333c5a',
+      '--color-primary-950': '#202639',
+      '--user-bubble': '#eaf0f8',
     },
   },
   ocean: {
@@ -130,57 +164,6 @@ export const THEMES = {
       '--user-bubble': '#f9fafb',
     },
   },
-  mauve: {
-    label: 'Mauve Mist',
-    colors: {
-      '--color-primary-50': '#faf7fb',
-      '--color-primary-100': '#f2ecf7',
-      '--color-primary-200': '#e5dcef',
-      '--color-primary-300': '#d2c4e1',
-      '--color-primary-400': '#b8a3cf',
-      '--color-primary-500': '#9b7bb8',
-      '--color-primary-600': '#8663a3',
-      '--color-primary-700': '#6f5287',
-      '--color-primary-800': '#5e466f',
-      '--color-primary-900': '#503d5c',
-      '--color-primary-950': '#33253c',
-      '--user-bubble': '#f4eff8',
-    },
-  },
-  denim: {
-    label: 'Denim Ink',
-    colors: {
-      '--color-primary-50': '#f4f7fb',
-      '--color-primary-100': '#e9eef7',
-      '--color-primary-200': '#d3dfef',
-      '--color-primary-300': '#b0c5e2',
-      '--color-primary-400': '#85a4d1',
-      '--color-primary-500': '#577fb9',
-      '--color-primary-600': '#476aa6',
-      '--color-primary-700': '#3e588a',
-      '--color-primary-800': '#374b73',
-      '--color-primary-900': '#32405f',
-      '--color-primary-950': '#22293f',
-      '--user-bubble': '#edf2fa',
-    },
-  },
-  midnight: {
-    label: 'Midnight Blue',
-    colors: {
-      '--color-primary-50': '#f2f5fa',
-      '--color-primary-100': '#e7ecf6',
-      '--color-primary-200': '#d0daec',
-      '--color-primary-300': '#adbfdf',
-      '--color-primary-400': '#819ccc',
-      '--color-primary-500': '#5b79b6',
-      '--color-primary-600': '#4a639c',
-      '--color-primary-700': '#3f5280',
-      '--color-primary-800': '#39466b',
-      '--color-primary-900': '#333c5a',
-      '--color-primary-950': '#202639',
-      '--user-bubble': '#eaf0f8',
-    },
-  },
   indigo: {
     label: 'Indigo',
     colors: {
@@ -196,6 +179,23 @@ export const THEMES = {
       '--color-primary-900': '#343b70',
       '--color-primary-950': '#232749',
       '--user-bubble': '#eceffd',
+    },
+  },
+  violet: {
+    label: 'Royal Violet',
+    colors: {
+      '--color-primary-50': '#f5f3ff',
+      '--color-primary-100': '#ede9fe',
+      '--color-primary-200': '#ddd6fe',
+      '--color-primary-300': '#c4b5fd',
+      '--color-primary-400': '#a78bfa',
+      '--color-primary-500': '#8b5cf6',
+      '--color-primary-600': '#7c3aed',
+      '--color-primary-700': '#6d28d9',
+      '--color-primary-800': '#5b21b6',
+      '--color-primary-900': '#4c1d95',
+      '--color-primary-950': '#2e1065',
+      '--user-bubble': '#f5f3ff',
     },
   },
 }
@@ -232,7 +232,7 @@ Object.keys(THEMES).forEach(key => {
  */
 export const applyTheme = themeKey => {
   const root = document.documentElement
-  const theme = THEMES[themeKey] || THEMES['violet'] // Default to violet if invalid
+  const theme = THEMES[themeKey] || THEMES['midnight'] // Default to midnight if invalid
 
   Object.entries(theme.colors).forEach(([property, value]) => {
     // We expect property to be --color-primary-*, which is correct after sed

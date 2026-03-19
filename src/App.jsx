@@ -306,18 +306,25 @@ function App() {
   useLayoutEffect(() => {
     const applyFontSize = () => {
       const settings = loadSettings()
-      const fontSizeMap = {
-        small: '14px',
-        medium: '15px',
-        large: '17px',
-        'extra-large': '19px',
+      const desktopFontSizeMap = {
+        small: '1rem',
+        medium: '1.0625rem',
+        large: '1.125rem',
+        'extra-large': '1.25rem',
       }
-      if (settings.fontSize && fontSizeMap[settings.fontSize]) {
-        document.documentElement.style.setProperty(
-          '--message-font-size',
-          fontSizeMap[settings.fontSize],
-        )
+      const mobileFontSizeMap = {
+        small: '0.9375rem',
+        medium: '1rem',
+        large: '1.0625rem',
+        'extra-large': '1.125rem',
       }
+      const sizeKey = settings.fontSize
+      if (!sizeKey || !desktopFontSizeMap[sizeKey]) return
+
+      const root = document.documentElement
+      root.style.setProperty('--message-font-size-desktop', desktopFontSizeMap[sizeKey])
+      root.style.setProperty('--message-font-size-mobile', mobileFontSizeMap[sizeKey])
+      root.style.setProperty('--message-font-size', desktopFontSizeMap[sizeKey])
     }
 
     applyFontSize()

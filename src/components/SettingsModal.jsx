@@ -202,7 +202,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
   const [isOcrProviderDropdownOpen, setIsOcrProviderDropdownOpen] = useState(false)
   const ocrProviderDropdownRef = useRef(null)
   const [contextTurns, setContextTurns] = useState(6)
-  const [themeColor, setThemeColor] = useState('violet')
+  const [themeColor, setThemeColor] = useState('midnight')
   const [fontSize, setFontSize] = useState('medium')
   const [isSaving, setIsSaving] = useState(false)
   const [enableRelatedQuestions, setEnableRelatedQuestions] = useState(false)
@@ -462,7 +462,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       if (settings.themeColor && THEMES[settings.themeColor]) {
         setThemeColor(settings.themeColor)
       } else {
-        setThemeColor('violet')
+        setThemeColor('midnight')
       }
       if (settings.fontSize) setFontSize(settings.fontSize)
       if (typeof settings.enableRelatedQuestions === 'boolean')
@@ -1429,8 +1429,8 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
   }
 
   return (
-    <div className="fixed inset-0 z-200 flex items-start justify-center overflow-y-auto bg-black/50 p-0 backdrop-blur-sm md:items-center md:overflow-hidden md:p-4">
-      <div className="glass-elite-panel relative flex h-dvh w-full flex-col overflow-hidden rounded-none border-0 md:h-[88vh] md:max-w-[1440px] md:flex-row md:rounded-[28px]">
+    <div className="modal-overlay-shell">
+      <div className="modal-surface-shell modal-surface-shell-wide">
         {/* Mobile Header */}
         <div className="flex h-14 shrink-0 items-center justify-between border-b border-black/5 bg-transparent px-4 md:hidden dark:border-white/5">
           <h2 className="text-base font-semibold text-gray-900 dark:text-white">

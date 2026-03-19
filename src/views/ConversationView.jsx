@@ -1,4 +1,3 @@
-import { AlertCircle, RefreshCw } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { conversationRoute } from '../router'
 import { useLocation, useNavigate } from '@tanstack/react-router'
@@ -7,6 +6,7 @@ import { useAppContext } from '../App'
 import ChatInterface from '../components/ChatInterface'
 import DeepResearchChatInterface from '../components/DeepResearchChatInterface'
 import ConversationLoadingOverlay from '../components/ConversationLoadingOverlay'
+import ConversationErrorState from '../components/ConversationErrorState'
 import { useShallow } from 'zustand/react/shallow'
 import useChatStore from '../lib/chatStore'
 
@@ -231,38 +231,13 @@ const ConversationView = () => {
 
   if (fetchError) {
     return (
-      <div className="flex flex-1 items-center justify-center p-6">
-        <div className="bg-card w-full max-w-md rounded-2xl border border-red-200/60 p-6 shadow-sm dark:border-red-900/60">
-          <div className="mb-3 flex items-center gap-2 text-red-500">
-            <AlertCircle className="h-5 w-5" />
-            <h2 className="text-lg font-semibold">Failed to load conversation</h2>
-          </div>
-          <p className="text-muted-foreground text-sm">
-            This can happen when the session switches too quickly or the network is unstable. Try
-            loading it again.
-          </p>
-          <div className="mt-4 flex gap-2">
-            <button
-              onClick={() => setReloadToken(prev => prev + 1)}
-              className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm"
-            >
-              <RefreshCw className="h-4 w-4" />
-              Retry
-            </button>
-            <button
-              onClick={() => window.location.reload()}
-              className="border-border bg-background text-foreground hover:bg-accent rounded-lg border px-4 py-2 text-sm"
-            >
-              Refresh Page
-            </button>
-          </div>
-          <p className="text-muted-foreground mt-3 text-xs">
-            {fetchError?.message
-              ? `Details: ${fetchError.message}`
-              : 'No additional error details.'}
-          </p>
-        </div>
-      </div>
+      <ConversationErrorState
+        title="Failed to load conversation"
+        description="This can happen when the session switches too quickly or the network is unstable. Try loading it again."
+        details={fetchError?.message}
+        onRetry={() => setReloadToken(prev => prev + 1)}
+        onRefresh={() => window.location.reload()}
+      />
     )
   }
 

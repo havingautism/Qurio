@@ -500,7 +500,7 @@ export const loadSettings = (overrides = {}) => {
     // Chat behavior
     systemPrompt: localSystemPrompt || overrides.systemPrompt || '',
     contextTurns: resolvedContextLimit,
-    themeColor: localThemeColor || overrides.themeColor || 'violet',
+    themeColor: localThemeColor || overrides.themeColor || 'midnight',
     enableRelatedQuestions: resolvedRelatedQuestionsPreference,
     interfaceLanguage: localInterfaceLanguage || overrides.interfaceLanguage || 'en',
     followInterfaceLanguage:

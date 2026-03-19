@@ -958,7 +958,7 @@ const HomeView = () => {
       null,
     [homeExaSearchOptions, homeSelectedExaSearchTools],
   )
-  const activeTheme = THEMES[settings.themeColor] || THEMES['violet']
+  const activeTheme = THEMES[settings.themeColor] || THEMES['midnight']
   const homeWaveColors = useMemo(() => {
     const p400 = activeTheme.colors['--color-primary-400']
     const p500 = activeTheme.colors['--color-primary-500']

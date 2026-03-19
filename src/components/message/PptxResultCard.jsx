@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, Download, LoaderCircle, Sparkles } from 'lucide-react'
 import HtmlWidgetCard from './HtmlWidgetCard'
 import { checkEnvStatus, installScraperEngine } from '../../lib/services/envService'
@@ -29,12 +29,46 @@ const hasIssuePrefix = (issues, prefix) =>
 const hasIssue = (issues, code) =>
   Array.isArray(issues) && issues.some(issue => String(issue || '') === code)
 
-const triggerBrowserDownload = url => {
+const downloadResolvedFile = async (url, filename = 'presentation.pptx') => {
+  const res = await fetch(url)
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}`)
+  }
+  const blob = await res.blob()
+  const objectUrl = URL.createObjectURL(blob)
   const link = document.createElement('a')
-  link.href = url
-  link.target = '_blank'
-  link.rel = 'noopener noreferrer'
+  link.href = objectUrl
+  link.download = filename
   link.click()
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 1000)
+}
+
+const hasUsableExpiry = expiresAt => {
+  const value = String(expiresAt || '').trim()
+  if (!value) return false
+  const timestamp = Date.parse(value)
+  if (!Number.isFinite(timestamp)) return false
+  return timestamp > Date.now() + 5_000
+}
+
+const buildVariantDownloadsFromPayload = payload => {
+  const renderMode = String(payload?.renderModeUsed || '').toLowerCase()
+  const normalizedMode = renderMode === 'fidelity' ? 'fidelity' : renderMode === 'semantic' ? 'semantic' : ''
+  const baseVariant =
+    normalizedMode && payload?.downloadUrl
+      ? {
+          downloadUrl: payload.downloadUrl,
+          filename: payload?.filename || 'presentation.pptx',
+          expiresAt: payload?.expiresAt || '',
+          source: 'payload',
+        }
+      : null
+
+  return {
+    semantic: normalizedMode === 'semantic' ? baseVariant : null,
+    fidelity: normalizedMode === 'fidelity' ? baseVariant : null,
+    activeMode: normalizedMode || null,
+  }
 }
 
 export default function PptxResultCard({
@@ -44,11 +78,14 @@ export default function PptxResultCard({
   resolveBackendDownloadUrl,
   t,
 }) {
+  const [isGeneratingSemantic, setIsGeneratingSemantic] = useState(false)
   const [isInstalling, setIsInstalling] = useState(false)
   const [installError, setInstallError] = useState('')
   const [isGeneratingFidelity, setIsGeneratingFidelity] = useState(false)
+  const [semanticError, setSemanticError] = useState('')
   const [fidelityError, setFidelityError] = useState('')
   const [showInstallDialog, setShowInstallDialog] = useState(false)
+  const [variantDownloads, setVariantDownloads] = useState(() => buildVariantDownloadsFromPayload(payload))
 
   const rawQaIssues = Array.isArray(payload?.qaIssuesRaw) ? payload.qaIssuesRaw : []
   const requestPayload = useMemo(() => parseToolArguments(item?.arguments), [item?.arguments])
@@ -58,8 +95,75 @@ export default function PptxResultCard({
     hasIssue(rawQaIssues, 'fidelity_requested_but_fallback_to_semantic') ||
     hasIssue(rawQaIssues, 'fidelity_auto_fallback_to_semantic')
 
-  const handleSemanticDownload = () => {
-    triggerBrowserDownload(resolveBackendDownloadUrl(payload.downloadUrl))
+  useEffect(() => {
+    setVariantDownloads(buildVariantDownloadsFromPayload(payload))
+  }, [payload])
+
+  const semanticVariant = variantDownloads.semantic
+  const fidelityVariant = variantDownloads.fidelity
+
+  const registerVariantDownload = (mode, data) => {
+    if (!data?.download_url) return
+    setVariantDownloads(current => ({
+      ...current,
+      [mode]: {
+        downloadUrl: data.download_url,
+        filename: data.filename || payload?.filename || 'presentation.pptx',
+        expiresAt: data.expires_at || '',
+        source: 'runtime',
+      },
+      activeMode: mode,
+    }))
+  }
+
+  const generateAndDownloadSemantic = async () => {
+    if (!requestPayload || isGeneratingSemantic) return
+    setIsGeneratingSemantic(true)
+    setSemanticError('')
+    const { data, error } = await rebuildPptxFromPayload({
+      ...requestPayload,
+      render_mode: 'semantic',
+    })
+    if (error) {
+      setSemanticError(error)
+      setIsGeneratingSemantic(false)
+      return
+    }
+    if (!data || data.type !== 'pptx_file' || !data.download_url) {
+      setSemanticError(
+        data?.message ||
+          t('messageBubble.ppt.rebuildUnexpectedResponse', 'Unexpected rebuild response.'),
+      )
+      setIsGeneratingSemantic(false)
+      return
+    }
+    registerVariantDownload('semantic', data)
+    await downloadResolvedFile(
+      resolveBackendDownloadUrl(data.download_url),
+      data.filename || payload?.filename || 'presentation.pptx',
+    )
+    setIsGeneratingSemantic(false)
+  }
+
+  const handleSemanticDownload = async () => {
+    if (isGeneratingSemantic || isGeneratingFidelity) return
+    setSemanticError('')
+    if (semanticVariant?.downloadUrl && hasUsableExpiry(semanticVariant.expiresAt)) {
+      try {
+        await downloadResolvedFile(
+          resolveBackendDownloadUrl(semanticVariant.downloadUrl),
+          semanticVariant.filename || 'presentation.pptx',
+        )
+        return
+      } catch {
+        setVariantDownloads(current => ({
+          ...current,
+          semantic: null,
+          activeMode: current.activeMode === 'semantic' ? null : current.activeMode,
+        }))
+      }
+    }
+    await generateAndDownloadSemantic()
   }
 
   const generateAndDownloadFidelity = async () => {
@@ -84,13 +188,32 @@ export default function PptxResultCard({
       setIsGeneratingFidelity(false)
       return
     }
-    triggerBrowserDownload(resolveBackendDownloadUrl(data.download_url))
+    registerVariantDownload('fidelity', data)
+    await downloadResolvedFile(
+      resolveBackendDownloadUrl(data.download_url),
+      data.filename || payload?.filename || 'presentation.pptx',
+    )
     setIsGeneratingFidelity(false)
   }
 
   const handleFidelityDownload = async () => {
-    if (!requestPayload || isGeneratingFidelity) return
+    if (isGeneratingSemantic || isGeneratingFidelity) return
     setFidelityError('')
+    if (fidelityVariant?.downloadUrl && hasUsableExpiry(fidelityVariant.expiresAt)) {
+      try {
+        await downloadResolvedFile(
+          resolveBackendDownloadUrl(fidelityVariant.downloadUrl),
+          fidelityVariant.filename || 'presentation.pptx',
+        )
+        return
+      } catch {
+        setVariantDownloads(current => ({
+          ...current,
+          fidelity: null,
+          activeMode: current.activeMode === 'fidelity' ? null : current.activeMode,
+        }))
+      }
+    }
     const status = await checkEnvStatus()
     if (!status?.chromium_installed) {
       setInstallError('')
@@ -157,9 +280,9 @@ export default function PptxResultCard({
             : ''}
         </div>
 
-        {(fidelityError || installError) && (
+        {(semanticError || fidelityError || installError) && (
           <div className="mb-3 rounded-xl border border-red-400/25 bg-red-500/8 px-3 py-2 text-[11px] text-red-100">
-            {fidelityError || installError}
+            {semanticError || fidelityError || installError}
           </div>
         )}
 
@@ -167,9 +290,14 @@ export default function PptxResultCard({
           <button
             type="button"
             onClick={handleSemanticDownload}
+            disabled={(!payload?.downloadUrl && !requestPayload) || isGeneratingSemantic || isGeneratingFidelity}
             className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/8 px-3 py-1.5 text-xs font-medium text-zinc-100 transition-colors hover:bg-white/14"
           >
-            <Download size={14} />
+            {isGeneratingSemantic ? (
+              <LoaderCircle size={14} className="animate-spin" />
+            ) : (
+              <Download size={14} />
+            )}
             {t('messageBubble.ppt.downloadSemantic', 'Download semantic PPT')}
           </button>
 

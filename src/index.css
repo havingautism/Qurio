@@ -794,6 +794,12 @@ h6 {
   font-size: calc(var(--message-font-size) - 0.125rem) !important;
 }
 
+.message-content details.workflow-process-summary > summary,
+.message-content details.workflow-process-summary > :not(summary),
+.message-content details.workflow-process-summary > :not(summary) * {
+  font-size: calc(var(--message-font-size) - 0.25rem) !important;
+}
+
 /* .dark .message-content blockquote {
   /* color: var(--color-primary-300) !important; */
 /* } */

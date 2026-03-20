@@ -708,10 +708,12 @@ def build_agent(request: Any = None, **kwargs: Any) -> Agent:
 
     if "duckduckgo_image_search" in enabled_names or "google_image_search" in enabled_names:
         instructions_list.append(
-            "When explaining concepts that can benefit from visual aids (like Logo, diagrams, or photos), "
-            "you should use the image search tools to find relevant images. "
-            "ALWAYS render images in your response using markdown format: ![caption](url). "
-            "Place images appropriately within your explanation to enhance user understanding."
+            "When a response would benefit from images, use the image search tools to find relevant images. "
+            "Hard rule: do not invent, guess, stitch together, or complete any image URL. "
+            "Only use an image URL if a tool, database, or API explicitly returned a real image URL field such as image_url, url, or an equivalent field. "
+            "Do not use placeholder or example URLs such as https://example.com/xxx.png. "
+            "If no real image URL is available, do not output any image link and do not use markdown image syntax ![](). "
+            "If the response format is structured JSON, set image_url to null or images to []."
         )
 
     if "duckduckgo_video_search" in enabled_names or "search_youtube" in enabled_names:

@@ -3039,7 +3039,7 @@ const MessageBubble = ({
     [t, getToolDisplayName, i18n.language, expandedToolsSteps, toggleToolsStep],
   )
   const renderWorkflowToolCapsule = useCallback(
-    item => {
+    (item, compact = false) => {
       if (!item) return null
 
       const ToolIcon = getToolIconComponent(item.name)
@@ -3051,28 +3051,23 @@ const MessageBubble = ({
         : isCalling
           ? t('messageBubble.toolStatusCalling', '调用中')
           : t('messageBubble.toolStatusDone', '已完成')
-      const workflowPrefix = isError
-        ? t('messageBubble.workflowToolFailedPrefix', '调用失败')
-        : isCalling
-          ? t('messageBubble.workflowToolCallingPrefix', '调用中')
-          : t('messageBubble.workflowToolCalledPrefix', '已调用')
-
       return (
         <div
           className={clsx(
-            'inline-flex max-w-full items-center gap-2 rounded-full border px-3 py-2 text-xs! shadow-[0_1px_2px_rgba(0,0,0,0.02)]',
+            'inline-flex max-w-full items-center rounded-full border shadow-[0_1px_2px_rgba(0,0,0,0.02)]',
+            compact ? 'gap-1.5 px-2.5 py-1.5 text-[11px]!' : 'gap-2 px-3 py-2 text-xs!',
             isError
               ? 'border-red-200/70 bg-red-50/70 text-red-600 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300'
               : 'border-primary-200/35 dark:border-primary-700/20 bg-white/65 text-gray-600 dark:bg-zinc-800/40 dark:text-gray-300',
           )}
         >
-          <span className="flex min-w-0 items-center gap-1.5 font-medium">
+          <span className={clsx('flex min-w-0 items-center font-medium', compact ? 'gap-1' : 'gap-1.5')}>
             {isError ? (
-              <AlertTriangle size={14} className="shrink-0" />
+              <AlertTriangle size={compact ? 13 : 14} className="shrink-0" />
             ) : ToolIcon ? (
-              <ToolIcon size={14} className="shrink-0 opacity-70" />
+              <ToolIcon size={compact ? 13 : 14} className="shrink-0 opacity-70" />
             ) : (
-              <Wrench size={14} className="shrink-0 opacity-70" />
+              <Wrench size={compact ? 13 : 14} className="shrink-0 opacity-70" />
             )}
             <span className="truncate">{toolName}</span>
           </span>
@@ -4203,7 +4198,11 @@ const MessageBubble = ({
   const workflowPanel =
     workflowProcessSteps.length > 0 ? (
       <details
-        className={clsx('group', !isExpertMessage && 'mt-0 mb-4', isExpertMessage && 'mt-4 mb-4')}
+        className={clsx(
+          'group workflow-process-summary',
+          !isExpertMessage && 'mt-0 mb-4',
+          isExpertMessage && 'mt-4 mb-4',
+        )}
         open={isWorkflowExpanded}
         onToggle={event => setIsWorkflowExpanded(event.currentTarget.open)}
       >
@@ -4270,7 +4269,7 @@ const MessageBubble = ({
                 setIsSourcesOpen(prev => !prev)
               }}
               className={clsx(
-                'glass-elite-chip inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-gray-700 dark:text-gray-200',
+                'glass-elite-chip inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-[11px] font-semibold text-gray-700 dark:text-gray-200',
               )}
             >
               <span className="flex -space-x-2">
@@ -4283,7 +4282,7 @@ const MessageBubble = ({
                   />
                 ))}
               </span>
-              <span className="text-xs!">
+              <span className="text-[10px]!">
                 {t('sources.allSources')} {allSources.length}
               </span>
               {/* <ChevronRight size={14} className="opacity-60" /> */}
@@ -4327,7 +4326,7 @@ const MessageBubble = ({
                           <BrainCircuit size={16} />
                         </div>
                         <div className="mb-2 flex min-h-5 items-center justify-between gap-3">
-                          <span className="text-sm leading-5 font-medium text-gray-400 dark:text-zinc-500">
+                          <span className="text-xs leading-5 font-medium text-gray-400 dark:text-zinc-500">
                             {t('messageBubble.reasoningLabel', '思考过程')}
                           </span>
                           {typeof thoughtDurationMs === 'number' && thoughtDurationMs > 0 && (
@@ -4338,7 +4337,7 @@ const MessageBubble = ({
                             </span>
                           )}
                         </div>
-                        <div className="text-base leading-relaxed text-gray-600 dark:text-gray-300">
+                        <div className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
                           <Streamdown
                             mermaid={mermaidOptions}
                             remarkPlugins={[remarkGfm]}
@@ -4390,7 +4389,7 @@ const MessageBubble = ({
                         </div>
 
                         <div className="space-y-2">
-                          <div className="flex flex-wrap items-center gap-2 text-xs">
+                          <div className="flex flex-wrap items-center gap-2 text-[11px]">
                             <span className="rounded-full border border-gray-200/80 bg-white/85 px-2 py-0.5 font-semibold text-gray-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-gray-300">
                               {t('messageBubble.researchStepLabel', {
                                 step: step.step,
@@ -4399,7 +4398,7 @@ const MessageBubble = ({
                             </span>
                             <span
                               className={clsx(
-                                'rounded-full px-2 py-0.5 text-[11px]',
+                                'rounded-full px-2 py-0.5 text-[10px]',
                                 isError
                                   ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
                                   : isDone
@@ -4411,17 +4410,17 @@ const MessageBubble = ({
                             </span>
                             {isActive && <DotLoader />}
                             {durationLabel && (
-                              <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                              <span className="text-[10px] text-gray-500 dark:text-gray-400">
                                 {durationLabel}
                               </span>
                             )}
                           </div>
-                          <div className="text-base text-gray-700 dark:text-gray-200">
+                          <div className="text-sm text-gray-700 dark:text-gray-200">
                             {step.title}
                             {isActive ? '...' : ''}
                           </div>
                           {step.error && (
-                            <div className="rounded-xl border border-red-500/20 bg-red-500/8 px-3 py-2 text-[11px] text-red-500 dark:text-red-400">
+                            <div className="rounded-xl border border-red-500/20 bg-red-500/8 px-3 py-2 text-[10px] text-red-500 dark:text-red-400">
                               {step.error}
                             </div>
                           )}
@@ -4444,7 +4443,7 @@ const MessageBubble = ({
                                       {isSearchLike ? (
                                         <div
                                           className={clsx(
-                                            'inline-flex max-w-full items-center gap-2 rounded-full border px-3 py-1.5 text-xs shadow-[0_1px_2px_rgba(0,0,0,0.02)]',
+                                            'inline-flex max-w-full items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] shadow-[0_1px_2px_rgba(0,0,0,0.02)]',
                                             item.status === 'error'
                                               ? 'border-red-200/70 bg-red-50/70 text-red-600 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300'
                                               : 'border-primary-200/35 dark:border-primary-700/30 bg-white/70 text-gray-700 dark:bg-zinc-800/55 dark:text-gray-200',
@@ -4458,7 +4457,7 @@ const MessageBubble = ({
                                           <span className="min-w-0 truncate">{queryPreview}</span>
                                         </div>
                                       ) : (
-                                        renderWorkflowToolCapsule(item)
+                                        renderWorkflowToolCapsule(item, true)
                                       )}
                                     </div>
                                     {hasDuration && (
@@ -4505,7 +4504,7 @@ const MessageBubble = ({
                           <Search size={16} />
                         </div>
 
-                        <div className="mb-2 flex items-center justify-between text-lg font-semibold text-gray-700 dark:text-gray-200">
+                        <div className="mb-2 flex items-center justify-between text-base font-semibold text-gray-700 dark:text-gray-200">
                           <div className="flex items-center gap-2">
                             {(() => {
                               if (isActiveSearch) {
@@ -4534,13 +4533,13 @@ const MessageBubble = ({
                           })()}
                         </div>
 
-                        <div className="text-base leading-relaxed text-gray-600 dark:text-gray-300">
+                        <div className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
                           {/* Search Queries row */}
                           <div className="mb-2 flex flex-wrap gap-1.5">
                             {step.queries.map(query => (
                               <span
                                 key={`query-${query}`}
-                                className="inline-flex items-center rounded-lg border border-gray-200/80 bg-white px-2.5 py-1 text-[11px]! text-gray-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-gray-300"
+                                className="inline-flex items-center rounded-lg border border-gray-200/80 bg-white px-2.5 py-1 text-[10px]! text-gray-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-gray-300"
                               >
                                 <Search size={12} className="mr-1.5 opacity-70" />
                                 {query}
@@ -4578,7 +4577,7 @@ const MessageBubble = ({
 
                         <div className="flex w-full flex-col gap-3 md:flex-row md:items-start md:gap-4">
                           {/* Label Section */}
-                          <div className="flex h-8 shrink-0 items-center text-[11px] leading-none font-bold tracking-wider text-gray-400 uppercase select-none dark:text-zinc-500">
+                          <div className="flex h-8 shrink-0 items-center text-[9px] leading-none font-bold tracking-wider text-gray-400 uppercase select-none dark:text-zinc-500">
                             {t('messageBubble.workflowToolCalledPrefix', '已调用')}
                           </div>
 
@@ -4595,14 +4594,14 @@ const MessageBubble = ({
                                   >
                                     <div className="flex items-center gap-3 overflow-x-hidden">
                                       <div className="min-w-0">
-                                        {renderWorkflowToolCapsule(item)}
+                                        {renderWorkflowToolCapsule(item, true)}
                                       </div>
 
                                       {/* PC Desktop: Action items inline with the last item */}
                                       {isLastItem && hasMoreItems && (
                                         <div className="hidden items-center gap-2 md:flex">
                                           {!isExpanded && (
-                                            <span className="ml-1 text-sm tracking-widest text-gray-300 dark:text-zinc-700">
+                                            <span className="ml-1 text-xs tracking-widest text-gray-300 dark:text-zinc-700">
                                               ...
                                             </span>
                                           )}
@@ -4639,7 +4638,7 @@ const MessageBubble = ({
                                         </span>
                                       )}
                                     </div>
-                                    <div className="pl-1 text-base text-gray-600 transition-colors group-hover/workflowitem:text-gray-900 dark:text-gray-300 dark:group-hover/workflowitem:text-zinc-200">
+                                    <div className="pl-1 text-sm text-gray-600 transition-colors group-hover/workflowitem:text-gray-900 dark:text-gray-300 dark:group-hover/workflowitem:text-zinc-200">
                                       {renderToolQueryPreview(item, 'truncate opacity-80')}
                                     </div>
                                   </div>
@@ -4651,7 +4650,7 @@ const MessageBubble = ({
                             {hasMoreItems && (
                               <div className="flex items-center gap-2 pt-1 md:hidden">
                                 {!isExpanded && (
-                                  <span className="text-sm tracking-widest text-gray-300 dark:text-zinc-700">
+                                  <span className="text-xs tracking-widest text-gray-300 dark:text-zinc-700">
                                     ...
                                   </span>
                                 )}

@@ -5,6 +5,7 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import {
   Brain,
+  ArrowDown,
   ChevronDown,
   ChevronsRight,
   CircleDot,
@@ -237,7 +238,7 @@ const PipelineDrawer = ({ isOpen, onClose, pipeline, t }) => {
                   <div key={node.id}>
                     <div
                       className={clsx(
-                        'w-full rounded-2xl border border-white/8 bg-white/3 px-3.5 py-3 text-left',
+                        'w-full rounded-lg border border-white/8 bg-white/3 px-3.5 py-3 text-left',
                         hasExpandableDetails && 'transition-colors hover:bg-white/5',
                       )}
                     >
@@ -380,7 +381,7 @@ const PipelineDrawer = ({ isOpen, onClose, pipeline, t }) => {
                     </div>
                     {index < nodes.length - 1 && (
                       <div className="flex justify-center py-1 text-zinc-600">
-                        <ChevronDown size={16} />
+                        <ArrowDown size={16} className="opacity-75" />
                       </div>
                     )}
                   </div>

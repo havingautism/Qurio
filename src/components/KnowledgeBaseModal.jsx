@@ -84,8 +84,8 @@ const KnowledgeBaseModal = ({ isOpen, onClose }) => {
   const showForm = isCreating || editingKb
 
   return (
-    <div className="animate-in fade-in fixed inset-0 z-200 flex items-center justify-center bg-black/60 backdrop-blur-sm duration-200 md:p-4">
-      <div className="glass-elite-panel relative flex h-dvh w-full flex-col overflow-hidden border-0 shadow-2xl md:h-[88vh] md:max-w-[1440px] md:flex-row md:rounded-[28px]">
+    <div className="modal-overlay-shell-centered">
+      <div className="modal-surface-shell modal-surface-shell-wide">
         {/* LEFT PANE: List */}
         <div
           className={clsx(

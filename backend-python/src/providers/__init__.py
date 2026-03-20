@@ -14,10 +14,13 @@ from .openai import OpenAIAdapter
 from .other_providers import (
     GeminiAdapter,
     GLMAdapter,
+    HuggingFaceAdapter,
     KimiAdapter,
+    LiteLLMOpenAIAdapter,
     MinimaxAdapter,
     ModelScopeAdapter,
     NvidiaAdapter,
+    OpenRouterAdapter,
     SiliconFlowAdapter,
 )
 
@@ -35,6 +38,9 @@ __all__ = [
     "OpenAIAdapter",
     "SiliconFlowAdapter",
     "GLMAdapter",
+    "OpenRouterAdapter",
+    "LiteLLMOpenAIAdapter",
+    "HuggingFaceAdapter",
     "KimiAdapter",
     "NvidiaAdapter",
     "MinimaxAdapter",

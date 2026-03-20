@@ -1,6 +1,8 @@
 // Import Provider Icons
 import GeminiIcon from '../assets/gemini-color.svg?url'
 import OpenAIIcon from '../assets/openai.svg?url'
+import OpenRouterIcon from '../assets/openrouter.svg?url'
+import HuggingFaceIcon from '../assets/huggingface-color.svg?url'
 import SiliconCloudIcon from '../assets/siliconcloud-color.svg?url'
 import DeepSeekIcon from '../assets/deepseek-color.svg?url'
 import QwenIcon from '../assets/qwen-color.svg?url'
@@ -29,6 +31,23 @@ export const PROVIDER_ICON_META = {
     alt: 'OpenAI',
     bgClassName: DEFAULT_ICON_BG_CLASS,
     imgClassName: 'invert-0 dark:invert',
+  },
+  openrouter: {
+    src: OpenRouterIcon,
+    alt: 'OpenRouter',
+    bgClassName: DEFAULT_ICON_BG_CLASS,
+    imgClassName: 'invert-0 dark:invert',
+  },
+  litellm_openai: {
+    emoji: '🚄',
+    alt: 'LiteLLM OpenAI',
+    bgClassName: 'bg-transparent',
+    emojiClassName: 'text-base leading-none',
+  },
+  huggingface: {
+    src: HuggingFaceIcon,
+    alt: 'Hugging Face',
+    bgClassName: DEFAULT_ICON_BG_CLASS,
   },
   siliconflow: { src: SiliconCloudIcon, alt: 'SiliconFlow', bgClassName: DEFAULT_ICON_BG_CLASS },
   glm: { src: ZhipuIcon, alt: 'GLM', bgClassName: DEFAULT_ICON_BG_CLASS },
@@ -69,14 +88,14 @@ export const PROVIDER_ICON_META = {
 }
 
 export const PROVIDER_ICONS = Object.fromEntries(
-  Object.entries(PROVIDER_ICON_META).map(([key, value]) => [key, value.src]),
+  Object.entries(PROVIDER_ICON_META).map(([key, value]) => [key, value.src || value.emoji || null]),
 )
 
 const MONOCHROME_ICON_CLASS = 'invert-0 dark:invert'
 
 export const renderProviderIcon = (provider, options = {}) => {
   const iconMeta = PROVIDER_ICON_META[provider]
-  if (!iconMeta?.src) return null
+  if (!iconMeta?.src && !iconMeta?.emoji) return null
 
   const { size = 16, alt, wrapperClassName = '', imgClassName = '', compact = false } = options
   const baseClasses = compact
@@ -92,14 +111,24 @@ export const renderProviderIcon = (provider, options = {}) => {
 
   return (
     <div className={wrapperClasses}>
-      <img
-        src={iconMeta.src}
-        alt={alt || iconMeta.alt || provider}
-        width={size}
-        height={size}
-        className={resolvedImgClassName}
-        loading="lazy"
-      />
+      {iconMeta.src ? (
+        <img
+          src={iconMeta.src}
+          alt={alt || iconMeta.alt || provider}
+          width={size}
+          height={size}
+          className={resolvedImgClassName}
+          loading="lazy"
+        />
+      ) : (
+        <span
+          aria-hidden="true"
+          className={iconMeta.emojiClassName || 'text-base leading-none'}
+          style={{ fontSize: `${size}px` }}
+        >
+          {iconMeta.emoji}
+        </span>
+      )}
     </div>
   )
 }

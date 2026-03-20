@@ -11,6 +11,28 @@ export const FALLBACK_MODEL_OPTIONS = {
     { value: 'gpt-4o', label: 'gpt-4o' },
     { value: 'gpt-4o-mini', label: 'gpt-4o-mini' },
   ],
+  openrouter: [
+    { value: 'openai/gpt-4o-mini', label: 'openai/gpt-4o-mini' },
+    { value: 'openai/gpt-4o', label: 'openai/gpt-4o' },
+  ],
+  litellm_openai: [
+    { value: 'gpt-5-mini', label: 'gpt-5-mini' },
+    { value: 'gpt-4o-mini', label: 'gpt-4o-mini' },
+  ],
+  huggingface: [
+    {
+      value: 'meta-llama/Meta-Llama-3.1-8B-Instruct',
+      label: 'meta-llama/Meta-Llama-3.1-8B-Instruct',
+    },
+    {
+      value: 'mistralai/Mistral-7B-Instruct-v0.3',
+      label: 'mistralai/Mistral-7B-Instruct-v0.3',
+    },
+    {
+      value: 'Qwen/Qwen2.5-72B-Instruct',
+      label: 'Qwen/Qwen2.5-72B-Instruct',
+    },
+  ],
   siliconflow: [
     { value: 'deepseek-ai/DeepSeek-V2.5', label: 'DeepSeek V2.5' },
     { value: 'deepseek-ai/DeepSeek-Coder-V2', label: 'DeepSeek Coder V2' },
@@ -51,6 +73,9 @@ export const FALLBACK_MODEL_OPTIONS = {
 export const PROVIDER_KEYS = [
   'gemini',
   'openai_compatibility',
+  'openrouter',
+  'litellm_openai',
+  'huggingface',
   'siliconflow',
   'nvidia',
   'minimax',

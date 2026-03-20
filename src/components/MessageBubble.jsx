@@ -56,8 +56,10 @@ import AgentAvatar from './AgentAvatar'
 import AgentBannerSurface from './AgentBannerSurface'
 import InteractiveForm from './InteractiveForm'
 import DeepResearchGoalCard from './message/DeepResearchGoalCard'
+import HtmlWidgetCard from './message/HtmlWidgetCard'
 import MessageActionBar from './message/MessageActionBar'
 import PipelineDrawer from './message/PipelineDrawer'
+import PptxResultCard from './message/PptxResultCard'
 import { getHostname } from './message/messageUtils'
 import { formatMessageDate } from '../lib/dateUtils'
 import RelatedQuestions from './message/RelatedQuestions'
@@ -79,6 +81,7 @@ import {
   prepareDocumentCitationSources,
 } from '../lib/documentCitationViewModel'
 import { ensureMessagePipeline } from '../lib/chat/pipelineViewModel'
+import { getBackendUrl } from '../lib/settings'
 
 const PROVIDER_META = {
   gemini: {
@@ -90,6 +93,21 @@ const PROVIDER_META = {
     label: 'OpenAI Compatible',
     id: 'openai_compatibility',
     fallback: 'O',
+  },
+  openrouter: {
+    label: 'OpenRouter',
+    id: 'openrouter',
+    fallback: 'R',
+  },
+  litellm_openai: {
+    label: 'LiteLLM OpenAI',
+    id: 'litellm_openai',
+    fallback: 'L',
+  },
+  huggingface: {
+    label: 'Hugging Face',
+    id: 'huggingface',
+    fallback: 'H',
   },
   siliconflow: {
     label: 'SiliconFlow',
@@ -1091,33 +1109,58 @@ const MessageBubble = ({
     }
   }
 
-  const buildWidgetSrcDoc = useCallback((widget, fallbackTitle) => {
-    const title = widget?.title || fallbackTitle || 'Widget'
-    const bodyHtml = widget?.html || ''
-    const escapedTitle = String(title)
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;')
-      .replaceAll('"', '&quot;')
-    return `<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>${escapedTitle}</title>
-  <style>
-    :root { color-scheme: dark; }
-    html, body { margin: 0; padding: 0; background: #0f1115; color: #e6e8ef; font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-    body { padding: 10px; box-sizing: border-box; }
-    * { box-sizing: border-box; max-width: 100%; }
-    img, video, canvas, svg { max-width: 100%; height: auto; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { border: 1px solid rgba(255,255,255,.12); padding: 8px 10px; text-align: left; }
-    th { background: rgba(255,255,255,.06); }
-  </style>
-</head>
-<body>${bodyHtml}</body>
-</html>`
+  const parsePptxPayload = raw => {
+    if (!raw) return null
+    let payload = raw
+    if (typeof raw === 'string') {
+      try {
+        payload = JSON.parse(raw)
+      } catch {
+        return null
+      }
+    }
+    if (!payload || typeof payload !== 'object') return null
+    if (String(payload.type || '').trim() !== 'pptx_file') return null
+
+    const downloadUrl = typeof payload.download_url === 'string' ? payload.download_url.trim() : ''
+    if (!downloadUrl) return null
+
+    const filename =
+      typeof payload.filename === 'string' ? payload.filename.trim() : 'presentation.pptx'
+    const title = typeof payload.title === 'string' ? payload.title.trim() : ''
+    const slideCount = Number(payload.slide_count)
+    const expiresAt = typeof payload.expires_at === 'string' ? payload.expires_at.trim() : ''
+    const previewHtml = typeof payload.preview_html === 'string' ? payload.preview_html.trim() : ''
+    const previewHeightRaw = Number(payload.preview_height)
+    const previewHeight = Number.isFinite(previewHeightRaw)
+      ? Math.max(220, Math.min(previewHeightRaw, 900))
+      : 560
+    const qaIssuesRaw = Array.isArray(payload.qa_issues)
+      ? payload.qa_issues.map(item => String(item || '').trim()).filter(Boolean)
+      : []
+    const renderModeUsed =
+      typeof payload.render_mode_used === 'string' ? payload.render_mode_used.trim() : ''
+    return {
+      type: 'pptx_file',
+      filename: filename || 'presentation.pptx',
+      title,
+      slideCount: Number.isFinite(slideCount) ? Math.max(0, Math.floor(slideCount)) : 0,
+      downloadUrl,
+      expiresAt,
+      previewHtml,
+      previewHeight,
+      qaIssuesRaw,
+      renderModeUsed,
+    }
+  }
+
+  const resolveBackendDownloadUrl = useCallback(rawUrl => {
+    const value = String(rawUrl || '').trim()
+    if (!value) return ''
+    if (/^https?:\/\//i.test(value)) return value
+    const backendBase = String(getBackendUrl() || '').replace(/\/+$/, '')
+    if (!backendBase) return value
+    return value.startsWith('/') ? `${backendBase}${value}` : `${backendBase}/${value}`
   }, [])
 
   const [isDark, setIsDark] = useState(document.documentElement.classList.contains('dark'))
@@ -2552,8 +2595,15 @@ const MessageBubble = ({
       if (part.type === 'tools' && Array.isArray(part.items)) {
         const formItems = part.items.filter(item => item?.name === 'interactive_form')
         const htmlWidgetItems = part.items.filter(item => item?.name === 'render_html_widget')
+        const pptxItems = part.items.filter(
+          item => item?.name === 'ppt_generator' || item?.name === 'html_to_pptx',
+        )
         const regularTools = part.items.filter(
-          item => item?.name !== 'interactive_form' && item?.name !== 'form_submission_status',
+          item =>
+            item?.name !== 'interactive_form' &&
+            item?.name !== 'form_submission_status' &&
+            item?.name !== 'ppt_generator' &&
+            item?.name !== 'html_to_pptx',
         )
 
         if (regularTools.length > 0) {
@@ -2594,24 +2644,69 @@ const MessageBubble = ({
             items: htmlWidgetItems,
           })
         }
+
+        if (pptxItems.length > 0) {
+          rawParts.push({
+            type: 'pptx_file',
+            key: `${part.key || `pptx-file-${i}`}-file`,
+            items: pptxItems,
+          })
+        }
       }
     }
 
     // Some streaming paths (e.g. expert synthetic message) can produce many tiny
     // adjacent text segments; merge them before rendering to avoid per-chunk line breaks.
     const shouldMergeAdjacentText = isExpertMessage || compactStreamingTextBlocks
-    if (!shouldMergeAdjacentText) return rawParts
-    const merged = []
-    for (const part of rawParts) {
-      const prev = merged[merged.length - 1]
+    const mergedTextParts = []
+    const sourceParts = shouldMergeAdjacentText ? rawParts : rawParts
+    for (const part of sourceParts) {
+      const prev = mergedTextParts[mergedTextParts.length - 1]
       if (part.type === 'text' && prev?.type === 'text') {
         prev.content = `${prev.content || ''}${part.content || ''}`
         continue
       }
-      merged.push({ ...part })
+      mergedTextParts.push({ ...part })
     }
-    return merged
-  }, [compactStreamingTextBlocks, interleavedContent, isExpertMessage])
+
+    const pptPartIndexes = mergedTextParts
+      .map((part, index) => (part.type === 'pptx_file' ? index : -1))
+      .filter(index => index >= 0)
+
+    if (pptPartIndexes.length <= 1) return mergedTextParts
+
+    let winnerIndex = pptPartIndexes[pptPartIndexes.length - 1]
+    for (let i = pptPartIndexes.length - 1; i >= 0; i--) {
+      const index = pptPartIndexes[i]
+      const part = mergedTextParts[index]
+      const hasSuccessfulPayload = Array.isArray(part?.items)
+        ? part.items.some(item =>
+            Boolean(parsePptxPayload(item?.output) || parsePptxPayload(item?.result)),
+          )
+        : false
+      if (hasSuccessfulPayload) {
+        winnerIndex = index
+        break
+      }
+    }
+
+    const collapsed = []
+    const hiddenRetryCount = pptPartIndexes.length - 1
+    for (let i = 0; i < mergedTextParts.length; i++) {
+      const part = mergedTextParts[i]
+      if (part.type !== 'pptx_file') {
+        collapsed.push(part)
+        continue
+      }
+      if (i !== winnerIndex) continue
+      collapsed.push({
+        ...part,
+        retryCountHidden: hiddenRetryCount,
+      })
+    }
+
+    return collapsed
+  }, [compactStreamingTextBlocks, interleavedContent, isExpertMessage, parsePptxPayload])
   const allSources = useMemo(
     () => [
       ...(Array.isArray(mergedMessage.sources)
@@ -2960,7 +3055,7 @@ const MessageBubble = ({
     [t, getToolDisplayName, i18n.language, expandedToolsSteps, toggleToolsStep],
   )
   const renderWorkflowToolCapsule = useCallback(
-    item => {
+    (item, compact = false) => {
       if (!item) return null
 
       const ToolIcon = getToolIconComponent(item.name)
@@ -2972,28 +3067,25 @@ const MessageBubble = ({
         : isCalling
           ? t('messageBubble.toolStatusCalling', '调用中')
           : t('messageBubble.toolStatusDone', '已完成')
-      const workflowPrefix = isError
-        ? t('messageBubble.workflowToolFailedPrefix', '调用失败')
-        : isCalling
-          ? t('messageBubble.workflowToolCallingPrefix', '调用中')
-          : t('messageBubble.workflowToolCalledPrefix', '已调用')
-
       return (
         <div
           className={clsx(
-            'inline-flex max-w-full items-center gap-2 rounded-full border px-3 py-2 text-xs! shadow-[0_1px_2px_rgba(0,0,0,0.02)]',
+            'inline-flex max-w-full items-center rounded-full border shadow-[0_1px_2px_rgba(0,0,0,0.02)]',
+            compact ? 'gap-1.5 px-2.5 py-1.5 text-[11px]!' : 'gap-2 px-3 py-2 text-xs!',
             isError
               ? 'border-red-200/70 bg-red-50/70 text-red-600 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300'
               : 'border-primary-200/35 dark:border-primary-700/20 bg-white/65 text-gray-600 dark:bg-zinc-800/40 dark:text-gray-300',
           )}
         >
-          <span className="flex min-w-0 items-center gap-1.5 font-medium">
+          <span
+            className={clsx('flex min-w-0 items-center font-medium', compact ? 'gap-1' : 'gap-1.5')}
+          >
             {isError ? (
-              <AlertTriangle size={14} className="shrink-0" />
+              <AlertTriangle size={compact ? 13 : 14} className="shrink-0" />
             ) : ToolIcon ? (
-              <ToolIcon size={14} className="shrink-0 opacity-70" />
+              <ToolIcon size={compact ? 13 : 14} className="shrink-0 opacity-70" />
             ) : (
-              <Wrench size={14} className="shrink-0 opacity-70" />
+              <Wrench size={compact ? 13 : 14} className="shrink-0 opacity-70" />
             )}
             <span className="truncate">{toolName}</span>
           </span>
@@ -3009,6 +3101,70 @@ const MessageBubble = ({
     [workflowTextParts],
   )
 
+  const renderToolLoadingCard = (key, { title, badge, kind = 'form' }) => {
+    const isForm = kind === 'form'
+
+    return (
+      <div
+        key={key}
+        className="mb-4 overflow-hidden rounded-2xl border border-white/10 bg-black/10 opacity-100 transition-all duration-300 ease-[cubic-bezier(0.2,0.6,0.2,1)]"
+      >
+        <div className="flex items-center justify-between border-b border-white/8 px-3 py-2">
+          <div className="flex items-center gap-2">
+            <div className="bg-pr00/10 h-4 w-4 rounded-full border">
+              <div className="bg-primary-500/35 bg-primary-500/35 animate- h-full w-full" />
+            </div>
+            <div className="truncate text-sm font-semibold text-zinc-200">{title}</div>
+          </div>
+          <span className="rounded-full border border-white/10 bg-white/6 px-2 py-0.5 text-[11px] font-medium text-zinc-400">
+            {badge}
+          </span>
+        </div>
+        <div className="space-y-3 px-4 py-4">
+          <div className="flex items-center gap-2 text-xs font-medium text-zinc-400">
+            <DotLoader size="sm" />
+            <span>
+              {isForm
+                ? t('tools.interactiveForm', 'Interactive Form')
+                : t('tools.renderHtmlWidget', 'HTML Widget')}
+              {t('messageBubble.toolStatusCalling', '调用中')}
+            </span>
+          </div>
+          {isForm ? (
+            <div className="rounded-2xl border border-white/8 bg-white/4 p-4">
+              <div className="mb-4 h-4 w-30 animate-pulse rounded-full bg-white/8" />
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <div className="h-3 w-16 animate-pulse rounded-full bg-white/10" />
+                  <div className="h-11 w-full animate-pulse rounded-xl bg-white/7" />
+                </div>
+                <div className="space-y-2">
+                  <div className="h-3 w-20 animate-pulse rounded-full bg-white/10" />
+                  <div className="h-11 w-full animate-pulse rounded-xl bg-white/7" />
+                </div>
+                <div className="bg-primary-500/20 bg-primary-500/20 animat mt-4 h-10 w-28" />
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-white/8 bg-linear-to-b from-zinc-900/80 to-black/35 p-4">
+              <div className="mb-4 flex items-center justify-between">
+                <div className="h-4 w-32 animate-pulse rounded-full bg-white/10" />
+                <div className="h-5 w-14 animate-pulse rounded-full bg-white/8" />
+              </div>
+              <div className="space-y-3">
+                <div className="h-22 animate-pulse rounded-2xl bg-white/6" />
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="h-16 animate-pulse rounded-xl bg-white/5" />
+                  <div className="h-16 animate-pulse rounded-xl bg-white/5" />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   const renderInteractiveFormItem = (item, formKey) => {
     const formData = parseFormPayload(item.arguments) || parseFormPayload(item.output)
 
@@ -3022,26 +3178,34 @@ const MessageBubble = ({
 
     if (formData) {
       return (
-        <InteractiveForm
+        <div
           key={formKey}
-          formData={formData}
-          onSubmit={handleFormSubmit}
-          messageId={message.id}
-          isSubmitted={shouldDisableForm}
-          submittedValues={parseFormPayload(item.result) || parseFormPayload(item.output) || {}}
-          developerMode={developerMode}
-          onShowDetails={() => setActiveToolDetail(item)}
-        />
+          className="opacity-100 transition-all duration-300 ease-[cubic-bezier(0.2,0.6,0.2,1)]"
+        >
+          <InteractiveForm
+            formData={formData}
+            onSubmit={handleFormSubmit}
+            messageId={message.id}
+            isSubmitted={shouldDisableForm}
+            submittedValues={parseFormPayload(item.result) || parseFormPayload(item.output) || {}}
+            developerMode={developerMode}
+            onShowDetails={() => setActiveToolDetail(item)}
+          />
+        </div>
       )
     }
 
-    const shouldShowSkeleton = isStreaming || item.status !== 'done'
+    const shouldShowSkeleton =
+      isStreaming ||
+      item.status === 'calling' ||
+      item.status === 'running' ||
+      item.status !== 'done'
     if (shouldShowSkeleton) {
-      return (
-        <div key={`form-skeleton-${formKey}`} className="mb-4 flex items-center py-3">
-          <DotLoader />
-        </div>
-      )
+      return renderToolLoadingCard(`form-skeleton-${formKey}`, {
+        title: getToolDisplayName(item) || t('tools.interactiveForm', 'Interactive Form'),
+        badge: 'FORM',
+        kind: 'form',
+      })
     }
 
     console.error('Failed to parse interactive form arguments:', item)
@@ -3056,14 +3220,29 @@ const MessageBubble = ({
   }
 
   const renderHtmlWidgetItem = (item, widgetKey) => {
-    const payload = parseHtmlWidgetPayload(item.output) ||
-      parseHtmlWidgetPayload(item.result) || {
-        type: 'html_widget_error',
-        code: 'missing_payload',
-        message: 'No widget payload found in tool result.',
-      }
+    const payload = parseHtmlWidgetPayload(item.output) || parseHtmlWidgetPayload(item.result)
+    const shouldShowSkeleton =
+      !payload &&
+      (isStreaming ||
+        item.status === 'calling' ||
+        item.status === 'running' ||
+        item.status !== 'done')
 
-    if (payload.type === 'html_widget_error') {
+    if (shouldShowSkeleton) {
+      return renderToolLoadingCard(`html-widget-skeleton-${widgetKey}`, {
+        title: getToolDisplayName(item) || t('tools.renderHtmlWidget', 'HTML Widget'),
+        badge: 'HTML',
+        kind: 'html',
+      })
+    }
+
+    const resolvedPayload = payload || {
+      type: 'html_widget_error',
+      code: 'missing_payload',
+      message: 'No widget payload found in tool result.',
+    }
+
+    if (resolvedPayload.type === 'html_widget_error') {
       return (
         <div
           key={widgetKey}
@@ -3077,37 +3256,67 @@ const MessageBubble = ({
             )}
           </div>
           <div className="mt-1 opacity-80">
-            {payload.code}: {payload.message}
+            {resolvedPayload.code}: {resolvedPayload.message}
           </div>
         </div>
       )
     }
 
     const displayTitle =
-      payload.title || getToolDisplayName(item) || t('tools.renderHtmlWidget', 'HTML Widget')
-    const srcDoc = buildWidgetSrcDoc(payload, displayTitle)
+      resolvedPayload.title ||
+      getToolDisplayName(item) ||
+      t('tools.renderHtmlWidget', 'HTML Widget')
+    return (
+      <HtmlWidgetCard
+        key={widgetKey}
+        widgetKey={widgetKey}
+        widget={resolvedPayload}
+        displayTitle={displayTitle}
+        t={t}
+      />
+    )
+  }
+
+  const renderPptxFileItem = (item, pptxKey) => {
+    const payload = parsePptxPayload(item.output) || parsePptxPayload(item.result)
+    const shouldShowSkeleton =
+      !payload &&
+      (isStreaming ||
+        item.status === 'calling' ||
+        item.status === 'running' ||
+        item.status !== 'done')
+
+    if (shouldShowSkeleton) {
+      return renderToolLoadingCard(`pptx-skeleton-${pptxKey}`, {
+        title: getToolDisplayName(item) || t('tools.pptGenerator', 'PPT Generator'),
+        badge: 'PPTX',
+        kind: 'html',
+      })
+    }
+
+    if (!payload) {
+      return (
+        <div
+          key={pptxKey}
+          className="mb-4 rounded-2xl border border-red-300/40 bg-red-500/8 p-3 text-sm text-red-200"
+        >
+          <div className="font-semibold">{t('tools.pptGenerator', 'PPT Generator')}</div>
+          <div className="mt-1">
+            {t('messageBubble.ppt.missingPayload', 'No PPTX payload found in the tool result.')}
+          </div>
+        </div>
+      )
+    }
 
     return (
-      <div
-        key={widgetKey}
-        className="mb-4 overflow-hidden rounded-lg border border-white/10 bg-black/15"
-      >
-        <div className="flex items-center justify-between border-b border-white/8 px-3 py-2">
-          <div className="truncate text-sm font-semibold text-zinc-200">{displayTitle}</div>
-          <span className="rounded-full border border-white/10 bg-white/6 px-2 py-0.5 text-[11px] font-medium text-zinc-400">
-            HTML
-          </span>
-        </div>
-        <iframe
-          title={displayTitle}
-          srcDoc={srcDoc}
-          sandbox=""
-          loading="lazy"
-          referrerPolicy="no-referrer"
-          className="no-scrollbar! w-full border-0"
-          style={{ height: `${payload.height}px` }}
-        />
-      </div>
+      <PptxResultCard
+        key={pptxKey}
+        item={item}
+        payload={payload}
+        displayTitle={getToolDisplayName(item) || t('tools.pptGenerator', 'PPT Generator')}
+        resolveBackendDownloadUrl={resolveBackendDownloadUrl}
+        t={t}
+      />
     )
   }
 
@@ -3171,6 +3380,23 @@ const MessageBubble = ({
         <React.Fragment key={part.key || `html-widget-outside-${idx}`}>
           {part.items.map((item, widgetIdx) =>
             renderHtmlWidgetItem(item, `html-widget-${part.key || idx}-${item.id || widgetIdx}`),
+          )}
+        </React.Fragment>
+      )
+    }
+
+    if (part.type === 'pptx_file') {
+      return (
+        <React.Fragment key={part.key || `pptx-file-outside-${idx}`}>
+          {Number(part.retryCountHidden) > 0 ? (
+            <div className="mb-3 text-xs text-zinc-400">
+              {t('messageBubble.pptRetriesHidden', {
+                defaultValue: 'Earlier PPT attempts were hidden. Showing the latest result.',
+              })}
+            </div>
+          ) : null}
+          {part.items.map((item, fileIdx) =>
+            renderPptxFileItem(item, `pptx-file-${part.key || idx}-${item.id || fileIdx}`),
           )}
         </React.Fragment>
       )
@@ -3987,7 +4213,11 @@ const MessageBubble = ({
   const workflowPanel =
     workflowProcessSteps.length > 0 ? (
       <details
-        className={clsx('group', !isExpertMessage && 'mt-0 mb-4', isExpertMessage && 'mt-4 mb-4')}
+        className={clsx(
+          'group workflow-process-summary',
+          !isExpertMessage && 'mt-0 mb-4',
+          isExpertMessage && 'mt-4 mb-4',
+        )}
         open={isWorkflowExpanded}
         onToggle={event => setIsWorkflowExpanded(event.currentTarget.open)}
       >
@@ -4054,7 +4284,7 @@ const MessageBubble = ({
                 setIsSourcesOpen(prev => !prev)
               }}
               className={clsx(
-                'glass-elite-chip inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-gray-700 dark:text-gray-200',
+                'glass-elite-chip inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-[11px] font-semibold text-gray-700 dark:text-gray-200',
               )}
             >
               <span className="flex -space-x-2">
@@ -4067,7 +4297,7 @@ const MessageBubble = ({
                   />
                 ))}
               </span>
-              <span className="text-xs!">
+              <span className="text-[10px]!">
                 {t('sources.allSources')} {allSources.length}
               </span>
               {/* <ChevronRight size={14} className="opacity-60" /> */}
@@ -4111,7 +4341,7 @@ const MessageBubble = ({
                           <BrainCircuit size={16} />
                         </div>
                         <div className="mb-2 flex min-h-5 items-center justify-between gap-3">
-                          <span className="text-sm leading-5 font-medium text-gray-400 dark:text-zinc-500">
+                          <span className="text-xs leading-5 font-medium text-gray-400 dark:text-zinc-500">
                             {t('messageBubble.reasoningLabel', '思考过程')}
                           </span>
                           {typeof thoughtDurationMs === 'number' && thoughtDurationMs > 0 && (
@@ -4122,7 +4352,7 @@ const MessageBubble = ({
                             </span>
                           )}
                         </div>
-                        <div className="text-base leading-relaxed text-gray-600 dark:text-gray-300">
+                        <div className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
                           <Streamdown
                             mermaid={mermaidOptions}
                             remarkPlugins={[remarkGfm]}
@@ -4174,7 +4404,7 @@ const MessageBubble = ({
                         </div>
 
                         <div className="space-y-2">
-                          <div className="flex flex-wrap items-center gap-2 text-xs">
+                          <div className="flex flex-wrap items-center gap-2 text-[11px]">
                             <span className="rounded-full border border-gray-200/80 bg-white/85 px-2 py-0.5 font-semibold text-gray-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-gray-300">
                               {t('messageBubble.researchStepLabel', {
                                 step: step.step,
@@ -4183,7 +4413,7 @@ const MessageBubble = ({
                             </span>
                             <span
                               className={clsx(
-                                'rounded-full px-2 py-0.5 text-[11px]',
+                                'rounded-full px-2 py-0.5 text-[10px]',
                                 isError
                                   ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
                                   : isDone
@@ -4195,17 +4425,17 @@ const MessageBubble = ({
                             </span>
                             {isActive && <DotLoader />}
                             {durationLabel && (
-                              <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                              <span className="text-[10px] text-gray-500 dark:text-gray-400">
                                 {durationLabel}
                               </span>
                             )}
                           </div>
-                          <div className="text-base text-gray-700 dark:text-gray-200">
+                          <div className="text-sm text-gray-700 dark:text-gray-200">
                             {step.title}
                             {isActive ? '...' : ''}
                           </div>
                           {step.error && (
-                            <div className="rounded-xl border border-red-500/20 bg-red-500/8 px-3 py-2 text-[11px] text-red-500 dark:text-red-400">
+                            <div className="rounded-xl border border-red-500/20 bg-red-500/8 px-3 py-2 text-[10px] text-red-500 dark:text-red-400">
                               {step.error}
                             </div>
                           )}
@@ -4228,7 +4458,7 @@ const MessageBubble = ({
                                       {isSearchLike ? (
                                         <div
                                           className={clsx(
-                                            'inline-flex max-w-full items-center gap-2 rounded-full border px-3 py-1.5 text-xs shadow-[0_1px_2px_rgba(0,0,0,0.02)]',
+                                            'inline-flex max-w-full items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] shadow-[0_1px_2px_rgba(0,0,0,0.02)]',
                                             item.status === 'error'
                                               ? 'border-red-200/70 bg-red-50/70 text-red-600 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300'
                                               : 'border-primary-200/35 dark:border-primary-700/30 bg-white/70 text-gray-700 dark:bg-zinc-800/55 dark:text-gray-200',
@@ -4242,7 +4472,7 @@ const MessageBubble = ({
                                           <span className="min-w-0 truncate">{queryPreview}</span>
                                         </div>
                                       ) : (
-                                        renderWorkflowToolCapsule(item)
+                                        renderWorkflowToolCapsule(item, true)
                                       )}
                                     </div>
                                     {hasDuration && (
@@ -4289,7 +4519,7 @@ const MessageBubble = ({
                           <Search size={16} />
                         </div>
 
-                        <div className="mb-2 flex items-center justify-between text-lg font-semibold text-gray-700 dark:text-gray-200">
+                        <div className="mb-2 flex items-center justify-between text-base font-semibold text-gray-700 dark:text-gray-200">
                           <div className="flex items-center gap-2">
                             {(() => {
                               if (isActiveSearch) {
@@ -4318,13 +4548,13 @@ const MessageBubble = ({
                           })()}
                         </div>
 
-                        <div className="text-base leading-relaxed text-gray-600 dark:text-gray-300">
+                        <div className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
                           {/* Search Queries row */}
                           <div className="mb-2 flex flex-wrap gap-1.5">
                             {step.queries.map(query => (
                               <span
                                 key={`query-${query}`}
-                                className="inline-flex items-center rounded-lg border border-gray-200/80 bg-white px-2.5 py-1 text-[11px]! text-gray-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-gray-300"
+                                className="inline-flex items-center rounded-lg border border-gray-200/80 bg-white px-2.5 py-1 text-[10px]! text-gray-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-gray-300"
                               >
                                 <Search size={12} className="mr-1.5 opacity-70" />
                                 {query}
@@ -4362,7 +4592,7 @@ const MessageBubble = ({
 
                         <div className="flex w-full flex-col gap-3 md:flex-row md:items-start md:gap-4">
                           {/* Label Section */}
-                          <div className="flex h-8 shrink-0 items-center text-[11px] leading-none font-bold tracking-wider text-gray-400 uppercase select-none dark:text-zinc-500">
+                          <div className="flex h-8 shrink-0 items-center text-[9px] leading-none font-bold tracking-wider text-gray-400 uppercase select-none dark:text-zinc-500">
                             {t('messageBubble.workflowToolCalledPrefix', '已调用')}
                           </div>
 
@@ -4379,14 +4609,14 @@ const MessageBubble = ({
                                   >
                                     <div className="flex items-center gap-3 overflow-x-hidden">
                                       <div className="min-w-0">
-                                        {renderWorkflowToolCapsule(item)}
+                                        {renderWorkflowToolCapsule(item, true)}
                                       </div>
 
                                       {/* PC Desktop: Action items inline with the last item */}
                                       {isLastItem && hasMoreItems && (
                                         <div className="hidden items-center gap-2 md:flex">
                                           {!isExpanded && (
-                                            <span className="ml-1 text-sm tracking-widest text-gray-300 dark:text-zinc-700">
+                                            <span className="ml-1 text-xs tracking-widest text-gray-300 dark:text-zinc-700">
                                               ...
                                             </span>
                                           )}
@@ -4423,7 +4653,7 @@ const MessageBubble = ({
                                         </span>
                                       )}
                                     </div>
-                                    <div className="pl-1 text-base text-gray-600 transition-colors group-hover/workflowitem:text-gray-900 dark:text-gray-300 dark:group-hover/workflowitem:text-zinc-200">
+                                    <div className="pl-1 text-sm text-gray-600 transition-colors group-hover/workflowitem:text-gray-900 dark:text-gray-300 dark:group-hover/workflowitem:text-zinc-200">
                                       {renderToolQueryPreview(item, 'truncate opacity-80')}
                                     </div>
                                   </div>
@@ -4435,7 +4665,7 @@ const MessageBubble = ({
                             {hasMoreItems && (
                               <div className="flex items-center gap-2 pt-1 md:hidden">
                                 {!isExpanded && (
-                                  <span className="text-sm tracking-widest text-gray-300 dark:text-zinc-700">
+                                  <span className="text-xs tracking-widest text-gray-300 dark:text-zinc-700">
                                     ...
                                   </span>
                                 )}
@@ -4858,7 +5088,7 @@ const MessageBubble = ({
           {renderInitialSkeleton && (
             <div
               className={clsx(
-                'mb-4 inline-flex items-center gap-2 transition-opacity duration-300 ease-[cubic-bezier(0.2,0.6,0.2,1)]',
+                'my-4 inline-flex items-center gap-2 transition-opacity duration-300 ease-[cubic-bezier(0.2,0.6,0.2,1)]',
                 showInitialSkeleton ? 'opacity-100' : 'opacity-0',
               )}
             >
@@ -4871,12 +5101,12 @@ const MessageBubble = ({
             </div>
           )}
           {!isDeepResearch && isStreaming && hasMainText && (
-            <div className="mb-4 inline-flex items-center pl-1">
+            <div className="my-4 inline-flex items-center pl-1">
               <DotLoader />
             </div>
           )}
           {isDeepResearch && isStreaming && !hasMainText && !hasActiveResearchStep && (
-            <div className="mt-4 flex items-center gap-2 pl-1">
+            <div className="my-4 flex items-center gap-2 pl-1">
               <span className="text-sm text-gray-500 dark:text-gray-400">
                 {t('messageBubble.deepThinkingStreaming')}
               </span>

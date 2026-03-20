@@ -94,3 +94,6 @@ backend-python/.skills/*
 backend-python/.skills/agent-memory/memories/**
 !backend-python/.skills/agent-memory/memories/
 !backend-python/.skills/agent-memory/memories/.gitkeep
+
+# Generated PPT exports
+backend-python/.runtime/exports/pptx/

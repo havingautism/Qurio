@@ -23,14 +23,11 @@ from agno.workflow.step import Step
 
 from ..models.stream_chat import StreamChatRequest
 from ..prompts import (
+    ACADEMIC_RESEARCH_SKILL_PROMPT,
     ACADEMIC_STEP_AGENT_PROMPT,
+    DEEP_RESEARCH_SKILL_PROMPT,
     GENERAL_STEP_AGENT_PROMPT,
 )
-
-# from ..prompts import (
-#     ACADEMIC_FINAL_REPORT_PROMPT,
-#     GENERAL_FINAL_REPORT_PROMPT,
-# )
 from ..services.stream_chat import get_stream_chat_service
 from .agent_registry import build_agent
 from .llm_utils import safe_json_parse
@@ -83,15 +80,14 @@ def build_sources_list(sources_map: dict[str, dict[str, Any]]) -> list[str]:
     return lines
 
 
-def build_final_report_prompt(
+def build_report_context_prompt(
     *,
     plan_meta: dict[str, Any],
     question: str | None,
     findings: list[str],
     sources_list: list[str],
-    research_type: str,
 ) -> str:
-    base_info = (
+    return (
         f"Question: {question or plan_meta.get('goal') or 'N/A'}\n"
         f"Plan goal: {plan_meta.get('goal') or 'N/A'}\n"
         f"Question type: {plan_meta.get('question_type') or 'N/A'}\n\n"
@@ -101,32 +97,6 @@ def build_final_report_prompt(
         + ("\n".join(sources_list) if sources_list else "- None")
     )
 
-    if research_type == "academic":
-        return (
-            f"You are writing an academic research report based on a systematic literature review.\n\n"
-            f"{base_info}\n\n"
-            f"CRITICAL INSTRUCTION: Reorganize the provided findings by logical themes rather than by step number or source order. "
-            f"Do NOT simply list step 1, step 2, etc. "
-            f"Do NOT output conversational filler, greetings, or setup text. "
-            f"Start immediately with the report content in Markdown. "
-            f"Follow the structure, tone, and analysis framework defined in your assigned 'Academic Researcher' skill. "
-            f"Treat the research sources as background context only. "
-            f"Do NOT add inline citations, footnotes, or a references / bibliography section. "
-            f"The research sources will be shown separately in the UI."
-        )
-
-    return (
-        f"You are a deep research writer producing a comprehensive, evidence-driven report.\n\n"
-        f"{base_info}\n\n"
-        f"CRITICAL INSTRUCTION: Synthesize the provided findings by overall topics rather than by step number or source order. "
-        f"Do NOT simply summarize step 1, step 2, etc. "
-        f"Do NOT output conversational filler, greetings, or setup text. "
-        f"Start immediately with the report content in Markdown. "
-        f"Follow the structure, tone, and analysis framework defined in your assigned 'Deep Research' skill. "
-        f"Treat the research sources as background context only. "
-        f"Do NOT add inline citations, footnotes, or a references / bibliography section. "
-        f"The research sources will be shown separately in the UI."
-    )
 
 
 def build_research_step_event(
@@ -978,21 +948,22 @@ async def stream_deep_research(params: dict[str, Any]) -> AsyncGenerator[dict[st
     # Use step_outputs as findings for comprehensive report generation
     findings_for_report = sorted_contents if sorted_contents else ["No step outputs available"]
 
-    report_prompt = build_final_report_prompt(
+    report_prompt = (
+        ACADEMIC_RESEARCH_SKILL_PROMPT if research_type == "academic" else DEEP_RESEARCH_SKILL_PROMPT
+    )
+    report_context_prompt = build_report_context_prompt(
         plan_meta=plan_meta,
         question=question,
         findings=findings_for_report,
         sources_list=report_sources_list,
-        research_type=research_type,
     )
 
     report_messages = [
         {"role": "system", "content": report_prompt},
+        {"role": "system", "content": report_context_prompt},
         *trimmed_messages,
         {"role": "user", "content": question},
     ]
-
-    report_skill_ids = ["academic-research"] if research_type == "academic" else ["deep-research"]
 
     report_request = StreamChatRequest(
         provider=provider,
@@ -1003,8 +974,9 @@ async def stream_deep_research(params: dict[str, Any]) -> AsyncGenerator[dict[st
         tools=[],
         toolChoice=None,
         toolIds=[],
-        skillIds=report_skill_ids,
-        enable_skills=True,
+        skillIds=[],
+        enable_skills=False,
+        disableSkills=True,
         responseFormat=None,
         thinking=None,
         temperature=temperature,

@@ -43,7 +43,9 @@ export const TOOL_TRANSLATION_KEYS = {
   serpapi_image_search: 'tools.imageSearchSerpApi',
   duckduckgo_video_search: 'tools.videoSearchDuckDuckGo',
   search_youtube: 'tools.videoSearchYouTube',
+  ppt_generator: 'tools.pptGenerator',
   render_html_widget: 'tools.renderHtmlWidget',
+  html_to_pptx: 'tools.pptGenerator',
 }
 
 // Tool icons mapping (using lucide-react icon names)
@@ -92,7 +94,9 @@ export const TOOL_ICONS = {
   serpapi_image_search: 'ImageIcon',
   duckduckgo_video_search: 'Video',
   search_youtube: 'Youtube',
+  ppt_generator: 'Presentation',
   render_html_widget: 'ScanText',
+  html_to_pptx: 'Presentation',
 }
 
 // Tool usage info keys for translations
@@ -141,5 +145,7 @@ export const TOOL_INFO_KEYS = {
   serpapi_image_search: 'tools.imageSearchSerpApiInfo',
   duckduckgo_video_search: 'tools.videoSearchDuckDuckGoInfo',
   search_youtube: 'tools.videoSearchYouTubeInfo',
+  ppt_generator: 'tools.pptGeneratorInfo',
   render_html_widget: 'tools.renderHtmlWidgetInfo',
+  html_to_pptx: 'tools.pptGeneratorInfo',
 }

@@ -1,6 +1,10 @@
 const PUBLIC_ENV = {
   PUBLIC_OPENAI_API_KEY: import.meta.env.PUBLIC_OPENAI_API_KEY,
   PUBLIC_OPENAI_BASE_URL: import.meta.env.PUBLIC_OPENAI_BASE_URL,
+  PUBLIC_OPENROUTER_API_KEY: import.meta.env.PUBLIC_OPENROUTER_API_KEY,
+  PUBLIC_LITELLM_API_KEY: import.meta.env.PUBLIC_LITELLM_API_KEY,
+  PUBLIC_LITELLM_BASE_URL: import.meta.env.PUBLIC_LITELLM_BASE_URL,
+  PUBLIC_HUGGINGFACE_API_KEY: import.meta.env.PUBLIC_HUGGINGFACE_API_KEY,
   PUBLIC_SILICONFLOW_API_KEY: import.meta.env.PUBLIC_SILICONFLOW_API_KEY,
   PUBLIC_SILICONFLOW_BASE_URL: import.meta.env.PUBLIC_SILICONFLOW_BASE_URL,
   PUBLIC_GLM_API_KEY: import.meta.env.PUBLIC_GLM_API_KEY,
@@ -43,8 +47,8 @@ export const getPublicEnv = key => {
     const value = PUBLIC_ENV[key]
     if (value !== undefined && value !== null && value !== '') return value
   }
-  if (typeof process !== 'undefined' && process.env) {
-    const value = process.env[key]
+  if (typeof globalThis.process !== 'undefined' && globalThis.process?.env) {
+    const value = globalThis.process.env[key]
     if (value !== undefined && value !== null && value !== '') return value
   }
   return undefined

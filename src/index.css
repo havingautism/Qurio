@@ -136,7 +136,21 @@
 /* CSS variables for sidebar width */
 :root {
   --sidebar-width: 0px;
-  --message-font-size: 15px;
+  --message-font-size: 1rem;
+  --message-font-size-desktop: 1rem;
+  --message-font-size-mobile: 0.9375rem;
+}
+
+@media (max-width: 768px) {
+  :root {
+    --message-font-size: var(--message-font-size-mobile);
+  }
+}
+
+@media (min-width: 769px) {
+  :root {
+    --message-font-size: var(--message-font-size-desktop);
+  }
 }
 
 /* ============================================
@@ -229,14 +243,14 @@
    DESIGN TOKENS - TYPOGRAPHY
    ============================================ */
 :root {
-  --font-size-xs: 12px;
-  --font-size-sm: 14px;
-  --font-size-base: 16px;
-  --font-size-lg: 18px;
-  --font-size-xl: 20px;
-  --font-size-2xl: 24px;
-  --font-size-3xl: 30px;
-  --font-size-4xl: 36px;
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-base: 1rem;
+  --font-size-lg: 1.25rem;
+  --font-size-xl: 1.5625rem;
+  --font-size-2xl: 1.9375rem;
+  --font-size-3xl: 2.4375rem;
+  --font-size-4xl: 3.0625rem;
 
   --line-height-tight: 1.25;
   --line-height-snug: 1.375;
@@ -248,6 +262,15 @@
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
   --font-weight-bold: 700;
+
+  /* Semantic typography roles */
+  --text-caption: var(--font-size-xs);
+  --text-secondary: var(--font-size-sm);
+  --text-body: var(--font-size-base);
+  --text-subheading: var(--font-size-lg);
+  --text-heading: var(--font-size-xl);
+  --leading-body: 1.7;
+  --leading-heading: 1.2;
 }
 
 /* ============================================
@@ -265,6 +288,161 @@
    ============================================ */
 .transition-base {
   transition: all var(--transition-normal);
+}
+
+/* Shared modal shells (extract) */
+:root {
+  --modal-overlay-bg: rgba(4, 6, 10, 0.88);
+  --modal-overlay-bg-centered: rgba(4, 6, 10, 0.9);
+  --modal-overlay-blur: 20px;
+  --modal-overlay-blur-centered: 22px;
+  --modal-overlay-saturate: 105%;
+  --modal-noise-opacity: 1;
+}
+
+.modal-overlay-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  overflow-y: auto;
+  isolation: isolate;
+  background: var(--modal-overlay-bg);
+  backdrop-filter: blur(var(--modal-overlay-blur)) saturate(var(--modal-overlay-saturate));
+  -webkit-backdrop-filter: blur(var(--modal-overlay-blur)) saturate(var(--modal-overlay-saturate));
+  padding: 0;
+  animation: modal-overlay-fade-in 200ms ease-out both;
+}
+
+.modal-overlay-shell-centered {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  isolation: isolate;
+  background: var(--modal-overlay-bg-centered);
+  backdrop-filter: blur(var(--modal-overlay-blur-centered)) saturate(var(--modal-overlay-saturate));
+  -webkit-backdrop-filter: blur(var(--modal-overlay-blur-centered))
+    saturate(var(--modal-overlay-saturate));
+  animation: modal-overlay-fade-in 200ms ease-out both;
+}
+
+.modal-overlay-shell::before,
+.modal-overlay-shell-centered::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(rgba(255, 255, 255, 0.032) 0.7px, transparent 0.7px),
+    radial-gradient(rgba(0, 0, 0, 0.06) 0.7px, transparent 0.7px),
+    radial-gradient(
+      128% 96% at 50% 6%,
+      rgba(0, 0, 0, 0.36) 0%,
+      rgba(0, 0, 0, 0.2) 42%,
+      rgba(0, 0, 0, 0.62) 100%
+    );
+  background-size:
+    3px 3px,
+    4px 4px,
+    100% 100%;
+  background-position:
+    0 0,
+    1px 1px,
+    0 0;
+  opacity: var(--modal-noise-opacity);
+}
+
+.modal-surface-shell {
+  position: relative;
+  display: flex;
+  height: 100dvh;
+  width: 100%;
+  flex-direction: column;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  box-shadow: var(--glass-shadow-panel);
+  background: linear-gradient(150deg, var(--glass-panel-bg-strong) 0%, var(--glass-panel-bg) 100%);
+  border: 1px solid var(--glass-panel-border);
+  backdrop-filter: blur(20px) saturate(170%);
+  -webkit-backdrop-filter: blur(20px) saturate(170%);
+  animation: modal-surface-zoom-in 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.modal-surface-shell-wide {
+  @apply md:max-w-[1440px] md:flex-row;
+}
+
+@media (min-width: 768px) {
+  .modal-overlay-shell {
+    align-items: center;
+    overflow: hidden;
+    padding: 1rem;
+  }
+
+  .modal-overlay-shell-centered {
+    padding: 1rem;
+  }
+
+  .modal-surface-shell {
+    height: 88vh;
+    border-radius: 28px;
+  }
+}
+
+/* Adapt: mobile/coarse pointer - keep depth but reduce blur cost */
+@media (max-width: 767px), (pointer: coarse) {
+  :root {
+    --modal-overlay-blur: 14px;
+    --modal-overlay-blur-centered: 16px;
+    --modal-overlay-saturate: 102%;
+    --modal-noise-opacity: 0.9;
+  }
+}
+
+/* Optimize: fallback for browsers without backdrop-filter */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .modal-overlay-shell {
+    background: rgba(2, 4, 8, 0.92);
+  }
+
+  .modal-overlay-shell-centered {
+    background: rgba(2, 4, 8, 0.94);
+  }
+}
+
+/* Adapt: user preference and accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .modal-overlay-shell,
+  .modal-overlay-shell-centered,
+  .modal-surface-shell {
+    animation: none !important;
+  }
+}
+
+@keyframes modal-overlay-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modal-surface-zoom-in {
+  from {
+    opacity: 0;
+    transform: scale(0.975) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 .transition-fast {
@@ -524,6 +702,10 @@
 
 body {
   @apply bg-background text-foreground overflow-x-hidden font-sans antialiased;
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  font-kerning: normal;
+  text-rendering: optimizeLegibility;
 }
 
 body.scroll-locked {
@@ -542,6 +724,8 @@ h4,
 h5,
 h6 {
   @apply font-sans-serif;
+  line-height: var(--leading-heading);
+  letter-spacing: -0.012em;
 }
 
 .prose h1,
@@ -555,6 +739,8 @@ h6 {
 
 .prose {
   font-family: var(--font-sans);
+  max-width: 68ch;
+  line-height: var(--leading-body);
 }
 
 .prose code,
@@ -600,12 +786,18 @@ h6 {
 }
 
 .message-content summary {
-  font-size: calc(var(--message-font-size) - 2px) !important;
+  font-size: calc(var(--message-font-size) - 0.125rem) !important;
 }
 
 .message-content details > :not(summary),
 .message-content details > :not(summary) * {
-  font-size: calc(var(--message-font-size) - 2px) !important;
+  font-size: calc(var(--message-font-size) - 0.125rem) !important;
+}
+
+.message-content details.workflow-process-summary > summary,
+.message-content details.workflow-process-summary > :not(summary),
+.message-content details.workflow-process-summary > :not(summary) * {
+  font-size: calc(var(--message-font-size) - 0.25rem) !important;
 }
 
 /* .dark .message-content blockquote {
@@ -614,12 +806,17 @@ h6 {
 
 .message-content {
   font-size: var(--message-font-size) !important;
-  line-height: 1.7 !important;
+  line-height: var(--leading-body) !important;
 }
 
 .message-content p {
   font-size: var(--message-font-size) !important;
-  line-height: 1.75 !important;
+  line-height: calc(var(--leading-body) + 0.05) !important;
+}
+
+.dark .message-content,
+.dark .message-content p {
+  line-height: calc(var(--leading-body) + 0.1) !important;
 }
 
 /* .message-content p:first-child:last-child {

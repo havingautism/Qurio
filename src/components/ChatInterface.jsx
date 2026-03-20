@@ -105,6 +105,7 @@ const ChatInterface = ({
   systemContextPrefix = '',
   scrapbookEntry = null,
   isEmbedded = false,
+  onMessageCountChange = null,
 }) => {
   const normalizeTitleEmojis = value => {
     if (Array.isArray(value)) {
@@ -182,6 +183,11 @@ const ChatInterface = ({
   useEffect(() => {
     resetLoading()
   }, [])
+
+  useEffect(() => {
+    if (typeof onMessageCountChange !== 'function') return
+    onMessageCountChange(Array.isArray(messages) ? messages.length : 0)
+  }, [messages, onMessageCountChange])
 
   const [currentScrapbookEntry, setCurrentScrapbookEntry] = useState(scrapbookEntry)
 

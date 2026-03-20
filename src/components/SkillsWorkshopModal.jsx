@@ -118,6 +118,10 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
     const ENV_VARS = {
       openAIKey: getPublicEnv('PUBLIC_OPENAI_API_KEY'),
       googleApiKey: getPublicEnv('PUBLIC_GOOGLE_API_KEY'),
+      openRouterKey: getPublicEnv('PUBLIC_OPENROUTER_API_KEY'),
+      liteLLMKey: getPublicEnv('PUBLIC_LITELLM_API_KEY'),
+      liteLLMBaseUrl: getPublicEnv('PUBLIC_LITELLM_BASE_URL'),
+      huggingFaceKey: getPublicEnv('PUBLIC_HUGGINGFACE_API_KEY'),
       siliconflowKey: getPublicEnv('PUBLIC_SILICONFLOW_API_KEY'),
       glmKey: getPublicEnv('PUBLIC_GLM_API_KEY'),
       deepseekKey: getPublicEnv('PUBLIC_DEEPSEEK_API_KEY'),
@@ -131,6 +135,10 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
     const keys = {
       gemini: settings.googleApiKey,
       openai_compatibility: settings.OpenAICompatibilityKey,
+      openrouter: settings.OpenRouterKey,
+      litellm_openai: settings.LiteLLMKey,
+      litellm_openai_url: settings.LiteLLMUrl,
+      huggingface: settings.HuggingFaceKey,
       siliconflow: settings.SiliconFlowKey,
       glm: settings.GlmKey,
       deepseek: settings.DeepSeekKey,
@@ -147,7 +155,10 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
         ENV_VARS[`${key}Key`] ||
         ENV_VARS[`${key}ApiKey`] ||
         (key === 'gemini' && ENV_VARS.googleApiKey) ||
-        (key === 'openai_compatibility' && (ENV_VARS.openAIKey || ENV_VARS.openaiKey))
+        (key === 'openai_compatibility' && (ENV_VARS.openAIKey || ENV_VARS.openaiKey)) ||
+        (key === 'openrouter' && ENV_VARS.openRouterKey) ||
+        (key === 'litellm_openai' && ENV_VARS.liteLLMKey) ||
+        (key === 'huggingface' && ENV_VARS.huggingFaceKey)
       return hasApiKey
     })
     setAvailableProviders(enabledProviders)
@@ -175,6 +186,12 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
         apiKey: settings.OpenAICompatibilityKey,
         baseUrl: settings.OpenAICompatibilityUrl,
       },
+      openrouter: { apiKey: settings.OpenRouterKey, baseUrl: 'https://openrouter.ai/api/v1' },
+      litellm_openai: {
+        apiKey: settings.LiteLLMKey,
+        baseUrl: settings.LiteLLMUrl || getPublicEnv('PUBLIC_LITELLM_BASE_URL'),
+      },
+      huggingface: { apiKey: settings.HuggingFaceKey },
       siliconflow: { apiKey: settings.SiliconFlowKey, baseUrl: 'https://api.siliconflow.cn/v1' },
       glm: { apiKey: settings.GlmKey },
       deepseek: {
@@ -259,6 +276,10 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
     const ENV_VARS = {
       openAIKey: getPublicEnv('PUBLIC_OPENAI_API_KEY'),
       googleApiKey: getPublicEnv('PUBLIC_GOOGLE_API_KEY'),
+      openRouterKey: getPublicEnv('PUBLIC_OPENROUTER_API_KEY'),
+      liteLLMKey: getPublicEnv('PUBLIC_LITELLM_API_KEY'),
+      liteLLMBaseUrl: getPublicEnv('PUBLIC_LITELLM_BASE_URL'),
+      huggingFaceKey: getPublicEnv('PUBLIC_HUGGINGFACE_API_KEY'),
       siliconflowKey: getPublicEnv('PUBLIC_SILICONFLOW_API_KEY'),
       glmKey: getPublicEnv('PUBLIC_GLM_API_KEY'),
       deepseekKey: getPublicEnv('PUBLIC_DEEPSEEK_API_KEY'),
@@ -285,6 +306,17 @@ const SkillsWorkshopModal = ({ isOpen, onClose }) => {
       openai_compatibility: {
         apiKey: settings.OpenAICompatibilityKey || ENV_VARS.openAIKey || ENV_VARS.openaiKey,
         baseUrl: settings.OpenAICompatibilityUrl,
+      },
+      openrouter: {
+        apiKey: settings.OpenRouterKey || ENV_VARS.openRouterKey,
+        baseUrl: 'https://openrouter.ai/api/v1',
+      },
+      litellm_openai: {
+        apiKey: settings.LiteLLMKey || ENV_VARS.liteLLMKey,
+        baseUrl: settings.LiteLLMUrl || ENV_VARS.liteLLMBaseUrl,
+      },
+      huggingface: {
+        apiKey: settings.HuggingFaceKey || ENV_VARS.huggingFaceKey,
       },
       siliconflow: {
         apiKey: settings.SiliconFlowKey || ENV_VARS.siliconflowKey,

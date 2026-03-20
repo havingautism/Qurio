@@ -54,6 +54,10 @@ import DotLoader from './DotLoader'
 const ENV_VARS = {
   openAIKey: getPublicEnv('PUBLIC_OPENAI_API_KEY'),
   openAIBaseUrl: getPublicEnv('PUBLIC_OPENAI_BASE_URL'),
+  openRouterKey: getPublicEnv('PUBLIC_OPENROUTER_API_KEY'),
+  liteLLMKey: getPublicEnv('PUBLIC_LITELLM_API_KEY'),
+  liteLLMBaseUrl: getPublicEnv('PUBLIC_LITELLM_BASE_URL'),
+  huggingFaceKey: getPublicEnv('PUBLIC_HUGGINGFACE_API_KEY'),
   googleApiKey: getPublicEnv('PUBLIC_GOOGLE_API_KEY'),
   siliconFlowKey: getPublicEnv('PUBLIC_SILICONFLOW_API_KEY'),
   glmKey: getPublicEnv('PUBLIC_GLM_API_KEY'),
@@ -117,6 +121,18 @@ const getEnvManagedSettingKeys = () => {
   if (ENV_VARS.openAIBaseUrl) {
     keys.push('OpenAICompatibilityUrl')
   }
+  if (ENV_VARS.openRouterKey) {
+    keys.push('OpenRouterKey')
+  }
+  if (ENV_VARS.liteLLMKey) {
+    keys.push('LiteLLMKey')
+  }
+  if (ENV_VARS.liteLLMBaseUrl) {
+    keys.push('LiteLLMUrl')
+  }
+  if (ENV_VARS.huggingFaceKey) {
+    keys.push('HuggingFaceKey')
+  }
   if (ENV_VARS.siliconFlowKey) {
     keys.push('SiliconFlowKey')
   }
@@ -167,6 +183,10 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
   const [activeTab, setActiveTab] = useState('general')
   const [OpenAICompatibilityKey, setOpenAICompatibilityKey] = useState('')
   const [OpenAICompatibilityUrl, setOpenAICompatibilityUrl] = useState('')
+  const [OpenRouterKey, setOpenRouterKey] = useState('')
+  const [LiteLLMKey, setLiteLLMKey] = useState('')
+  const [LiteLLMUrl, setLiteLLMUrl] = useState('')
+  const [HuggingFaceKey, setHuggingFaceKey] = useState('')
   const [SiliconFlowKey, setSiliconFlowKey] = useState('')
   const [NvidiaKey, setNvidiaKey] = useState('')
   const [MinimaxKey, setMinimaxKey] = useState('')
@@ -202,7 +222,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
   const [isOcrProviderDropdownOpen, setIsOcrProviderDropdownOpen] = useState(false)
   const ocrProviderDropdownRef = useRef(null)
   const [contextTurns, setContextTurns] = useState(6)
-  const [themeColor, setThemeColor] = useState('violet')
+  const [themeColor, setThemeColor] = useState('midnight')
   const [fontSize, setFontSize] = useState('medium')
   const [isSaving, setIsSaving] = useState(false)
   const [enableRelatedQuestions, setEnableRelatedQuestions] = useState(false)
@@ -328,6 +348,9 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
     () => ({
       gemini: Boolean((googleApiKey || '').trim() || ENV_VARS.googleApiKey),
       openai_compatibility: Boolean((OpenAICompatibilityKey || '').trim() || ENV_VARS.openAIKey),
+      openrouter: Boolean((OpenRouterKey || '').trim() || ENV_VARS.openRouterKey),
+      litellm_openai: Boolean((LiteLLMKey || '').trim() || ENV_VARS.liteLLMKey),
+      huggingface: Boolean((HuggingFaceKey || '').trim() || ENV_VARS.huggingFaceKey),
       siliconflow: Boolean((SiliconFlowKey || '').trim() || ENV_VARS.siliconFlowKey),
       nvidia: Boolean((NvidiaKey || '').trim()),
       minimax: Boolean((MinimaxKey || '').trim()),
@@ -340,6 +363,9 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
     [
       googleApiKey,
       OpenAICompatibilityKey,
+      OpenRouterKey,
+      LiteLLMKey,
+      HuggingFaceKey,
       SiliconFlowKey,
       NvidiaKey,
       MinimaxKey,
@@ -433,6 +459,10 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
         setOpenAICompatibilityKey(settings.OpenAICompatibilityKey)
       if (settings.OpenAICompatibilityUrl)
         setOpenAICompatibilityUrl(settings.OpenAICompatibilityUrl)
+      if (settings.OpenRouterKey) setOpenRouterKey(settings.OpenRouterKey)
+      if (settings.LiteLLMKey) setLiteLLMKey(settings.LiteLLMKey)
+      if (settings.LiteLLMUrl) setLiteLLMUrl(settings.LiteLLMUrl)
+      if (settings.HuggingFaceKey) setHuggingFaceKey(settings.HuggingFaceKey)
       if (settings.SiliconFlowKey) setSiliconFlowKey(settings.SiliconFlowKey)
       if (settings.NvidiaKey) setNvidiaKey(settings.NvidiaKey)
       if (settings.MinimaxKey) setMinimaxKey(settings.MinimaxKey)
@@ -462,7 +492,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       if (settings.themeColor && THEMES[settings.themeColor]) {
         setThemeColor(settings.themeColor)
       } else {
-        setThemeColor('violet')
+        setThemeColor('midnight')
       }
       if (settings.fontSize) setFontSize(settings.fontSize)
       if (typeof settings.enableRelatedQuestions === 'boolean')
@@ -503,9 +533,13 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       if (settings.databaseProvider) {
         fetchRemoteSettings().then(({ data }) => {
           if (data) {
-            if (data.OpenAICompatibilityKey) setOpenAICompatibilityKey(data.OpenAICompatibilityKey)
-            if (data.OpenAICompatibilityUrl) setOpenAICompatibilityUrl(data.OpenAICompatibilityUrl)
-            if (data.SiliconFlowKey) setSiliconFlowKey(data.SiliconFlowKey)
+          if (data.OpenAICompatibilityKey) setOpenAICompatibilityKey(data.OpenAICompatibilityKey)
+          if (data.OpenAICompatibilityUrl) setOpenAICompatibilityUrl(data.OpenAICompatibilityUrl)
+          if (data.OpenRouterKey) setOpenRouterKey(data.OpenRouterKey)
+          if (data.LiteLLMKey) setLiteLLMKey(data.LiteLLMKey)
+          if (data.LiteLLMUrl) setLiteLLMUrl(data.LiteLLMUrl)
+          if (data.HuggingFaceKey) setHuggingFaceKey(data.HuggingFaceKey)
+          if (data.SiliconFlowKey) setSiliconFlowKey(data.SiliconFlowKey)
             if (data.NvidiaKey) setNvidiaKey(data.NvidiaKey)
             if (data.MinimaxKey) setMinimaxKey(data.MinimaxKey)
             if (data.GlmKey) setGlmKey(data.GlmKey)
@@ -591,6 +625,10 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       gemini: googleApiKey || ENV_VARS.googleApiKey,
       openai_compatibility: OpenAICompatibilityKey || ENV_VARS.openAIKey,
       openai_compatibility_url: OpenAICompatibilityUrl || ENV_VARS.openAIBaseUrl,
+      openrouter: OpenRouterKey || ENV_VARS.openRouterKey,
+      litellm_openai: LiteLLMKey || ENV_VARS.liteLLMKey,
+      litellm_openai_url: LiteLLMUrl || ENV_VARS.liteLLMBaseUrl,
+      huggingface: HuggingFaceKey || ENV_VARS.huggingFaceKey,
       siliconflow: SiliconFlowKey || ENV_VARS.siliconFlowKey,
       nvidia: NvidiaKey,
       minimax: MinimaxKey,
@@ -607,6 +645,11 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
     for (const key of PROVIDER_KEYS) {
       let credentials = {}
       if (key === 'gemini') credentials = { apiKey: keys.gemini }
+      else if (key === 'openrouter')
+        credentials = { apiKey: keys.openrouter, baseUrl: 'https://openrouter.ai/api/v1' }
+      else if (key === 'litellm_openai')
+        credentials = { apiKey: keys.litellm_openai, baseUrl: keys.litellm_openai_url }
+      else if (key === 'huggingface') credentials = { apiKey: keys.huggingface }
       else if (key === 'siliconflow')
         credentials = { apiKey: keys.siliconflow, baseUrl: SILICONFLOW_BASE_URL }
       else if (key === 'nvidia')
@@ -1103,6 +1146,10 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       gemini: googleApiKey || ENV_VARS.googleApiKey,
       openai_compatibility: OpenAICompatibilityKey || ENV_VARS.openAIKey,
       openai_compatibility_url: OpenAICompatibilityUrl || ENV_VARS.openAIBaseUrl,
+      openrouter: OpenRouterKey || ENV_VARS.openRouterKey,
+      litellm_openai: LiteLLMKey || ENV_VARS.liteLLMKey,
+      litellm_openai_url: LiteLLMUrl || ENV_VARS.liteLLMBaseUrl,
+      huggingface: HuggingFaceKey || ENV_VARS.huggingFaceKey,
       siliconflow: SiliconFlowKey || ENV_VARS.siliconFlowKey,
       nvidia: NvidiaKey,
       minimax: MinimaxKey,
@@ -1118,6 +1165,11 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
     const promises = configuredChatProviders.map(async key => {
       let credentials = {}
       if (key === 'gemini') credentials = { apiKey: keys.gemini }
+      else if (key === 'openrouter')
+        credentials = { apiKey: keys.openrouter, baseUrl: 'https://openrouter.ai/api/v1' }
+      else if (key === 'litellm_openai')
+        credentials = { apiKey: keys.litellm_openai, baseUrl: keys.litellm_openai_url }
+      else if (key === 'huggingface') credentials = { apiKey: keys.huggingface }
       else if (key === 'siliconflow')
         credentials = { apiKey: keys.siliconflow, baseUrl: SILICONFLOW_BASE_URL }
       else if (key === 'nvidia')
@@ -1303,6 +1355,10 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
         // API Keys
         OpenAICompatibilityKey,
         OpenAICompatibilityUrl,
+        OpenRouterKey,
+        LiteLLMKey,
+        LiteLLMUrl,
+        HuggingFaceKey,
         GoogleApiKey: googleApiKey,
         SiliconFlowKey,
         NvidiaKey,
@@ -1371,6 +1427,10 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
             const SYNC_KEYS = [
               'OpenAICompatibilityKey',
               'OpenAICompatibilityUrl',
+              'OpenRouterKey',
+              'LiteLLMKey',
+              'LiteLLMUrl',
+              'HuggingFaceKey',
               'SiliconFlowKey',
               'GlmKey',
               'DeepSeekKey',
@@ -1429,8 +1489,8 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
   }
 
   return (
-    <div className="fixed inset-0 z-200 flex items-start justify-center overflow-y-auto bg-black/50 p-0 backdrop-blur-sm md:items-center md:overflow-hidden md:p-4">
-      <div className="glass-elite-panel relative flex h-dvh w-full flex-col overflow-hidden rounded-none border-0 md:h-[88vh] md:max-w-[1440px] md:flex-row md:rounded-[28px]">
+    <div className="modal-overlay-shell">
+      <div className="modal-surface-shell modal-surface-shell-wide">
         {/* Mobile Header */}
         <div className="flex h-14 shrink-0 items-center justify-between border-b border-black/5 bg-transparent px-4 md:hidden dark:border-white/5">
           <h2 className="text-base font-semibold text-gray-900 dark:text-white">
@@ -1719,6 +1779,112 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                           />
                         </div>
                         {renderEnvHint(Boolean(ENV_VARS.openAIBaseUrl))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* OpenRouter Settings */}
+                  {apiProvider === 'openrouter' && (
+                    <div className="animate-in fade-in slide-in-from-top-2 flex flex-col gap-4 duration-200">
+                      <div className="flex flex-col gap-2">
+                        <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                          {t('settings.openrouterApiKey')}
+                        </label>
+                        <div className="relative">
+                          <div className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400">
+                            <Key size={16} />
+                          </div>
+                          <input
+                            type="password"
+                            value={OpenRouterKey}
+                            onChange={e => setOpenRouterKey(e.target.value)}
+                            placeholder={t('settings.openrouterApiKeyPlaceholder')}
+                            disabled={Boolean(ENV_VARS.openRouterKey)}
+                            className={clsx(
+                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border-none bg-black/5 py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-100/50 disabled:text-gray-500 dark:bg-white/5 dark:text-gray-100 dark:placeholder-zinc-600',
+                              ENV_VARS.openRouterKey && 'cursor-not-allowed opacity-70',
+                            )}
+                          />
+                        </div>
+                        {renderEnvHint(Boolean(ENV_VARS.openRouterKey))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* LiteLLM OpenAI Settings */}
+                  {apiProvider === 'litellm_openai' && (
+                    <div className="animate-in fade-in slide-in-from-top-2 flex flex-col gap-4 duration-200">
+                      <div className="flex flex-col gap-2">
+                        <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                          {t('settings.litellmApiKey')}
+                        </label>
+                        <div className="relative">
+                          <div className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400">
+                            <Key size={16} />
+                          </div>
+                          <input
+                            type="password"
+                            value={LiteLLMKey}
+                            onChange={e => setLiteLLMKey(e.target.value)}
+                            placeholder={t('settings.litellmApiKeyPlaceholder')}
+                            disabled={Boolean(ENV_VARS.liteLLMKey)}
+                            className={clsx(
+                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border-none bg-black/5 py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-100/50 disabled:text-gray-500 dark:bg-white/5 dark:text-gray-100 dark:placeholder-zinc-600',
+                              ENV_VARS.liteLLMKey && 'cursor-not-allowed opacity-70',
+                            )}
+                          />
+                        </div>
+                        {renderEnvHint(Boolean(ENV_VARS.liteLLMKey))}
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                          {t('settings.litellmBaseUrl')}
+                        </label>
+                        <div className="relative">
+                          <div className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400">
+                            <Link size={16} />
+                          </div>
+                          <input
+                            type="text"
+                            value={LiteLLMUrl}
+                            onChange={e => setLiteLLMUrl(e.target.value)}
+                            placeholder={t('settings.litellmBaseUrlPlaceholder')}
+                            disabled={Boolean(ENV_VARS.liteLLMBaseUrl)}
+                            className={clsx(
+                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border-none bg-black/5 py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-100/50 disabled:text-gray-500 dark:bg-white/5 dark:text-gray-100 dark:placeholder-zinc-600',
+                              ENV_VARS.liteLLMBaseUrl && 'cursor-not-allowed opacity-70',
+                            )}
+                          />
+                        </div>
+                        {renderEnvHint(Boolean(ENV_VARS.liteLLMBaseUrl))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Hugging Face Settings */}
+                  {apiProvider === 'huggingface' && (
+                    <div className="animate-in fade-in slide-in-from-top-2 flex flex-col gap-4 duration-200">
+                      <div className="flex flex-col gap-2">
+                        <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                          {t('settings.huggingfaceApiKey')}
+                        </label>
+                        <div className="relative">
+                          <div className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400">
+                            <Key size={16} />
+                          </div>
+                          <input
+                            type="password"
+                            value={HuggingFaceKey}
+                            onChange={e => setHuggingFaceKey(e.target.value)}
+                            placeholder={t('settings.huggingfaceApiKeyPlaceholder')}
+                            disabled={Boolean(ENV_VARS.huggingFaceKey)}
+                            className={clsx(
+                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border-none bg-black/5 py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-100/50 disabled:text-gray-500 dark:bg-white/5 dark:text-gray-100 dark:placeholder-zinc-600',
+                              ENV_VARS.huggingFaceKey && 'cursor-not-allowed opacity-70',
+                            )}
+                          />
+                        </div>
+                        {renderEnvHint(Boolean(ENV_VARS.huggingFaceKey))}
                       </div>
                     </div>
                   )}

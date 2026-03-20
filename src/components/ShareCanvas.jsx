@@ -16,6 +16,21 @@ const PROVIDER_META = {
     logo: PROVIDER_ICONS.openai_compatibility,
     fallback: 'O',
   },
+  openrouter: {
+    label: 'OpenRouter',
+    logo: PROVIDER_ICONS.openrouter,
+    fallback: 'R',
+  },
+  litellm_openai: {
+    label: 'LiteLLM OpenAI',
+    logo: PROVIDER_ICONS.litellm_openai,
+    fallback: 'L',
+  },
+  huggingface: {
+    label: 'Hugging Face',
+    logo: PROVIDER_ICONS.huggingface,
+    fallback: 'H',
+  },
   siliconflow: {
     label: 'SiliconFlow',
     logo: PROVIDER_ICONS.siliconflow,
@@ -511,6 +526,8 @@ const ShareCanvas = ({
     logo: null,
     fallback: 'AI',
   }
+  const hasImageLogo = logo =>
+    typeof logo === 'string' && /^(data:|https?:|\/|\.\/|\.\.\/|blob:)/i.test(logo)
   const resolvedModel = message?.model || 'default model'
   const isUser = message?.role === 'user'
   const images = useMemo(() => getImagesFromMessage(message), [message])
@@ -558,15 +575,19 @@ const ShareCanvas = ({
               </div>
             </div>
             <div className="share-meta share-meta--right">
-              {!isUser && (
-                <>
-                  <div className="share-avatar">
-                    {providerMeta.logo ? (
-                      <img src={providerMeta.logo} alt={providerMeta.label} />
-                    ) : (
-                      <span>{providerMeta.fallback}</span>
-                    )}
-                  </div>
+                  {!isUser && (
+                    <>
+                      <div className="share-avatar">
+                        {providerMeta.logo ? (
+                          hasImageLogo(providerMeta.logo) ? (
+                            <img src={providerMeta.logo} alt={providerMeta.label} />
+                          ) : (
+                            <span>{providerMeta.logo}</span>
+                          )
+                        ) : (
+                          <span>{providerMeta.fallback}</span>
+                        )}
+                      </div>
                   <div className="share-model">
                     <div style={{ fontWeight: 600 }}>{providerMeta.label}</div>
                     <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>

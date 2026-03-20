@@ -139,6 +139,7 @@ class StreamChatRequest(BaseModel):
 
     # Internal use only: Feature flags set by backend routes
     enable_skills: bool = Field(default=False, exclude=True)
+    disable_skills: bool = Field(default=False, alias="disableSkills", exclude=True)
 
     # Internal use only: Personalized prompt from agent config
     personalized_prompt: str | None = Field(default=None, exclude=True)

@@ -2,7 +2,9 @@ import { createBackendProvider } from './backendProviderForBackend'
 import {
   DEEPSEEK_BASE_URL,
   GLM_BASE_URL,
+  LITELLM_BASE_URL,
   MODELSCOPE_BASE_URL,
+  OPENROUTER_BASE_URL,
   VOLCENGINE_BASE_URL,
   NVIDIA_BASE_URL,
   SILICONFLOW_BASE_URL,
@@ -47,21 +49,20 @@ const defaultParseMessage = input => {
       Object.prototype.hasOwnProperty.call(input, 'thinkingProcess') ||
       Object.prototype.hasOwnProperty.call(input, 'reasoning_content'))
 
-  let thought = null
-  let rawContent = ''
-
-  if (hasExplicitThought) {
-    const thoughtField =
-      input.thought ??
-      input.thinking_process ??
-      input.thinkingProcess ??
-      input?.thought ??
-      input?.reasoning_content
-    thought = extractText(thoughtField) || null
-    rawContent = extractText(input.content || '')
-  } else {
-    rawContent = typeof input === 'string' ? input : extractText(input?.content ?? input)
-  }
+  const thoughtField =
+    hasExplicitThought
+      ? input.thought ??
+        input.thinking_process ??
+        input.thinkingProcess ??
+        input?.thought ??
+        input?.reasoning_content
+      : null
+  const thought = thoughtField ? extractText(thoughtField) || null : null
+  const rawContent = hasExplicitThought
+    ? extractText(input.content || '')
+    : typeof input === 'string'
+      ? input
+      : extractText(input?.content ?? input)
 
   return { content: rawContent, thought }
 }
@@ -78,7 +79,7 @@ const resolveSearchTools = (isSearchActive, searchTool) => {
   return resolved.length > 0 ? resolved : undefined
 }
 
-const resolveTools = (isSearchActive, searchTool, enableMemory) => {
+const resolveTools = (isSearchActive, searchTool, _enableMemory) => {
   const tools = resolveSearchTools(isSearchActive, searchTool) || []
   // [DEPRECATED] Old memory tools replaced by built-in agent-memory skill
   // if (enableMemory) {
@@ -112,6 +113,42 @@ export const PROVIDERS = {
             },
           }
         : undefined,
+    parseMessage: defaultParseMessage,
+  },
+  openrouter: {
+    ...createBackendProvider('openrouter'),
+    id: 'openrouter',
+    name: 'OpenRouter',
+    getCredentials: settings => ({
+      apiKey: settings.OpenRouterKey || getPublicEnv('PUBLIC_OPENROUTER_API_KEY'),
+      baseUrl: OPENROUTER_BASE_URL,
+    }),
+    getTools: (isSearchActive, searchTool, enableMemory) =>
+      resolveTools(isSearchActive, searchTool, enableMemory),
+    parseMessage: defaultParseMessage,
+  },
+  litellm_openai: {
+    ...createBackendProvider('litellm_openai'),
+    id: 'litellm_openai',
+    name: 'LiteLLM OpenAI',
+    getCredentials: settings => ({
+      apiKey: settings.LiteLLMKey || getPublicEnv('PUBLIC_LITELLM_API_KEY'),
+      baseUrl: settings.LiteLLMUrl || getPublicEnv('PUBLIC_LITELLM_BASE_URL') || LITELLM_BASE_URL,
+    }),
+    getTools: (isSearchActive, searchTool, enableMemory) =>
+      resolveTools(isSearchActive, searchTool, enableMemory),
+    parseMessage: defaultParseMessage,
+  },
+  huggingface: {
+    ...createBackendProvider('huggingface'),
+    id: 'huggingface',
+    name: 'Hugging Face',
+    getCredentials: settings => ({
+      apiKey: settings.HuggingFaceKey || getPublicEnv('PUBLIC_HUGGINGFACE_API_KEY'),
+      baseUrl: undefined,
+    }),
+    getTools: (isSearchActive, searchTool, enableMemory) =>
+      resolveTools(isSearchActive, searchTool, enableMemory),
     parseMessage: defaultParseMessage,
   },
   siliconflow: {

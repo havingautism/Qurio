@@ -92,7 +92,7 @@ export default function DynamicBackground({ className }) {
     return () => observer.disconnect()
   }, [])
 
-  const activeTheme = THEMES[themeColor] || THEMES['violet']
+  const activeTheme = THEMES[themeColor] || THEMES['midnight']
 
   const waveColors = useMemo(() => {
     const p400 = activeTheme.colors['--color-primary-400']

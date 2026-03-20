@@ -33,7 +33,33 @@ const withTimeout = (signal, timeoutMs = 10000) => {
   return { controller, timeoutId }
 }
 
-const fetchOpenAIModels = async () => []
+const fetchOpenAICompatibleModels = async ({ apiKey, baseUrl }, options = {}) => {
+  const resolvedBase = (baseUrl || OPENAI_DEFAULT_BASE).replace(/\/$/, '')
+  const resolvedKey = apiKey || getPublicEnv('PUBLIC_OPENAI_API_KEY')
+  if (!resolvedKey) return []
+
+  const { controller, timeoutId } = withTimeout(options.signal)
+  const response = await fetch(`${resolvedBase}/models`, {
+    headers: { Authorization: `Bearer ${resolvedKey}` },
+    signal: controller.signal,
+  })
+
+  clearTimeout(timeoutId)
+
+  if (!response.ok) {
+    if (response.status === 403) {
+      throw new Error('Invalid API key or insufficient permissions')
+    }
+    const message = await response.text().catch(() => '')
+    throw new Error(message || `HTTP error! status: ${response.status}`)
+  }
+
+  const data = await response.json()
+  return (data?.data || []).map(model => ({
+    value: model.id,
+    label: model.id,
+  }))
+}
 
 const fetchSiliconflowModels = async ({ apiKey, baseUrl }, options = {}) => {
   const resolvedBase = (
@@ -217,6 +243,10 @@ export const getModelsForProvider = async (provider, credentials, options = {}) 
   switch (provider) {
     case 'gemini':
       return await fetchGeminiModels({ apiKey: credentials.apiKey }, options)
+    case 'openrouter':
+      return []
+    case 'litellm_openai':
+      return []
     case 'siliconflow':
       return await fetchSiliconflowModels(
         { apiKey: credentials.apiKey, baseUrl: SILICONFLOW_BASE },
@@ -233,11 +263,16 @@ export const getModelsForProvider = async (provider, credentials, options = {}) 
     case 'kimi':
       return await fetchKimiModels({ apiKey: credentials.apiKey }, options)
     case 'nvidia':
-      return await fetchOpenAIModels()
+      return []
     case 'minimax':
       return await fetchMinimaxModels({ apiKey: credentials.apiKey }, options)
     case 'openai_compatibility':
-      return await fetchOpenAIModels()
+      return await fetchOpenAICompatibleModels(
+        { apiKey: credentials.apiKey, baseUrl: credentials.baseUrl || OPENAI_DEFAULT_BASE },
+        options,
+      )
+    case 'huggingface':
+      return []
     default:
       return []
   }

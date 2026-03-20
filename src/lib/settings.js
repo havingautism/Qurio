@@ -225,6 +225,10 @@ const getSessionStorage = () => {
 const MEMORY_SETTINGS_KEYS = [
   'OpenAICompatibilityKey',
   'OpenAICompatibilityUrl',
+  'OpenRouterKey',
+  'LiteLLMKey',
+  'LiteLLMUrl',
+  'HuggingFaceKey',
   'SiliconFlowKey',
   'GlmKey',
   'DeepSeekKey',
@@ -262,6 +266,10 @@ const LEGACY_LOCAL_SENSITIVE_KEYS = ['tavilyApiKey', 'serpapiApiKey', 'exaApiKey
 const SESSION_SENSITIVE_KEYS = [
   'OpenAICompatibilityKey',
   'OpenAICompatibilityUrl',
+  'OpenRouterKey',
+  'LiteLLMKey',
+  'LiteLLMUrl',
+  'HuggingFaceKey',
   'SiliconFlowKey',
   'GlmKey',
   'DeepSeekKey',
@@ -570,6 +578,20 @@ export const loadSettings = (overrides = {}) => {
     mergedSettings.OpenAICompatibilityKey = envOpenAIKey || ''
   if (!mergedSettings.OpenAICompatibilityUrl)
     mergedSettings.OpenAICompatibilityUrl = envOpenAIBaseUrl || ''
+  if (!mergedSettings.OpenRouterKey) {
+    mergedSettings.OpenRouterKey =
+      electronMode ? '' : getPublicEnv('PUBLIC_OPENROUTER_API_KEY') || ''
+  }
+  if (!mergedSettings.LiteLLMKey) {
+    mergedSettings.LiteLLMKey = electronMode ? '' : getPublicEnv('PUBLIC_LITELLM_API_KEY') || ''
+  }
+  if (!mergedSettings.LiteLLMUrl)
+    mergedSettings.LiteLLMUrl =
+      electronMode ? '' : getPublicEnv('PUBLIC_LITELLM_BASE_URL') || ''
+  if (!mergedSettings.HuggingFaceKey) {
+    mergedSettings.HuggingFaceKey =
+      electronMode ? '' : getPublicEnv('PUBLIC_HUGGINGFACE_API_KEY') || ''
+  }
   if (!mergedSettings.SiliconFlowKey)
     mergedSettings.SiliconFlowKey = electronMode
       ? ''
@@ -668,6 +690,10 @@ export const saveSettings = async settings => {
   const SENSITIVE_KEYS = [
     'OpenAICompatibilityKey',
     'OpenAICompatibilityUrl',
+    'OpenRouterKey',
+    'LiteLLMKey',
+    'LiteLLMUrl',
+    'HuggingFaceKey',
     'SiliconFlowKey',
     'GlmKey',
     'DeepSeekKey',

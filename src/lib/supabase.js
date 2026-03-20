@@ -600,6 +600,10 @@ export const saveRemoteSettings = async settings => {
   const KEYS_TO_SYNC = [
     'OpenAICompatibilityKey',
     'OpenAICompatibilityUrl',
+    'OpenRouterKey',
+    'LiteLLMKey',
+    'LiteLLMUrl',
+    'HuggingFaceKey',
     'SiliconFlowKey',
     'GlmKey',
     'DeepSeekKey',

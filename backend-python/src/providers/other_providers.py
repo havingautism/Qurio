@@ -1,11 +1,24 @@
 """
-Additional provider adapters for OpenAI-compatible APIs.
-Includes SiliconFlow, GLM, Kimi, Nvidia, MiniMax, and ModelScope adapters.
+Additional provider adapters for OpenAI-compatible APIs and gateway providers.
+Includes SiliconFlow, GLM, Kimi, Nvidia, MiniMax, ModelScope, OpenRouter,
+LiteLLM OpenAI, and HuggingFace adapters.
 """
 
 from typing import Any
 
 from agno.models.deepseek import DeepSeek
+try:
+    from agno.models.huggingface import HuggingFace
+except Exception:  # pragma: no cover - optional dependency
+    HuggingFace = None
+try:
+    from agno.models.litellm import LiteLLMOpenAI
+except Exception:  # pragma: no cover - optional dependency
+    LiteLLMOpenAI = None
+try:
+    from agno.models.openrouter import OpenRouter
+except Exception:  # pragma: no cover - optional dependency
+    OpenRouter = None
 from agno.models.nvidia import Nvidia
 from agno.models.openai.like import OpenAILike
 from agno.models.siliconflow import Siliconflow
@@ -229,6 +242,105 @@ class KimiAdapter(OpenAIAdapter):
             base_url=resolved_base,
             extra_body=extra_body if extra_body else None,
         )
+
+
+class OpenRouterAdapter(OpenAIAdapter):
+    """Adapter for OpenRouter gateway models."""
+
+    def __init__(self):
+        self.config = ProviderConfig(
+            name="openrouter",
+            base_url="https://openrouter.ai/api/v1",
+            default_model="openai/gpt-4o-mini",
+            supports_streaming=True,
+            supports_tools=True,
+            supports_streaming_tool_calls=False,
+            supports_json_schema=True,
+            supports_thinking=False,
+            supports_vision=True,
+        )
+
+    def build_model(
+        self,
+        api_key: str,
+        model: str | None = None,
+        base_url: str | None = None,
+        thinking: dict[str, Any] | bool | None = None,
+        tools: list[dict[str, Any]] | None = None,
+        tool_choice: Any = None,
+        **kwargs
+    ) -> OpenRouter:
+        if OpenRouter is None:
+            raise ImportError("OpenRouter support requires agno.models.openrouter and its dependencies")
+        resolved_base = base_url or self.config.base_url
+        resolved_model = model or self.config.default_model
+        return OpenRouter(id=resolved_model, api_key=api_key, base_url=resolved_base)
+
+
+class LiteLLMOpenAIAdapter(OpenAIAdapter):
+    """Adapter for LiteLLM OpenAI-compatible gateways."""
+
+    def __init__(self):
+        self.config = ProviderConfig(
+            name="litellm_openai",
+            base_url="http://0.0.0.0:4000",
+            default_model="gpt-5-mini",
+            supports_streaming=True,
+            supports_tools=True,
+            supports_streaming_tool_calls=False,
+            supports_json_schema=True,
+            supports_thinking=False,
+            supports_vision=True,
+        )
+
+    def build_model(
+        self,
+        api_key: str,
+        model: str | None = None,
+        base_url: str | None = None,
+        thinking: dict[str, Any] | bool | None = None,
+        tools: list[dict[str, Any]] | None = None,
+        tool_choice: Any = None,
+        **kwargs
+    ) -> LiteLLMOpenAI:
+        if LiteLLMOpenAI is None:
+            raise ImportError("LiteLLM support requires agno.models.litellm and its dependencies")
+        resolved_base = base_url or self.config.base_url
+        resolved_model = model or self.config.default_model
+        return LiteLLMOpenAI(id=resolved_model, api_key=api_key, base_url=resolved_base)
+
+
+class HuggingFaceAdapter(OpenAIAdapter):
+    """Adapter for HuggingFace Inference models."""
+
+    def __init__(self):
+        self.config = ProviderConfig(
+            name="huggingface",
+            base_url=None,
+            default_model="meta-llama/Meta-Llama-3.1-8B-Instruct",
+            supports_streaming=True,
+            supports_tools=True,
+            supports_streaming_tool_calls=True,
+            supports_json_schema=True,
+            supports_thinking=False,
+            supports_vision=False,
+        )
+
+    def build_model(
+        self,
+        api_key: str,
+        model: str | None = None,
+        base_url: str | None = None,
+        thinking: dict[str, Any] | bool | None = None,
+        tools: list[dict[str, Any]] | None = None,
+        tool_choice: Any = None,
+        **kwargs
+    ) -> HuggingFace:
+        if HuggingFace is None:
+            raise ImportError("HuggingFace support requires agno.models.huggingface and its dependencies")
+        resolved_model = model or self.config.default_model
+        resolved_base = base_url or self.config.base_url
+        return HuggingFace(id=resolved_model, api_key=api_key, base_url=resolved_base)
 
 
 class NvidiaAdapter(OpenAIAdapter):

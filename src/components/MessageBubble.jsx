@@ -94,6 +94,21 @@ const PROVIDER_META = {
     id: 'openai_compatibility',
     fallback: 'O',
   },
+  openrouter: {
+    label: 'OpenRouter',
+    id: 'openrouter',
+    fallback: 'R',
+  },
+  litellm_openai: {
+    label: 'LiteLLM OpenAI',
+    id: 'litellm_openai',
+    fallback: 'L',
+  },
+  huggingface: {
+    label: 'Hugging Face',
+    id: 'huggingface',
+    fallback: 'H',
+  },
   siliconflow: {
     label: 'SiliconFlow',
     id: 'siliconflow',
@@ -1110,7 +1125,8 @@ const MessageBubble = ({
     const downloadUrl = typeof payload.download_url === 'string' ? payload.download_url.trim() : ''
     if (!downloadUrl) return null
 
-    const filename = typeof payload.filename === 'string' ? payload.filename.trim() : 'presentation.pptx'
+    const filename =
+      typeof payload.filename === 'string' ? payload.filename.trim() : 'presentation.pptx'
     const title = typeof payload.title === 'string' ? payload.title.trim() : ''
     const slideCount = Number(payload.slide_count)
     const expiresAt = typeof payload.expires_at === 'string' ? payload.expires_at.trim() : ''
@@ -1120,9 +1136,7 @@ const MessageBubble = ({
       ? Math.max(220, Math.min(previewHeightRaw, 900))
       : 560
     const qaIssuesRaw = Array.isArray(payload.qa_issues)
-      ? payload.qa_issues
-          .map(item => String(item || '').trim())
-          .filter(Boolean)
+      ? payload.qa_issues.map(item => String(item || '').trim()).filter(Boolean)
       : []
     const renderModeUsed =
       typeof payload.render_mode_used === 'string' ? payload.render_mode_used.trim() : ''
@@ -2666,7 +2680,9 @@ const MessageBubble = ({
       const index = pptPartIndexes[i]
       const part = mergedTextParts[index]
       const hasSuccessfulPayload = Array.isArray(part?.items)
-        ? part.items.some(item => Boolean(parsePptxPayload(item?.output) || parsePptxPayload(item?.result)))
+        ? part.items.some(item =>
+            Boolean(parsePptxPayload(item?.output) || parsePptxPayload(item?.result)),
+          )
         : false
       if (hasSuccessfulPayload) {
         winnerIndex = index
@@ -3061,7 +3077,9 @@ const MessageBubble = ({
               : 'border-primary-200/35 dark:border-primary-700/20 bg-white/65 text-gray-600 dark:bg-zinc-800/40 dark:text-gray-300',
           )}
         >
-          <span className={clsx('flex min-w-0 items-center font-medium', compact ? 'gap-1' : 'gap-1.5')}>
+          <span
+            className={clsx('flex min-w-0 items-center font-medium', compact ? 'gap-1' : 'gap-1.5')}
+          >
             {isError ? (
               <AlertTriangle size={compact ? 13 : 14} className="shrink-0" />
             ) : ToolIcon ? (
@@ -3284,10 +3302,7 @@ const MessageBubble = ({
         >
           <div className="font-semibold">{t('tools.pptGenerator', 'PPT Generator')}</div>
           <div className="mt-1">
-            {t(
-              'messageBubble.ppt.missingPayload',
-              'No PPTX payload found in the tool result.',
-            )}
+            {t('messageBubble.ppt.missingPayload', 'No PPTX payload found in the tool result.')}
           </div>
         </div>
       )
@@ -5073,7 +5088,7 @@ const MessageBubble = ({
           {renderInitialSkeleton && (
             <div
               className={clsx(
-                'mb-4 inline-flex items-center gap-2 transition-opacity duration-300 ease-[cubic-bezier(0.2,0.6,0.2,1)]',
+                'my-4 inline-flex items-center gap-2 transition-opacity duration-300 ease-[cubic-bezier(0.2,0.6,0.2,1)]',
                 showInitialSkeleton ? 'opacity-100' : 'opacity-0',
               )}
             >
@@ -5086,12 +5101,12 @@ const MessageBubble = ({
             </div>
           )}
           {!isDeepResearch && isStreaming && hasMainText && (
-            <div className="mb-4 inline-flex items-center pl-1">
+            <div className="my-4 inline-flex items-center pl-1">
               <DotLoader />
             </div>
           )}
           {isDeepResearch && isStreaming && !hasMainText && !hasActiveResearchStep && (
-            <div className="mt-4 flex items-center gap-2 pl-1">
+            <div className="my-4 flex items-center gap-2 pl-1">
               <span className="text-sm text-gray-500 dark:text-gray-400">
                 {t('messageBubble.deepThinkingStreaming')}
               </span>

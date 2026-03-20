@@ -16,7 +16,19 @@ from agno.agent import Agent
 # from agno.memory import MemoryManager
 from agno.models.deepseek import DeepSeek
 from agno.models.google import Gemini
+try:
+    from agno.models.huggingface import HuggingFace
+except Exception:  # pragma: no cover - optional dependency
+    HuggingFace = None
 from agno.models.nvidia import Nvidia
+try:
+    from agno.models.litellm import LiteLLMOpenAI
+except Exception:  # pragma: no cover - optional dependency
+    LiteLLMOpenAI = None
+try:
+    from agno.models.openrouter import OpenRouter
+except Exception:  # pragma: no cover - optional dependency
+    OpenRouter = None
 from agno.models.openai import OpenAILike
 from agno.models.siliconflow import Siliconflow
 from agno.skills import LocalSkills, Skills
@@ -73,6 +85,12 @@ EXA_TIMEOUT_SECONDS = max(
 DEFAULT_MODELS: dict[str, str] = {
     "openai": os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
     "openai_compatibility": os.getenv("OPENAI_COMPAT_MODEL", "gpt-4o-mini"),
+    "openrouter": os.getenv("OPENROUTER_MODEL", "openai/gpt-4o-mini"),
+    "litellm_openai": os.getenv("LITELLM_MODEL", "gpt-5-mini"),
+    "huggingface": os.getenv(
+        "HUGGINGFACE_MODEL",
+        "meta-llama/Meta-Llama-3.1-8B-Instruct",
+    ),
     "siliconflow": os.getenv("SILICONFLOW_MODEL", "Qwen/Qwen2.5-7B-Instruct"),
     "glm": os.getenv("GLM_MODEL", "glm-4-flash"),
     "deepseek": os.getenv("DEEPSEEK_MODEL", "deepseek-chat"),
@@ -87,6 +105,9 @@ DEFAULT_MODELS: dict[str, str] = {
 DEFAULT_BASE_URLS: dict[str, str] = {
     "openai": os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
     "openai_compatibility": os.getenv("OPENAI_COMPAT_BASE_URL", "https://api.openai.com/v1"),
+    "openrouter": os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
+    "litellm_openai": os.getenv("LITELLM_BASE_URL", "http://0.0.0.0:4000"),
+    "huggingface": os.getenv("HUGGINGFACE_BASE_URL", ""),
     "siliconflow": os.getenv("SILICONFLOW_BASE_URL", "https://api.siliconflow.cn/v1"),
     "glm": os.getenv("GLM_BASE_URL", "https://open.bigmodel.cn/api/paas/v4"),
     "deepseek": os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1"),
@@ -120,10 +141,22 @@ AGNO_RESPONSE_CACHE_TTL_SECONDS = int(_cache_ttl_raw) if _cache_ttl_raw else Non
 def _build_model(provider: str, api_key: str | None, base_url: str | None, model: str | None):
     provider_key = provider or "openai"
     model_id = model or DEFAULT_MODELS.get(provider_key) or DEFAULT_MODELS["openai"]
-    resolved_base = base_url or DEFAULT_BASE_URLS.get(provider_key) or DEFAULT_BASE_URLS["openai"]
+    resolved_base = base_url or DEFAULT_BASE_URLS.get(provider_key) or None
 
     if provider_key == "gemini":
         return Gemini(id=model_id, api_key=api_key)
+    if provider_key == "openrouter":
+        if OpenRouter is None:
+            raise ImportError("OpenRouter support requires agno.models.openrouter and its dependencies")
+        return OpenRouter(id=model_id, api_key=api_key, base_url=resolved_base or DEFAULT_BASE_URLS["openrouter"])
+    if provider_key == "litellm_openai":
+        if LiteLLMOpenAI is None:
+            raise ImportError("LiteLLM support requires agno.models.litellm and its dependencies")
+        return LiteLLMOpenAI(id=model_id, api_key=api_key, base_url=resolved_base or DEFAULT_BASE_URLS["litellm_openai"])
+    if provider_key == "huggingface":
+        if HuggingFace is None:
+            raise ImportError("HuggingFace support requires agno.models.huggingface and its dependencies")
+        return HuggingFace(id=model_id, api_key=api_key, base_url=resolved_base or None)
     if provider_key == "nvidia":
         return Nvidia(id=model_id, api_key=api_key, base_url=resolved_base)
     if provider_key == "siliconflow":
@@ -327,7 +360,7 @@ def _has_skills(request: Any) -> bool:
     internal_skills_dir = os.path.join(os.path.dirname(__file__), '..', '_internal_skills')
     if os.path.isdir(internal_skills_dir):
         for item in os.listdir(internal_skills_dir):
-            if item in ("agent-memory", "skill-creator", "academic-research", "deep-research"):
+            if item in ("agent-memory", "skill-creator"):
                 continue
             if os.path.isdir(os.path.join(internal_skills_dir, item)):
                 return True
@@ -765,7 +798,7 @@ def build_agent(request: Any = None, **kwargs: Any) -> Agent:
         # Inject any other internal skills by default (except for specific non-autoloading skills)
         if os.path.isdir(internal_skills_dir):
             for item in os.listdir(internal_skills_dir):
-                if item in ("agent-memory", "skill-creator", "academic-research", "deep-research"):
+                if item in ("agent-memory", "skill-creator"):
                     continue
                 item_path = os.path.join(internal_skills_dir, item)
                 if os.path.isdir(item_path):
@@ -830,6 +863,9 @@ _PROVIDER_KEY_MAP: dict[str, str] = {
     "gemini": "googleApiKey",
     "openai": "OpenAICompatibilityKey",
     "openai_compatibility": "OpenAICompatibilityKey",
+    "openrouter": "OpenRouterKey",
+    "litellm_openai": "LiteLLMKey",
+    "huggingface": "HuggingFaceKey",
     "siliconflow": "SiliconFlowKey",
     "glm": "GlmKey",
     "deepseek": "DeepSeekKey",
@@ -876,6 +912,12 @@ def _get_provider_credentials(provider: str) -> tuple[str | None, str | None]:
     if not api_key:
         provider_upper = provider.upper().replace("-", "_")
         api_key = os.getenv(f"{provider_upper}_API_KEY")
+    if not api_key and provider == "openrouter":
+        api_key = os.getenv("OPENROUTER_API_KEY", "")
+    if not api_key and provider == "litellm_openai":
+        api_key = os.getenv("LITELLM_API_KEY", "")
+    if not api_key and provider == "huggingface":
+        api_key = os.getenv("HF_TOKEN", os.getenv("HUGGINGFACE_API_KEY", ""))
 
     return api_key, base_url
 

@@ -910,8 +910,8 @@ class StreamChatService:
             if not request.messages:
                 raise ValueError("Missing required field: messages")
 
-            # Enable skills for the definitive user-facing chat agent
-            request.enable_skills = True
+            # Enable skills for the definitive user-facing chat agent unless a caller explicitly disables them.
+            request.enable_skills = not bool(getattr(request, "disable_skills", False))
 
             # Build standard agent or Team
             agent_metadata: dict[str, Any] = {}
@@ -1801,8 +1801,8 @@ class StreamChatService:
                 yield ErrorEvent(error="Form session expired or not found").model_dump()
                 return
 
-            # Enable skills for the definitive user-facing chat agent
-            request.enable_skills = True
+            # Enable skills for the definitive user-facing chat agent unless a caller explicitly disables them.
+            request.enable_skills = not bool(getattr(request, "disable_skills", False))
             # Get agent (same provider as original request)
             agent = get_agent_for_provider(request)
             _log_verbose_info(f"[HITL Continue] Agent instructions: {getattr(agent, 'instructions', None)}")

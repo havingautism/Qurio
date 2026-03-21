@@ -244,6 +244,7 @@ const generateRelatedQuestions = async (
 export const createBackendProvider = provider => ({
   streamChatCompletion: params => streamChatViaBackend({ provider, ...params }),
   streamDeepResearch: params => streamDeepResearchViaBackend({ provider, ...params }),
+  getThinking: () => undefined,
   generateTitle: (firstMessage, apiKey, baseUrl, model) =>
     generateTitle(provider, firstMessage, apiKey, baseUrl, model),
   generateEmoji: (firstMessage, apiKey, baseUrl, model) =>

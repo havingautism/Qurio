@@ -19,31 +19,31 @@ import {
 const NODE_META = {
   reasoning: {
     icon: Brain,
-    tone: 'border-sky-200/80 bg-sky-50/90 text-sky-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.84)] dark:border-sky-500/25 dark:bg-sky-500/10 dark:text-sky-300',
+    tone: 'border-sky-200/80 bg-sky-50/90 text-sky-700 dark:border-sky-500/25 dark:bg-sky-500/10 dark:text-sky-300',
   },
   tool_call: {
     icon: Wrench,
-    tone: 'border-amber-200/80 bg-amber-50/90 text-amber-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.84)] dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-300',
+    tone: 'border-amber-200/80 bg-amber-50/90 text-amber-700 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-300',
   },
   tool_result: {
     icon: CircleDot,
-    tone: 'border-emerald-200/80 bg-emerald-50/90 text-emerald-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.84)] dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300',
+    tone: 'border-emerald-200/80 bg-emerald-50/90 text-emerald-700 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300',
   },
   agent_switch: {
     icon: GitBranch,
-    tone: 'border-fuchsia-200/80 bg-fuchsia-50/90 text-fuchsia-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.84)] dark:border-fuchsia-500/25 dark:bg-fuchsia-500/10 dark:text-fuchsia-300',
+    tone: 'border-fuchsia-200/80 bg-fuchsia-50/90 text-fuchsia-700 dark:border-fuchsia-500/25 dark:bg-fuchsia-500/10 dark:text-fuchsia-300',
   },
   workflow_step: {
     icon: Sparkles,
-    tone: 'border-violet-200/80 bg-violet-50/90 text-violet-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.84)] dark:border-violet-500/25 dark:bg-violet-500/10 dark:text-violet-300',
+    tone: 'border-violet-200/80 bg-violet-50/90 text-violet-700 dark:border-violet-500/25 dark:bg-violet-500/10 dark:text-violet-300',
   },
   final_response: {
     icon: ChevronsRight,
-    tone: 'border-primary-200/80 bg-primary-50/90 text-primary-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.84)] dark:border-primary-500/25 dark:bg-primary-500/10 dark:text-primary-300',
+    tone: 'border-primary-200/80 bg-primary-50/90 text-primary-700 dark:border-primary-500/25 dark:bg-primary-500/10 dark:text-primary-300',
   },
   model_output: {
     icon: ChevronsRight,
-    tone: 'border-indigo-200/80 bg-indigo-50/90 text-indigo-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.84)] dark:border-indigo-500/25 dark:bg-indigo-500/10 dark:text-indigo-300',
+    tone: 'border-indigo-200/80 bg-indigo-50/90 text-indigo-700 dark:border-indigo-500/25 dark:bg-indigo-500/10 dark:text-indigo-300',
   },
 }
 
@@ -229,7 +229,7 @@ const PipelineDrawer = ({ isOpen, onClose, pipeline, t }) => {
         <div className="pointer-events-none absolute inset-0 bg-linear-to-br from-white/35 via-transparent to-white/10 dark:from-white/8 dark:via-transparent dark:to-transparent" />
         <div className="relative flex items-center justify-between border-b border-slate-200/80 bg-white/58 px-4 py-3 backdrop-blur-2xl dark:border-white/10 dark:bg-black/20">
           <div className="flex items-center gap-2.5">
-            <div className="glass-elite-chip text-primary-600 dark:text-primary-300 inline-flex h-10 w-10 items-center justify-center rounded-full">
+            <div className="text-primary-600 dark:text-primary-300 inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200/80 bg-slate-50 dark:border-white/10 dark:bg-white/5">
               <GitBranch size={18} />
             </div>
             <div className="text-xl leading-none font-semibold text-slate-900 dark:text-white">
@@ -266,7 +266,7 @@ const PipelineDrawer = ({ isOpen, onClose, pipeline, t }) => {
                   <div key={node.id}>
                     <div
                       className={clsx(
-                        'glass-elite-soft group w-full rounded-[26px] px-4 py-4 text-left transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_38px_-28px_rgba(15,23,42,0.24)] dark:hover:shadow-[0_18px_38px_-28px_rgba(0,0,0,0.55)]',
+                        'glass-elite-soft group mb-3 w-full rounded-[26px] px-4 py-4 text-left transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_38px_-28px_rgba(15,23,42,0.24)] dark:hover:shadow-[0_18px_38px_-28px_rgba(0,0,0,0.55)]',
                         hasExpandableDetails && 'hover:border-white/30',
                       )}
                     >

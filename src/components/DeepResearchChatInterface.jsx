@@ -250,6 +250,7 @@ const DeepResearchChatInterface = ({
     conversationId,
     effectiveDefaultModel: defaultAgent?.model || 'gpt-4o',
     isSwitchingConversation,
+    isDeepResearchConversation,
   })
   const hasLoadedActive = activeConversation?.id && hasLoadedMessages?.(activeConversation.id)
   const hasResolvedTitle =

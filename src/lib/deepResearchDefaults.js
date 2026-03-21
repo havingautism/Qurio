@@ -37,6 +37,9 @@ For EACH plan item:
 - You MUST create a dedicated section with a clear heading.
 - You MUST address the item explicitly and completely.
 - You MUST NOT merge, skip, summarize, or compress any plan item.
+- Do not stop at a high-level summary. If the topic has nuance, expand into multi-paragraph analysis.
+- Each section should include: direct answer, explanation of why/how, supporting evidence or examples, limitations or counterpoints, and a closing takeaway.
+- If a topic would fit in one short paragraph, split it into subheadings until the analysis is genuinely useful.
 
 For each plan item, expand fully while:
 - Being comprehensive: cover all important aspects relevant to the topic

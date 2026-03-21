@@ -333,6 +333,24 @@ const mapMessageFromApi = (m, effectiveDefaultModel, activeConversation) => {
   return mappedMessage
 }
 
+const mapMessageFromApiWithContext = (
+  m,
+  effectiveDefaultModel,
+  activeConversation,
+  isDeepResearchConversation = false,
+) => {
+  const mapped = mapMessageFromApi(m, effectiveDefaultModel, activeConversation)
+  if (
+    isDeepResearchConversation &&
+    mapped?.role === 'user' &&
+    typeof mapped.content === 'string' &&
+    mapped.content.trim()
+  ) {
+    mapped.deepResearch = true
+  }
+  return mapped
+}
+
 /**
  * useChatHistory Hook
  * Manages conversation history loading, message mapping, and loading state
@@ -354,6 +372,7 @@ const useChatHistory = ({
   conversationId,
   effectiveDefaultModel,
   isSwitchingConversation,
+  isDeepResearchConversation = false,
 }) => {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
   const [showHistoryLoader, setShowHistoryLoader] = useState(false)
@@ -404,7 +423,12 @@ const useChatHistory = ({
         const { data, error } = await listMessages(convId)
         if (!error && data) {
           const mapped = data.map(m =>
-            mapMessageFromApi(m, effectiveDefaultModel, activeConversation),
+            mapMessageFromApiWithContext(
+              m,
+              effectiveDefaultModel,
+              activeConversation,
+              isDeepResearchConversation,
+            ),
           )
           loadedMessagesRef.current.add(convId)
           lastLoadedConversationIdRef.current = convId
@@ -419,7 +443,7 @@ const useChatHistory = ({
         return { data: null, error: err }
       }
     },
-    [effectiveDefaultModel, activeConversation],
+    [effectiveDefaultModel, activeConversation, isDeepResearchConversation],
   )
 
   /**

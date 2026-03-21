@@ -5,7 +5,7 @@ import {
   updateConversation,
   updateMessageById,
 } from './conversationsService'
-import { getProvider, resolveThinkingToggleRule } from './providers'
+import { getProvider, getThinkingParams, resolveThinkingToggleRule } from './providers'
 import { getUserTools } from './userToolsService'
 
 import {
@@ -591,7 +591,11 @@ const useChatStore = create((set, get) => ({
           memoryModel: modelConfig.model,
           memoryApiKey: credentials.apiKey,
           memoryBaseUrl: credentials.baseUrl,
-          thinking: provider.getThinking(Boolean(toggles?.thinking), modelConfig.model),
+          thinking: getThinkingParams(
+            modelConfig.provider,
+            Boolean(toggles?.thinking),
+            modelConfig.model,
+          ),
           runId: expertRunId,
           fieldValues: formData.values,
           signal: controller.signal,
@@ -1667,7 +1671,8 @@ const useChatStore = create((set, get) => ({
                   memoryModel: modelConfig.model,
                   memoryApiKey: credentials.apiKey,
                   memoryBaseUrl: credentials.baseUrl,
-                  thinking: provider.getThinking(
+                  thinking: getThinkingParams(
+                    modelConfig.provider,
                     Boolean(resolvedToggles?.thinking),
                     modelConfig.model,
                   ),

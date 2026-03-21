@@ -1,4 +1,4 @@
-import { getProvider, resolveThinkingToggleRule } from '../providers'
+import { getProvider, getThinkingParams, resolveThinkingToggleRule } from '../providers'
 import { getUserTools } from '../userToolsService'
 import {
   addMessage,
@@ -706,6 +706,37 @@ export const callAIAPI = async (
 
     const useDeepResearchAgent =
       !!toggles?.deepResearch && typeof provider.streamDeepResearch === 'function'
+    let deepResearchErrored = false
+    const handleDeepResearchError = error => {
+      deepResearchErrored = true
+      flushPending()
+      const messageText = error?.message || 'Deep research failed'
+      set({ isLoading: false, abortController: null })
+      set(state => {
+        const updated = [...state.messages]
+        const lastMsgIndex = updated.length - 1
+        if (lastMsgIndex < 0 || updated[lastMsgIndex].role !== 'ai') {
+          return { messages: updated }
+        }
+        const lastMsg = { ...updated[lastMsgIndex] }
+        const steps = Array.isArray(lastMsg.researchSteps) ? [...lastMsg.researchSteps] : []
+        lastMsg.content = `${lastMsg.content || ''}\n\n**Error:** ${messageText}`.trim()
+        lastMsg.isError = true
+        lastMsg.isStreaming = false
+        lastMsg.researchPlanLoading = false
+        lastMsg.researchSteps = steps.map(step => {
+          if (step?.status === 'done' || step?.status === 'error') return step
+          return {
+            ...step,
+            status: 'error',
+            error: step?.error || messageText,
+          }
+        })
+        updated[lastMsgIndex] = lastMsg
+        return { messages: updated }
+      })
+      callbacks?.onError?.(error)
+    }
     const planMessage = planContent
       ? [
           {
@@ -834,7 +865,7 @@ export const callAIAPI = async (
     const selectedDatabaseProvider = settings.databaseProvider || 'supabase'
 
     const modelThinkingParam = thinkingActive
-      ? provider.getThinking(thinkingActive, modelConfig.model)
+      ? getThinkingParams(modelConfig.provider, thinkingActive, modelConfig.model)
       : undefined
     const modelThinkingModeParam = thinkingActive ? resolvedThinkingMode : undefined
 
@@ -1341,14 +1372,24 @@ export const callAIAPI = async (
         question: firstUserText || lastMessage?.content || '',
         researchType,
         concurrencyLimit: toggles?.concurrencyLimit || 3,
+        onError: handleDeepResearchError,
       })
+      if (deepResearchErrored) return
     } else {
       await provider.streamChatCompletion(params)
     }
   } catch (error) {
     flushPending()
+    if (error?.name === 'AbortError') {
+      set({ isLoading: false, abortController: null })
+      return
+    }
+    if (useDeepResearchAgent && !deepResearchErrored) {
+      handleDeepResearchError(error)
+      return
+    }
     console.error('Setup error:', error)
-    set({ isLoading: false })
+    set({ isLoading: false, abortController: null })
   }
 }
 

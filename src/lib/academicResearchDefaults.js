@@ -56,6 +56,9 @@ For EACH plan item:
 - You MUST create a dedicated section with a clear academic heading
 - You MUST address the item explicitly and completely
 - You MUST NOT merge, skip, summarizeor compress any plan item
+- Do not produce a summary-only literature review. Every major section must go beyond description and include interpretation, evidence strength, and limits.
+- For each section, separate: main finding, methodological basis, evidence quality, contradictions or boundary cases, and implications.
+- If the literature is sparse or mixed, say so explicitly and explain what cannot be concluded.
 
 For each plan item, expand fully while:
 

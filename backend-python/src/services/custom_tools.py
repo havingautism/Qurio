@@ -38,6 +38,8 @@ from .skill_runtime import (
 )
 
 FIXED_SEARCH_MAX_RESULTS = 10
+SEARCH_QUERY_CHAR_LIMIT = max(24, int(os.getenv("QURIO_SEARCH_QUERY_CHAR_LIMIT", "80")))
+SEARCH_QUERY_WORD_LIMIT = max(6, int(os.getenv("QURIO_SEARCH_QUERY_WORD_LIMIT", "12")))
 
 
 def _tool_timeout_seconds(default: float = 20.0) -> float:
@@ -153,6 +155,31 @@ def _normalize_list_input(val: Any) -> list[str]:
     return []
 
 
+def _normalize_search_query(
+    query: Any,
+    *,
+    word_limit: int = SEARCH_QUERY_WORD_LIMIT,
+    char_limit: int = SEARCH_QUERY_CHAR_LIMIT,
+) -> str:
+    """Trim search queries to a compact, high-signal form."""
+    text = re.sub(r"\s+", " ", str(query or "").strip())
+    if not text:
+        return ""
+
+    words = text.split(" ")
+    if len(words) > word_limit:
+        text = " ".join(words[:word_limit])
+
+    if len(text) > char_limit:
+        truncated = text[:char_limit].rstrip()
+        if " " in truncated and len(truncated) < len(text):
+            text = truncated.rsplit(" ", 1)[0].strip()
+        else:
+            text = truncated
+
+    return text.strip(" ,;|")
+
+
 def _sanitize_pptx_filename(raw_title: Any) -> str:
     title = str(raw_title or "presentation").strip() or "presentation"
     safe = re.sub(r'[\\/:*?"<>|]+', "-", title).strip().strip(".")
@@ -216,6 +243,7 @@ class DuckDuckGoImageTools(Toolkit):
         Returns:
             str: JSON string containing the image results.
         """
+        query = _normalize_search_query(query)
         limit = FIXED_SEARCH_MAX_RESULTS
         try:
             def _search():
@@ -261,6 +289,7 @@ class DuckDuckGoVideoTools(Toolkit):
         Returns:
             str: JSON string containing the video results with title, url, thumbnail, source, duration.
         """
+        query = _normalize_search_query(query)
         limit = FIXED_SEARCH_MAX_RESULTS
         try:
             def _search():
@@ -348,7 +377,7 @@ class DuckDuckGoWebSearchTools(Toolkit):
 
     @tool
     async def web_search(self, query: str) -> str:
-        q = str(query or "").strip()
+        q = _normalize_search_query(query)
         limit = FIXED_SEARCH_MAX_RESULTS
         if not q:
             return json.dumps({"query": q, "results": [], "error": "Missing query"}, ensure_ascii=False)
@@ -391,7 +420,7 @@ class DuckDuckGoWebSearchTools(Toolkit):
 
     @tool
     async def search_news(self, query: str) -> str:
-        q = str(query or "").strip()
+        q = _normalize_search_query(query)
         limit = FIXED_SEARCH_MAX_RESULTS
         if not q:
             return json.dumps({"query": q, "results": [], "error": "Missing query"}, ensure_ascii=False)
@@ -457,7 +486,10 @@ class SerpApiImageTools(Toolkit):
         Returns:
             str: JSON string containing the image results.
         """
-        return _run_async_tool_sync(lambda: self._serpapi_search(query, engine="google_images"), 30.0)
+        return _run_async_tool_sync(
+            lambda: self._serpapi_search(_normalize_search_query(query), engine="google_images"),
+            30.0,
+        )
 
     @tool
     def bing_image_search(self, query: str) -> str:
@@ -467,7 +499,10 @@ class SerpApiImageTools(Toolkit):
         Args:
             query (str): The search query.
         """
-        return _run_async_tool_sync(lambda: self._serpapi_search(query, engine="bing_images"), 30.0)
+        return _run_async_tool_sync(
+            lambda: self._serpapi_search(_normalize_search_query(query), engine="bing_images"),
+            30.0,
+        )
 
     @tool
     def serpapi_image_search(self, query: str, engine: str = "google_images") -> str:
@@ -481,7 +516,10 @@ class SerpApiImageTools(Toolkit):
         Returns:
             str: JSON string containing the image results.
         """
-        return _run_async_tool_sync(lambda: self._serpapi_search(query, engine=engine), 30.0)
+        return _run_async_tool_sync(
+            lambda: self._serpapi_search(_normalize_search_query(query), engine=engine),
+            30.0,
+        )
 
     async def _serpapi_search(self, query: str, engine: str) -> str:
         """
@@ -848,6 +886,7 @@ class QurioLocalTools(Toolkit):
         return _run_async_tool_sync(lambda: self._tavily_web_search_async(query), 30.0)
 
     async def _tavily_web_search_async(self, query: str) -> dict[str, Any]:
+        query = _normalize_search_query(query)
         limit = FIXED_SEARCH_MAX_RESULTS
         api_key = self._resolve_tavily_api_key()
         if not api_key:
@@ -899,6 +938,7 @@ class QurioLocalTools(Toolkit):
         query: str,
         min_score: float = 0.9,
     ) -> dict[str, Any]:
+        query = _normalize_search_query(query)
         limit = FIXED_SEARCH_MAX_RESULTS
         try:
             score_threshold = float(min_score)

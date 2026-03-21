@@ -710,6 +710,7 @@ def build_agent(request: Any = None, **kwargs: Any) -> Agent:
             tools=kwargs.get("tools"),
             user_tools=kwargs.get("user_tools"),
             tool_choice=kwargs.get("tool_choice"),
+            tool_call_limit=kwargs.get("tool_call_limit"),
         )
 
     model = _build_model(request.provider, request.api_key, request.base_url, request.model)
@@ -884,6 +885,7 @@ def build_agent(request: Any = None, **kwargs: Any) -> Agent:
         tools=tools or None,
         markdown=True,
         tool_choice=tool_choice,
+        tool_call_limit=getattr(request, "tool_call_limit", None),
         instructions=instructions,
         skills=skills,
     )

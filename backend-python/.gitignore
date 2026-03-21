@@ -157,6 +157,7 @@ cython_debug/
 *.db
 *.sqlite
 test_*.py
+!tests/test_stream_chat_request.py
 
 src/data/*
 /.runtime/exports/pptx/

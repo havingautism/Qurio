@@ -3,9 +3,11 @@ Data models for stream chat API.
 Defines request/response schemas compatible with the Node.js backend.
 """
 
-from typing import Any, Literal, Union
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from ..providers.factory import SUPPORTED_PROVIDERS
 
 # ================================================================================
 # Request Models
@@ -53,10 +55,11 @@ class UserTool(BaseModel):
 class StreamChatRequest(BaseModel):
     """Request model for stream chat endpoint."""
     # Provider configuration
-    provider: Literal[
-        "gemini", "openai", "openai_compatibility", "siliconflow",
-        "glm", "deepseek", "volcengine", "modelscope", "kimi", "nvidia", "minimax"
-    ]
+    provider: str = Field(
+        ...,
+        json_schema_extra={"enum": SUPPORTED_PROVIDERS},
+        description="Provider name. Must be one of the supported Qurio providers.",
+    )
     api_key: str = Field(..., alias="apiKey")
     base_url: str | None = Field(default=None, alias="baseUrl")
     model: str | None = None
@@ -172,6 +175,15 @@ class StreamChatRequest(BaseModel):
     # Context and Session
     conversation_id: str | None = Field(default=None, alias="conversationId", description="Unique identifier for the conversation")
     model_config = {"populate_by_name": True}
+
+    @field_validator("provider")
+    @classmethod
+    def _validate_provider(cls, value: str) -> str:
+        provider = str(value).strip()
+        if provider not in SUPPORTED_PROVIDERS:
+            supported = ", ".join(SUPPORTED_PROVIDERS)
+            raise ValueError(f"Unsupported provider: {provider}. Supported providers: {supported}")
+        return provider
 
 
     # ========================================================================
@@ -292,16 +304,16 @@ class AgentStatusEvent(BaseModel):
 
 
 # Union type for all SSE events
-StreamEvent = Union[
-    TextEvent,
-    ThoughtEvent,
-    ToolCallEvent,
-    ToolResultEvent,
-    DoneEvent,
-    ErrorEvent,
-    FormRequestEvent,
-    AgentStatusEvent,
-]
+StreamEvent = (
+    TextEvent
+    | ThoughtEvent
+    | ToolCallEvent
+    | ToolResultEvent
+    | DoneEvent
+    | ErrorEvent
+    | FormRequestEvent
+    | AgentStatusEvent
+)
 
 
 # ================================================================================

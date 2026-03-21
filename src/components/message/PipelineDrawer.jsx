@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import clsx from 'clsx'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
-import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
+import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import {
   Brain,
   ArrowDown,
@@ -19,32 +19,49 @@ import {
 const NODE_META = {
   reasoning: {
     icon: Brain,
-    tone: 'text-sky-300 border-sky-500/30 bg-sky-500/10',
+    tone: 'border-sky-200/80 bg-sky-50/90 text-sky-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.84)] dark:border-sky-500/25 dark:bg-sky-500/10 dark:text-sky-300',
   },
   tool_call: {
     icon: Wrench,
-    tone: 'text-amber-300 border-amber-500/30 bg-amber-500/10',
+    tone: 'border-amber-200/80 bg-amber-50/90 text-amber-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.84)] dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-300',
   },
   tool_result: {
     icon: CircleDot,
-    tone: 'text-emerald-300 border-emerald-500/30 bg-emerald-500/10',
+    tone: 'border-emerald-200/80 bg-emerald-50/90 text-emerald-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.84)] dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300',
   },
   agent_switch: {
     icon: GitBranch,
-    tone: 'text-fuchsia-300 border-fuchsia-500/30 bg-fuchsia-500/10',
+    tone: 'border-fuchsia-200/80 bg-fuchsia-50/90 text-fuchsia-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.84)] dark:border-fuchsia-500/25 dark:bg-fuchsia-500/10 dark:text-fuchsia-300',
   },
   workflow_step: {
     icon: Sparkles,
-    tone: 'text-violet-300 border-violet-500/30 bg-violet-500/10',
+    tone: 'border-violet-200/80 bg-violet-50/90 text-violet-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.84)] dark:border-violet-500/25 dark:bg-violet-500/10 dark:text-violet-300',
   },
   final_response: {
     icon: ChevronsRight,
-    tone: 'text-primary-300 border-primary-500/30 bg-primary-500/10',
+    tone: 'border-primary-200/80 bg-primary-50/90 text-primary-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.84)] dark:border-primary-500/25 dark:bg-primary-500/10 dark:text-primary-300',
   },
   model_output: {
     icon: ChevronsRight,
-    tone: 'text-indigo-300 border-indigo-500/30 bg-indigo-500/10',
+    tone: 'border-indigo-200/80 bg-indigo-50/90 text-indigo-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.84)] dark:border-indigo-500/25 dark:bg-indigo-500/10 dark:text-indigo-300',
   },
+}
+
+const useIsDarkMode = () => {
+  const [isDark, setIsDark] = useState(
+    () => typeof document !== 'undefined' && document.documentElement.classList.contains('dark'),
+  )
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return undefined
+    const observer = new MutationObserver(() => {
+      setIsDark(document.documentElement.classList.contains('dark'))
+    })
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+    return () => observer.disconnect()
+  }, [])
+
+  return isDark
 }
 
 const formatDuration = value => {
@@ -54,7 +71,7 @@ const formatDuration = value => {
   return `${(num / 1000).toFixed(num >= 10000 ? 0 : 1)} s`
 }
 
-const SectionBody = ({ section }) => {
+const SectionBody = ({ section, isDark }) => {
   if (!section) return null
   if (section.kind === 'json') {
     const raw = String(section.value || '')
@@ -67,12 +84,12 @@ const SectionBody = ({ section }) => {
       language = 'text'
     }
     return (
-      <div className="overflow-hidden rounded-lg border border-white/10 bg-black/25">
-        <div className="flex items-center justify-between border-b border-white/10 px-3 py-1.5 text-[10px] font-semibold tracking-[0.12em] text-zinc-400 uppercase">
+      <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white/88 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] dark:border-white/10 dark:bg-[#111318]/72">
+        <div className="flex items-center justify-between border-b border-slate-200/70 bg-slate-50/80 px-3 py-1.5 text-[10px] font-semibold tracking-[0.12em] text-slate-500 uppercase dark:border-white/10 dark:bg-white/5 dark:text-zinc-400">
           <span>{language}</span>
         </div>
         <SyntaxHighlighter
-          style={oneDark}
+          style={isDark ? oneDark : oneLight}
           language={language}
           PreTag="div"
           className="code-scrollbar font-code! text-xs text-shadow-none!"
@@ -99,16 +116,23 @@ const SectionBody = ({ section }) => {
   }
   if (section.kind === 'list') {
     return (
-      <ul className="space-y-1.5 text-sm leading-6 text-zinc-200">
+      <ul className="space-y-1.5 text-sm leading-6 text-slate-700 dark:text-zinc-200">
         {section.value.map((item, index) => (
-          <li key={`${section.label}-${index}`} className="rounded-lg bg-white/4 px-3 py-2">
+          <li
+            key={`${section.label}-${index}`}
+            className="rounded-xl border border-white/40 bg-white/76 px-3 py-2 text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] dark:border-white/8 dark:bg-white/4 dark:text-zinc-200"
+          >
             {item}
           </li>
         ))}
       </ul>
     )
   }
-  return <div className="text-sm leading-7 whitespace-pre-wrap text-zinc-200">{section.value}</div>
+  return (
+    <div className="text-sm leading-7 whitespace-pre-wrap text-slate-700 dark:text-zinc-200">
+      {section.value}
+    </div>
+  )
 }
 
 const getSectionCopyText = section => {
@@ -126,6 +150,7 @@ const getSectionCopyText = section => {
 const PipelineDrawer = ({ isOpen, onClose, pipeline, t }) => {
   const nodes = Array.isArray(pipeline?.nodes) ? pipeline.nodes : []
   const [expandedNodeIds, setExpandedNodeIds] = useState(() => new Set())
+  const isDark = useIsDarkMode()
 
   const panelTitle = useMemo(() => t('pipeline.title', 'Pipeline'), [t])
   const translateNodeTitle = node => {
@@ -198,35 +223,38 @@ const PipelineDrawer = ({ isOpen, onClose, pipeline, t }) => {
   if (!isOpen) return null
 
   return createPortal(
-    <div className="fixed inset-0 z-10000 flex justify-end bg-black/45 backdrop-blur-sm">
+    <div className="fixed inset-0 z-10000 flex justify-end bg-slate-950/12 backdrop-blur-[12px] dark:bg-black/52">
       <button type="button" className="flex-1" onClick={onClose} aria-label={t('common.close')} />
-      <div className="flex h-full w-full max-w-xl flex-col border-l border-white/10 bg-[#131416] shadow-2xl">
-        <div className="flex items-center justify-between border-b border-white/8 px-4 py-3">
+      <div className="glass-elite-panel relative flex h-full w-full max-w-xl flex-col overflow-hidden border-l border-white/50 bg-white/78 shadow-[0_28px_80px_-36px_rgba(15,23,42,0.42)] dark:border-white/10 dark:bg-[#101114]/74">
+        <div className="pointer-events-none absolute inset-0 bg-linear-to-br from-white/35 via-transparent to-white/10 dark:from-white/8 dark:via-transparent dark:to-transparent" />
+        <div className="relative flex items-center justify-between border-b border-slate-200/80 bg-white/58 px-4 py-3 backdrop-blur-2xl dark:border-white/10 dark:bg-black/20">
           <div className="flex items-center gap-2.5">
-            <div className="border-primary-500/25 bg-primary-500/10 text-primary-200 inline-flex h-10 w-10 items-center justify-center rounded-xl border">
+            <div className="glass-elite-chip text-primary-600 dark:text-primary-300 inline-flex h-10 w-10 items-center justify-center rounded-full">
               <GitBranch size={18} />
             </div>
-            <div className="text-xl leading-none font-semibold text-white">{panelTitle}</div>
-            <div className="rounded-full border border-white/10 bg-white/6 px-2 py-0.5 text-[10px] font-semibold tracking-[0.12em] text-zinc-400 uppercase">
+            <div className="text-xl leading-none font-semibold text-slate-900 dark:text-white">
+              {panelTitle}
+            </div>
+            <div className="glass-elite-chip rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-[0.12em] text-slate-500 uppercase dark:text-zinc-400">
               {t('pipeline.header', '执行流程')}
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-300 transition-colors hover:bg-white/10 hover:text-white"
+            className="glass-elite-chip inline-flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition-colors hover:text-slate-700 dark:text-zinc-300 dark:hover:text-white"
           >
             <X size={18} />
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+        <div className="relative min-h-0 flex-1 overflow-y-auto px-4 py-4">
           {nodes.length === 0 ? (
-            <div className="rounded-3xl border border-dashed border-white/12 bg-white/3 px-5 py-6 text-sm text-zinc-400">
+            <div className="glass-elite-soft rounded-[28px] px-5 py-6 text-sm text-slate-500 dark:text-zinc-400">
               {t('pipeline.empty', 'No pipeline data available for this message yet.')}
             </div>
           ) : (
-            <div className="space-y-2.5">
+            <div className="space-y-3">
               {nodes.map((node, index) => {
                 const nodeMeta = NODE_META[node.type] || NODE_META.workflow_step
                 const Icon = nodeMeta.icon
@@ -238,8 +266,8 @@ const PipelineDrawer = ({ isOpen, onClose, pipeline, t }) => {
                   <div key={node.id}>
                     <div
                       className={clsx(
-                        'w-full rounded-lg border border-white/8 bg-white/3 px-3.5 py-3 text-left',
-                        hasExpandableDetails && 'transition-colors hover:bg-white/5',
+                        'glass-elite-soft group w-full rounded-[26px] px-4 py-4 text-left transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_38px_-28px_rgba(15,23,42,0.24)] dark:hover:shadow-[0_18px_38px_-28px_rgba(0,0,0,0.55)]',
+                        hasExpandableDetails && 'hover:border-white/30',
                       )}
                     >
                       {hasExpandableDetails ? (
@@ -257,7 +285,7 @@ const PipelineDrawer = ({ isOpen, onClose, pipeline, t }) => {
                         >
                           <div
                             className={clsx(
-                              'inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border',
+                              'inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border',
                               nodeMeta.tone,
                             )}
                           >
@@ -267,36 +295,36 @@ const PipelineDrawer = ({ isOpen, onClose, pipeline, t }) => {
                             <div className="flex items-center gap-3">
                               <div className="min-w-0 flex-1">
                                 <div className="flex flex-wrap items-center gap-2">
-                                  <div className="text-[15px] font-semibold text-white">
+                                  <div className="text-[15px] font-semibold text-slate-900 dark:text-white">
                                     {translateNodeTitle(node)}
                                   </div>
                                   {node.badge && (
-                                    <span className="rounded-full border border-white/10 bg-white/6 px-2 py-0.5 text-[11px] font-medium tracking-[0.14em] text-zinc-400 uppercase">
+                                    <span className="glass-elite-chip rounded-full px-2 py-0.5 text-[11px] font-medium tracking-[0.14em] text-slate-500 uppercase dark:text-zinc-400">
                                       {node.badge}
                                     </span>
                                   )}
                                   {node.actor && (
-                                    <span className="rounded-full border border-white/10 bg-white/6 px-2 py-0.5 text-[11px] font-medium text-zinc-400">
+                                    <span className="glass-elite-chip rounded-full px-2 py-0.5 text-[11px] font-medium text-slate-500 dark:text-zinc-400">
                                       {node.actor}
                                     </span>
                                   )}
                                 </div>
                                 {node.summary && (
-                                  <div className="mt-1 text-xs leading-5 text-zinc-300">
+                                  <div className="mt-1 text-xs leading-5 text-slate-600 dark:text-zinc-300">
                                     {node.summary}
                                   </div>
                                 )}
                               </div>
                               <div className="flex shrink-0 items-center gap-2">
                                 {duration && (
-                                  <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-medium text-zinc-400">
+                                  <span className="glass-elite-chip rounded-full px-2 py-0.5 text-[10px] font-medium text-slate-500 dark:text-zinc-400">
                                     {duration}
                                   </span>
                                 )}
                                 <ChevronDown
                                   size={16}
                                   className={clsx(
-                                    'text-zinc-500 transition-transform duration-200',
+                                    'text-slate-400 transition-transform duration-200 dark:text-zinc-500',
                                     isExpanded && 'rotate-180',
                                   )}
                                 />
@@ -308,7 +336,7 @@ const PipelineDrawer = ({ isOpen, onClose, pipeline, t }) => {
                         <div className="flex items-center gap-3">
                           <div
                             className={clsx(
-                              'inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border',
+                              'inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border',
                               nodeMeta.tone,
                             )}
                           >
@@ -318,29 +346,29 @@ const PipelineDrawer = ({ isOpen, onClose, pipeline, t }) => {
                             <div className="flex items-center gap-3">
                               <div className="min-w-0 flex-1">
                                 <div className="flex flex-wrap items-center gap-2">
-                                  <div className="text-[15px] font-semibold text-white">
+                                  <div className="text-[15px] font-semibold text-slate-900 dark:text-white">
                                     {translateNodeTitle(node)}
                                   </div>
                                   {node.badge && (
-                                    <span className="rounded-full border border-white/10 bg-white/6 px-2 py-0.5 text-[11px] font-medium tracking-[0.14em] text-zinc-400 uppercase">
+                                    <span className="glass-elite-chip rounded-full px-2 py-0.5 text-[11px] font-medium tracking-[0.14em] text-slate-500 uppercase dark:text-zinc-400">
                                       {node.badge}
                                     </span>
                                   )}
                                   {node.actor && (
-                                    <span className="rounded-full border border-white/10 bg-white/6 px-2 py-0.5 text-[11px] font-medium text-zinc-400">
+                                    <span className="glass-elite-chip rounded-full px-2 py-0.5 text-[11px] font-medium text-slate-500 dark:text-zinc-400">
                                       {node.actor}
                                     </span>
                                   )}
                                 </div>
                                 {node.summary && (
-                                  <div className="mt-1 text-xs leading-5 text-zinc-300">
+                                  <div className="mt-1 text-xs leading-5 text-slate-600 dark:text-zinc-300">
                                     {node.summary}
                                   </div>
                                 )}
                               </div>
                               <div className="flex shrink-0 items-center gap-2">
                                 {duration && (
-                                  <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-medium text-zinc-400">
+                                  <span className="glass-elite-chip rounded-full px-2 py-0.5 text-[10px] font-medium text-slate-500 dark:text-zinc-400">
                                     {duration}
                                   </span>
                                 )}
@@ -350,21 +378,21 @@ const PipelineDrawer = ({ isOpen, onClose, pipeline, t }) => {
                         </div>
                       )}
                       {hasExpandableDetails && isExpanded && node.detailSections.length > 0 && (
-                        <div className="mt-4 space-y-3 border-t border-white/8 pt-4">
+                        <div className="mt-4 space-y-3 border-t border-slate-200/80 pt-4 dark:border-white/10">
                           {node.detailSections.map(section => (
                             <div
                               key={`${node.id}-${section.label}`}
-                              className="rounded-lg border border-white/8 bg-black/10 p-3"
+                              className="glass-elite-soft rounded-[24px] p-3.5"
                             >
                               <div className="mb-2 flex items-center justify-between gap-2">
-                                <div className="text-[11px] font-semibold tracking-[0.14em] text-zinc-500 uppercase">
+                                <div className="text-[11px] font-semibold tracking-[0.14em] text-slate-500 uppercase dark:text-zinc-400">
                                   {translateSectionLabel(section.label)}
                                 </div>
                                 {isToolIoSection(section.label) && (
                                   <button
                                     type="button"
                                     onClick={event => copySectionValue(event, section)}
-                                    className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-[11px] font-medium text-zinc-300 transition-colors hover:bg-white/10 hover:text-white"
+                                    className="glass-elite-chip inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium text-slate-500 transition-colors hover:text-slate-700 dark:text-zinc-300 dark:hover:text-white"
                                     title={t('common.copy', 'Copy')}
                                     aria-label={t('common.copy', 'Copy')}
                                   >
@@ -373,15 +401,19 @@ const PipelineDrawer = ({ isOpen, onClose, pipeline, t }) => {
                                   </button>
                                 )}
                               </div>
-                              <SectionBody section={section} />
+                              <SectionBody section={section} isDark={isDark} />
                             </div>
                           ))}
                         </div>
                       )}
                     </div>
                     {index < nodes.length - 1 && (
-                      <div className="flex justify-center py-1 text-zinc-600">
-                        <ArrowDown size={16} className="opacity-75" />
+                      <div className="flex items-center justify-center py-2">
+                        <div className="flex w-full items-center gap-3 px-6 text-slate-300 dark:text-zinc-600">
+                          <div className="h-px flex-1 bg-linear-to-r from-transparent via-slate-300/70 to-transparent dark:via-white/10" />
+                          <ArrowDown size={15} className="shrink-0 opacity-80" />
+                          <div className="h-px flex-1 bg-linear-to-l from-transparent via-slate-300/70 to-transparent dark:via-white/10" />
+                        </div>
                       </div>
                     )}
                   </div>

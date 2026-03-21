@@ -533,13 +533,13 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       if (settings.databaseProvider) {
         fetchRemoteSettings().then(({ data }) => {
           if (data) {
-          if (data.OpenAICompatibilityKey) setOpenAICompatibilityKey(data.OpenAICompatibilityKey)
-          if (data.OpenAICompatibilityUrl) setOpenAICompatibilityUrl(data.OpenAICompatibilityUrl)
-          if (data.OpenRouterKey) setOpenRouterKey(data.OpenRouterKey)
-          if (data.LiteLLMKey) setLiteLLMKey(data.LiteLLMKey)
-          if (data.LiteLLMUrl) setLiteLLMUrl(data.LiteLLMUrl)
-          if (data.HuggingFaceKey) setHuggingFaceKey(data.HuggingFaceKey)
-          if (data.SiliconFlowKey) setSiliconFlowKey(data.SiliconFlowKey)
+            if (data.OpenAICompatibilityKey) setOpenAICompatibilityKey(data.OpenAICompatibilityKey)
+            if (data.OpenAICompatibilityUrl) setOpenAICompatibilityUrl(data.OpenAICompatibilityUrl)
+            if (data.OpenRouterKey) setOpenRouterKey(data.OpenRouterKey)
+            if (data.LiteLLMKey) setLiteLLMKey(data.LiteLLMKey)
+            if (data.LiteLLMUrl) setLiteLLMUrl(data.LiteLLMUrl)
+            if (data.HuggingFaceKey) setHuggingFaceKey(data.HuggingFaceKey)
+            if (data.SiliconFlowKey) setSiliconFlowKey(data.SiliconFlowKey)
             if (data.NvidiaKey) setNvidiaKey(data.NvidiaKey)
             if (data.MinimaxKey) setMinimaxKey(data.MinimaxKey)
             if (data.GlmKey) setGlmKey(data.GlmKey)
@@ -899,7 +899,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
     return (
       <div className="space-y-3">
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
-          <div className="flex w-full flex-col gap-2 sm:w-auto">
+          <div className="flex w-full min-w-0 flex-col gap-2 sm:w-auto">
             <div className="flex w-full flex-wrap items-center gap-3">
               <label className="shrink-0 text-sm font-medium text-gray-700 dark:text-gray-300">
                 {label}
@@ -947,7 +947,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                   type="button"
                   onClick={testAction.onClick}
                   disabled={testAction.status === 'loading'}
-                  className="bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 border-primary-200 dark:border-primary-800 hover:bg-primary-100 dark:hover:bg-primary-900/40 ml-auto flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-60 sm:ml-0"
+                  className="bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 border-primary-200 dark:border-primary-800 hover:bg-primary-100 dark:hover:bg-primary-900/40 ml-auto flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors disabled:opacity-60 sm:ml-0"
                 >
                   {testAction.status === 'loading' && (
                     <RefreshCw size={12} className="animate-spin" />
@@ -1014,7 +1014,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
           </div>
           <span
             title={displayLabel}
-            className="mt-1 w-full text-left text-xs break-all text-gray-500 sm:mt-0 sm:w-auto sm:max-w-[320px] sm:text-right dark:text-gray-400"
+            className="mt-1 w-full min-w-0 truncate text-left text-xs text-gray-500 sm:mt-0 sm:w-auto sm:max-w-[320px] sm:text-right dark:text-gray-400"
           >
             {displayLabel}
           </span>
@@ -2468,7 +2468,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                       <button
                         type="button"
                         onClick={loadChatModels}
-                        className="text-primary-600 hover:text-primary-700 dark:text-primary-400 flex items-center gap-1 text-xs font-medium"
+                        className="text-primary-600 hover:text-primary-700 dark:text-primary-400 flex shrink-0 items-center gap-1 text-xs font-medium whitespace-nowrap"
                       >
                         <RefreshCw
                           size={14}

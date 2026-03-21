@@ -24,6 +24,7 @@ import {
   Clock,
   FileText,
   ScanText,
+  SlidersHorizontal,
   Wrench,
   FormInput,
   Globe,
@@ -2815,7 +2816,8 @@ const MessageBubble = ({
         if (
           !tool?.name ||
           tool.name === 'interactive_form' ||
-          tool.name === 'form_submission_status'
+          tool.name === 'form_submission_status' ||
+          tool.name === 'search_result_filter'
         ) {
           continue
         }
@@ -2864,6 +2866,13 @@ const MessageBubble = ({
     steps.forEach(step => {
       if (step.kind === 'search') {
         const matchedSources = []
+        let originalResultCount = 0
+        let filteredResultCount = 0
+        let searchFilterApplied = false
+        let searchFilterStatus = 'done'
+        let searchFilterFallbackReason = null
+        let searchFilterOriginalResults = []
+        let searchFilterFilteredResults = []
         // Process each tool execution to extract sources directly if possible
         step.items.forEach(t => {
           if (!t.output) return
@@ -2887,6 +2896,46 @@ const MessageBubble = ({
             const results =
               parsed.results || parsed.data || parsed.items || (Array.isArray(parsed) ? parsed : [])
             if (Array.isArray(results)) {
+              const filterMeta =
+                parsed.search_filter && typeof parsed.search_filter === 'object'
+                  ? parsed.search_filter
+                  : parsed.searchFilter && typeof parsed.searchFilter === 'object'
+                    ? parsed.searchFilter
+                    : null
+              if (filterMeta) {
+                originalResultCount += Number(filterMeta.original_count || filterMeta.originalCount || 0)
+                filteredResultCount += Number(filterMeta.filtered_count || filterMeta.filteredCount || 0)
+                searchFilterApplied = searchFilterApplied || Boolean(filterMeta.applied)
+                if (filterMeta.status) searchFilterStatus = String(filterMeta.status)
+                if (filterMeta.fallback_reason) {
+                  searchFilterFallbackReason = String(filterMeta.fallback_reason)
+                }
+                const metaOriginalResults = Array.isArray(filterMeta.original_results)
+                  ? filterMeta.original_results
+                  : Array.isArray(filterMeta.originalResults)
+                    ? filterMeta.originalResults
+                    : []
+                const metaFilteredResults = Array.isArray(filterMeta.filtered_results)
+                  ? filterMeta.filtered_results
+                  : Array.isArray(filterMeta.filteredResults)
+                    ? filterMeta.filteredResults
+                    : []
+                if (metaOriginalResults.length > 0) {
+                  searchFilterOriginalResults = metaOriginalResults
+                }
+                if (metaFilteredResults.length > 0) {
+                  searchFilterFilteredResults = metaFilteredResults
+                }
+              } else {
+                originalResultCount += results.length
+                filteredResultCount += results.length
+                if (searchFilterOriginalResults.length === 0) {
+                  searchFilterOriginalResults = results
+                }
+                if (searchFilterFilteredResults.length === 0) {
+                  searchFilterFilteredResults = results
+                }
+              }
               results.forEach(result => {
                 const url = result?.url || result?.link || result?.href
                 if (url) {
@@ -2937,6 +2986,27 @@ const MessageBubble = ({
           seenUrls.add(src.url)
           return true
         })
+        if (originalResultCount === 0 && step.sources.length > 0) {
+          originalResultCount = step.sources.length
+        }
+        if (filteredResultCount === 0 && step.sources.length > 0) {
+          filteredResultCount = step.sources.length
+        }
+        if (searchFilterOriginalResults.length === 0 && step.sources.length > 0) {
+          searchFilterOriginalResults = [...step.sources]
+        }
+        if (searchFilterFilteredResults.length === 0 && step.sources.length > 0) {
+          searchFilterFilteredResults = [...step.sources]
+        }
+        step.searchFilter = {
+          originalCount: originalResultCount,
+          filteredCount: filteredResultCount || step.sources.length,
+          applied: searchFilterApplied,
+          status: searchFilterStatus,
+          fallbackReason: searchFilterFallbackReason,
+          originalResults: searchFilterOriginalResults,
+          filteredResults: searchFilterFilteredResults.length > 0 ? searchFilterFilteredResults : step.sources,
+        }
       }
     })
 
@@ -4034,7 +4104,41 @@ const MessageBubble = ({
 
     const finalMs = answerGenerationDurationMs > 0 ? answerGenerationDurationMs : 0
 
-    const sumOfBaseMs = base.reduce((sum, step) => {
+    const hasExplicitSearchFilterStep = base.some(step => step?.kind === 'search_filter')
+    const expandedBase = hasExplicitSearchFilterStep
+      ? base
+      : base.flatMap((step, idx) => {
+      if (step?.kind !== 'search') return [step]
+
+      const originalCount = Number(step.searchFilter?.originalCount || 0)
+      const filteredCount = Number(step.searchFilter?.filteredCount || 0)
+      const applied = Boolean(step.searchFilter?.applied)
+      const hasSearchFilterNode = applied && originalCount > 0 && filteredCount > 0 && filteredCount < originalCount
+
+      if (!hasSearchFilterNode) return [step]
+
+      return [
+        step,
+        {
+          kind: 'search_filter',
+          sourceStepKey: step.stepKey || `search-${idx}`,
+          queries: Array.isArray(step.queries) ? [...step.queries] : [],
+          status: String(step.searchFilter?.status || 'done'),
+          applied,
+          originalCount,
+          filteredCount,
+          fallbackReason: step.searchFilter?.fallbackReason || null,
+          originalResults: Array.isArray(step.searchFilter?.originalResults)
+            ? [...step.searchFilter.originalResults]
+            : [],
+          filteredResults: Array.isArray(step.searchFilter?.filteredResults)
+            ? [...step.searchFilter.filteredResults]
+            : [],
+        },
+      ]
+    })
+
+    const sumOfBaseMs = expandedBase.reduce((sum, step) => {
       if (typeof step.durationMs === 'number') return sum + step.durationMs
       if (step.kind === 'tools' && Array.isArray(step.items)) {
         return (
@@ -4050,12 +4154,12 @@ const MessageBubble = ({
 
     const cumulativeMs = sumOfBaseMs + finalMs
 
-    base.push({
+    expandedBase.push({
       kind: 'final_answer',
       status: isStreaming ? 'running' : 'done',
       durationMs: cumulativeMs > 0 ? cumulativeMs : null,
     })
-    return base
+    return expandedBase
   }, [
     processSteps,
     wallClockFinalSec,
@@ -4508,6 +4612,12 @@ const MessageBubble = ({
                         : typeof step.durationMs === 'number'
                           ? step.durationMs
                           : null
+                    const originalSearchResults = Array.isArray(step.searchFilter?.originalResults)
+                      ? step.searchFilter.originalResults
+                      : []
+                    const hasOriginalCandidates = originalSearchResults.length > 0
+                    const originalResultCount =
+                      Number(step.searchFilter?.originalCount || 0) || originalSearchResults.length
 
                     return (
                       <div key={`search-${idx}`} className="relative mb-4">
@@ -4530,7 +4640,7 @@ const MessageBubble = ({
                                   </>
                                 )
                               }
-                              const count = step.sources?.length || 0
+                              const count = originalResultCount || step.sources?.length || 0
                               return t('messageBubble.searchFound', { count })
                             })()}
                           </div>
@@ -4548,26 +4658,145 @@ const MessageBubble = ({
                           })()}
                         </div>
 
-                        <div className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
-                          {/* Search Queries row */}
-                          <div className="mb-2 flex flex-wrap gap-1.5">
-                            {step.queries.map(query => (
-                              <span
+                          <div className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+                            {/* Search Queries row */}
+                            <div className="mb-2 flex flex-wrap gap-1.5">
+                              {step.queries.map(query => (
+                                <span
                                 key={`query-${query}`}
                                 className="inline-flex items-center rounded-lg border border-gray-200/80 bg-white px-2.5 py-1 text-[10px]! text-gray-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-gray-300"
                               >
                                 <Search size={12} className="mr-1.5 opacity-70" />
                                 {query}
-                              </span>
-                            ))}
-                          </div>
+                                </span>
+                              ))}
+                            </div>
 
-                          {/* Sources row */}
-                          {Array.isArray(step.sources) &&
-                            step.sources.length > 0 &&
-                            step.sources.some(hasNavigableSourceLink) && (
-                              <div className="mb-2">
-                                <SearchSourcesList sources={step.sources} />
+                          {hasOriginalCandidates && (
+                            <details className="mb-2 rounded-2xl border border-dashed border-gray-200/80 bg-white/55 p-3 shadow-[0_1px_0_rgba(255,255,255,0.03)] backdrop-blur-sm dark:border-zinc-700/60 dark:bg-zinc-950/25">
+                              <summary className="flex cursor-pointer list-none items-center justify-between gap-2">
+                                <div className="flex min-w-0 items-center gap-2">
+                                  <span className="text-[11px] font-semibold tracking-[0.18em] text-gray-400 uppercase dark:text-zinc-500">
+                                    {t('messageBubble.searchOriginalCandidates', '原始候选')}
+                                  </span>
+                                  <span className="rounded-full border border-gray-200/80 bg-white/80 px-2 py-0.5 text-[11px] font-medium text-gray-500 dark:border-zinc-700/60 dark:bg-zinc-900/60 dark:text-zinc-400">
+                                    {originalResultCount}
+                                  </span>
+                                </div>
+                                <span className="text-[11px] text-gray-400 dark:text-zinc-500">
+                                  {t(
+                                    'messageBubble.searchOriginalCandidatesHint',
+                                    '可展开查看被筛选前的全部结果',
+                                  )}
+                                </span>
+                              </summary>
+                              <div className="mt-3">
+                                <SearchSourcesList sources={originalSearchResults} />
+                              </div>
+                            </details>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  }
+
+                  if (step.kind === 'search_filter') {
+                    const originalCount = Number(step.originalCount || 0)
+                    const filteredCount = Number(step.filteredCount || 0)
+                    const originalResults = Array.isArray(step.originalResults)
+                      ? step.originalResults
+                      : []
+                    const filteredResults = Array.isArray(step.filteredResults)
+                      ? step.filteredResults
+                      : []
+                    const hasResults = filteredResults.length > 0 && filteredResults.some(hasNavigableSourceLink)
+                    const isDone = String(step.status || '') === 'filtered'
+                    const isFallback =
+                      String(step.status || '') === 'fallback' ||
+                      String(step.status || '') === 'unavailable'
+                    const isRunning = !isDone && !isFallback
+                    const statusLabel = isFallback
+                      ? t('messageBubble.searchFilterFallback', '筛选回退')
+                      : isDone
+                        ? t('messageBubble.searchFilterDone', '筛选完成')
+                        : t('messageBubble.searchFiltering', '正在筛选高相关结果...')
+
+                    return (
+                      <div key={`search-filter-${idx}`} className="relative mb-4">
+                        {isNotLast && (
+                          <span className="pointer-events-none absolute top-6 bottom-[-16px] -left-5 border-l border-dashed border-primary-200/80 dark:border-primary-700/60" />
+                        )}
+
+                        <div className="absolute top-0.75 -left-7 flex h-4 w-4 items-center justify-center text-primary-500 dark:text-primary-300">
+                          <SlidersHorizontal size={16} />
+                        </div>
+
+                        <div className="mb-2 flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-base font-semibold text-gray-700 dark:text-gray-200">
+                              {t('messageBubble.searchFilterStep', '筛选结果')}
+                            </span>
+                            <span className="inline-flex items-center gap-1.5 rounded-full border border-primary-500/15 bg-gradient-to-r from-primary-500/10 via-white/5 to-transparent px-3 py-1 text-[11px] font-medium text-primary-600 backdrop-blur-md dark:from-primary-500/15 dark:via-zinc-900/40 dark:to-zinc-900/20 dark:text-primary-300">
+                              {isRunning && <DotLoader size="sm" />}
+                              <span>{statusLabel}</span>
+                            </span>
+                          </div>
+                          <span className="shrink-0 text-xs! font-normal text-gray-500 dark:text-gray-400">
+                            {t('messageBubble.searchFiltered', {
+                              filtered: filteredCount,
+                              original: originalCount,
+                            })}
+                          </span>
+                        </div>
+
+                        <div className="rounded-2xl border border-primary-500/15 bg-gradient-to-r from-primary-500/8 via-white/5 to-transparent p-3 backdrop-blur-sm dark:from-primary-500/10 dark:via-zinc-900/40 dark:to-zinc-900/15">
+                          {isRunning && (
+                            <div className="mb-3 overflow-hidden rounded-2xl border border-primary-500/10 bg-black/[0.02] p-3 dark:bg-white/[0.02]">
+                              <div className="flex items-center gap-3">
+                                <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-500/12 text-primary-500 dark:text-primary-300">
+                                  <span className="absolute inset-0 animate-pulse rounded-xl bg-primary-500/10" />
+                                  <SlidersHorizontal size={16} className="relative" />
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                  <div className="text-sm font-medium text-gray-700 dark:text-gray-100">
+                                    {t('messageBubble.searchFiltering', '正在筛选高相关结果...')}
+                                  </div>
+                                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-primary-500/10">
+                                    <div className="h-full w-1/3 animate-pulse rounded-full bg-gradient-to-r from-primary-400 via-primary-500 to-fuchsia-500" />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          {isFallback && step.fallbackReason && (
+                            <div className="mb-2 rounded-xl border border-amber-500/15 bg-amber-500/8 px-3 py-2 text-[11px] text-amber-700 dark:text-amber-300">
+                              {step.fallbackReason}
+                            </div>
+                          )}
+                          <div className="mb-2 flex items-center gap-2">
+                            <span className="text-[11px] font-semibold tracking-[0.18em] text-primary-500/80 uppercase dark:text-primary-300/80">
+                              {t('messageBubble.searchRelevantResults', '高相关结果')}
+                            </span>
+                            <span className="rounded-full border border-primary-500/20 bg-primary-500/10 px-2 py-0.5 text-[11px] font-medium text-primary-600 dark:text-primary-300">
+                              {filteredCount}
+                            </span>
+                          </div>
+                          {hasResults ? (
+                            <SearchSourcesList sources={filteredResults} />
+                          ) : (
+                            <div className="rounded-xl border border-dashed border-gray-200/70 bg-white/40 px-3 py-2 text-sm text-gray-500 dark:border-zinc-700/60 dark:bg-zinc-950/20 dark:text-gray-400">
+                              {t('messageBubble.searchRelevantResultsEmpty', '没有可展示的高相关结果')}
+                            </div>
+                          )}
+
+                          {originalResults.length > 0 &&
+                            filteredResults.length > 0 &&
+                            originalResults.length > filteredResults.length && (
+                              <div className="mt-3 text-[11px] text-gray-400 dark:text-zinc-500">
+                                {t('messageBubble.searchFilterCompare', {
+                                  original: originalResults.length,
+                                  filtered: filteredResults.length,
+                                })}
                               </div>
                             )}
                         </div>

@@ -221,6 +221,91 @@ const resolveDelegateDisplay = (delegateInfo, actorNameById) => {
   }
 }
 
+const SEARCH_FILTER_SOURCE_TOOLS = new Set(['web_search', 'search_news'])
+
+const extractSearchFilterMeta = outputValue => {
+  const parsed = safeParseJson(outputValue)
+  if (!parsed || typeof parsed !== 'object') return null
+  const meta =
+    parsed.search_filter && typeof parsed.search_filter === 'object'
+      ? parsed.search_filter
+      : parsed.searchFilter && typeof parsed.searchFilter === 'object'
+        ? parsed.searchFilter
+        : null
+  if (!meta) return null
+
+  const originalResults = Array.isArray(meta.original_results)
+    ? meta.original_results
+    : Array.isArray(meta.originalResults)
+      ? meta.originalResults
+      : []
+  const filteredResults = Array.isArray(meta.filtered_results)
+    ? meta.filtered_results
+    : Array.isArray(meta.filteredResults)
+      ? meta.filteredResults
+      : []
+
+  return {
+    query: typeof meta.query === 'string' ? meta.query : '',
+    status: String(meta.status || 'done'),
+    applied: Boolean(meta.applied),
+    originalCount: Number(meta.original_count || meta.originalCount || originalResults.length || 0),
+    filteredCount: Number(meta.filtered_count || meta.filteredCount || filteredResults.length || 0),
+    fallbackReason:
+      typeof meta.fallback_reason === 'string'
+        ? meta.fallback_reason
+        : typeof meta.fallbackReason === 'string'
+          ? meta.fallbackReason
+          : null,
+    originalResults,
+    filteredResults,
+  }
+}
+
+const buildSearchFilterNode = ({
+  id,
+  toolName,
+  outputValue,
+  durationMs,
+  actor,
+}) => {
+  if (!SEARCH_FILTER_SOURCE_TOOLS.has(String(toolName || ''))) return null
+  const meta = extractSearchFilterMeta(outputValue)
+  if (!meta) return null
+
+  return createNode({
+    id: `search-filter-${id}`,
+    type: 'search_filter',
+    title: 'Filter Results',
+    badge: 'Filter',
+    summary:
+      meta.originalCount > 0
+        ? `${meta.filteredCount || 0} / ${meta.originalCount} relevant results`
+        : '',
+    status:
+      meta.status === 'filtered'
+        ? 'done'
+        : meta.status === 'fallback' || meta.status === 'unavailable'
+          ? 'done'
+          : 'running',
+    actor,
+    durationMs,
+    detailSections: [
+      textSection('Tool', String(toolName || '')),
+      meta.query ? textSection('Query', meta.query) : null,
+      textSection('Summary', `${meta.filteredCount || 0} / ${meta.originalCount || 0} relevant results`),
+      meta.fallbackReason ? textSection('Fallback', meta.fallbackReason) : null,
+      sourceSection(meta.filteredResults),
+    ],
+    meta: {
+      toolName,
+      originalCount: meta.originalCount,
+      filteredCount: meta.filteredCount,
+      fallbackReason: meta.fallbackReason,
+    },
+  })
+}
+
 const buildToolCallNode = ({
   id,
   toolName,
@@ -405,10 +490,14 @@ const extractOrderedNodesFromBlocks = ({
     }
 
     if (type === 'tool' || type === 'tool_call') {
-      const toolName = String(block?.name || 'Tool')
-      const toolStatus = normalizeStatus(
-        block?.status || (type === 'tool_call' ? 'calling' : 'done'),
-      )
+    const toolName = String(block?.name || 'Tool')
+    if (toolName === 'search_result_filter') {
+      index += 1
+      continue
+    }
+    const toolStatus = normalizeStatus(
+      block?.status || (type === 'tool_call' ? 'calling' : 'done'),
+    )
       const toolId = block?.tool_call_id || `${idPrefix}-${index}`
       const argumentsValue = safeParseJson(block?.arguments)
       const outputValue = safeParseJson(block?.output)
@@ -427,16 +516,23 @@ const extractOrderedNodesFromBlocks = ({
         type === 'tool' &&
         (block?.output != null || toolStatus === 'done' || toolStatus === 'error')
       ) {
-        nodes.push(
-          buildToolResultNode({
-            id: toolId,
-            toolName,
-            toolStatus,
-            outputValue: outputValue ?? block?.output,
-            durationMs: block?.duration_ms,
-            actor,
-          }),
-        )
+        const resultNode = buildToolResultNode({
+          id: toolId,
+          toolName,
+          toolStatus,
+          outputValue: outputValue ?? block?.output,
+          durationMs: block?.duration_ms,
+          actor,
+        })
+        nodes.push(resultNode)
+        const searchFilterNode = buildSearchFilterNode({
+          id: toolId,
+          toolName,
+          outputValue: outputValue ?? block?.output,
+          durationMs: block?.duration_ms,
+          actor,
+        })
+        if (searchFilterNode) nodes.push(searchFilterNode)
       }
       index += 1
       continue
@@ -444,19 +540,30 @@ const extractOrderedNodesFromBlocks = ({
 
     if (type === 'tool_result') {
       const toolName = String(block?.name || 'Tool')
+      if (toolName === 'search_result_filter') {
+        index += 1
+        continue
+      }
       const toolStatus = normalizeStatus(block?.status || 'done')
       const toolId = block?.tool_call_id || `${idPrefix}-${index}`
       const outputValue = safeParseJson(block?.output)
-      nodes.push(
-        buildToolResultNode({
-          id: toolId,
-          toolName,
-          toolStatus,
-          outputValue: outputValue ?? block?.output,
-          durationMs: block?.duration_ms,
-          actor,
-        }),
-      )
+      const resultNode = buildToolResultNode({
+        id: toolId,
+        toolName,
+        toolStatus,
+        outputValue: outputValue ?? block?.output,
+        durationMs: block?.duration_ms,
+        actor,
+      })
+      nodes.push(resultNode)
+      const searchFilterNode = buildSearchFilterNode({
+        id: toolId,
+        toolName,
+        outputValue: outputValue ?? block?.output,
+        durationMs: block?.duration_ms,
+        actor,
+      })
+      if (searchFilterNode) nodes.push(searchFilterNode)
       index += 1
       continue
     }
@@ -480,6 +587,7 @@ const buildToolNodesFromHistory = ({
   for (let index = 0; index < sortedHistory.length; index += 1) {
     const item = sortedHistory[index]
     const toolName = String(item?.name || 'Tool')
+    if (toolName === 'search_result_filter') continue
     const toolStatus = normalizeStatus(item?.status || 'done')
     const toolId = item?.id || `${prefix}-${index}`
     const argumentsValue = safeParseJson(item?.arguments)
@@ -496,16 +604,23 @@ const buildToolNodesFromHistory = ({
       }),
     )
     if (outputValue != null || toolStatus === 'done' || toolStatus === 'error') {
-      nodes.push(
-        buildToolResultNode({
-          id: `${prefix}-${toolId}`,
-          toolName,
-          toolStatus,
-          outputValue: outputValue ?? item?.output,
-          durationMs: item?.durationMs,
-          actor,
-        }),
-      )
+      const resultNode = buildToolResultNode({
+        id: `${prefix}-${toolId}`,
+        toolName,
+        toolStatus,
+        outputValue: outputValue ?? item?.output,
+        durationMs: item?.durationMs,
+        actor,
+      })
+      nodes.push(resultNode)
+      const searchFilterNode = buildSearchFilterNode({
+        id: `${prefix}-${toolId}`,
+        toolName,
+        outputValue: outputValue ?? item?.output,
+        durationMs: item?.durationMs,
+        actor,
+      })
+      if (searchFilterNode) nodes.push(searchFilterNode)
     }
   }
   return nodes

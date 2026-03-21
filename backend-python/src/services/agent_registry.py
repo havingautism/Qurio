@@ -467,10 +467,17 @@ def _build_agno_toolkits(request: Any, include_agno: list[str]) -> list[Any]:
                 logger.warning("Exa backend requested but ExaTools is unavailable or API key is missing.")
         else:
             selected = [name for name in include_agno if name in websearch_tools]
+            filter_provider, filter_model, filter_api_key, filter_base_url = (
+                _get_search_result_filter_config(request)
+            )
             toolkits.append(
                 DuckDuckGoWebSearchTools(
                     include_tools=selected,
                     backend=backend,
+                    search_result_filter_provider=filter_provider,
+                    search_result_filter_model=filter_model,
+                    search_result_filter_api_key=filter_api_key,
+                    search_result_filter_base_url=filter_base_url,
                 )
             )
 
@@ -655,6 +662,31 @@ def get_summary_model(request: Any) -> Any | None:
     except Exception as exc:
         logger.warning(f"Failed to build lite_model for session summary: {exc}")
         return None
+
+
+def _get_search_result_filter_config(request: Any) -> tuple[str | None, str | None, str | None, str | None]:
+    settings = get_settings()
+    provider = (
+        getattr(request, "search_result_filter_provider", None)
+        or getattr(request, "summary_provider", None)
+        or settings.summary_lite_provider
+    )
+    model = (
+        getattr(request, "search_result_filter_model", None)
+        or getattr(request, "summary_model", None)
+        or settings.summary_lite_model
+    )
+    api_key = (
+        getattr(request, "search_result_filter_api_key", None)
+        or getattr(request, "summary_api_key", None)
+        or settings.summary_agent_api_key
+    )
+    base_url = (
+        getattr(request, "search_result_filter_base_url", None)
+        or getattr(request, "summary_base_url", None)
+        or settings.summary_lite_base_url
+    )
+    return provider, model, api_key, base_url
 
 
 

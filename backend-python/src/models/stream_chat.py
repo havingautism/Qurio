@@ -131,6 +131,24 @@ class StreamChatRequest(BaseModel):
     enable_session_summary: bool = Field(default=True, alias="enableSessionSummary")
     is_editing: bool = Field(default=False, alias="isEditing", description="Forced summary rebuild flag (for edits/regenerates)")
 
+# Search result filtering configuration (defaults to the summary-lite model, but can be set independently)
+    search_result_filter_provider: str | None = Field(
+        default=None,
+        alias="searchResultFilterProvider",
+    )
+    search_result_filter_model: str | None = Field(
+        default=None,
+        alias="searchResultFilterModel",
+    )
+    search_result_filter_base_url: str | None = Field(
+        default=None,
+        alias="searchResultFilterBaseUrl",
+    )
+    search_result_filter_api_key: str | None = Field(
+        default=None,
+        alias="searchResultFilterApiKey",
+    )
+
     # Stream flag (default true for streaming)
     stream: bool = True
 

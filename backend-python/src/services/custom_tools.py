@@ -29,6 +29,7 @@ from .html_widget_schema import build_html_widget_payload
 from .pptx_builder import build_pptx_file_async
 from .pptx_schema import build_pptx_payload
 from .pptx_store import create_pptx_path, register_pptx_file
+from .search_filter import maybe_filter_search_results
 from .skill_runtime import (
     execute_skill_script as execute_skill_script_runtime,
 )
@@ -36,7 +37,7 @@ from .skill_runtime import (
     install_skill_dependency as install_skill_dependency_runtime,
 )
 
-FIXED_SEARCH_MAX_RESULTS = 5
+FIXED_SEARCH_MAX_RESULTS = 10
 
 
 def _tool_timeout_seconds(default: float = 20.0) -> float:
@@ -70,6 +71,11 @@ def _run_blocking_with_timeout(fn: Any, timeout_sec: float | None = None) -> Any
 
 def _run_async_tool_sync(coro_factory: Any, timeout_sec: float | None = None) -> Any:
     return _run_blocking_with_timeout(lambda: asyncio.run(coro_factory()), timeout_sec=timeout_sec)
+
+
+async def _run_blocking_async(fn: Any, timeout_sec: float | None = None) -> Any:
+    timeout = timeout_sec if timeout_sec and timeout_sec > 0 else _tool_timeout_seconds()
+    return await asyncio.wait_for(asyncio.to_thread(fn), timeout=timeout)
 
 
 def _create_ddgs_client() -> Any:
@@ -286,16 +292,62 @@ class DuckDuckGoVideoTools(Toolkit):
 class DuckDuckGoWebSearchTools(Toolkit):
     """Web/news search using DuckDuckGo with safe no-result handling."""
 
-    def __init__(self, include_tools: list[str] | None = None, backend: str = "auto") -> None:
+    def __init__(
+        self,
+        include_tools: list[str] | None = None,
+        backend: str = "auto",
+        search_result_filter_provider: str | None = None,
+        search_result_filter_model: str | None = None,
+        search_result_filter_api_key: str | None = None,
+        search_result_filter_base_url: str | None = None,
+        # Backward-compatible aliases. Keep accepting the legacy summary_* names
+        # until request plumbing is fully migrated.
+        summary_provider: str | None = None,
+        summary_model: str | None = None,
+        summary_api_key: str | None = None,
+        summary_base_url: str | None = None,
+    ) -> None:
         self._backend = backend or "auto"
+        self._search_result_filter_provider = (
+            search_result_filter_provider or summary_provider
+        )
+        self._search_result_filter_model = search_result_filter_model or summary_model
+        self._search_result_filter_api_key = search_result_filter_api_key or summary_api_key
+        self._search_result_filter_base_url = (
+            search_result_filter_base_url or summary_base_url
+        )
         super().__init__(
             name="DuckDuckGoWebSearchTools",
             tools=[self.web_search, self.search_news],
             include_tools=include_tools,
         )
 
+    def _search_filter_enabled(self) -> bool:
+        return bool(
+            str(self._search_result_filter_provider or "").strip()
+            and str(self._search_result_filter_model or "").strip()
+            and str(self._search_result_filter_api_key or "").strip()
+        )
+
+    async def _maybe_filter_search_payload(
+        self,
+        *,
+        tool_name: str,
+        query: str,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        return await maybe_filter_search_results(
+            tool_name=tool_name,
+            query=query,
+            payload=payload,
+            search_result_filter_provider=self._search_result_filter_provider,
+            search_result_filter_model=self._search_result_filter_model,
+            search_result_filter_api_key=self._search_result_filter_api_key,
+            search_result_filter_base_url=self._search_result_filter_base_url,
+        )
+
     @tool
-    def web_search(self, query: str) -> str:
+    async def web_search(self, query: str) -> str:
         q = str(query or "").strip()
         limit = FIXED_SEARCH_MAX_RESULTS
         if not q:
@@ -313,8 +365,19 @@ class DuckDuckGoWebSearchTools(Toolkit):
                         for item in (results or [])
                     ]
 
-            normalized = _run_blocking_with_timeout(_search)
-            return json.dumps({"query": q, "results": normalized}, ensure_ascii=False)
+            normalized = await _run_blocking_async(_search)
+            payload = {"query": q, "results": normalized}
+            if self._search_filter_enabled():
+                try:
+                    filtered = await self._maybe_filter_search_payload(
+                        tool_name="web_search",
+                        query=q,
+                        payload=payload,
+                    )
+                    return json.dumps(filtered, ensure_ascii=False)
+                except Exception:
+                    pass
+            return json.dumps(payload, ensure_ascii=False)
         except TimeoutError as exc:
             return json.dumps(
                 {"query": q, "results": [], "error": str(exc), "timed_out": True},
@@ -327,7 +390,7 @@ class DuckDuckGoWebSearchTools(Toolkit):
             return json.dumps({"query": q, "results": [], "error": str(exc)}, ensure_ascii=False)
 
     @tool
-    def search_news(self, query: str) -> str:
+    async def search_news(self, query: str) -> str:
         q = str(query or "").strip()
         limit = FIXED_SEARCH_MAX_RESULTS
         if not q:
@@ -347,8 +410,19 @@ class DuckDuckGoWebSearchTools(Toolkit):
                         for item in (results or [])
                     ]
 
-            normalized = _run_blocking_with_timeout(_search)
-            return json.dumps({"query": q, "results": normalized}, ensure_ascii=False)
+            normalized = await _run_blocking_async(_search)
+            payload = {"query": q, "results": normalized}
+            if self._search_filter_enabled():
+                try:
+                    filtered = await self._maybe_filter_search_payload(
+                        tool_name="search_news",
+                        query=q,
+                        payload=payload,
+                    )
+                    return json.dumps(filtered, ensure_ascii=False)
+                except Exception:
+                    pass
+            return json.dumps(payload, ensure_ascii=False)
         except TimeoutError as exc:
             return json.dumps(
                 {"query": q, "results": [], "error": str(exc), "timed_out": True},

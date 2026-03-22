@@ -187,6 +187,13 @@ def _coerce_agent_memory_args(script_path: str, raw_args: Any) -> list[str] | No
         ]
         title = str(payload.get("title") or "").strip()
         status = str(payload.get("status") or "").strip()
+        priority = payload.get("priority")
+        applicable_when = str(
+            payload.get("applicable_when") or payload.get("applicableWhen") or ""
+        ).strip()
+        not_applicable_when = str(
+            payload.get("not_applicable_when") or payload.get("notApplicableWhen") or ""
+        ).strip()
         tags = payload.get("tags")
         related = payload.get("related")
         overwrite = bool(payload.get("overwrite"))
@@ -194,6 +201,12 @@ def _coerce_agent_memory_args(script_path: str, raw_args: Any) -> list[str] | No
             args.extend(["--title", title])
         if status:
             args.extend(["--status", status])
+        if priority not in (None, ""):
+            args.extend(["--priority", str(priority)])
+        if applicable_when:
+            args.extend(["--applicable-when", applicable_when])
+        if not_applicable_when:
+            args.extend(["--not-applicable-when", not_applicable_when])
         if isinstance(tags, list) and tags:
             args.extend(["--tags", ",".join(str(item).strip() for item in tags if str(item).strip())])
         if isinstance(related, list) and related:

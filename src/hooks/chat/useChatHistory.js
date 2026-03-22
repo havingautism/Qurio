@@ -18,6 +18,39 @@ const asArrayField = raw => {
   return Array.isArray(parsed) ? parsed : undefined
 }
 
+const normalizeToolCallsToHistory = rawToolCalls => {
+  const parsed = parseJsonIfString(rawToolCalls)
+  const entries = Array.isArray(parsed) ? parsed : []
+  return entries
+    .map((tool, index) => {
+      if (!tool || typeof tool !== 'object') return null
+      const fn = tool?.function && typeof tool.function === 'object' ? tool.function : {}
+      return {
+        ...tool,
+        id: tool?.id || tool?.tool_call_id || tool?.toolCallId || `tool-${index + 1}`,
+        name: tool?.name || fn.name || tool?.tool_name || tool?.toolName || 'tool',
+        arguments: tool?.arguments ?? fn.arguments ?? tool?.input ?? null,
+        output: tool?.output ?? tool?.result ?? null,
+        durationMs: Number.isFinite(tool?.durationMs)
+          ? Number(tool.durationMs)
+          : Number.isFinite(tool?.duration_ms)
+            ? Number(tool.duration_ms)
+            : null,
+        streamOrder: Number.isFinite(tool?.streamOrder)
+          ? Number(tool.streamOrder)
+          : Number.isFinite(tool?.stream_order)
+            ? Number(tool.stream_order)
+            : index + 1,
+        globalSeq: Number.isFinite(tool?.globalSeq)
+          ? Number(tool.globalSeq)
+          : Number.isFinite(tool?.global_seq)
+            ? Number(tool.global_seq)
+            : null,
+      }
+    })
+    .filter(Boolean)
+}
+
 const extractResearchPlan = message => {
   const direct = typeof message?.research_plan === 'string' ? message.research_plan.trim() : ''
   if (direct) return direct
@@ -227,7 +260,12 @@ const normalizeStreamBlocks = raw => {
 // Internal helper function
 const mapMessageFromApi = (m, effectiveDefaultModel, activeConversation) => {
   const streamBlocks = normalizeStreamBlocks(m.stream_blocks)
-  const toolCallHistory = asArrayField(m.tool_call_history)
+  const toolCallHistory = (() => {
+    const direct = asArrayField(m.tool_call_history)
+    if (Array.isArray(direct) && direct.length > 0) return direct
+    const fromToolCalls = normalizeToolCallsToHistory(m.tool_calls)
+    return fromToolCalls.length > 0 ? fromToolCalls : direct
+  })()
   const researchStepHistory = asArrayField(m.research_step_history)
   const relatedQuestions = asArrayField(m.related_questions)
   const sources = asArrayField(m.sources)

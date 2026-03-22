@@ -8,9 +8,16 @@ description: 'Use this skill for independent file-based memory: save durable fac
 # Agent Memory
 
 Independent file-based memory system for knowledge that survives across conversations.
+This skill follows one rule: expose only what is needed, when it is needed.
 
-**Location:** `backend-python/.skills/agent-memory/memories/`
+Memory storage is split into:
+
+- `memories/` stores durable memory entries
+- `*.meta.json` stores `priority`, `applicable_when`, `not_applicable_when`, and other memory metadata
+
+**Location:** `backend-python/src/_internal_skills/agent-memory/memories/`
 **Scripts:** `scripts/list_categories.py`, `scripts/list_memories.py`, `scripts/search_memories.py`, `scripts/save_memory.py`, `scripts/delete_memory.py`
+**Metadata:** sidecar `*.meta.json` files next to each memory markdown file
 
 ## Runtime Requirement
 
@@ -36,6 +43,17 @@ Do not save:
 - secrets, tokens, passwords, private keys
 - sensitive personal data unless the user explicitly asks
 
+## Exposure Rules
+
+Keep memory exposure narrow and intentional.
+
+- Prefer `summary` over full body text
+- Prefer top-priority matches over broad recall dumps
+- Do not expose low-priority memories unless the user explicitly asks or the current task clearly requires them
+- Do not mix policy text into the memory body
+- Do not inject extra category lists, indexes, or summaries unless they reduce ambiguity
+- If a memory can be updated instead of duplicated, update it
+
 ## Folder Structure
 
 Organize memories into category folders. No fixed taxonomy; use practical categories.
@@ -58,11 +76,15 @@ memories/
 
 This is just an example. Structure freely based on actual content.
 
+Avoid creating new categories just to make retrieval feel organized. Prefer editing an existing memory in an existing category when the subject is the same.
+
 ## Frontmatter
 
 All memory files must include YAML frontmatter with a required `summary` field.
 
 `summary` is the retrieval decision point. It must say what this memory is about and why it matters.
+
+Keep the frontmatter small. Do not add metadata there unless it directly affects human readability of the markdown file.
 
 **Required:**
 ```yaml
@@ -83,6 +105,30 @@ tags: [performance, worker, memory-leak]
 related: [src/core/file/fileProcessor.ts]
 ---
 ```
+
+### Priority And Exposure
+
+Use a sidecar `*.meta.json` file for `priority` and exposure rules.
+
+- `priority >= 0.7`: strong memory, inject into prompt whenever long-term memory is enabled
+- `0.4 <= priority < 0.7`: moderate memory, inject only when relevant or explicitly requested
+- `priority < 0.4`: weak memory, keep visible in retrieval UI but do not inject by default
+
+For reusable memories, generate both exposure fields during save/update:
+
+- `applicable_when`
+- `not_applicable_when`
+
+## Editing Behavior
+
+Prefer editing an existing memory over creating a new category or duplicating a new memory file.
+
+- If the same fact already exists, update the existing markdown file and its sidecar metadata
+- If the memory has become stale, edit or delete it instead of creating a variant
+- Only create a new memory when the subject is genuinely distinct
+- If the metadata changes but the content does not, update only the sidecar JSON
+- If the content changes but the metadata does not, update only the markdown file
+- If both change, keep the edit minimal and targeted
 
 ## Search Workflow
 
@@ -168,6 +214,12 @@ Important:
 4. Verify persistence by calling `list` or `search`
 5. Only then report success to user
 
+When saving, keep the generated memory short and focused:
+
+- one memory file should represent one idea
+- one summary should describe one retrieval intent
+- one metadata record should describe one exposure policy
+
 ```bash
 python scripts/save_memory.py \
   --category "project-context" \
@@ -177,6 +229,18 @@ python scripts/save_memory.py \
 
 python scripts/search_memories.py --keyword "my-topic"
 ```
+
+When saving memory, prefer also setting:
+
+- `--priority`
+- `--applicable-when`
+- `--not-applicable-when`
+
+Keep these exposure rules short and specific. They should help decide when to inject the memory, not repeat the full memory body.
+
+When updating existing memory, prefer `--overwrite` rather than creating a duplicate slug.
+
+Do not add extra context blocks, derived notes, or duplicated rationale unless the user explicitly wants them preserved.
 
 ### Update
 

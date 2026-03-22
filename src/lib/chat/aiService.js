@@ -157,6 +157,33 @@ const buildStreamBlocks = ({ content = '', thoughtHistory = [], toolCallHistory 
   return blocks
 }
 
+const normalizeToolCallsToHistory = toolCalls => {
+  if (!Array.isArray(toolCalls) || toolCalls.length === 0) return []
+  return toolCalls
+    .map((tool, index) => {
+      if (!tool || typeof tool !== 'object') return null
+      const fn = tool?.function && typeof tool.function === 'object' ? tool.function : {}
+      return {
+        ...tool,
+        id: tool?.id || tool?.tool_call_id || tool?.toolCallId || `tool-${index + 1}`,
+        name: tool?.name || fn.name || tool?.tool_name || tool?.toolName || 'tool',
+        arguments: tool?.arguments ?? fn.arguments ?? tool?.input ?? null,
+        output: tool?.output ?? tool?.result ?? null,
+        durationMs: Number.isFinite(tool?.durationMs)
+          ? Number(tool.durationMs)
+          : Number.isFinite(tool?.duration_ms)
+            ? Number(tool.duration_ms)
+            : null,
+        streamOrder: Number.isFinite(tool?.streamOrder)
+          ? Number(tool.streamOrder)
+          : Number.isFinite(tool?.stream_order)
+            ? Number(tool.stream_order)
+            : index + 1,
+      }
+    })
+    .filter(Boolean)
+}
+
 const deriveThoughtHistoryFromStreamBlocks = streamBlocks => {
   if (!Array.isArray(streamBlocks) || streamBlocks.length === 0) return []
   let textOffset = 0
@@ -1495,9 +1522,16 @@ export const finalizeMessage = async (
       const thoughtToApply = normalizedThought || lastMsg.thought || ''
       lastMsg.thought = thoughtToApply ? thoughtToApply : undefined
       const toolCallsToProcess = result?.toolCalls || validToolCallHistory
+      const derivedToolCallHistory =
+        validToolCallHistory.length > 0
+          ? validToolCallHistory
+          : normalizeToolCallsToHistory(toolCallsToProcess)
 
       if (toolCallsToProcess && toolCallsToProcess.length > 0) {
         lastMsg.tool_calls = toolCallsToProcess
+      }
+      if (derivedToolCallHistory.length > 0) {
+        lastMsg.toolCallHistory = derivedToolCallHistory
       }
       lastMsg.provider = modelConfig.provider
       lastMsg.model = modelConfig.model
@@ -1767,10 +1801,15 @@ export const finalizeMessage = async (
       thoughtHistory: thoughtHistoryForPersistence || [],
       toolCallHistory: toolCallHistoryForPersistence || [],
     })
+    const toolCallHistoryForRuntime =
+      toolCallHistoryForPersistence && toolCallHistoryForPersistence.length > 0
+        ? toolCallHistoryForPersistence
+        : normalizeToolCallsToHistory(latestAi?.tool_calls || result?.toolCalls || [])
     const pipelineForRuntime = buildMessagePipeline({
       ...latestAi,
       content: contentForPersistence,
       streamBlocks: streamBlocksForRuntime,
+      toolCallHistory: toolCallHistoryForRuntime,
       expertMode: latestAi?.expertMode,
       expertResponses: latestAi?.expertResponses,
       researchPlan: planForPersistence,
@@ -1844,7 +1883,7 @@ export const finalizeMessage = async (
           return newToolCalls.length > 0 ? newToolCalls : derivedToolCalls
         })(),
       ),
-      tool_call_history: sanitizeJson(toolCallHistoryForPersistence || []),
+      tool_call_history: sanitizeJson(toolCallHistoryForRuntime || []),
       research_step_history: sanitizeJson(researchStepsForPersistence || []),
       related_questions: null,
       sources: sanitizeJson(

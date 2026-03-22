@@ -129,6 +129,9 @@ const createNode = ({
 })
 
 const shouldKeepInlineSummary = (type, meta) => {
+  if (type === 'memory_tool') {
+    return true
+  }
   if (type === 'tool_call' || type === 'tool_result') {
     return String(meta?.toolName || '') === 'delegate_task_to_member'
   }
@@ -222,6 +225,168 @@ const resolveDelegateDisplay = (delegateInfo, actorNameById) => {
 }
 
 const SEARCH_FILTER_SOURCE_TOOLS = new Set(['web_search', 'search_news'])
+const MEMORY_SKILL_SCRIPT_NAMES = new Set([
+  'memory_store.py',
+  'scripts/memory_store.py',
+  'list_memories.py',
+  'scripts/list_memories.py',
+  'list_categories.py',
+  'scripts/list_categories.py',
+  'search_memories.py',
+  'scripts/search_memories.py',
+  'save_memory.py',
+  'scripts/save_memory.py',
+  'delete_memory.py',
+  'scripts/delete_memory.py',
+])
+const MEMORY_TOOL_NAMES = new Set(['memory_check'])
+
+const formatMemoryPriority = value => {
+  const num = Number(value)
+  if (!Number.isFinite(num)) return ''
+  return num
+    .toFixed(num >= 1 ? 0 : 2)
+    .replace(/\.00$/, '')
+    .replace(/(\.\d)0$/, '$1')
+}
+
+const parseToolArguments = argumentsValue => {
+  if (argumentsValue && typeof argumentsValue === 'object') return argumentsValue
+  if (typeof argumentsValue !== 'string') return null
+  const parsed = safeParseJson(argumentsValue)
+  return parsed && typeof parsed === 'object' ? parsed : null
+}
+
+const normalizeToolCallsToHistory = toolCalls => {
+  if (!Array.isArray(toolCalls) || toolCalls.length === 0) return []
+  return toolCalls
+    .map((tool, index) => {
+      if (!tool || typeof tool !== 'object') return null
+      const fn = tool?.function && typeof tool.function === 'object' ? tool.function : {}
+      return {
+        id: tool?.id || tool?.tool_call_id || tool?.toolCallId || `tool-${index + 1}`,
+        name: tool?.name || fn.name || tool?.tool_name || tool?.toolName || 'tool',
+        arguments: tool?.arguments ?? fn.arguments ?? tool?.input ?? null,
+        output: tool?.output ?? tool?.result ?? null,
+        durationMs: Number.isFinite(tool?.durationMs)
+          ? Number(tool.durationMs)
+          : Number.isFinite(tool?.duration_ms)
+            ? Number(tool.duration_ms)
+            : null,
+        streamOrder: Number.isFinite(tool?.streamOrder)
+          ? Number(tool.streamOrder)
+          : Number.isFinite(tool?.stream_order)
+            ? Number(tool.stream_order)
+            : index + 1,
+      }
+    })
+    .filter(Boolean)
+}
+
+const extractMemoryToolMeta = (toolName, argumentsValue) => {
+  const normalizedToolName = String(toolName || '').trim()
+  const parsed = parseToolArguments(argumentsValue)
+
+  if (MEMORY_TOOL_NAMES.has(normalizedToolName)) {
+    return {
+      kind: 'memory_check',
+      label: 'Memory Check',
+      badge: 'Memory',
+      skillId: '',
+      scriptPath: '',
+      scriptName: '',
+      category: '',
+      keyword: '',
+      slug: '',
+      priority: null,
+      applicableWhen: '',
+      notApplicableWhen: '',
+    }
+  }
+
+  if (normalizedToolName !== 'execute_skill_script') return null
+  const skillId = String(parsed?.skill_id || parsed?.skillId || '').trim()
+  const scriptPath = String(parsed?.script_path || parsed?.scriptPath || '').trim()
+  if (skillId !== 'agent-memory' || !MEMORY_SKILL_SCRIPT_NAMES.has(scriptPath)) return null
+  const scriptName = scriptPath.split('/').pop() || scriptPath
+  const labelByScript = {
+    'list_categories.py': 'Memory Categories',
+    'memory_store.py': 'Memory Store',
+    'list_memories.py': 'Memory List',
+    'search_memories.py': 'Memory Search',
+    'save_memory.py': 'Memory Save',
+    'delete_memory.py': 'Memory Delete',
+  }
+  return {
+    kind: 'agent_memory',
+    label: labelByScript[scriptName] || 'Memory Tool',
+    badge: 'Memory',
+    skillId,
+    scriptPath,
+    scriptName,
+    category: String(parsed?.category || '').trim(),
+    keyword: String(parsed?.keyword || parsed?.query || '').trim(),
+    slug: String(parsed?.slug || '').trim(),
+    priority: parsed?.priority,
+    applicableWhen: String(parsed?.applicable_when || parsed?.applicableWhen || '').trim(),
+    notApplicableWhen: String(
+      parsed?.not_applicable_when || parsed?.notApplicableWhen || '',
+    ).trim(),
+  }
+}
+
+const formatMemoryEntryText = (item, index = 0) => {
+  if (!item || typeof item !== 'object') return ''
+  const title = String(item.title || item.slug || `Memory ${index + 1}`).trim()
+  const summary = String(item.summary || '').trim()
+  const priority = formatMemoryPriority(item.priority)
+  const applicableWhen = String(item.applicable_when || '').trim()
+  const notApplicableWhen = String(item.not_applicable_when || '').trim()
+  const tags = Array.isArray(item.tags)
+    ? item.tags.map(tag => String(tag || '').trim()).filter(Boolean)
+    : []
+  const category = String(item.category || '').trim()
+  const path = String(item.path || '').trim()
+  const lines = [title]
+  if (summary) lines.push(`Summary: ${summary}`)
+  if (priority) lines.push(`Priority: ${priority}`)
+  if (applicableWhen) lines.push(`Applicable When: ${applicableWhen}`)
+  if (notApplicableWhen) lines.push(`Not Applicable When: ${notApplicableWhen}`)
+  if (tags.length > 0) lines.push(`Tags: ${tags.join(', ')}`)
+  if (category) lines.push(`Category: ${category}`)
+  if (path) lines.push(`Path: ${path}`)
+  return lines.join('\n')
+}
+
+const buildMemoryEntrySections = items => {
+  if (!Array.isArray(items) || items.length === 0) return []
+  return items.slice(0, 5).map((item, index) =>
+    textSection(
+      `Memory ${index + 1}`,
+      formatMemoryEntryText(item, index) || `Summary: ${String(item?.summary || item?.title || '').trim()}`,
+    ),
+  )
+}
+
+const buildMemoryResultSections = outputValue => {
+  const parsed = safeParseJson(outputValue)
+  const objectLike = parsed && typeof parsed === 'object' ? parsed : null
+  if (!objectLike) return []
+
+  const items = Array.isArray(objectLike.items) ? objectLike.items : []
+  const sections = []
+  if (objectLike.action) sections.push(textSection('Action', String(objectLike.action)))
+  if (objectLike.keyword) sections.push(textSection('Keyword', String(objectLike.keyword)))
+  if (objectLike.category) sections.push(textSection('Category', String(objectLike.category)))
+  if (objectLike.scope) sections.push(textSection('Scope', String(objectLike.scope)))
+  if (items.length > 0) {
+    sections.push(textSection('Matches', `${items.length} memory item(s)`))
+    sections.push(...buildMemoryEntrySections(items))
+  } else if (objectLike.path) {
+    sections.push(textSection('Path', String(objectLike.path)))
+  }
+  return sections.filter(Boolean)
+}
 
 const extractSearchFilterMeta = outputValue => {
   const parsed = safeParseJson(outputValue)
@@ -317,18 +482,37 @@ const buildToolCallNode = ({
 }) => {
   const normalizedToolName = String(toolName || 'Tool')
   const toolId = String(id || '')
+  const memoryMeta = extractMemoryToolMeta(normalizedToolName, argumentsValue)
   const delegateInfo =
     normalizedToolName === 'delegate_task_to_member' ? parseDelegateInfo(argumentsValue) : null
   const delegateDisplay = resolveDelegateDisplay(delegateInfo, actorNameById)
   const delegateSummary =
     delegateDisplay?.targetName && `${actor || 'Leader'} -> ${delegateDisplay.targetName}`
+  const memorySummary = memoryMeta
+    ? memoryMeta.kind === 'memory_check'
+      ? 'Checking memory relevance'
+      : [
+          memoryMeta.label,
+          memoryMeta.keyword ? `Query: ${memoryMeta.keyword}` : '',
+          memoryMeta.category ? `Category: ${memoryMeta.category}` : '',
+        ]
+          .filter(Boolean)
+          .join(' • ')
+    : ''
 
   return createNode({
     id: `tool-call-${toolId || normalizedToolName}`,
-    type: 'tool_call',
-    title: normalizedToolName === 'delegate_task_to_member' ? 'Delegate Task' : normalizedToolName,
-    badge: normalizedToolName === 'delegate_task_to_member' ? 'Delegate' : 'Tool',
+    type: memoryMeta ? 'memory_tool' : 'tool_call',
+    title:
+      normalizedToolName === 'delegate_task_to_member'
+        ? 'Delegate Task'
+        : memoryMeta?.label || normalizedToolName,
+    badge:
+      normalizedToolName === 'delegate_task_to_member'
+        ? 'Delegate'
+        : memoryMeta?.badge || 'Tool',
     summary:
+      memorySummary ||
       delegateSummary ||
       summarizeText(
         typeof argumentsValue === 'string'
@@ -336,12 +520,20 @@ const buildToolCallNode = ({
           : argumentsValue && typeof argumentsValue === 'object'
             ? toPrettyJson(argumentsValue)
             : `${normalizedToolName} called`,
-      ),
+    ),
     status: toolStatus === 'error' ? 'error' : 'done',
     actor,
     durationMs,
     detailSections: [
-      textSection('Tool', normalizedToolName),
+      memoryMeta?.skillId ? textSection('Skill', memoryMeta.skillId) : textSection('Tool', normalizedToolName),
+      memoryMeta?.scriptPath ? textSection('Script', memoryMeta.scriptPath) : null,
+      memoryMeta?.keyword ? textSection('Keyword', memoryMeta.keyword) : null,
+      memoryMeta?.category ? textSection('Category', memoryMeta.category) : null,
+      memoryMeta?.priority != null ? textSection('Priority', formatMemoryPriority(memoryMeta.priority)) : null,
+      memoryMeta?.applicableWhen ? textSection('Applicable When', memoryMeta.applicableWhen) : null,
+      memoryMeta?.notApplicableWhen
+        ? textSection('Not Applicable When', memoryMeta.notApplicableWhen)
+        : null,
       delegateDisplay?.targetName ? textSection('Agent', delegateDisplay.targetName) : null,
       delegateDisplay?.task ? textSection('Assigned Task', delegateDisplay.task) : null,
       jsonSection('Input', argumentsValue),
@@ -349,6 +541,7 @@ const buildToolCallNode = ({
     meta: {
       toolId,
       toolName: normalizedToolName,
+      memoryMeta,
       delegateTargetName: delegateDisplay?.targetName || null,
       delegateTask: delegateDisplay?.task || null,
       delegateKey:
@@ -367,43 +560,73 @@ const buildToolResultNode = ({
   durationMs,
   actor,
   delegateTargetName = null,
+  argumentsValue = null,
 }) => {
   const normalizedToolName = String(toolName || 'Tool')
   const toolId = String(id || '')
+  const memoryMeta = extractMemoryToolMeta(normalizedToolName, argumentsValue)
   const summary =
-    normalizedToolName === 'delegate_task_to_member'
-      ? `${delegateTargetName || 'Delegated member'} -> ${actor || 'Leader'}`
-      : summarizeText(
-          typeof outputValue === 'string'
-            ? outputValue
-            : outputValue != null
-              ? toPrettyJson(outputValue)
-              : toolStatus === 'error'
-                ? `${normalizedToolName} failed`
-                : `${normalizedToolName} completed`,
-        )
+    memoryMeta
+      ? summarizeText(
+          buildMemoryResultSections(outputValue)
+            .map(section => String(section?.value || '').trim())
+            .join('\n\n'),
+        ) || memoryMeta.label
+      : normalizedToolName === 'delegate_task_to_member'
+        ? `${delegateTargetName || 'Delegated member'} -> ${actor || 'Leader'}`
+        : summarizeText(
+            typeof outputValue === 'string'
+              ? outputValue
+              : outputValue != null
+                ? toPrettyJson(outputValue)
+                : toolStatus === 'error'
+                  ? `${normalizedToolName} failed`
+                  : `${normalizedToolName} completed`,
+          )
 
   return createNode({
     id: `tool-result-${toolId || normalizedToolName}`,
-    type: 'tool_result',
+    type: memoryMeta ? 'memory_tool' : 'tool_result',
     title:
-      normalizedToolName === 'delegate_task_to_member'
+      memoryMeta?.label ||
+      (normalizedToolName === 'delegate_task_to_member'
         ? 'Delegate Result'
-        : `${normalizedToolName} Result`,
+        : `${normalizedToolName} Result`),
     badge:
-      normalizedToolName === 'delegate_task_to_member'
+      memoryMeta?.badge ||
+      (normalizedToolName === 'delegate_task_to_member'
         ? 'Delegate'
         : toolStatus === 'error'
           ? 'Error'
-          : 'Result',
+          : 'Result'),
     summary,
     status: toolStatus,
     actor,
     durationMs,
-    detailSections: [textSection('Tool', normalizedToolName), jsonSection('Output', outputValue)],
+    detailSections:
+      memoryMeta
+        ? [
+            memoryMeta.skillId ? textSection('Skill', memoryMeta.skillId) : null,
+            memoryMeta.scriptPath ? textSection('Script', memoryMeta.scriptPath) : null,
+            memoryMeta.keyword ? textSection('Keyword', memoryMeta.keyword) : null,
+            memoryMeta.category ? textSection('Category', memoryMeta.category) : null,
+            memoryMeta.priority != null
+              ? textSection('Priority', formatMemoryPriority(memoryMeta.priority))
+              : null,
+            memoryMeta.applicableWhen
+              ? textSection('Applicable When', memoryMeta.applicableWhen)
+              : null,
+            memoryMeta.notApplicableWhen
+              ? textSection('Not Applicable When', memoryMeta.notApplicableWhen)
+              : null,
+            ...buildMemoryResultSections(outputValue),
+            jsonSection('Output', outputValue),
+          ].filter(Boolean)
+        : [textSection('Tool', normalizedToolName), jsonSection('Output', outputValue)],
     meta: {
       toolId,
       toolName: normalizedToolName,
+      memoryMeta,
       delegateTargetName,
     },
   })
@@ -523,6 +746,7 @@ const extractOrderedNodesFromBlocks = ({
           outputValue: outputValue ?? block?.output,
           durationMs: block?.duration_ms,
           actor,
+          argumentsValue: argumentsValue ?? block?.arguments,
         })
         nodes.push(resultNode)
         const searchFilterNode = buildSearchFilterNode({
@@ -554,6 +778,7 @@ const extractOrderedNodesFromBlocks = ({
         outputValue: outputValue ?? block?.output,
         durationMs: block?.duration_ms,
         actor,
+        argumentsValue: safeParseJson(block?.arguments) ?? block?.arguments,
       })
       nodes.push(resultNode)
       const searchFilterNode = buildSearchFilterNode({
@@ -611,6 +836,7 @@ const buildToolNodesFromHistory = ({
         outputValue: outputValue ?? item?.output,
         durationMs: item?.durationMs,
         actor,
+        argumentsValue: argumentsValue ?? item?.arguments,
       })
       nodes.push(resultNode)
       const searchFilterNode = buildSearchFilterNode({
@@ -629,10 +855,14 @@ const buildToolNodesFromHistory = ({
 const buildStandardPipeline = message => {
   const blocks = toSortedBlocks(message?.streamBlocks)
   const nodes = extractOrderedNodesFromBlocks({ blocks, idPrefix: 'chat' })
-  if (nodes.filter(node => node.type === 'tool_call').length === 0) {
+  const toolCallHistory =
+    Array.isArray(message?.toolCallHistory) && message.toolCallHistory.length > 0
+      ? message.toolCallHistory
+      : normalizeToolCallsToHistory(message?.tool_calls)
+  if (nodes.filter(node => node.type === 'tool_call' || node.type === 'memory_tool').length === 0) {
     nodes.push(
       ...buildToolNodesFromHistory({
-        toolCallHistory: message?.toolCallHistory,
+        toolCallHistory,
         prefix: 'chat-history',
       }),
     )
@@ -670,7 +900,10 @@ const buildExpertPipeline = message => {
     task: String(response?.task || '').trim(),
     status: response?.status || 'done',
     streamBlocks: toSortedBlocks(response?.streamBlocks),
-    toolCallHistory: Array.isArray(response?.toolCallHistory) ? response.toolCallHistory : [],
+    toolCallHistory:
+      Array.isArray(response?.toolCallHistory) && response.toolCallHistory.length > 0
+        ? response.toolCallHistory
+        : normalizeToolCallsToHistory(response?.tool_calls),
   }))
   const actorNameById = new Map(actors.map(actor => [actor.key, actor.name]))
 
@@ -837,6 +1070,7 @@ const buildExpertPipeline = message => {
           durationMs: item.block?.duration_ms,
           actor: actor.name,
           delegateTargetName: callNode.meta?.delegateTargetName || null,
+          argumentsValue: argumentsValue ?? item.block?.arguments,
         })
         const resultKey = `result:${actor.key}:${resultNode.meta?.toolName || ''}:${resultNode.meta?.toolId || ''}:${resultNode.meta?.delegateTargetName || ''}`
         if (!seenToolKeys.has(resultKey)) {
@@ -866,6 +1100,7 @@ const buildExpertPipeline = message => {
         durationMs: item.block?.duration_ms,
         actor: actor.name,
         delegateTargetName,
+        argumentsValue: safeParseJson(item.block?.arguments) ?? item.block?.arguments,
       })
       const resultKey = `result:${actor.key}:${resultNode.meta?.toolName || ''}:${resultNode.meta?.toolId || ''}:${resultNode.meta?.delegateTargetName || ''}`
       if (!seenToolKeys.has(resultKey)) {

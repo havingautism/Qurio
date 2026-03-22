@@ -23,6 +23,9 @@ def main() -> int:
     save.add_argument("--content", required=True)
     save.add_argument("--title", default="")
     save.add_argument("--status", default="")
+    save.add_argument("--priority", default="")
+    save.add_argument("--applicable-when", dest="applicable_when", default="")
+    save.add_argument("--not-applicable-when", dest="not_applicable_when", default="")
     save.add_argument("--tags", default="")
     save.add_argument("--related", default="")
     save.add_argument("--overwrite", action="store_true")
@@ -51,6 +54,9 @@ def main() -> int:
             content=args.content,
             title=args.title,
             status=args.status,
+            priority=args.priority,
+            applicable_when=args.applicable_when,
+            not_applicable_when=args.not_applicable_when,
             tags_csv=args.tags,
             related_csv=args.related,
             overwrite=args.overwrite,

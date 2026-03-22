@@ -25,6 +25,10 @@ const NODE_META = {
     icon: Wrench,
     tone: 'border-amber-200/80 bg-amber-50/90 text-amber-700 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-300',
   },
+  memory_tool: {
+    icon: Brain,
+    tone: 'border-cyan-200/80 bg-cyan-50/90 text-cyan-700 dark:border-cyan-500/25 dark:bg-cyan-500/10 dark:text-cyan-300',
+  },
   tool_result: {
     icon: CircleDot,
     tone: 'border-emerald-200/80 bg-emerald-50/90 text-emerald-700 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300',
@@ -189,6 +193,16 @@ const PipelineDrawer = ({ isOpen, onClose, pipeline, t }) => {
       Title: t('pipeline.sections.title', 'Title'),
       Goal: t('pipeline.sections.goal', 'Goal'),
       Metadata: t('pipeline.sections.metadata', 'Metadata'),
+      Skill: t('pipeline.sections.skill', 'Skill'),
+      Script: t('pipeline.sections.script', 'Script'),
+      Priority: t('pipeline.sections.priority', 'Priority'),
+      'Applicable When': t('pipeline.sections.applicableWhen', 'Applicable When'),
+      'Not Applicable When': t('pipeline.sections.notApplicableWhen', 'Not Applicable When'),
+      Keyword: t('pipeline.sections.keyword', 'Keyword'),
+      Category: t('pipeline.sections.category', 'Category'),
+      Scope: t('pipeline.sections.scope', 'Scope'),
+      Action: t('pipeline.sections.action', 'Action'),
+      Matches: t('pipeline.sections.matches', 'Matches'),
     }
     return map[label] || label
   }

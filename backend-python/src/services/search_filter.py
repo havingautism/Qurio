@@ -155,6 +155,7 @@ def _build_search_filter_payload(
     query: str,
     status: str,
     results_override: list[dict[str, Any]] | None = None,
+    fallback_reason_override: str | None = None,
 ) -> dict[str, Any]:
     filtered_payload = dict(payload)
     filtered_payload["results"] = (
@@ -168,7 +169,9 @@ def _build_search_filter_payload(
         "original_count": decision.original_count,
         "filtered_count": decision.filtered_count,
         "selected_ids": decision.selected_ids,
-        "fallback_reason": decision.fallback_reason,
+        "fallback_reason": fallback_reason_override
+        if fallback_reason_override is not None
+        else decision.fallback_reason,
         "original_results": decision.original_results,
         "filtered_results": decision.filtered_results,
     }
@@ -337,13 +340,14 @@ async def maybe_filter_search_results(
             timeout=10.0,
         )
     except Exception as exc:
+        exception_reason = f"exception:{type(exc).__name__}"
         _log_search_filter_event(
             tool_name=tool_name,
             query=query,
             status="fallback",
             original_count=original_count,
             filtered_count=original_count,
-            reason=f"exception:{type(exc).__name__}",
+            reason=exception_reason,
         )
         logger.warning("Search result filtering fallback details: %s", exc, exc_info=True)
         decision = apply_search_selection(candidates, [])
@@ -357,6 +361,7 @@ async def maybe_filter_search_results(
             query=query,
             status="fallback",
             results_override=base_results if isinstance(base_results, list) else [],
+            fallback_reason_override=exception_reason,
         )
 
     selected_ids = _extract_selected_ids(response.get("content"))

@@ -50,6 +50,7 @@ import { TOOL_TRANSLATION_KEYS, TOOL_ICONS } from '../lib/toolConstants'
 import { splitTextWithUrls } from '../lib/urlHighlight'
 import { normalizeExpertBrokenTokenLines } from '../lib/chat/expertTextUtils'
 import { getExpertTabIndicators, getExpertTaskCardModel } from '../lib/chat/expertUiUtils'
+import { getSearchFilterFallbackPresentation } from '../lib/chat/searchFilterPresentation'
 import DesktopSourcesSection from './DesktopSourcesSection'
 import DesktopSourcesSheet from './DesktopSourcesSheet'
 import DotLoader from './DotLoader'
@@ -4710,6 +4711,18 @@ const MessageBubble = ({
                     const hasOriginalCandidates = originalSearchResults.length > 0
                     const originalResultCount =
                       Number(step.searchFilter?.originalCount || 0) || originalSearchResults.length
+                    const searchFilterStatus = String(step.searchFilter?.status || '').toLowerCase()
+                    const searchFilterFallbackReason = String(
+                      step.searchFilter?.fallbackReason || '',
+                    ).trim()
+                    const shouldShowSearchFallbackNotice =
+                      !Boolean(step.searchFilter?.applied) &&
+                      (searchFilterStatus === 'fallback' ||
+                        searchFilterStatus === 'unavailable' ||
+                        Boolean(searchFilterFallbackReason))
+                    const searchFallbackPresentation = shouldShowSearchFallbackNotice
+                      ? getSearchFilterFallbackPresentation(searchFilterFallbackReason)
+                      : null
 
                     return (
                       <div key={`search-${idx}`} className="relative mb-4">
@@ -4763,6 +4776,37 @@ const MessageBubble = ({
                               </span>
                             ))}
                           </div>
+
+                          {searchFallbackPresentation && (
+                            <div
+                              className={clsx(
+                                'mb-2 rounded-xl border px-3 py-2 text-sm shadow-[0_1px_0_rgba(255,255,255,0.03)] backdrop-blur-sm',
+                                searchFallbackPresentation.tone === 'warning'
+                                  ? 'border-amber-500/20 bg-gradient-to-r from-amber-500/12 via-amber-500/6 to-transparent text-amber-700 dark:text-amber-300'
+                                  : searchFallbackPresentation.tone === 'success'
+                                    ? 'border-primary-500/20 bg-gradient-to-r from-primary-500/12 via-white/5 to-transparent text-primary-700 dark:border-primary-500/25 dark:from-primary-500/14 dark:text-primary-300'
+                                    : 'border-gray-200/80 bg-white/55 text-gray-700 dark:border-zinc-700/60 dark:bg-zinc-900/30 dark:text-zinc-200',
+                              )}
+                            >
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className={clsx(
+                                    'inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold tracking-[0.14em] uppercase',
+                                    searchFallbackPresentation.tone === 'warning'
+                                      ? 'border-amber-500/20 bg-amber-500/12 text-amber-700 dark:text-amber-300'
+                                      : searchFallbackPresentation.tone === 'success'
+                                        ? 'border-primary-500/20 bg-primary-500/12 text-primary-700 dark:text-primary-300'
+                                        : 'border-gray-200/80 bg-white/70 text-gray-700 dark:border-zinc-700/60 dark:bg-zinc-900/40 dark:text-zinc-300',
+                                  )}
+                                >
+                                  {t(searchFallbackPresentation.badgeKey)}
+                                </span>
+                                <span className="min-w-0 truncate text-sm font-medium opacity-90">
+                                  {t(searchFallbackPresentation.bodyKey)}
+                                </span>
+                              </div>
+                            </div>
+                          )}
 
                           {hasOriginalCandidates && (
                             <details className="mb-2 rounded-2xl border border-dashed border-gray-200/80 bg-white/55 p-3 shadow-[0_1px_0_rgba(255,255,255,0.03)] backdrop-blur-sm dark:border-zinc-700/60 dark:bg-zinc-950/25">

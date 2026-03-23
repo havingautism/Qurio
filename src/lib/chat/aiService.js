@@ -11,6 +11,11 @@ import { selectThinkingModeViaBackend } from '../backendClient'
 import { getLanguageInstruction, applyLanguageInstructionToText } from './prompts'
 import { buildSpaceAgentOptions, resolveAgentForSpace } from './conversationSetup'
 import { buildMessagePipeline } from './pipelineViewModel'
+import {
+  resolveTurnSummaryAnswer,
+  resolveTurnSummaryQuestion,
+} from './turnSummary'
+import { generateTurnSummaryViaBackend } from '../backendClient'
 import { sanitizeJson } from './utils'
 
 const sanitizeModelOutputText = value => {
@@ -1347,6 +1352,7 @@ export const callAIAPI = async (
           selectedAgent,
           agents,
           isAgentAutoMode,
+          summaryModelConfig,
           deferTitleGeneration,
         )
       },
@@ -1440,6 +1446,7 @@ export const finalizeMessage = async (
   selectedAgent = null,
   agents = [],
   isAgentAutoMode = false,
+  summaryModelConfig = null,
   deferTitleGeneration = false,
 ) => {
   const normalizeRelatedQuestions = payload => {
@@ -1499,6 +1506,8 @@ export const finalizeMessage = async (
     'streamChatCompletion',
     fallbackAgent,
   )
+  const summaryProvider = getProvider(summaryModelConfig?.provider)
+  const summaryCreds = summaryProvider?.getCredentials(settings) || {}
 
   set(state => {
     const updated = [...state.messages]
@@ -1952,6 +1961,73 @@ export const finalizeMessage = async (
         return { messages: updated }
       })
     }
+
+    const maybePersistTurnSummary = async () => {
+      try {
+        const turnSummaryConfig = {
+          provider: summaryModelConfig?.provider || '',
+          model: summaryModelConfig?.model || '',
+          apiKey: summaryCreds?.apiKey || '',
+          baseUrl: summaryCreds?.baseUrl || '',
+        }
+        if (!insertedAiId) return
+        if (!turnSummaryConfig.provider || !turnSummaryConfig.model) return
+        if (!turnSummaryConfig.apiKey) return
+
+        const currentMessage = latestAi || {}
+        if (
+          currentMessage?.deepResearch ||
+          currentMessage?.researchPlan ||
+          (Array.isArray(currentMessage?.researchSteps) && currentMessage.researchSteps.length > 0)
+        ) {
+          return
+        }
+
+        const questionText = resolveTurnSummaryQuestion({
+          fallbackQuestion: firstUserText,
+        })
+        const answerText = resolveTurnSummaryAnswer(currentMessage)
+        if (!answerText) return
+        const languageInstruction = getLanguageInstruction(safeAgent, settings)
+
+        const summaryResult = await generateTurnSummaryViaBackend(
+          turnSummaryConfig.provider,
+          questionText,
+          answerText,
+          turnSummaryConfig.apiKey,
+          turnSummaryConfig.baseUrl,
+          turnSummaryConfig.model,
+          Intl.DateTimeFormat().resolvedOptions().timeZone,
+          navigator.language || 'en-US',
+          languageInstruction || undefined,
+        )
+        const turnSummary = String(summaryResult?.summary || '').trim()
+        if (!turnSummary) return
+
+        await updateMessageById(insertedAiId, {
+          turn_summary: turnSummary,
+        })
+
+        set(state => {
+          const updated = [...state.messages]
+          for (let i = updated.length - 1; i >= 0; i -= 1) {
+            if (updated[i].role === 'ai' && updated[i].id === insertedAiId) {
+              updated[i] = {
+                ...updated[i],
+                turnSummary,
+                turn_summary: turnSummary,
+              }
+              break
+            }
+          }
+          return { messages: updated }
+        })
+      } catch (error) {
+        console.warn('[chatStore] turn summary generation failed:', error)
+      }
+    }
+
+    void maybePersistTurnSummary()
   }
 
   if (currentStore.conversationId) {

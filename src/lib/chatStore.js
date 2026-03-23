@@ -39,6 +39,11 @@ import {
 } from './chat/prompts'
 import { normalizeExpertBrokenTokenLines } from './chat/expertTextUtils'
 import { buildInitialExpertTasks, parseDelegatedExpertTask } from './chat/expertTaskUtils'
+import {
+  resolveTurnSummaryAnswer,
+  resolveTurnSummaryQuestion,
+} from './chat/turnSummary'
+import { generateTurnSummaryViaBackend } from './backendClient'
 
 const sanitizeExpertStreamChunk = value => {
   if (typeof value !== 'string') return ''
@@ -900,6 +905,64 @@ const useChatStore = create((set, get) => ({
                 stream_schema_version: 1,
               }),
             })
+
+            if (
+              summaryModelConfig?.provider &&
+              summaryModelConfig?.model &&
+              resolveTurnSummaryAnswer(currentLast) &&
+              !currentLast?.deepResearch &&
+              !currentLast?.researchPlan &&
+              !(Array.isArray(currentLast?.researchSteps) && currentLast.researchSteps.length > 0)
+            ) {
+              void (async () => {
+                try {
+                  const questionText = resolveTurnSummaryQuestion({ messages })
+                  const answerText = resolveTurnSummaryAnswer(currentLast)
+                  if (!answerText) return
+                  const languageInstruction = getLanguageInstruction(selectedAgent, settings)
+
+                  const credentials = getProvider(summaryModelConfig.provider).getCredentials(
+                    settings,
+                  )
+                  if (!credentials?.apiKey) return
+
+                  const summaryResult = await generateTurnSummaryViaBackend(
+                    summaryModelConfig.provider,
+                    questionText,
+                    answerText,
+                    credentials.apiKey,
+                    credentials.baseUrl,
+                    summaryModelConfig.model,
+                    Intl.DateTimeFormat().resolvedOptions().timeZone,
+                    navigator.language || 'en-US',
+                    languageInstruction || undefined,
+                  )
+                  const turnSummary = String(summaryResult?.summary || '').trim()
+                  if (!turnSummary) return
+
+                  await updateMessageById(currentLast.id, {
+                    turn_summary: turnSummary,
+                  })
+
+                  set(state => {
+                    const updated = [...state.messages]
+                    for (let i = updated.length - 1; i >= 0; i -= 1) {
+                      if (updated[i].role === 'ai' && updated[i].id === currentLast.id) {
+                        updated[i] = {
+                          ...updated[i],
+                          turnSummary,
+                          turn_summary: turnSummary,
+                        }
+                        break
+                      }
+                    }
+                    return { messages: updated }
+                  })
+                } catch (summaryError) {
+                  console.warn('[chatStore] HITL turn summary generation failed:', summaryError)
+                }
+              })()
+            }
           }
         } catch (persistError) {
           console.error('Failed to persist expert HITL continuation:', persistError)

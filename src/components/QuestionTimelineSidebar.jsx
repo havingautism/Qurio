@@ -440,6 +440,11 @@ const QuestionTimelineSidebar = ({
                             <div className="text-sm wrap-break-word whitespace-normal text-gray-800 dark:text-gray-200">
                               {item.label}
                             </div>
+                            {item.summary && (
+                              <div className="mt-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+                                {item.summary}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -573,6 +578,11 @@ const QuestionTimelineSidebar = ({
                     <div className="text-sm wrap-break-word whitespace-normal text-gray-800 dark:text-gray-200">
                       {item.label}
                     </div>
+                    {item.summary && (
+                      <div className="mt-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+                        {item.summary}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

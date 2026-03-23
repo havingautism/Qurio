@@ -276,6 +276,7 @@ const mapMessageFromApi = (m, effectiveDefaultModel, activeConversation) => {
   const researchPlan = extractResearchPlan(m)
   const finalAnswerDurationMs = extractFinalAnswerDurationMs(m)
   const expertState = extractExpertState(m)
+  const turnSummary = typeof m.turn_summary === 'string' ? m.turn_summary : typeof m.turnSummary === 'string' ? m.turnSummary : ''
 
   const restoreHitlMetaFromToolHistory = toolHistory => {
     if (!Array.isArray(toolHistory)) {
@@ -332,6 +333,7 @@ const mapMessageFromApi = (m, effectiveDefaultModel, activeConversation) => {
     researchPlan,
     deepResearch: isDeepResearch,
     related: relatedQuestions,
+    turnSummary,
     tool_calls: m.tool_calls || undefined,
     toolCallHistory,
     thoughtHistory: undefined,

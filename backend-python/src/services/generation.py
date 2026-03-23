@@ -598,6 +598,25 @@ def _sanitize_option_text(text: Any) -> str:
     )
 
 
+def _normalize_turn_summary_text(raw: Any) -> str:
+    text = str(raw or "").strip()
+    if not text:
+        return ""
+
+    text = text.replace("```json", "").replace("```", "").strip()
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    if lines:
+        text = " ".join(lines)
+
+    for prefix in ("summary:", "摘要：", "摘要:", "turn summary:", "turn summary："):
+        if text.lower().startswith(prefix.lower()):
+            text = text[len(prefix):].strip()
+
+    text = re.sub(r"^\s*[-*•]+\s*", "", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text[:240].strip()
+
+
 async def generate_title_space_and_agent(
     *,
     provider: str,
@@ -768,6 +787,79 @@ async def generate_title_space_and_agent(
         "agentName": agent_name,
         "emojis": emojis,
     }
+
+
+async def generate_turn_summary(
+    *,
+    provider: str,
+    question: str,
+    answer: str,
+    api_key: str,
+    base_url: str | None = None,
+    model: str | None = None,
+    language_instruction: str | None = None,
+    user_timezone: str | None = None,
+    user_locale: str | None = None,
+) -> str:
+    question_text = _normalize_turn_summary_text(question)[:800]
+    answer_text = _normalize_turn_summary_text(answer)[:5000]
+    if not answer_text:
+        return ""
+
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "You write concise timeline summaries for completed chat turns.\n"
+                "Return 1-2 short sentences only.\n"
+                "Focus on the final result, recommendation, or next step.\n"
+                "Do not use bullets, headings, markdown, or prefatory phrases.\n"
+                "Do not repeat the user's question verbatim."
+            ),
+        },
+        {
+            "role": "user",
+            "content": (
+                f"User question:\n{question_text or '(not provided)'}\n\n"
+                f"Assistant answer:\n{answer_text}\n\n"
+                + (
+                    f"Strictly follow this output language instruction: {language_instruction.strip()}\n\n"
+                    if isinstance(language_instruction, str) and language_instruction.strip()
+                    else ""
+                )
+                +
+                "Write a concise turn summary for a timeline card."
+            ),
+        },
+    ]
+    messages = _append_time_context(messages, user_timezone, user_locale, question_text or answer_text)
+    request = StreamChatRequest(
+        provider=provider,
+        apiKey=api_key,
+        baseUrl=base_url,
+        model=model,
+        messages=messages,
+        tools=[],
+        toolChoice=None,
+        toolIds=[],
+        userTools=[],
+        responseFormat=None,
+        output_schema=None,
+        thinking=False,
+        temperature=0.2,
+        top_k=None,
+        top_p=None,
+        frequency_penalty=None,
+        presence_penalty=None,
+        contextMessageLimit=None,
+        searchProvider=None,
+        tavilyApiKey=None,
+        skipDefaultTools=True,
+        stream=False,
+    )
+    result = await run_agent_completion(request)
+    summary = _normalize_turn_summary_text(result.get("content") or result.get("thought"))
+    return summary
 
 
 async def generate_space_and_agent(

@@ -2748,6 +2748,26 @@ const MessageBubble = ({
       if (tool?.id) toolById.set(String(tool.id), tool)
     }
     const steps = []
+    const dedupeSearchResults = results => {
+      if (!Array.isArray(results) || results.length === 0) return []
+      const seen = new Set()
+      const deduped = []
+      results.forEach((item, index) => {
+        if (!item || typeof item !== 'object') return
+        const key = String(
+          item.url ||
+            item.link ||
+            item.href ||
+            item.id ||
+            item.title ||
+            `search-result-${index}`,
+        ).trim()
+        if (!key || seen.has(key)) return
+        seen.add(key)
+        deduped.push(item)
+      })
+      return deduped
+    }
     const parseToolQuery = tool => {
       if (!tool) return ''
       const args = tool.arguments
@@ -2782,6 +2802,11 @@ const MessageBubble = ({
         }
       }
     }
+
+    const getToolStepKey = tool =>
+      tool?.id
+        ? String(tool.id)
+        : `${tool?.name || 'tool'}:${String(tool?.arguments || '')}:${String(tool?.output || '')}`
 
     for (const block of normalizedStreamBlocks) {
       if ((block.type === 'reasoning' || block.type === 'thought') && block.content) {
@@ -2824,12 +2849,14 @@ const MessageBubble = ({
 
         const isSearchTool = SEARCH_STEP_TOOLS.has(String(tool.name))
         if (isSearchTool) {
+          const searchToolKey = getToolStepKey(tool)
           const lastStep = steps[steps.length - 1]
-          if (lastStep?.kind === 'search') {
+          if (lastStep?.kind === 'search' && lastStep.stepKey === searchToolKey) {
             addToolToStep(lastStep, tool)
           } else {
             const newSearchStep = {
               kind: 'search',
+              stepKey: searchToolKey,
               items: [],
               queries: [],
               sources: [],
@@ -2873,6 +2900,7 @@ const MessageBubble = ({
         let searchFilterFallbackReason = null
         let searchFilterOriginalResults = []
         let searchFilterFilteredResults = []
+        const searchFilterEntries = []
         // Process each tool execution to extract sources directly if possible
         step.items.forEach(t => {
           if (!t.output) return
@@ -2903,12 +2931,14 @@ const MessageBubble = ({
                     ? parsed.searchFilter
                     : null
               if (filterMeta) {
-                originalResultCount += Number(
+                const currentOriginalCount = Number(
                   filterMeta.original_count || filterMeta.originalCount || 0,
                 )
-                filteredResultCount += Number(
+                const currentFilteredCount = Number(
                   filterMeta.filtered_count || filterMeta.filteredCount || 0,
                 )
+                originalResultCount += currentOriginalCount
+                filteredResultCount += currentFilteredCount
                 searchFilterApplied = searchFilterApplied || Boolean(filterMeta.applied)
                 if (filterMeta.status) searchFilterStatus = String(filterMeta.status)
                 if (filterMeta.fallback_reason) {
@@ -2924,21 +2954,42 @@ const MessageBubble = ({
                   : Array.isArray(filterMeta.filteredResults)
                     ? filterMeta.filteredResults
                     : []
-                if (metaOriginalResults.length > 0) {
-                  searchFilterOriginalResults = metaOriginalResults
-                }
-                if (metaFilteredResults.length > 0) {
-                  searchFilterFilteredResults = metaFilteredResults
-                }
+                searchFilterOriginalResults = dedupeSearchResults([
+                  ...searchFilterOriginalResults,
+                  ...metaOriginalResults,
+                ])
+                searchFilterFilteredResults = dedupeSearchResults([
+                  ...searchFilterFilteredResults,
+                  ...metaFilteredResults,
+                ])
+                searchFilterEntries.push({
+                  query:
+                    String(
+                      filterMeta.query ||
+                        parsed.query ||
+                        parsed.search_query ||
+                        parsed.searchQuery ||
+                        '',
+                    ).trim() || '',
+                  status: String(filterMeta.status || 'done'),
+                  applied: Boolean(filterMeta.applied),
+                  originalCount: currentOriginalCount || metaOriginalResults.length,
+                  filteredCount: currentFilteredCount || metaFilteredResults.length,
+                  fallbackReason: filterMeta.fallback_reason || filterMeta.fallbackReason || null,
+                  originalResults: dedupeSearchResults(metaOriginalResults),
+                  filteredResults: dedupeSearchResults(metaFilteredResults),
+                })
               } else {
                 originalResultCount += results.length
                 filteredResultCount += results.length
-                if (searchFilterOriginalResults.length === 0) {
-                  searchFilterOriginalResults = results
-                }
-                if (searchFilterFilteredResults.length === 0) {
-                  searchFilterFilteredResults = results
-                }
+                searchFilterOriginalResults = dedupeSearchResults([
+                  ...searchFilterOriginalResults,
+                  ...results,
+                ])
+                searchFilterFilteredResults = dedupeSearchResults([
+                  ...searchFilterFilteredResults,
+                  ...results,
+                ])
               }
               results.forEach(result => {
                 const url = result?.url || result?.link || result?.href
@@ -3011,6 +3062,7 @@ const MessageBubble = ({
           originalResults: searchFilterOriginalResults,
           filteredResults:
             searchFilterFilteredResults.length > 0 ? searchFilterFilteredResults : step.sources,
+          entries: searchFilterEntries,
         }
       }
     })
@@ -4114,6 +4166,40 @@ const MessageBubble = ({
       ? base
       : base.flatMap((step, idx) => {
           if (step?.kind !== 'search') return [step]
+
+          const searchFilterEntries = Array.isArray(step.searchFilter?.entries)
+            ? step.searchFilter.entries.filter(entry => {
+                const originalCount = Number(entry?.originalCount || 0)
+                const filteredCount = Number(entry?.filteredCount || 0)
+                return Boolean(entry?.applied) && originalCount > 0 && filteredCount > 0
+              })
+            : []
+
+          if (searchFilterEntries.length > 0) {
+            return [
+              step,
+              ...searchFilterEntries.map((entry, entryIdx) => ({
+                kind: 'search_filter',
+                sourceStepKey: `${step.stepKey || `search-${idx}`}-filter-${entryIdx}`,
+                queries: entry?.query
+                  ? [String(entry.query)]
+                  : Array.isArray(step.queries)
+                    ? [...step.queries]
+                    : [],
+                status: String(entry?.status || 'done'),
+                applied: Boolean(entry?.applied),
+                originalCount: Number(entry?.originalCount || 0),
+                filteredCount: Number(entry?.filteredCount || 0),
+                fallbackReason: entry?.fallbackReason || null,
+                originalResults: Array.isArray(entry?.originalResults)
+                  ? [...entry.originalResults]
+                  : [],
+                filteredResults: Array.isArray(entry?.filteredResults)
+                  ? [...entry.filteredResults]
+                  : [],
+              })),
+            ]
+          }
 
           const originalCount = Number(step.searchFilter?.originalCount || 0)
           const filteredCount = Number(step.searchFilter?.filteredCount || 0)

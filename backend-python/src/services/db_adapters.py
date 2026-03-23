@@ -307,6 +307,11 @@ class SQLiteAdapter:
                     "ALTER TABLE conversation_messages "
                     "ADD COLUMN pipeline_trace TEXT"
                 )
+            if "turn_summary" not in columns:
+                cursor.execute(
+                    "ALTER TABLE conversation_messages "
+                    "ADD COLUMN turn_summary TEXT"
+                )
             if "stream_schema_version" not in columns:
                 cursor.execute(
                     "ALTER TABLE conversation_messages "

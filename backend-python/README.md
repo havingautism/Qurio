@@ -7,7 +7,7 @@
 1. **模型选择**
 
 - `provider == gemini`：使用 Agno 的 `Gemini` 模型类。
-- 其余 provider 通过 `get_provider_adapter` 统一适配，包含 `openai` / `openai_compatibility` / `openrouter` / `litellm_openai` / `huggingface` / `siliconflow` / `glm` / `deepseek` / `volcengine` / `modelscope` / `kimi` / `nvidia` / `minimax`。
+- 其余 provider 通过 `get_provider_adapter` 统一适配，包含 `openai` / `openai_compatibility` / `openrouter` / `huggingface` / `siliconflow` / `glm` / `deepseek` / `volcengine` / `modelscope` / `kimi` / `nvidia` / `minimax`。
 - 模型与 base_url 以请求参数为主，未传则用环境变量默认值。
 
 2. **消息与流式**

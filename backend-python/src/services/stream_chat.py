@@ -37,6 +37,7 @@ from ..models.stream_chat import (
 from .agent_registry import build_team, get_agent_for_provider, resolve_agent_config
 from .hitl_storage import get_hitl_storage
 from .summary_service import update_session_summary
+from .memory_context import inject_memory_context
 from .tool_registry import resolve_tool_name
 
 MEMORY_OPTIMIZE_THRESHOLD = 50
@@ -1050,6 +1051,7 @@ class StreamChatService:
             pre_events: list[dict[str, Any]] = []
 
             messages = self._inject_local_time_context(messages, request, pre_events)
+            messages = inject_memory_context(messages, request)
             enabled_tool_names = self._collect_enabled_tool_names(request)
             messages = self._inject_tool_guidance(messages, enabled_tool_names, request)
 
@@ -2301,6 +2303,7 @@ class StreamChatService:
 
             def _build_continuation_agent_input(base_messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 messages = self._inject_local_time_context(list(base_messages), request, [])
+                messages = inject_memory_context(messages, request)
                 system_messages = [m for m in messages if m.get("role") == "system"]
                 chat_messages = [m for m in messages if m.get("role") != "system"]
 

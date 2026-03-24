@@ -235,7 +235,6 @@ async def _resolve_provider_api_key(provider: str, database_provider: str | None
         "openai": "OpenAICompatibilityKey",
         "openai_compatibility": "OpenAICompatibilityKey",
         "openrouter": "OpenRouterKey",
-        "litellm_openai": "LiteLLMKey",
         "huggingface": "HuggingFaceKey",
         "siliconflow": "SiliconFlowKey",
         "glm": "GlmKey",
@@ -264,8 +263,6 @@ async def _resolve_provider_api_key(provider: str, database_provider: str | None
         return os.getenv("SILICONFLOW_API_KEY", "")
     elif provider == "openrouter":
         return os.getenv("OPENROUTER_API_KEY", "")
-    elif provider == "litellm_openai":
-        return os.getenv("LITELLM_API_KEY", "")
     elif provider == "huggingface":
         return os.getenv("HF_TOKEN", os.getenv("HUGGINGFACE_API_KEY", ""))
     elif provider == "deepseek":

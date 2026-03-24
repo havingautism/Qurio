@@ -1,7 +1,7 @@
 """
 Additional provider adapters for OpenAI-compatible APIs and gateway providers.
 Includes SiliconFlow, GLM, Kimi, Nvidia, MiniMax, ModelScope, OpenRouter,
-LiteLLM OpenAI, and HuggingFace adapters.
+and HuggingFace adapters.
 """
 
 from typing import Any
@@ -11,10 +11,6 @@ try:
     from agno.models.huggingface import HuggingFace
 except Exception:  # pragma: no cover - optional dependency
     HuggingFace = None
-try:
-    from agno.models.litellm import LiteLLMOpenAI
-except Exception:  # pragma: no cover - optional dependency
-    LiteLLMOpenAI = None
 try:
     from agno.models.openrouter import OpenRouter
 except Exception:  # pragma: no cover - optional dependency
@@ -275,39 +271,6 @@ class OpenRouterAdapter(OpenAIAdapter):
         resolved_base = base_url or self.config.base_url
         resolved_model = model or self.config.default_model
         return OpenRouter(id=resolved_model, api_key=api_key, base_url=resolved_base)
-
-
-class LiteLLMOpenAIAdapter(OpenAIAdapter):
-    """Adapter for LiteLLM OpenAI-compatible gateways."""
-
-    def __init__(self):
-        self.config = ProviderConfig(
-            name="litellm_openai",
-            base_url="http://0.0.0.0:4000",
-            default_model="gpt-5-mini",
-            supports_streaming=True,
-            supports_tools=True,
-            supports_streaming_tool_calls=False,
-            supports_json_schema=True,
-            supports_thinking=False,
-            supports_vision=True,
-        )
-
-    def build_model(
-        self,
-        api_key: str,
-        model: str | None = None,
-        base_url: str | None = None,
-        thinking: dict[str, Any] | bool | None = None,
-        tools: list[dict[str, Any]] | None = None,
-        tool_choice: Any = None,
-        **kwargs
-    ) -> LiteLLMOpenAI:
-        if LiteLLMOpenAI is None:
-            raise ImportError("LiteLLM support requires agno.models.litellm and its dependencies")
-        resolved_base = base_url or self.config.base_url
-        resolved_model = model or self.config.default_model
-        return LiteLLMOpenAI(id=resolved_model, api_key=api_key, base_url=resolved_base)
 
 
 class HuggingFaceAdapter(OpenAIAdapter):

@@ -10,7 +10,6 @@ dependencies = [
     "fastapi>=0.135.1",
     "uvicorn[standard]>=0.41.0",
     "agno>=2.5.9",
-    "litellm>=1.80.0",
     "huggingface_hub>=0.36.0",
     "pydantic>=2.12.5",
     "pydantic-settings>=2.13.1",

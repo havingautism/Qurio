@@ -1612,10 +1612,12 @@ const MessageBubble = ({
             status: block.status || 'running',
             query: block.query || '',
             applied: typeof block.applied === 'boolean' ? block.applied : null,
-            originalCount:
-              Number.isFinite(block.originalCount) ? Number(block.originalCount) : null,
-            filteredCount:
-              Number.isFinite(block.filteredCount) ? Number(block.filteredCount) : null,
+            originalCount: Number.isFinite(block.originalCount)
+              ? Number(block.originalCount)
+              : null,
+            filteredCount: Number.isFinite(block.filteredCount)
+              ? Number(block.filteredCount)
+              : null,
             fallbackReason: block.fallbackReason || null,
             originalResults: Array.isArray(block.originalResults) ? block.originalResults : [],
             filteredResults: Array.isArray(block.filteredResults) ? block.filteredResults : [],
@@ -2801,12 +2803,7 @@ const MessageBubble = ({
       results.forEach((item, index) => {
         if (!item || typeof item !== 'object') return
         const key = String(
-          item.url ||
-            item.link ||
-            item.href ||
-            item.id ||
-            item.title ||
-            `search-result-${index}`,
+          item.url || item.link || item.href || item.id || item.title || `search-result-${index}`,
         ).trim()
         if (!key || seen.has(key)) return
         seen.add(key)
@@ -2882,10 +2879,8 @@ const MessageBubble = ({
           queries: block.query ? [String(block.query)] : [],
           status: String(block.status || 'running'),
           applied: typeof block.applied === 'boolean' ? block.applied : false,
-          originalCount:
-            Number.isFinite(block.originalCount) ? Number(block.originalCount) : 0,
-          filteredCount:
-            Number.isFinite(block.filteredCount) ? Number(block.filteredCount) : 0,
+          originalCount: Number.isFinite(block.originalCount) ? Number(block.originalCount) : 0,
+          filteredCount: Number.isFinite(block.filteredCount) ? Number(block.filteredCount) : 0,
           fallbackReason: block.fallbackReason || null,
           originalResults: Array.isArray(block.originalResults) ? block.originalResults : [],
           filteredResults: Array.isArray(block.filteredResults) ? block.filteredResults : [],
@@ -4836,7 +4831,7 @@ const MessageBubble = ({
 
                         <div className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
                           {/* Search Queries row */}
-                          <div className="mb-2 flex flex-wrap gap-1.5">
+                          <div className="mb-0 flex flex-wrap gap-1.5">
                             {step.queries.map(query => (
                               <span
                                 key={`query-${query}`}
@@ -4855,7 +4850,7 @@ const MessageBubble = ({
                                 searchFallbackPresentation.tone === 'warning'
                                   ? 'border-amber-500/20 bg-gradient-to-r from-amber-500/12 via-amber-500/6 to-transparent text-amber-700 dark:text-amber-300'
                                   : searchFallbackPresentation.tone === 'success'
-                                    ? 'border-primary-500/20 bg-gradient-to-r from-primary-500/12 via-white/5 to-transparent text-primary-700 dark:border-primary-500/25 dark:from-primary-500/14 dark:text-primary-300'
+                                    ? 'border-primary-500/20 from-primary-500/12 text-primary-700 dark:border-primary-500/25 dark:from-primary-500/14 dark:text-primary-300 bg-gradient-to-r via-white/5 to-transparent'
                                     : 'border-gray-200/80 bg-white/55 text-gray-700 dark:border-zinc-700/60 dark:bg-zinc-900/30 dark:text-zinc-200',
                               )}
                             >
@@ -4880,27 +4875,12 @@ const MessageBubble = ({
                           )}
 
                           {hasOriginalCandidates && (
-                            <details className="mb-2 rounded-2xl border border-dashed border-gray-200/80 bg-white/55 p-3 shadow-[0_1px_0_rgba(255,255,255,0.03)] backdrop-blur-sm dark:border-zinc-700/60 dark:bg-zinc-950/25">
-                              <summary className="flex cursor-pointer list-none items-center justify-between gap-2">
-                                <div className="flex min-w-0 items-center gap-2">
-                                  <span className="text-[11px] font-semibold tracking-[0.18em] text-gray-400 uppercase dark:text-zinc-500">
-                                    {t('messageBubble.searchOriginalCandidates', '原始候选')}
-                                  </span>
-                                  <span className="rounded-full border border-gray-200/80 bg-white/80 px-2 py-0.5 text-[11px] font-medium text-gray-500 dark:border-zinc-700/60 dark:bg-zinc-900/60 dark:text-zinc-400">
-                                    {originalResultCount}
-                                  </span>
-                                </div>
-                                <span className="text-[11px] text-gray-400 dark:text-zinc-500">
-                                  {t(
-                                    'messageBubble.searchOriginalCandidatesHint',
-                                    '可展开查看被筛选前的全部结果',
-                                  )}
-                                </span>
-                              </summary>
-                              <div className="mt-3">
+                            <>
+                              <div className="flex min-w-0 items-center gap-2"></div>
+                              <div>
                                 <SearchSourcesList sources={originalSearchResults} />
                               </div>
-                            </details>
+                            </>
                           )}
                         </div>
                       </div>
@@ -4909,10 +4889,16 @@ const MessageBubble = ({
 
                   if (step.kind === 'search_filter') {
                     const originalCount = Number(
-                      step.originalCount || step.meta?.originalCount || step.meta?.original_count || 0,
+                      step.originalCount ||
+                        step.meta?.originalCount ||
+                        step.meta?.original_count ||
+                        0,
                     )
                     const filteredCount = Number(
-                      step.filteredCount || step.meta?.filteredCount || step.meta?.filtered_count || 0,
+                      step.filteredCount ||
+                        step.meta?.filteredCount ||
+                        step.meta?.filtered_count ||
+                        0,
                     )
                     const originalResults = Array.isArray(step.originalResults)
                       ? step.originalResults
@@ -4954,19 +4940,18 @@ const MessageBubble = ({
                             <span className="text-base font-semibold text-gray-700 dark:text-gray-200">
                               {t('messageBubble.searchFilterStep', '筛选结果')}
                             </span>
-                            <span className="border-primary-500/15 from-primary-500/10 text-primary-600 dark:from-primary-500/15 dark:text-primary-300 inline-flex items-center gap-1.5 rounded-full border bg-gradient-to-r via-white/5 to-transparent px-3 py-1 text-[11px] font-medium backdrop-blur-md dark:via-zinc-900/40 dark:to-zinc-900/20">
-                              {isRunning && <DotLoader size="sm" />}
-                              <span>{statusLabel}</span>
-                            </span>
+                            {/* <span className="rounded-full border border-gray-200/80 bg-white/80 px-2 py-0.5 text-[11px] font-medium text-gray-500 dark:border-zinc-700/60 dark:bg-zinc-900/60 dark:text-zinc-400">
+                              {filteredCount}
+                            </span> */}
                           </div>
                           <span className="shrink-0 text-xs! font-normal text-gray-500 dark:text-gray-400">
                             {summaryLabel}
                           </span>
                         </div>
 
-                        <div className="border-primary-500/15 from-primary-500/8 dark:from-primary-500/10 rounded-2xl border bg-gradient-to-r via-white/5 to-transparent p-3 backdrop-blur-sm dark:via-zinc-900/40 dark:to-zinc-900/15">
+                        <div>
                           {isRunning && (
-                            <div className="mb-3 flex items-center gap-3 rounded-2xl border border-primary-500/10 bg-black/[0.02] p-3 dark:bg-white/[0.02]">
+                            <div className="border-primary-500/10 mb-3 flex items-center gap-3 rounded-2xl border bg-black/[0.02] p-3 dark:bg-white/[0.02]">
                               <span className="bg-primary-500/12 text-primary-500 dark:text-primary-300 relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl">
                                 <span className="bg-primary-500/10 absolute inset-0 animate-pulse rounded-xl" />
                                 <SlidersHorizontal size={16} className="relative" />
@@ -4984,21 +4969,13 @@ const MessageBubble = ({
                               </div>
                             </div>
                           )}
-                          {!isRunning && isFallback && step.fallbackReason && (
+                          {/* {!isRunning && isFallback && step.fallbackReason && (
                             <div className="mb-2 rounded-xl border border-amber-500/15 bg-amber-500/8 px-3 py-2 text-[11px] text-amber-700 dark:text-amber-300">
                               {step.fallbackReason}
                             </div>
-                          )}
+                          )} */}
                           {!isRunning && (
                             <>
-                              <div className="mb-2 flex items-center gap-2">
-                                <span className="text-primary-500/80 dark:text-primary-300/80 text-[11px] font-semibold tracking-[0.18em] uppercase">
-                                  {t('messageBubble.searchRelevantResults', '高相关结果')}
-                                </span>
-                                <span className="border-primary-500/20 bg-primary-500/10 text-primary-600 dark:text-primary-300 rounded-full border px-2 py-0.5 text-[11px] font-medium">
-                                  {filteredCount}
-                                </span>
-                              </div>
                               {hasResults ? (
                                 <SearchSourcesList sources={filteredResults} />
                               ) : (

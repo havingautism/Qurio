@@ -703,6 +703,11 @@ export const callAIAPI = async (
     })
     return safeSteps
   }
+
+  let useDeepResearchAgent = false
+  let deepResearchErrored = false
+  let handleDeepResearchError = null
+
   try {
     // Get model configuration: Agent priority, global fallback
     const fallbackAgent = agents?.find(agent => agent.isDefault)
@@ -785,10 +790,8 @@ export const callAIAPI = async (
       })
     }
 
-    const useDeepResearchAgent =
-      !!toggles?.deepResearch && typeof provider.streamDeepResearch === 'function'
-    let deepResearchErrored = false
-    const handleDeepResearchError = error => {
+    useDeepResearchAgent = !!toggles?.deepResearch && typeof provider.streamDeepResearch === 'function'
+    handleDeepResearchError = error => {
       deepResearchErrored = true
       flushPending()
       const messageText = error?.message || 'Deep research failed'
@@ -1565,7 +1568,11 @@ export const callAIAPI = async (
       set({ isLoading: false, abortController: null })
       return
     }
-    if (useDeepResearchAgent && !deepResearchErrored) {
+    if (
+      useDeepResearchAgent &&
+      !deepResearchErrored &&
+      typeof handleDeepResearchError === 'function'
+    ) {
       handleDeepResearchError(error)
       return
     }

@@ -32,6 +32,7 @@ from ..routes import (
     thinking_mode,
     title_and_space,
     title_space_agent,
+    turn_summary,
 )
 from ..routes import (
     daily_tip as daily_tip_route,
@@ -127,6 +128,7 @@ def _build_base_app() -> FastAPI:
     app.include_router(space_agent.router, prefix="/api")
     app.include_router(agent_for_auto.router, prefix="/api")
     app.include_router(related_questions.router, prefix="/api")
+    app.include_router(turn_summary.router, prefix="/api")
     app.include_router(thinking_mode.router, prefix="/api")
     app.include_router(research_plan.router, prefix="/api")
     app.include_router(deep_research.router, prefix="/api")

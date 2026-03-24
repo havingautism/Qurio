@@ -97,6 +97,7 @@ SCHEMA_STATEMENTS: list[str] = [
       document_sources TEXT DEFAULT '[]',
       grounding_supports TEXT,
       pipeline_trace TEXT,
+      turn_summary TEXT,
       stream_blocks TEXT NOT NULL DEFAULT '[]',
       stream_schema_version INTEGER NOT NULL DEFAULT 1,
       created_at TEXT NOT NULL

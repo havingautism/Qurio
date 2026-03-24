@@ -1,4 +1,4 @@
-const PIPELINE_SCHEMA_VERSION = 7
+const PIPELINE_SCHEMA_VERSION = 8
 const MAX_SUMMARY_LENGTH = 92
 
 const stripMarkdownLikeSyntax = value =>
@@ -427,38 +427,78 @@ const extractSearchFilterMeta = outputValue => {
   }
 }
 
+const normalizeSearchFilterMeta = meta => {
+  if (!meta || typeof meta !== 'object') return null
+  const originalResults = Array.isArray(meta.originalResults)
+    ? meta.originalResults
+    : Array.isArray(meta.original_results)
+      ? meta.original_results
+      : []
+  const filteredResults = Array.isArray(meta.filteredResults)
+    ? meta.filteredResults
+    : Array.isArray(meta.filtered_results)
+      ? meta.filtered_results
+      : []
+  return {
+    query: typeof meta.query === 'string' ? meta.query : '',
+    status: String(meta.status || 'done'),
+    applied: Boolean(meta.applied),
+    originalCount: Number(meta.originalCount || meta.original_count || originalResults.length || 0),
+    filteredCount: Number(meta.filteredCount || meta.filtered_count || filteredResults.length || 0),
+    fallbackReason:
+      typeof meta.fallbackReason === 'string'
+        ? meta.fallbackReason
+        : typeof meta.fallback_reason === 'string'
+          ? meta.fallback_reason
+          : null,
+    originalResults,
+    filteredResults,
+  }
+}
+
 const buildSearchFilterNode = ({
   id,
   toolName,
   outputValue,
   durationMs,
   actor,
+  searchFilterMeta = null,
 }) => {
   if (!SEARCH_FILTER_SOURCE_TOOLS.has(String(toolName || ''))) return null
-  const meta = extractSearchFilterMeta(outputValue)
+  const meta = normalizeSearchFilterMeta(searchFilterMeta) || extractSearchFilterMeta(outputValue)
   if (!meta) return null
+  const normalizedStatus = String(meta.status || 'done').toLowerCase()
 
-  return createNode({
+  const node = createNode({
     id: `search-filter-${id}`,
     type: 'search_filter',
     title: 'Filter Results',
     badge: 'Filter',
     summary:
-      meta.originalCount > 0
-        ? `${meta.filteredCount || 0} / ${meta.originalCount} relevant results`
-        : '',
+      normalizedStatus === 'running'
+        ? ''
+        : meta.originalCount > 0
+          ? `${meta.filteredCount || 0} / ${meta.originalCount} relevant results`
+          : '',
     status:
-      meta.status === 'filtered'
-        ? 'done'
-        : meta.status === 'fallback' || meta.status === 'unavailable'
+      normalizedStatus === 'running'
+        ? 'running'
+        : normalizedStatus === 'filtered' ||
+            normalizedStatus === 'fallback' ||
+            normalizedStatus === 'unavailable'
           ? 'done'
-          : 'running',
+          : normalizedStatus,
     actor,
     durationMs,
     detailSections: [
       textSection('Tool', String(toolName || '')),
       meta.query ? textSection('Query', meta.query) : null,
-      textSection('Summary', `${meta.filteredCount || 0} / ${meta.originalCount || 0} relevant results`),
+      normalizedStatus === 'running'
+        ? textSection('Summary', 'Filtering in progress')
+        : textSection(
+            'Summary',
+            `${meta.filteredCount || 0} / ${meta.originalCount || 0} relevant results`,
+          ),
       meta.fallbackReason ? textSection('Fallback', meta.fallbackReason) : null,
       sourceSection(meta.filteredResults),
     ],
@@ -469,6 +509,17 @@ const buildSearchFilterNode = ({
       fallbackReason: meta.fallbackReason,
     },
   })
+  return {
+    ...node,
+    query: meta.query,
+    applied: meta.applied,
+    originalCount: meta.originalCount,
+    filteredCount: meta.filteredCount,
+    fallbackReason: meta.fallbackReason,
+    originalResults: meta.originalResults,
+    filteredResults: meta.filteredResults,
+    sourceToolId: id,
+  }
 }
 
 const buildToolCallNode = ({
@@ -677,6 +728,7 @@ const extractOrderedNodesFromBlocks = ({
   actorNameById = new Map(),
 }) => {
   const nodes = []
+  const hasExplicitSearchFilterBlocks = blocks.some(block => block._type === 'search_filter')
   let index = 0
   while (index < blocks.length) {
     const block = blocks[index]
@@ -694,6 +746,39 @@ const extractOrderedNodesFromBlocks = ({
       })
       if (node) nodes.push(node)
       index = nextIndex
+      continue
+    }
+
+    if (type === 'search_filter') {
+      const searchFilterNode = buildSearchFilterNode({
+        id: block?.id || block?.tool_call_id || `${idPrefix}-${index}`,
+        toolName: block?.name || 'web_search',
+        outputValue: null,
+        durationMs: block?.duration_ms,
+        actor,
+        searchFilterMeta: {
+          query: block?.query || '',
+          status: String(block?.status || 'running'),
+          applied: block?.applied,
+          originalCount:
+            block?.originalCount != null ? block.originalCount : block?.original_count,
+          filteredCount:
+            block?.filteredCount != null ? block.filteredCount : block?.filtered_count,
+          fallbackReason: block?.fallbackReason || block?.fallback_reason || null,
+          originalResults: Array.isArray(block?.originalResults)
+            ? block.originalResults
+            : Array.isArray(block?.original_results)
+              ? block.original_results
+              : [],
+          filteredResults: Array.isArray(block?.filteredResults)
+            ? block.filteredResults
+            : Array.isArray(block?.filtered_results)
+              ? block.filtered_results
+              : [],
+        },
+      })
+      if (searchFilterNode) nodes.push(searchFilterNode)
+      index += 1
       continue
     }
 
@@ -749,14 +834,16 @@ const extractOrderedNodesFromBlocks = ({
           argumentsValue: argumentsValue ?? block?.arguments,
         })
         nodes.push(resultNode)
-        const searchFilterNode = buildSearchFilterNode({
-          id: toolId,
-          toolName,
-          outputValue: outputValue ?? block?.output,
-          durationMs: block?.duration_ms,
-          actor,
-        })
-        if (searchFilterNode) nodes.push(searchFilterNode)
+        if (!hasExplicitSearchFilterBlocks) {
+          const searchFilterNode = buildSearchFilterNode({
+            id: toolId,
+            toolName,
+            outputValue: outputValue ?? block?.output,
+            durationMs: block?.duration_ms,
+            actor,
+          })
+          if (searchFilterNode) nodes.push(searchFilterNode)
+        }
       }
       index += 1
       continue
@@ -781,14 +868,16 @@ const extractOrderedNodesFromBlocks = ({
         argumentsValue: safeParseJson(block?.arguments) ?? block?.arguments,
       })
       nodes.push(resultNode)
-      const searchFilterNode = buildSearchFilterNode({
-        id: toolId,
-        toolName,
-        outputValue: outputValue ?? block?.output,
-        durationMs: block?.duration_ms,
-        actor,
-      })
-      if (searchFilterNode) nodes.push(searchFilterNode)
+      if (!hasExplicitSearchFilterBlocks) {
+        const searchFilterNode = buildSearchFilterNode({
+          id: toolId,
+          toolName,
+          outputValue: outputValue ?? block?.output,
+          durationMs: block?.duration_ms,
+          actor,
+        })
+        if (searchFilterNode) nodes.push(searchFilterNode)
+      }
       index += 1
       continue
     }

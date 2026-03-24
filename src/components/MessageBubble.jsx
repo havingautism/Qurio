@@ -50,6 +50,7 @@ import { TOOL_TRANSLATION_KEYS, TOOL_ICONS } from '../lib/toolConstants'
 import { splitTextWithUrls } from '../lib/urlHighlight'
 import { normalizeExpertBrokenTokenLines } from '../lib/chat/expertTextUtils'
 import { getExpertTabIndicators, getExpertTaskCardModel } from '../lib/chat/expertUiUtils'
+import { getSearchFilterFallbackPresentation } from '../lib/chat/searchFilterPresentation'
 import DesktopSourcesSection from './DesktopSourcesSection'
 import DesktopSourcesSheet from './DesktopSourcesSheet'
 import DotLoader from './DotLoader'
@@ -757,6 +758,29 @@ const MessageBubble = ({
         status: item?.status || null,
         arguments: item?.arguments ?? null,
         output: item?.output ?? null,
+        query: item?.query || null,
+        applied: typeof item?.applied === 'boolean' ? item.applied : null,
+        originalCount: Number.isFinite(item?.original_count)
+          ? Number(item.original_count)
+          : Number.isFinite(item?.originalCount)
+            ? Number(item.originalCount)
+            : null,
+        filteredCount: Number.isFinite(item?.filtered_count)
+          ? Number(item.filtered_count)
+          : Number.isFinite(item?.filteredCount)
+            ? Number(item.filteredCount)
+            : null,
+        fallbackReason: item?.fallback_reason || item?.fallbackReason || null,
+        originalResults: Array.isArray(item?.original_results)
+          ? item.original_results
+          : Array.isArray(item?.originalResults)
+            ? item.originalResults
+            : null,
+        filteredResults: Array.isArray(item?.filtered_results)
+          ? item.filtered_results
+          : Array.isArray(item?.filteredResults)
+            ? item.filteredResults
+            : null,
         durationMs: Number.isFinite(item?.duration_ms) ? Number(item.duration_ms) : null,
       }))
       .filter(item => item.type)
@@ -1574,6 +1598,28 @@ const MessageBubble = ({
             type: 'workflow_text',
             key: `stream-workflow-text-${block.seq}`,
             content: block.content,
+          })
+        }
+        continue
+      }
+      if (block.type === 'search_filter') {
+        if (!isDeepResearch) {
+          parts.push({
+            type: 'search_filter',
+            key: `stream-search-filter-${block.id || block.toolCallId || block.seq}`,
+            id: block.id || block.toolCallId || null,
+            name: block.name || 'search_filter',
+            status: block.status || 'running',
+            query: block.query || '',
+            applied: typeof block.applied === 'boolean' ? block.applied : null,
+            originalCount:
+              Number.isFinite(block.originalCount) ? Number(block.originalCount) : null,
+            filteredCount:
+              Number.isFinite(block.filteredCount) ? Number(block.filteredCount) : null,
+            fallbackReason: block.fallbackReason || null,
+            originalResults: Array.isArray(block.originalResults) ? block.originalResults : [],
+            filteredResults: Array.isArray(block.filteredResults) ? block.filteredResults : [],
+            durationMs: Number.isFinite(block.durationMs) ? Number(block.durationMs) : null,
           })
         }
         continue
@@ -2748,6 +2794,26 @@ const MessageBubble = ({
       if (tool?.id) toolById.set(String(tool.id), tool)
     }
     const steps = []
+    const dedupeSearchResults = results => {
+      if (!Array.isArray(results) || results.length === 0) return []
+      const seen = new Set()
+      const deduped = []
+      results.forEach((item, index) => {
+        if (!item || typeof item !== 'object') return
+        const key = String(
+          item.url ||
+            item.link ||
+            item.href ||
+            item.id ||
+            item.title ||
+            `search-result-${index}`,
+        ).trim()
+        if (!key || seen.has(key)) return
+        seen.add(key)
+        deduped.push(item)
+      })
+      return deduped
+    }
     const parseToolQuery = tool => {
       if (!tool) return ''
       const args = tool.arguments
@@ -2783,6 +2849,11 @@ const MessageBubble = ({
       }
     }
 
+    const getToolStepKey = tool =>
+      tool?.id
+        ? String(tool.id)
+        : `${tool?.name || 'tool'}:${String(tool?.arguments || '')}:${String(tool?.output || '')}`
+
     for (const block of normalizedStreamBlocks) {
       if ((block.type === 'reasoning' || block.type === 'thought') && block.content) {
         const lastStep = steps[steps.length - 1]
@@ -2800,6 +2871,29 @@ const MessageBubble = ({
             durationMs: Number.isFinite(block.durationMs) ? Number(block.durationMs) : 0,
           })
         }
+        continue
+      }
+
+      if (block.type === 'search_filter') {
+        steps.push({
+          kind: 'search_filter',
+          stepKey: `search-filter-${block.id || block.toolCallId || block.seq}`,
+          sourceStepKey: block.id || block.toolCallId || null,
+          queries: block.query ? [String(block.query)] : [],
+          status: String(block.status || 'running'),
+          applied: typeof block.applied === 'boolean' ? block.applied : false,
+          originalCount:
+            Number.isFinite(block.originalCount) ? Number(block.originalCount) : 0,
+          filteredCount:
+            Number.isFinite(block.filteredCount) ? Number(block.filteredCount) : 0,
+          fallbackReason: block.fallbackReason || null,
+          originalResults: Array.isArray(block.originalResults) ? block.originalResults : [],
+          filteredResults: Array.isArray(block.filteredResults) ? block.filteredResults : [],
+          durationMs: Number.isFinite(block.durationMs) ? Number(block.durationMs) : 0,
+          items: [],
+          _toolKeys: new Set(),
+          _querySet: new Set(),
+        })
         continue
       }
 
@@ -2824,12 +2918,14 @@ const MessageBubble = ({
 
         const isSearchTool = SEARCH_STEP_TOOLS.has(String(tool.name))
         if (isSearchTool) {
+          const searchToolKey = getToolStepKey(tool)
           const lastStep = steps[steps.length - 1]
-          if (lastStep?.kind === 'search') {
+          if (lastStep?.kind === 'search' && lastStep.stepKey === searchToolKey) {
             addToolToStep(lastStep, tool)
           } else {
             const newSearchStep = {
               kind: 'search',
+              stepKey: searchToolKey,
               items: [],
               queries: [],
               sources: [],
@@ -2873,6 +2969,7 @@ const MessageBubble = ({
         let searchFilterFallbackReason = null
         let searchFilterOriginalResults = []
         let searchFilterFilteredResults = []
+        const searchFilterEntries = []
         // Process each tool execution to extract sources directly if possible
         step.items.forEach(t => {
           if (!t.output) return
@@ -2903,12 +3000,14 @@ const MessageBubble = ({
                     ? parsed.searchFilter
                     : null
               if (filterMeta) {
-                originalResultCount += Number(
+                const currentOriginalCount = Number(
                   filterMeta.original_count || filterMeta.originalCount || 0,
                 )
-                filteredResultCount += Number(
+                const currentFilteredCount = Number(
                   filterMeta.filtered_count || filterMeta.filteredCount || 0,
                 )
+                originalResultCount += currentOriginalCount
+                filteredResultCount += currentFilteredCount
                 searchFilterApplied = searchFilterApplied || Boolean(filterMeta.applied)
                 if (filterMeta.status) searchFilterStatus = String(filterMeta.status)
                 if (filterMeta.fallback_reason) {
@@ -2924,21 +3023,42 @@ const MessageBubble = ({
                   : Array.isArray(filterMeta.filteredResults)
                     ? filterMeta.filteredResults
                     : []
-                if (metaOriginalResults.length > 0) {
-                  searchFilterOriginalResults = metaOriginalResults
-                }
-                if (metaFilteredResults.length > 0) {
-                  searchFilterFilteredResults = metaFilteredResults
-                }
+                searchFilterOriginalResults = dedupeSearchResults([
+                  ...searchFilterOriginalResults,
+                  ...metaOriginalResults,
+                ])
+                searchFilterFilteredResults = dedupeSearchResults([
+                  ...searchFilterFilteredResults,
+                  ...metaFilteredResults,
+                ])
+                searchFilterEntries.push({
+                  query:
+                    String(
+                      filterMeta.query ||
+                        parsed.query ||
+                        parsed.search_query ||
+                        parsed.searchQuery ||
+                        '',
+                    ).trim() || '',
+                  status: String(filterMeta.status || 'done'),
+                  applied: Boolean(filterMeta.applied),
+                  originalCount: currentOriginalCount || metaOriginalResults.length,
+                  filteredCount: currentFilteredCount || metaFilteredResults.length,
+                  fallbackReason: filterMeta.fallback_reason || filterMeta.fallbackReason || null,
+                  originalResults: dedupeSearchResults(metaOriginalResults),
+                  filteredResults: dedupeSearchResults(metaFilteredResults),
+                })
               } else {
                 originalResultCount += results.length
                 filteredResultCount += results.length
-                if (searchFilterOriginalResults.length === 0) {
-                  searchFilterOriginalResults = results
-                }
-                if (searchFilterFilteredResults.length === 0) {
-                  searchFilterFilteredResults = results
-                }
+                searchFilterOriginalResults = dedupeSearchResults([
+                  ...searchFilterOriginalResults,
+                  ...results,
+                ])
+                searchFilterFilteredResults = dedupeSearchResults([
+                  ...searchFilterFilteredResults,
+                  ...results,
+                ])
               }
               results.forEach(result => {
                 const url = result?.url || result?.link || result?.href
@@ -3011,6 +3131,7 @@ const MessageBubble = ({
           originalResults: searchFilterOriginalResults,
           filteredResults:
             searchFilterFilteredResults.length > 0 ? searchFilterFilteredResults : step.sources,
+          entries: searchFilterEntries,
         }
       }
     })
@@ -4115,6 +4236,40 @@ const MessageBubble = ({
       : base.flatMap((step, idx) => {
           if (step?.kind !== 'search') return [step]
 
+          const searchFilterEntries = Array.isArray(step.searchFilter?.entries)
+            ? step.searchFilter.entries.filter(entry => {
+                const originalCount = Number(entry?.originalCount || 0)
+                const filteredCount = Number(entry?.filteredCount || 0)
+                return Boolean(entry?.applied) && originalCount > 0 && filteredCount > 0
+              })
+            : []
+
+          if (searchFilterEntries.length > 0) {
+            return [
+              step,
+              ...searchFilterEntries.map((entry, entryIdx) => ({
+                kind: 'search_filter',
+                sourceStepKey: `${step.stepKey || `search-${idx}`}-filter-${entryIdx}`,
+                queries: entry?.query
+                  ? [String(entry.query)]
+                  : Array.isArray(step.queries)
+                    ? [...step.queries]
+                    : [],
+                status: String(entry?.status || 'done'),
+                applied: Boolean(entry?.applied),
+                originalCount: Number(entry?.originalCount || 0),
+                filteredCount: Number(entry?.filteredCount || 0),
+                fallbackReason: entry?.fallbackReason || null,
+                originalResults: Array.isArray(entry?.originalResults)
+                  ? [...entry.originalResults]
+                  : [],
+                filteredResults: Array.isArray(entry?.filteredResults)
+                  ? [...entry.filteredResults]
+                  : [],
+              })),
+            ]
+          }
+
           const originalCount = Number(step.searchFilter?.originalCount || 0)
           const filteredCount = Number(step.searchFilter?.filteredCount || 0)
           const applied = Boolean(step.searchFilter?.applied)
@@ -4259,6 +4414,7 @@ const MessageBubble = ({
     }
 
     const lastProcessStep = processSteps[processSteps.length - 1]
+    if (lastProcessStep?.kind === 'search_filter') return 'search_filter'
     if (lastProcessStep?.kind === 'search') return 'search'
     if (lastProcessStep?.kind === 'tools') return 'tools'
     if (lastProcessStep?.kind === 'thought') return 'thought'
@@ -4362,6 +4518,8 @@ const MessageBubble = ({
                         return isDeepResearch
                           ? t('messageBubble.statusGeneratingResearch', '研究生成中')
                           : t('messageBubble.statusGeneratingAnswer', '正在生成正文')
+                      if (activeStreamingStepKind === 'search_filter')
+                        return t('messageBubble.statusFiltering', '正在筛选')
                       if (activeStreamingStepKind === 'search')
                         return t('messageBubble.statusSearching', '正在搜索')
                       if (activeStreamingStepKind === 'tools')
@@ -4624,6 +4782,18 @@ const MessageBubble = ({
                     const hasOriginalCandidates = originalSearchResults.length > 0
                     const originalResultCount =
                       Number(step.searchFilter?.originalCount || 0) || originalSearchResults.length
+                    const searchFilterStatus = String(step.searchFilter?.status || '').toLowerCase()
+                    const searchFilterFallbackReason = String(
+                      step.searchFilter?.fallbackReason || '',
+                    ).trim()
+                    const shouldShowSearchFallbackNotice =
+                      !Boolean(step.searchFilter?.applied) &&
+                      (searchFilterStatus === 'fallback' ||
+                        searchFilterStatus === 'unavailable' ||
+                        Boolean(searchFilterFallbackReason))
+                    const searchFallbackPresentation = shouldShowSearchFallbackNotice
+                      ? getSearchFilterFallbackPresentation(searchFilterFallbackReason)
+                      : null
 
                     return (
                       <div key={`search-${idx}`} className="relative mb-4">
@@ -4678,6 +4848,37 @@ const MessageBubble = ({
                             ))}
                           </div>
 
+                          {searchFallbackPresentation && (
+                            <div
+                              className={clsx(
+                                'mb-2 rounded-xl border px-3 py-2 text-sm shadow-[0_1px_0_rgba(255,255,255,0.03)] backdrop-blur-sm',
+                                searchFallbackPresentation.tone === 'warning'
+                                  ? 'border-amber-500/20 bg-gradient-to-r from-amber-500/12 via-amber-500/6 to-transparent text-amber-700 dark:text-amber-300'
+                                  : searchFallbackPresentation.tone === 'success'
+                                    ? 'border-primary-500/20 bg-gradient-to-r from-primary-500/12 via-white/5 to-transparent text-primary-700 dark:border-primary-500/25 dark:from-primary-500/14 dark:text-primary-300'
+                                    : 'border-gray-200/80 bg-white/55 text-gray-700 dark:border-zinc-700/60 dark:bg-zinc-900/30 dark:text-zinc-200',
+                              )}
+                            >
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className={clsx(
+                                    'inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold tracking-[0.14em] uppercase',
+                                    searchFallbackPresentation.tone === 'warning'
+                                      ? 'border-amber-500/20 bg-amber-500/12 text-amber-700 dark:text-amber-300'
+                                      : searchFallbackPresentation.tone === 'success'
+                                        ? 'border-primary-500/20 bg-primary-500/12 text-primary-700 dark:text-primary-300'
+                                        : 'border-gray-200/80 bg-white/70 text-gray-700 dark:border-zinc-700/60 dark:bg-zinc-900/40 dark:text-zinc-300',
+                                  )}
+                                >
+                                  {t(searchFallbackPresentation.badgeKey)}
+                                </span>
+                                <span className="min-w-0 truncate text-sm font-medium opacity-90">
+                                  {t(searchFallbackPresentation.bodyKey)}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+
                           {hasOriginalCandidates && (
                             <details className="mb-2 rounded-2xl border border-dashed border-gray-200/80 bg-white/55 p-3 shadow-[0_1px_0_rgba(255,255,255,0.03)] backdrop-blur-sm dark:border-zinc-700/60 dark:bg-zinc-950/25">
                               <summary className="flex cursor-pointer list-none items-center justify-between gap-2">
@@ -4707,8 +4908,12 @@ const MessageBubble = ({
                   }
 
                   if (step.kind === 'search_filter') {
-                    const originalCount = Number(step.originalCount || 0)
-                    const filteredCount = Number(step.filteredCount || 0)
+                    const originalCount = Number(
+                      step.originalCount || step.meta?.originalCount || step.meta?.original_count || 0,
+                    )
+                    const filteredCount = Number(
+                      step.filteredCount || step.meta?.filteredCount || step.meta?.filtered_count || 0,
+                    )
                     const originalResults = Array.isArray(step.originalResults)
                       ? step.originalResults
                       : []
@@ -4727,6 +4932,12 @@ const MessageBubble = ({
                       : isDone
                         ? t('messageBubble.searchFilterDone', '筛选完成')
                         : t('messageBubble.searchFiltering', '正在筛选高相关结果...')
+                    const summaryLabel = isRunning
+                      ? t('messageBubble.searchFiltering', '正在筛选高相关结果...')
+                      : t('messageBubble.searchFiltered', {
+                          filtered: filteredCount,
+                          original: originalCount,
+                        })
 
                     return (
                       <div key={`search-filter-${idx}`} className="relative mb-4">
@@ -4749,66 +4960,68 @@ const MessageBubble = ({
                             </span>
                           </div>
                           <span className="shrink-0 text-xs! font-normal text-gray-500 dark:text-gray-400">
-                            {t('messageBubble.searchFiltered', {
-                              filtered: filteredCount,
-                              original: originalCount,
-                            })}
+                            {summaryLabel}
                           </span>
                         </div>
 
                         <div className="border-primary-500/15 from-primary-500/8 dark:from-primary-500/10 rounded-2xl border bg-gradient-to-r via-white/5 to-transparent p-3 backdrop-blur-sm dark:via-zinc-900/40 dark:to-zinc-900/15">
                           {isRunning && (
-                            <div className="border-primary-500/10 mb-3 overflow-hidden rounded-2xl border bg-black/[0.02] p-3 dark:bg-white/[0.02]">
-                              <div className="flex items-center gap-3">
-                                <span className="bg-primary-500/12 text-primary-500 dark:text-primary-300 relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl">
-                                  <span className="bg-primary-500/10 absolute inset-0 animate-pulse rounded-xl" />
-                                  <SlidersHorizontal size={16} className="relative" />
-                                </span>
-                                <div className="min-w-0 flex-1">
-                                  <div className="text-sm font-medium text-gray-700 dark:text-gray-100">
-                                    {t('messageBubble.searchFiltering', '正在筛选高相关结果...')}
-                                  </div>
-                                  <div className="bg-primary-500/10 mt-2 h-1.5 overflow-hidden rounded-full">
-                                    <div className="from-primary-400 via-primary-500 h-full w-1/3 animate-pulse rounded-full bg-gradient-to-r to-fuchsia-500" />
-                                  </div>
+                            <div className="mb-3 flex items-center gap-3 rounded-2xl border border-primary-500/10 bg-black/[0.02] p-3 dark:bg-white/[0.02]">
+                              <span className="bg-primary-500/12 text-primary-500 dark:text-primary-300 relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl">
+                                <span className="bg-primary-500/10 absolute inset-0 animate-pulse rounded-xl" />
+                                <SlidersHorizontal size={16} className="relative" />
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <div className="text-sm font-medium text-gray-700 dark:text-gray-100">
+                                  {t('messageBubble.searchFiltering', '正在筛选高相关结果...')}
+                                </div>
+                                <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                  {t('messageBubble.searchFilterRunningHint', '等待筛选结果返回')}
+                                </div>
+                                <div className="bg-primary-500/10 mt-2 h-1.5 overflow-hidden rounded-full">
+                                  <div className="from-primary-400 via-primary-500 h-full w-1/3 animate-pulse rounded-full bg-gradient-to-r to-fuchsia-500" />
                                 </div>
                               </div>
                             </div>
                           )}
-                          {isFallback && step.fallbackReason && (
+                          {!isRunning && isFallback && step.fallbackReason && (
                             <div className="mb-2 rounded-xl border border-amber-500/15 bg-amber-500/8 px-3 py-2 text-[11px] text-amber-700 dark:text-amber-300">
                               {step.fallbackReason}
                             </div>
                           )}
-                          <div className="mb-2 flex items-center gap-2">
-                            <span className="text-primary-500/80 dark:text-primary-300/80 text-[11px] font-semibold tracking-[0.18em] uppercase">
-                              {t('messageBubble.searchRelevantResults', '高相关结果')}
-                            </span>
-                            <span className="border-primary-500/20 bg-primary-500/10 text-primary-600 dark:text-primary-300 rounded-full border px-2 py-0.5 text-[11px] font-medium">
-                              {filteredCount}
-                            </span>
-                          </div>
-                          {hasResults ? (
-                            <SearchSourcesList sources={filteredResults} />
-                          ) : (
-                            <div className="rounded-xl border border-dashed border-gray-200/70 bg-white/40 px-3 py-2 text-sm text-gray-500 dark:border-zinc-700/60 dark:bg-zinc-950/20 dark:text-gray-400">
-                              {t(
-                                'messageBubble.searchRelevantResultsEmpty',
-                                '没有可展示的高相关结果',
-                              )}
-                            </div>
-                          )}
-
-                          {originalResults.length > 0 &&
-                            filteredResults.length > 0 &&
-                            originalResults.length > filteredResults.length && (
-                              <div className="mt-3 text-[11px] text-gray-400 dark:text-zinc-500">
-                                {t('messageBubble.searchFilterCompare', {
-                                  original: originalResults.length,
-                                  filtered: filteredResults.length,
-                                })}
+                          {!isRunning && (
+                            <>
+                              <div className="mb-2 flex items-center gap-2">
+                                <span className="text-primary-500/80 dark:text-primary-300/80 text-[11px] font-semibold tracking-[0.18em] uppercase">
+                                  {t('messageBubble.searchRelevantResults', '高相关结果')}
+                                </span>
+                                <span className="border-primary-500/20 bg-primary-500/10 text-primary-600 dark:text-primary-300 rounded-full border px-2 py-0.5 text-[11px] font-medium">
+                                  {filteredCount}
+                                </span>
                               </div>
-                            )}
+                              {hasResults ? (
+                                <SearchSourcesList sources={filteredResults} />
+                              ) : (
+                                <div className="rounded-xl border border-dashed border-gray-200/70 bg-white/40 px-3 py-2 text-sm text-gray-500 dark:border-zinc-700/60 dark:bg-zinc-950/20 dark:text-gray-400">
+                                  {t(
+                                    'messageBubble.searchRelevantResultsEmpty',
+                                    '没有可展示的高相关结果',
+                                  )}
+                                </div>
+                              )}
+
+                              {originalResults.length > 0 &&
+                                filteredResults.length > 0 &&
+                                originalResults.length > filteredResults.length && (
+                                  <div className="mt-3 text-[11px] text-gray-400 dark:text-zinc-500">
+                                    {t('messageBubble.searchFilterCompare', {
+                                      original: originalResults.length,
+                                      filtered: filteredResults.length,
+                                    })}
+                                  </div>
+                                )}
+                            </>
+                          )}
                         </div>
                       </div>
                     )

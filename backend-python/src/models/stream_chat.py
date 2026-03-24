@@ -263,6 +263,31 @@ class ToolResultEvent(BaseModel):
     agent_status: AgentStatus | None = Field(default=None, alias="agentStatus")
 
 
+class SearchFilterEvent(BaseModel):
+    """Search filtering progress/result event."""
+    model_config = {"populate_by_name": True}
+
+    type: Literal["search_filter"] = Field(default="search_filter", alias="type")
+    id: str | None = None
+    name: str
+    status: Literal["running", "filtered", "fallback", "unavailable"]
+    query: str | None = None
+    applied: bool | None = None
+    original_count: int | None = Field(default=None, alias="originalCount")
+    filtered_count: int | None = Field(default=None, alias="filteredCount")
+    fallback_reason: str | None = Field(default=None, alias="fallbackReason")
+    original_results: list[dict[str, Any]] | None = Field(default=None, alias="originalResults")
+    filtered_results: list[dict[str, Any]] | None = Field(default=None, alias="filteredResults")
+    duration_ms: int | None = Field(default=None, alias="durationMs")
+    text_index: int | None = Field(default=None, alias="textIndex")
+    # Agent identification for Team mode
+    agent_id: str | None = Field(default=None, alias="agentId")
+    agent_name: str | None = Field(default=None, alias="agentName")
+    agent_role: str | None = Field(default=None, alias="agentRole")
+    agent_emoji: str | None = Field(default=None, alias="agentEmoji")
+    agent_status: AgentStatus | None = Field(default=None, alias="agentStatus")
+
+
 class SourceEvent(BaseModel):
     """Source/citation event."""
     uri: str
@@ -309,6 +334,7 @@ StreamEvent = (
     | ThoughtEvent
     | ToolCallEvent
     | ToolResultEvent
+    | SearchFilterEvent
     | DoneEvent
     | ErrorEvent
     | FormRequestEvent

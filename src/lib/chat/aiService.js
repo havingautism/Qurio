@@ -75,7 +75,12 @@ const findParagraphEndIndex = (content, index) => {
   return content.length
 }
 
-const buildStreamBlocks = ({ content = '', thoughtHistory = [], toolCallHistory = [] } = {}) => {
+const buildStreamBlocks = ({
+  content = '',
+  thoughtHistory = [],
+  toolCallHistory = [],
+  searchFilterHistory = [],
+} = {}) => {
   const rawContent = typeof content === 'string' ? content : String(content || '')
   const events = []
 
@@ -112,7 +117,32 @@ const buildStreamBlocks = ({ content = '', thoughtHistory = [], toolCallHistory 
         .filter(item => item.tool_call_id)
     : []
 
-  events.push(...normalizedThoughts, ...normalizedTools)
+  const normalizedSearchFilters = Array.isArray(searchFilterHistory)
+    ? searchFilterHistory
+        .map((item, index) => ({
+          type: 'search_filter',
+          textIndex: Number.isFinite(item?.textIndex) ? Number(item.textIndex) : 0,
+          order: Number.isFinite(item?.streamOrder) ? Number(item.streamOrder) : 200000 + index,
+          id: item?.id || item?.toolCallId || item?.tool_call_id || `search-filter-${index}`,
+          name: item?.name || 'search_filter',
+          status: item?.status || 'running',
+          query: item?.query || '',
+          applied: item?.applied,
+          originalCount: item?.originalCount ?? item?.original_count ?? null,
+          filteredCount: item?.filteredCount ?? item?.filtered_count ?? null,
+          fallbackReason: item?.fallbackReason || item?.fallback_reason || null,
+          originalResults: item?.originalResults || item?.original_results || null,
+          filteredResults: item?.filteredResults || item?.filtered_results || null,
+          durationMs: Number.isFinite(item?.durationMs)
+            ? Number(item.durationMs)
+            : Number.isFinite(item?.duration_ms)
+              ? Number(item.duration_ms)
+              : null,
+        }))
+        .filter(item => item.id)
+    : []
+
+  events.push(...normalizedThoughts, ...normalizedTools, ...normalizedSearchFilters)
   events.sort((a, b) =>
     a.textIndex === b.textIndex ? a.order - b.order : a.textIndex - b.textIndex,
   )
@@ -137,7 +167,7 @@ const buildStreamBlocks = ({ content = '', thoughtHistory = [], toolCallHistory 
         content: event.content,
         duration_ms: event.duration_ms,
       })
-    } else {
+    } else if (event.type === 'tool') {
       blocks.push({
         seq: seq++,
         type: 'tool',
@@ -147,6 +177,22 @@ const buildStreamBlocks = ({ content = '', thoughtHistory = [], toolCallHistory 
         arguments: event.arguments,
         output: event.output,
         duration_ms: event.duration_ms,
+      })
+    } else if (event.type === 'search_filter') {
+      blocks.push({
+        seq: seq++,
+        type: 'search_filter',
+        id: event.id,
+        name: event.name,
+        status: event.status,
+        query: event.query,
+        applied: event.applied,
+        original_count: event.originalCount,
+        filtered_count: event.filteredCount,
+        fallback_reason: event.fallbackReason,
+        original_results: event.originalResults,
+        filtered_results: event.filteredResults,
+        duration_ms: event.durationMs,
       })
     }
   }
@@ -563,6 +609,9 @@ export const callAIAPI = async (
         content: lastMsg.content || '',
         thoughtHistory: thoughtHistoryForBlocks,
         toolCallHistory: Array.isArray(lastMsg.toolCallHistory) ? lastMsg.toolCallHistory : [],
+        searchFilterHistory: Array.isArray(lastMsg.searchFilterHistory)
+          ? lastMsg.searchFilterHistory
+          : [],
       })
 
       updated[lastMsgIndex] = lastMsg
@@ -1094,6 +1143,9 @@ export const callAIAPI = async (
                 content: lastMsg.content || '',
                 thoughtHistory: getThoughtHistoryForRebuild(lastMsg),
                 toolCallHistory: history,
+                searchFilterHistory: Array.isArray(lastMsg.searchFilterHistory)
+                  ? lastMsg.searchFilterHistory
+                  : [],
               })
               updated[lastMsgIndex] = lastMsg
               return { messages: updated }
@@ -1176,6 +1228,99 @@ export const callAIAPI = async (
                 content: lastMsg.content || '',
                 thoughtHistory: getThoughtHistoryForRebuild(lastMsg),
                 toolCallHistory: history,
+                searchFilterHistory: Array.isArray(lastMsg.searchFilterHistory)
+                  ? lastMsg.searchFilterHistory
+                  : [],
+              })
+              updated[lastMsgIndex] = lastMsg
+              return { messages: updated }
+            })
+            return
+          }
+          if (chunk.type === 'search_filter') {
+            flushPending()
+            hasNonThoughtEvent = true
+            set(state => {
+              const updated = [...state.messages]
+              const lastMsgIndex = updated.length - 1
+              if (lastMsgIndex < 0 || updated[lastMsgIndex].role !== 'ai')
+                return { messages: updated }
+              const lastMsg = { ...updated[lastMsgIndex] }
+              const history = Array.isArray(lastMsg.searchFilterHistory)
+                ? [...lastMsg.searchFilterHistory]
+                : []
+              const toolId = chunk.id || chunk.toolCallId || `${chunk.name || 'search_filter'}`
+              const targetIndex = history.findIndex(entry =>
+                toolId ? String(entry?.id || entry?.toolCallId || '') === String(toolId) : false,
+              )
+              const nextEntry = {
+                id: toolId,
+                toolCallId: toolId,
+                name: chunk.name || 'search_filter',
+                status: chunk.status || 'running',
+                query: chunk.query || '',
+                applied: typeof chunk.applied === 'boolean' ? chunk.applied : null,
+                originalCount:
+                  typeof chunk.originalCount === 'number'
+                    ? chunk.originalCount
+                    : typeof chunk.original_count === 'number'
+                      ? chunk.original_count
+                      : null,
+                filteredCount:
+                  typeof chunk.filteredCount === 'number'
+                    ? chunk.filteredCount
+                    : typeof chunk.filtered_count === 'number'
+                      ? chunk.filtered_count
+                      : null,
+                fallbackReason: chunk.fallbackReason || chunk.fallback_reason || null,
+                originalResults: Array.isArray(chunk.originalResults)
+                  ? chunk.originalResults
+                  : Array.isArray(chunk.original_results)
+                    ? chunk.original_results
+                    : null,
+                filteredResults: Array.isArray(chunk.filteredResults)
+                  ? chunk.filteredResults
+                  : Array.isArray(chunk.filtered_results)
+                    ? chunk.filtered_results
+                    : null,
+                durationMs:
+                  typeof chunk.durationMs === 'number'
+                    ? chunk.durationMs
+                    : typeof chunk.duration_ms === 'number'
+                      ? chunk.duration_ms
+                      : null,
+                textIndex:
+                  typeof chunk.textIndex === 'number'
+                    ? chunk.textIndex
+                    : (() => {
+                        const matchedTool = Array.isArray(lastMsg.toolCallHistory)
+                          ? lastMsg.toolCallHistory.find(entry => String(entry?.id || '') === String(toolId))
+                          : null
+                        if (typeof matchedTool?.textIndex === 'number') return matchedTool.textIndex
+                        return String(lastMsg.content || '').length
+                      })(),
+                streamOrder: Number.isFinite(chunk.streamOrder)
+                  ? Number(chunk.streamOrder)
+                  : targetIndex >= 0 && Number.isFinite(history[targetIndex]?.streamOrder)
+                    ? history[targetIndex].streamOrder
+                    : ++streamEventOrder,
+              }
+              if (targetIndex >= 0) {
+                history[targetIndex] = {
+                  ...history[targetIndex],
+                  ...nextEntry,
+                }
+              } else {
+                history.push(nextEntry)
+              }
+              lastMsg.searchFilterHistory = history
+              lastMsg.streamBlocks = buildStreamBlocks({
+                content: lastMsg.content || '',
+                thoughtHistory: getThoughtHistoryForRebuild(lastMsg),
+                toolCallHistory: Array.isArray(lastMsg.toolCallHistory)
+                  ? lastMsg.toolCallHistory
+                  : [],
+                searchFilterHistory: history,
               })
               updated[lastMsgIndex] = lastMsg
               return { messages: updated }
@@ -1263,6 +1408,9 @@ export const callAIAPI = async (
                 content: lastMsg.content || '',
                 thoughtHistory: getThoughtHistoryForRebuild(lastMsg),
                 toolCallHistory: history,
+                searchFilterHistory: Array.isArray(lastMsg.searchFilterHistory)
+                  ? lastMsg.searchFilterHistory
+                  : [],
               })
               updated[lastMsgIndex] = lastMsg
               return { messages: updated }
@@ -1809,6 +1957,9 @@ export const finalizeMessage = async (
       content: contentForPersistence,
       thoughtHistory: thoughtHistoryForPersistence || [],
       toolCallHistory: toolCallHistoryForPersistence || [],
+      searchFilterHistory: Array.isArray(latestAi?.searchFilterHistory)
+        ? latestAi.searchFilterHistory
+        : [],
     })
     const toolCallHistoryForRuntime =
       toolCallHistoryForPersistence && toolCallHistoryForPersistence.length > 0

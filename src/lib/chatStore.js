@@ -781,6 +781,109 @@ const useChatStore = create((set, get) => ({
               return
             }
 
+            if (chunk && typeof chunk === 'object' && chunk.type === 'search_filter') {
+              updateTargetResponse(item => {
+                const history = Array.isArray(item.searchFilterHistory)
+                  ? [...item.searchFilterHistory]
+                  : []
+                const toolId = chunk.id || chunk.toolCallId || chunk.name || 'search_filter'
+                const targetIndex = history.findIndex(entry =>
+                  String(entry?.id || entry?.toolCallId || '') === String(toolId),
+                )
+                const nextEntry = {
+                  id: toolId,
+                  toolCallId: toolId,
+                  name: chunk.name || 'search_filter',
+                  status: chunk.status || 'running',
+                  query: chunk.query || '',
+                  applied: typeof chunk.applied === 'boolean' ? chunk.applied : null,
+                  originalCount:
+                    typeof chunk.originalCount === 'number'
+                      ? chunk.originalCount
+                      : typeof chunk.original_count === 'number'
+                        ? chunk.original_count
+                        : null,
+                  filteredCount:
+                    typeof chunk.filteredCount === 'number'
+                      ? chunk.filteredCount
+                      : typeof chunk.filtered_count === 'number'
+                        ? chunk.filtered_count
+                        : null,
+                  fallbackReason: chunk.fallbackReason || chunk.fallback_reason || null,
+                  originalResults: Array.isArray(chunk.originalResults)
+                    ? chunk.originalResults
+                    : Array.isArray(chunk.original_results)
+                      ? chunk.original_results
+                      : null,
+                  filteredResults: Array.isArray(chunk.filteredResults)
+                    ? chunk.filteredResults
+                    : Array.isArray(chunk.filtered_results)
+                      ? chunk.filtered_results
+                      : null,
+                  durationMs:
+                    typeof chunk.durationMs === 'number'
+                      ? chunk.durationMs
+                      : typeof chunk.duration_ms === 'number'
+                        ? chunk.duration_ms
+                        : null,
+                  textIndex:
+                    typeof chunk.textIndex === 'number'
+                      ? chunk.textIndex
+                      : (() => {
+                          const matchedTool = Array.isArray(item.toolCallHistory)
+                            ? item.toolCallHistory.find(
+                                entry => String(entry?.id || '') === String(toolId),
+                              )
+                            : null
+                          if (typeof matchedTool?.textIndex === 'number') return matchedTool.textIndex
+                          return (item.content || '').length
+                        })(),
+                  streamOrder: ++toolStreamOrder,
+                }
+                if (targetIndex >= 0) {
+                  history[targetIndex] = {
+                    ...history[targetIndex],
+                    ...nextEntry,
+                  }
+                } else {
+                  history.push(nextEntry)
+                }
+
+                const streamBlocks = Array.isArray(item.streamBlocks) ? [...item.streamBlocks] : []
+                const nextStreamBlock = {
+                  seq: ++streamSeq,
+                  type: 'search_filter',
+                  id: toolId,
+                  name: chunk.name || 'search_filter',
+                  status: chunk.status || 'running',
+                  query: chunk.query || '',
+                  applied: typeof chunk.applied === 'boolean' ? chunk.applied : null,
+                  originalCount: nextEntry.originalCount,
+                  filteredCount: nextEntry.filteredCount,
+                  fallbackReason: nextEntry.fallbackReason,
+                  originalResults: nextEntry.originalResults,
+                  filteredResults: nextEntry.filteredResults,
+                  durationMs: nextEntry.durationMs,
+                }
+                const existingBlockIndex = streamBlocks.findIndex(
+                  block =>
+                    block?.type === 'search_filter' &&
+                    String(block?.id || block?.tool_call_id || block?.toolCallId || '') ===
+                      String(toolId),
+                )
+                if (existingBlockIndex >= 0) {
+                  streamBlocks[existingBlockIndex] = {
+                    ...streamBlocks[existingBlockIndex],
+                    ...nextStreamBlock,
+                  }
+                } else {
+                  streamBlocks.push(nextStreamBlock)
+                }
+                return { ...item, searchFilterHistory: history, streamBlocks, status: 'running' }
+              })
+              return
+            }
+
             const chunkText = extractChunkText(chunk)
             if (!chunkText) return
             const cleanText = sanitizeExpertStreamChunk(chunkText)

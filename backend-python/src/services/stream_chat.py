@@ -27,6 +27,7 @@ from ..models.stream_chat import (
     DoneEvent,
     ErrorEvent,
     FormRequestEvent,  # New: HITL form request event
+    SearchFilterEvent,
     SourceEvent,
     StreamChatRequest,
     TextEvent,
@@ -61,6 +62,7 @@ TOOL_TRACE_END_TAGS = {
     "tool_calls_end",
     "tool_calls_section_end",
 }
+SEARCH_FILTER_SOURCE_TOOLS = {"web_search", "search_news"}
 
 
 def _strip_internal_tool_trace(text: str) -> str:
@@ -141,6 +143,82 @@ def _strip_inline_tool_protocol(
 
     cleaned = PROTOCOL_TAG_REGEX.sub("", combined)
     return cleaned, 0, tail, True
+
+
+def _extract_tool_query(tool: Any) -> str:
+    raw_args = getattr(tool, "tool_args", None)
+    parsed = raw_args
+    if isinstance(parsed, str):
+        text = parsed.strip()
+        if not text:
+            return ""
+        try:
+            parsed = json.loads(text)
+        except Exception:
+            try:
+                parsed = ast.literal_eval(text)
+            except Exception:
+                return ""
+    if isinstance(parsed, dict):
+        query = parsed.get("query") or parsed.get("q") or parsed.get("search_query")
+        return str(query or "").strip()
+    return ""
+
+
+def _extract_search_filter_meta(output: Any) -> dict[str, Any] | None:
+    payload = _coerce_tool_result_payload(output)
+    if not isinstance(payload, dict):
+        return None
+    meta = payload.get("search_filter") or payload.get("searchFilter")
+    if not isinstance(meta, dict):
+        return None
+    return meta
+
+
+def _build_search_filter_event(
+    tool: Any,
+    *,
+    status: str,
+    duration_ms: int | None = None,
+    text_index: int | None = None,
+    output: Any = None,
+    agent_info: dict[str, str | None] | None = None,
+) -> dict[str, Any] | None:
+    tool_name = str(getattr(tool, "tool_name", "") or "").strip()
+    if tool_name not in SEARCH_FILTER_SOURCE_TOOLS:
+        return None
+
+    tool_call_id = getattr(tool, "tool_call_id", None)
+    query = _extract_tool_query(tool)
+    meta = _extract_search_filter_meta(output)
+    payload: dict[str, Any] = {
+        "type": "search_filter",
+        "id": tool_call_id,
+        "name": tool_name,
+        "status": status,
+        "query": query or (str(meta.get("query", "")).strip() if meta else ""),
+        "durationMs": duration_ms,
+        "textIndex": text_index,
+        "agentId": agent_info.get("agent_id") if agent_info else None,
+        "agentName": agent_info.get("agent_name") if agent_info else None,
+        "agentRole": agent_info.get("agent_role") if agent_info else None,
+        "agentEmoji": agent_info.get("agent_emoji") if agent_info else None,
+    }
+
+    if meta:
+        payload.update(
+            {
+                "applied": meta.get("applied"),
+                "originalCount": meta.get("original_count", meta.get("originalCount")),
+                "filteredCount": meta.get("filtered_count", meta.get("filteredCount")),
+                "fallbackReason": meta.get("fallback_reason", meta.get("fallbackReason")),
+                "originalResults": meta.get("original_results", meta.get("originalResults")),
+                "filteredResults": meta.get("filtered_results", meta.get("filteredResults")),
+                "status": str(meta.get("status") or status),
+            }
+        )
+
+    return SearchFilterEvent(**payload).model_dump(by_alias=True, exclude_none=True)
 
 
 def _squash_whitespace(text: Any) -> str:
@@ -1574,6 +1652,29 @@ class StreamChatService:
                                     agent_info=current_agent_info,
                                 )
                                 yield tool_result_event
+                                search_filter_running_event = _build_search_filter_event(
+                                    tool,
+                                    status="running",
+                                    text_index=len(full_content),
+                                    agent_info=current_agent_info,
+                                )
+                                if search_filter_running_event:
+                                    yield search_filter_running_event
+                                search_meta = _extract_search_filter_meta(output)
+                                search_filter_event = _build_search_filter_event(
+                                    tool,
+                                    status=(
+                                        str(search_meta.get("status") or "unavailable")
+                                        if search_meta
+                                        else "unavailable"
+                                    ),
+                                    duration_ms=duration_ms,
+                                    text_index=len(full_content),
+                                    output=output,
+                                    agent_info=current_agent_info,
+                                )
+                                if search_filter_event:
+                                    yield search_filter_event
                                 self._collect_search_sources(output, sources_map)
 
                         case RunEvent.run_completed.value | TeamRunEvent.run_completed:
@@ -2170,8 +2271,8 @@ class StreamChatService:
                                         tool_name=tool.tool_name or "",
                                         tool_call_id=tool.tool_call_id,
                                     )
-                                    current_text_index = len(full_content)
-                                    yield _build_tool_call_event(tool, current_text_index)
+                                current_text_index = len(full_content)
+                                yield _build_tool_call_event(tool, current_text_index)
 
                             case RunEvent.tool_call_completed.value:
                                 tool_event: ToolCallCompletedEvent = run_event  # type: ignore[assignment]
@@ -2198,6 +2299,27 @@ class StreamChatService:
                                         self._normalize_tool_output,
                                     )
                                     yield tool_result_event
+                                    search_filter_running_event = _build_search_filter_event(
+                                        tool,
+                                        status="running",
+                                        text_index=len(full_content),
+                                    )
+                                    if search_filter_running_event:
+                                        yield search_filter_running_event
+                                    search_meta = _extract_search_filter_meta(output)
+                                    search_filter_event = _build_search_filter_event(
+                                        tool,
+                                        status=(
+                                            str(search_meta.get("status") or "unavailable")
+                                            if search_meta
+                                            else "unavailable"
+                                        ),
+                                        duration_ms=duration_ms,
+                                        text_index=len(full_content),
+                                        output=output,
+                                    )
+                                    if search_filter_event:
+                                        yield search_filter_event
                                     self._collect_search_sources(output, sources_map)
 
                             case RunEvent.run_completed.value:

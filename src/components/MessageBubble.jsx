@@ -758,6 +758,29 @@ const MessageBubble = ({
         status: item?.status || null,
         arguments: item?.arguments ?? null,
         output: item?.output ?? null,
+        query: item?.query || null,
+        applied: typeof item?.applied === 'boolean' ? item.applied : null,
+        originalCount: Number.isFinite(item?.original_count)
+          ? Number(item.original_count)
+          : Number.isFinite(item?.originalCount)
+            ? Number(item.originalCount)
+            : null,
+        filteredCount: Number.isFinite(item?.filtered_count)
+          ? Number(item.filtered_count)
+          : Number.isFinite(item?.filteredCount)
+            ? Number(item.filteredCount)
+            : null,
+        fallbackReason: item?.fallback_reason || item?.fallbackReason || null,
+        originalResults: Array.isArray(item?.original_results)
+          ? item.original_results
+          : Array.isArray(item?.originalResults)
+            ? item.originalResults
+            : null,
+        filteredResults: Array.isArray(item?.filtered_results)
+          ? item.filtered_results
+          : Array.isArray(item?.filteredResults)
+            ? item.filteredResults
+            : null,
         durationMs: Number.isFinite(item?.duration_ms) ? Number(item.duration_ms) : null,
       }))
       .filter(item => item.type)
@@ -1575,6 +1598,28 @@ const MessageBubble = ({
             type: 'workflow_text',
             key: `stream-workflow-text-${block.seq}`,
             content: block.content,
+          })
+        }
+        continue
+      }
+      if (block.type === 'search_filter') {
+        if (!isDeepResearch) {
+          parts.push({
+            type: 'search_filter',
+            key: `stream-search-filter-${block.id || block.toolCallId || block.seq}`,
+            id: block.id || block.toolCallId || null,
+            name: block.name || 'search_filter',
+            status: block.status || 'running',
+            query: block.query || '',
+            applied: typeof block.applied === 'boolean' ? block.applied : null,
+            originalCount:
+              Number.isFinite(block.originalCount) ? Number(block.originalCount) : null,
+            filteredCount:
+              Number.isFinite(block.filteredCount) ? Number(block.filteredCount) : null,
+            fallbackReason: block.fallbackReason || null,
+            originalResults: Array.isArray(block.originalResults) ? block.originalResults : [],
+            filteredResults: Array.isArray(block.filteredResults) ? block.filteredResults : [],
+            durationMs: Number.isFinite(block.durationMs) ? Number(block.durationMs) : null,
           })
         }
         continue
@@ -2826,6 +2871,29 @@ const MessageBubble = ({
             durationMs: Number.isFinite(block.durationMs) ? Number(block.durationMs) : 0,
           })
         }
+        continue
+      }
+
+      if (block.type === 'search_filter') {
+        steps.push({
+          kind: 'search_filter',
+          stepKey: `search-filter-${block.id || block.toolCallId || block.seq}`,
+          sourceStepKey: block.id || block.toolCallId || null,
+          queries: block.query ? [String(block.query)] : [],
+          status: String(block.status || 'running'),
+          applied: typeof block.applied === 'boolean' ? block.applied : false,
+          originalCount:
+            Number.isFinite(block.originalCount) ? Number(block.originalCount) : 0,
+          filteredCount:
+            Number.isFinite(block.filteredCount) ? Number(block.filteredCount) : 0,
+          fallbackReason: block.fallbackReason || null,
+          originalResults: Array.isArray(block.originalResults) ? block.originalResults : [],
+          filteredResults: Array.isArray(block.filteredResults) ? block.filteredResults : [],
+          durationMs: Number.isFinite(block.durationMs) ? Number(block.durationMs) : 0,
+          items: [],
+          _toolKeys: new Set(),
+          _querySet: new Set(),
+        })
         continue
       }
 
@@ -4346,6 +4414,7 @@ const MessageBubble = ({
     }
 
     const lastProcessStep = processSteps[processSteps.length - 1]
+    if (lastProcessStep?.kind === 'search_filter') return 'search_filter'
     if (lastProcessStep?.kind === 'search') return 'search'
     if (lastProcessStep?.kind === 'tools') return 'tools'
     if (lastProcessStep?.kind === 'thought') return 'thought'
@@ -4449,6 +4518,8 @@ const MessageBubble = ({
                         return isDeepResearch
                           ? t('messageBubble.statusGeneratingResearch', '研究生成中')
                           : t('messageBubble.statusGeneratingAnswer', '正在生成正文')
+                      if (activeStreamingStepKind === 'search_filter')
+                        return t('messageBubble.statusFiltering', '正在筛选')
                       if (activeStreamingStepKind === 'search')
                         return t('messageBubble.statusSearching', '正在搜索')
                       if (activeStreamingStepKind === 'tools')
@@ -4837,8 +4908,12 @@ const MessageBubble = ({
                   }
 
                   if (step.kind === 'search_filter') {
-                    const originalCount = Number(step.originalCount || 0)
-                    const filteredCount = Number(step.filteredCount || 0)
+                    const originalCount = Number(
+                      step.originalCount || step.meta?.originalCount || step.meta?.original_count || 0,
+                    )
+                    const filteredCount = Number(
+                      step.filteredCount || step.meta?.filteredCount || step.meta?.filtered_count || 0,
+                    )
                     const originalResults = Array.isArray(step.originalResults)
                       ? step.originalResults
                       : []
@@ -4857,6 +4932,12 @@ const MessageBubble = ({
                       : isDone
                         ? t('messageBubble.searchFilterDone', '筛选完成')
                         : t('messageBubble.searchFiltering', '正在筛选高相关结果...')
+                    const summaryLabel = isRunning
+                      ? t('messageBubble.searchFiltering', '正在筛选高相关结果...')
+                      : t('messageBubble.searchFiltered', {
+                          filtered: filteredCount,
+                          original: originalCount,
+                        })
 
                     return (
                       <div key={`search-filter-${idx}`} className="relative mb-4">
@@ -4879,66 +4960,68 @@ const MessageBubble = ({
                             </span>
                           </div>
                           <span className="shrink-0 text-xs! font-normal text-gray-500 dark:text-gray-400">
-                            {t('messageBubble.searchFiltered', {
-                              filtered: filteredCount,
-                              original: originalCount,
-                            })}
+                            {summaryLabel}
                           </span>
                         </div>
 
                         <div className="border-primary-500/15 from-primary-500/8 dark:from-primary-500/10 rounded-2xl border bg-gradient-to-r via-white/5 to-transparent p-3 backdrop-blur-sm dark:via-zinc-900/40 dark:to-zinc-900/15">
                           {isRunning && (
-                            <div className="border-primary-500/10 mb-3 overflow-hidden rounded-2xl border bg-black/[0.02] p-3 dark:bg-white/[0.02]">
-                              <div className="flex items-center gap-3">
-                                <span className="bg-primary-500/12 text-primary-500 dark:text-primary-300 relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl">
-                                  <span className="bg-primary-500/10 absolute inset-0 animate-pulse rounded-xl" />
-                                  <SlidersHorizontal size={16} className="relative" />
-                                </span>
-                                <div className="min-w-0 flex-1">
-                                  <div className="text-sm font-medium text-gray-700 dark:text-gray-100">
-                                    {t('messageBubble.searchFiltering', '正在筛选高相关结果...')}
-                                  </div>
-                                  <div className="bg-primary-500/10 mt-2 h-1.5 overflow-hidden rounded-full">
-                                    <div className="from-primary-400 via-primary-500 h-full w-1/3 animate-pulse rounded-full bg-gradient-to-r to-fuchsia-500" />
-                                  </div>
+                            <div className="mb-3 flex items-center gap-3 rounded-2xl border border-primary-500/10 bg-black/[0.02] p-3 dark:bg-white/[0.02]">
+                              <span className="bg-primary-500/12 text-primary-500 dark:text-primary-300 relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl">
+                                <span className="bg-primary-500/10 absolute inset-0 animate-pulse rounded-xl" />
+                                <SlidersHorizontal size={16} className="relative" />
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <div className="text-sm font-medium text-gray-700 dark:text-gray-100">
+                                  {t('messageBubble.searchFiltering', '正在筛选高相关结果...')}
+                                </div>
+                                <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                  {t('messageBubble.searchFilterRunningHint', '等待筛选结果返回')}
+                                </div>
+                                <div className="bg-primary-500/10 mt-2 h-1.5 overflow-hidden rounded-full">
+                                  <div className="from-primary-400 via-primary-500 h-full w-1/3 animate-pulse rounded-full bg-gradient-to-r to-fuchsia-500" />
                                 </div>
                               </div>
                             </div>
                           )}
-                          {isFallback && step.fallbackReason && (
+                          {!isRunning && isFallback && step.fallbackReason && (
                             <div className="mb-2 rounded-xl border border-amber-500/15 bg-amber-500/8 px-3 py-2 text-[11px] text-amber-700 dark:text-amber-300">
                               {step.fallbackReason}
                             </div>
                           )}
-                          <div className="mb-2 flex items-center gap-2">
-                            <span className="text-primary-500/80 dark:text-primary-300/80 text-[11px] font-semibold tracking-[0.18em] uppercase">
-                              {t('messageBubble.searchRelevantResults', '高相关结果')}
-                            </span>
-                            <span className="border-primary-500/20 bg-primary-500/10 text-primary-600 dark:text-primary-300 rounded-full border px-2 py-0.5 text-[11px] font-medium">
-                              {filteredCount}
-                            </span>
-                          </div>
-                          {hasResults ? (
-                            <SearchSourcesList sources={filteredResults} />
-                          ) : (
-                            <div className="rounded-xl border border-dashed border-gray-200/70 bg-white/40 px-3 py-2 text-sm text-gray-500 dark:border-zinc-700/60 dark:bg-zinc-950/20 dark:text-gray-400">
-                              {t(
-                                'messageBubble.searchRelevantResultsEmpty',
-                                '没有可展示的高相关结果',
-                              )}
-                            </div>
-                          )}
-
-                          {originalResults.length > 0 &&
-                            filteredResults.length > 0 &&
-                            originalResults.length > filteredResults.length && (
-                              <div className="mt-3 text-[11px] text-gray-400 dark:text-zinc-500">
-                                {t('messageBubble.searchFilterCompare', {
-                                  original: originalResults.length,
-                                  filtered: filteredResults.length,
-                                })}
+                          {!isRunning && (
+                            <>
+                              <div className="mb-2 flex items-center gap-2">
+                                <span className="text-primary-500/80 dark:text-primary-300/80 text-[11px] font-semibold tracking-[0.18em] uppercase">
+                                  {t('messageBubble.searchRelevantResults', '高相关结果')}
+                                </span>
+                                <span className="border-primary-500/20 bg-primary-500/10 text-primary-600 dark:text-primary-300 rounded-full border px-2 py-0.5 text-[11px] font-medium">
+                                  {filteredCount}
+                                </span>
                               </div>
-                            )}
+                              {hasResults ? (
+                                <SearchSourcesList sources={filteredResults} />
+                              ) : (
+                                <div className="rounded-xl border border-dashed border-gray-200/70 bg-white/40 px-3 py-2 text-sm text-gray-500 dark:border-zinc-700/60 dark:bg-zinc-950/20 dark:text-gray-400">
+                                  {t(
+                                    'messageBubble.searchRelevantResultsEmpty',
+                                    '没有可展示的高相关结果',
+                                  )}
+                                </div>
+                              )}
+
+                              {originalResults.length > 0 &&
+                                filteredResults.length > 0 &&
+                                originalResults.length > filteredResults.length && (
+                                  <div className="mt-3 text-[11px] text-gray-400 dark:text-zinc-500">
+                                    {t('messageBubble.searchFilterCompare', {
+                                      original: originalResults.length,
+                                      filtered: filteredResults.length,
+                                    })}
+                                  </div>
+                                )}
+                            </>
+                          )}
                         </div>
                       </div>
                     )

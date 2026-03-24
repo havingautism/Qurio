@@ -134,6 +134,35 @@ const extractExpertState = message => {
                   : Number.isFinite(block?.durationMs)
                     ? Number(block.durationMs)
                     : null,
+                id: block?.id || null,
+                query: typeof block?.query === 'string' ? block.query : '',
+                applied:
+                  typeof block?.applied === 'boolean'
+                    ? block.applied
+                    : block?.applied == null
+                      ? null
+                      : Boolean(block.applied),
+                original_count: Number.isFinite(block?.original_count)
+                  ? Number(block.original_count)
+                  : Number.isFinite(block?.originalCount)
+                    ? Number(block.originalCount)
+                    : null,
+                filtered_count: Number.isFinite(block?.filtered_count)
+                  ? Number(block.filtered_count)
+                  : Number.isFinite(block?.filteredCount)
+                    ? Number(block.filteredCount)
+                    : null,
+                fallback_reason: block?.fallback_reason || block?.fallbackReason || null,
+                original_results: Array.isArray(block?.original_results)
+                  ? block.original_results
+                  : Array.isArray(block?.originalResults)
+                    ? block.originalResults
+                    : null,
+                filtered_results: Array.isArray(block?.filtered_results)
+                  ? block.filtered_results
+                  : Array.isArray(block?.filteredResults)
+                    ? block.filteredResults
+                    : null,
               }))
               .filter(block => block.type)
               .sort((a, b) => {
@@ -252,6 +281,35 @@ const normalizeStreamBlocks = raw => {
       arguments: item?.arguments ?? null,
       output: item?.output ?? null,
       duration_ms: Number.isFinite(item?.duration_ms) ? Number(item.duration_ms) : null,
+      id: item?.id || null,
+      query: typeof item?.query === 'string' ? item.query : '',
+      applied:
+        typeof item?.applied === 'boolean'
+          ? item.applied
+          : item?.applied == null
+            ? null
+            : Boolean(item.applied),
+      original_count: Number.isFinite(item?.original_count)
+        ? Number(item.original_count)
+        : Number.isFinite(item?.originalCount)
+          ? Number(item.originalCount)
+          : null,
+      filtered_count: Number.isFinite(item?.filtered_count)
+        ? Number(item.filtered_count)
+        : Number.isFinite(item?.filteredCount)
+          ? Number(item.filteredCount)
+          : null,
+      fallback_reason: item?.fallback_reason || item?.fallbackReason || null,
+      original_results: Array.isArray(item?.original_results)
+        ? item.original_results
+        : Array.isArray(item?.originalResults)
+          ? item.originalResults
+          : null,
+      filtered_results: Array.isArray(item?.filtered_results)
+        ? item.filtered_results
+        : Array.isArray(item?.filteredResults)
+          ? item.filteredResults
+          : null,
     }))
     .filter(item => item.type)
     .sort((a, b) => a.seq - b.seq)

@@ -5021,9 +5021,9 @@ const MessageBubble = ({
 
                         <div className="flex w-full flex-col gap-3 md:flex-row md:items-start md:gap-4">
                           {/* Label Section */}
-                          <div className="flex h-8 shrink-0 items-center text-xs leading-none font-bold tracking-wider text-gray-400 uppercase select-none dark:text-zinc-500">
+                          <span className="flex h-8 shrink-0 items-center text-xs! leading-none font-bold tracking-wider text-gray-400 uppercase select-none dark:text-zinc-500">
                             {t('messageBubble.workflowToolCalledPrefix', '已调用')}
-                          </div>
+                          </span>
 
                           {/* Vertical Tools List Section */}
                           <div className="flex min-w-0 flex-1 flex-col gap-2">

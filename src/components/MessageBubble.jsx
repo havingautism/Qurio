@@ -158,11 +158,6 @@ const PROVIDER_META = {
     id: 'openrouter',
     fallback: 'R',
   },
-  litellm_openai: {
-    label: 'LiteLLM OpenAI',
-    id: 'litellm_openai',
-    fallback: 'L',
-  },
   huggingface: {
     label: 'Hugging Face',
     id: 'huggingface',

@@ -2,7 +2,6 @@ import { createBackendProvider } from './backendProviderForBackend'
 import {
   DEEPSEEK_BASE_URL,
   GLM_BASE_URL,
-  LITELLM_BASE_URL,
   MODELSCOPE_BASE_URL,
   OPENROUTER_BASE_URL,
   VOLCENGINE_BASE_URL,
@@ -122,18 +121,6 @@ export const PROVIDERS = {
     getCredentials: settings => ({
       apiKey: settings.OpenRouterKey || getPublicEnv('PUBLIC_OPENROUTER_API_KEY'),
       baseUrl: OPENROUTER_BASE_URL,
-    }),
-    getTools: (isSearchActive, searchTool, enableMemory) =>
-      resolveTools(isSearchActive, searchTool, enableMemory),
-    parseMessage: defaultParseMessage,
-  },
-  litellm_openai: {
-    ...createBackendProvider('litellm_openai'),
-    id: 'litellm_openai',
-    name: 'LiteLLM OpenAI',
-    getCredentials: settings => ({
-      apiKey: settings.LiteLLMKey || getPublicEnv('PUBLIC_LITELLM_API_KEY'),
-      baseUrl: settings.LiteLLMUrl || getPublicEnv('PUBLIC_LITELLM_BASE_URL') || LITELLM_BASE_URL,
     }),
     getTools: (isSearchActive, searchTool, enableMemory) =>
       resolveTools(isSearchActive, searchTool, enableMemory),

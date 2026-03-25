@@ -36,7 +36,6 @@ const PROVIDER_TO_KEY = {
   openai: 'OpenAICompatibilityKey',
   openai_compatibility: 'OpenAICompatibilityKey',
   openrouter: 'OpenRouterKey',
-  litellm_openai: 'LiteLLMKey',
   huggingface: 'HuggingFaceKey',
   siliconflow: 'SiliconFlowKey',
   glm: 'GlmKey',

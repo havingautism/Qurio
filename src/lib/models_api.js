@@ -245,8 +245,6 @@ export const getModelsForProvider = async (provider, credentials, options = {}) 
       return await fetchGeminiModels({ apiKey: credentials.apiKey }, options)
     case 'openrouter':
       return []
-    case 'litellm_openai':
-      return []
     case 'siliconflow':
       return await fetchSiliconflowModels(
         { apiKey: credentials.apiKey, baseUrl: SILICONFLOW_BASE },

@@ -226,8 +226,6 @@ const MEMORY_SETTINGS_KEYS = [
   'OpenAICompatibilityKey',
   'OpenAICompatibilityUrl',
   'OpenRouterKey',
-  'LiteLLMKey',
-  'LiteLLMUrl',
   'HuggingFaceKey',
   'SiliconFlowKey',
   'GlmKey',
@@ -267,8 +265,6 @@ const SESSION_SENSITIVE_KEYS = [
   'OpenAICompatibilityKey',
   'OpenAICompatibilityUrl',
   'OpenRouterKey',
-  'LiteLLMKey',
-  'LiteLLMUrl',
   'HuggingFaceKey',
   'SiliconFlowKey',
   'GlmKey',
@@ -286,6 +282,8 @@ const SESSION_SENSITIVE_KEYS = [
 
 export const updateMemorySettings = settings => {
   const source = settings && typeof settings === 'object' ? settings : {}
+  delete memorySettings.LiteLLMKey
+  delete memorySettings.LiteLLMUrl
   MEMORY_SETTINGS_KEYS.forEach(key => {
     if (Object.prototype.hasOwnProperty.call(source, key)) {
       memorySettings[key] = source[key]
@@ -315,6 +313,10 @@ const migrateLegacySensitiveSettings = () => {
 export const loadSettings = (overrides = {}) => {
   migrateLegacySensitiveSettings()
   const session = getSessionStorage()
+  delete memorySettings.LiteLLMKey
+  delete memorySettings.LiteLLMUrl
+  session?.removeItem('LiteLLMKey')
+  session?.removeItem('LiteLLMUrl')
   const electronMode = isElectronRuntime()
   const electronBackendUrl = getElectronBackendUrlFromBridge() || getElectronBackendUrlOverride()
 
@@ -582,12 +584,6 @@ export const loadSettings = (overrides = {}) => {
     mergedSettings.OpenRouterKey =
       electronMode ? '' : getPublicEnv('PUBLIC_OPENROUTER_API_KEY') || ''
   }
-  if (!mergedSettings.LiteLLMKey) {
-    mergedSettings.LiteLLMKey = electronMode ? '' : getPublicEnv('PUBLIC_LITELLM_API_KEY') || ''
-  }
-  if (!mergedSettings.LiteLLMUrl)
-    mergedSettings.LiteLLMUrl =
-      electronMode ? '' : getPublicEnv('PUBLIC_LITELLM_BASE_URL') || ''
   if (!mergedSettings.HuggingFaceKey) {
     mergedSettings.HuggingFaceKey =
       electronMode ? '' : getPublicEnv('PUBLIC_HUGGINGFACE_API_KEY') || ''
@@ -691,8 +687,6 @@ export const saveSettings = async settings => {
     'OpenAICompatibilityKey',
     'OpenAICompatibilityUrl',
     'OpenRouterKey',
-    'LiteLLMKey',
-    'LiteLLMUrl',
     'HuggingFaceKey',
     'SiliconFlowKey',
     'GlmKey',
@@ -708,6 +702,11 @@ export const saveSettings = async settings => {
     'MinimaxKey',
   ]
   SENSITIVE_KEYS.forEach(key => localStorage.removeItem(key))
+  localStorage.removeItem('LiteLLMKey')
+  localStorage.removeItem('LiteLLMUrl')
+  const session = getSessionStorage()
+  session?.removeItem('LiteLLMKey')
+  session?.removeItem('LiteLLMUrl')
 
   // ... (Save other non-sensitive preferences)
   if (settings.systemPrompt !== undefined) {

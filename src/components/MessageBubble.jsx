@@ -50,6 +50,44 @@ import { TOOL_TRANSLATION_KEYS, TOOL_ICONS } from '../lib/toolConstants'
 import { splitTextWithUrls } from '../lib/urlHighlight'
 import { normalizeExpertBrokenTokenLines } from '../lib/chat/expertTextUtils'
 import { getExpertTabIndicators, getExpertTaskCardModel } from '../lib/chat/expertUiUtils'
+import {
+  buildMessageProcessSteps,
+  normalizeMessageStreamBlocks,
+} from '../lib/chat/message-bubble/messageBubbleViewModel'
+import {
+  getToolArgumentsForDisplayWithResolvedBackends,
+  getToolDisplayNameWithDetails,
+  resolveMessageSearchBackends,
+  resolveSearchBackendForTool,
+} from '../lib/chat/message-bubble/messageBubbleSearchViewModel'
+import {
+  extractMessageImageEntries,
+  extractMessageImageResults,
+  extractMessageVideoResults,
+  getVideoEmbedUrl,
+  getVideoPlatform,
+} from '../lib/chat/message-bubble/messageBubbleMediaViewModel'
+import {
+  buildContentPartsOutsideWorkflow,
+  buildInterleavedContent,
+  getWorkflowTextParts,
+  getWorkflowThoughtParts,
+} from '../lib/chat/message-bubble/messageBubbleContentViewModel'
+import {
+  createHtmlWidgetItemRenderer,
+  createInteractiveFormItemRenderer,
+  createPptxFileItemRenderer,
+  createToolLoadingCardRenderer,
+} from '../lib/chat/message-bubble/messageBubbleToolRenderers'
+import {
+  buildHeadingId,
+  copyTextToClipboard,
+  createCodeBlockRenderer,
+  createHeadingRenderer,
+  createMarkdownComponents,
+  createMarkdownComponentsWithAnchors,
+  createMarkdownLinkRenderer,
+} from '../lib/chat/message-bubble/messageBubbleMarkdownViewModel'
 import { getSearchFilterFallbackPresentation } from '../lib/chat/searchFilterPresentation'
 import DesktopSourcesSection from './DesktopSourcesSection'
 import DesktopSourcesSheet from './DesktopSourcesSheet'
@@ -80,8 +118,20 @@ import {
 import {
   canExpandDocumentCitation,
   buildDocumentCitationPath,
-  prepareDocumentCitationSources,
 } from '../lib/documentCitationViewModel'
+import {
+  buildAllSources,
+  buildDocumentCitationSources,
+  buildHeaderSourceLogos,
+  hasNavigableSourceLink,
+  resolveDefaultMobileDrawerSources,
+  shouldShowWorkflowSourceSummary as resolveShouldShowWorkflowSourceSummary,
+} from '../lib/chat/message-bubble/messageBubbleSourcesViewModel'
+import {
+  buildWorkflowProcessSteps,
+  deriveWorkflowState,
+  getActiveStreamingStepKind,
+} from '../lib/chat/message-bubble/messageBubbleWorkflowViewModel'
 import { ensureMessagePipeline } from '../lib/chat/pipelineViewModel'
 import { getBackendUrl } from '../lib/settings'
 
@@ -649,29 +699,14 @@ const MessageBubble = ({
     }
   }, [hasPipelineData, isPipelineOpen, pipelineTrace, pipelineBuildInput])
   const documentCitationSources = useMemo(
-    () =>
-      prepareDocumentCitationSources(
-        Array.isArray(mergedMessage.documentSources)
-          ? mergedMessage.documentSources.map(source => ({
-              ...source,
-              title: source?.title || 'Document',
-              snippet: source?.snippet || source?.content || '',
-            }))
-          : [],
-      ),
+    () => buildDocumentCitationSources(mergedMessage.documentSources),
     [mergedMessage.documentSources],
   )
-  const hasExplicitWebSources = useMemo(
-    () => Array.isArray(mergedMessage.sources) && mergedMessage.sources.length > 0,
-    [mergedMessage.sources],
-  )
-  const hasNavigableSourceLink = useCallback(source => {
-    const candidate =
-      source?.url || source?.uri || source?.link || source?.href || source?.sourceUrl || ''
-    return typeof candidate === 'string' && candidate.trim().length > 0
-  }, [])
-  const hasAnySources = hasExplicitWebSources || documentCitationSources.length > 0
-  const shouldShowWorkflowSourceSummary = !isStreamingMessage && hasAnySources
+  const shouldShowWorkflowSourceSummary = resolveShouldShowWorkflowSourceSummary({
+    isStreamingMessage,
+    webSources: mergedMessage.sources,
+    documentCitationSources,
+  })
   const displayProviderId = isExpertMessage
     ? activeExpertResponse?.provider || providerId
     : providerId
@@ -747,44 +782,7 @@ const MessageBubble = ({
       isExpertMessage && Array.isArray(activeExpertResponse?.streamBlocks)
         ? activeExpertResponse.streamBlocks
         : mergedMessage?.streamBlocks
-    if (!Array.isArray(streamSource)) return []
-    return streamSource
-      .map((item, index) => ({
-        seq: Number.isFinite(item?.seq) ? Number(item.seq) : index + 1,
-        type: String(item?.type || '').toLowerCase(),
-        content: typeof item?.content === 'string' ? item.content : '',
-        toolCallId: item?.tool_call_id || item?.toolCallId || null,
-        name: item?.name || null,
-        status: item?.status || null,
-        arguments: item?.arguments ?? null,
-        output: item?.output ?? null,
-        query: item?.query || null,
-        applied: typeof item?.applied === 'boolean' ? item.applied : null,
-        originalCount: Number.isFinite(item?.original_count)
-          ? Number(item.original_count)
-          : Number.isFinite(item?.originalCount)
-            ? Number(item.originalCount)
-            : null,
-        filteredCount: Number.isFinite(item?.filtered_count)
-          ? Number(item.filtered_count)
-          : Number.isFinite(item?.filteredCount)
-            ? Number(item.filteredCount)
-            : null,
-        fallbackReason: item?.fallback_reason || item?.fallbackReason || null,
-        originalResults: Array.isArray(item?.original_results)
-          ? item.original_results
-          : Array.isArray(item?.originalResults)
-            ? item.originalResults
-            : null,
-        filteredResults: Array.isArray(item?.filtered_results)
-          ? item.filtered_results
-          : Array.isArray(item?.filteredResults)
-            ? item.filteredResults
-            : null,
-        durationMs: Number.isFinite(item?.duration_ms) ? Number(item.duration_ms) : null,
-      }))
-      .filter(item => item.type)
-      .sort((a, b) => a.seq - b.seq)
+    return normalizeMessageStreamBlocks({ streamSource })
   }, [isExpertMessage, activeExpertResponse?.streamBlocks, mergedMessage?.streamBlocks])
   const thoughtExportContent = useMemo(
     () =>
@@ -804,41 +802,12 @@ const MessageBubble = ({
   )
 
   const resolvedSearchBackends = useMemo(() => {
-    const explicitBackends = isExpertMessage
-      ? activeExpertResponse?.searchBackends
-      : mergedMessage?.searchBackends
-    if (Array.isArray(explicitBackends) && explicitBackends.length > 0) {
-      return explicitBackends.map(item => String(item)).filter(Boolean)
-    }
-    const explicitBackend = isExpertMessage
-      ? activeExpertResponse?.searchBackend
-      : mergedMessage?.searchBackend
-    if (typeof explicitBackend === 'string' && explicitBackend) {
-      return [explicitBackend]
-    }
-    for (const item of toolCallHistory) {
-      if (!item || (item.name !== 'web_search' && item.name !== 'search_news')) continue
-      if (!item.arguments) continue
-      if (typeof item.arguments === 'object') {
-        if (Array.isArray(item.arguments.backends) && item.arguments.backends.length > 0) {
-          return item.arguments.backends.map(value => String(value)).filter(Boolean)
-        }
-        if (item.arguments.backend) return [String(item.arguments.backend)]
-        continue
-      }
-      if (typeof item.arguments !== 'string') continue
-      try {
-        const parsed = JSON.parse(item.arguments)
-        if (!parsed || typeof parsed !== 'object') continue
-        if (Array.isArray(parsed.backends) && parsed.backends.length > 0) {
-          return parsed.backends.map(value => String(value)).filter(Boolean)
-        }
-        if (parsed.backend) return [String(parsed.backend)]
-      } catch {
-        continue
-      }
-    }
-    return []
+    return resolveMessageSearchBackends({
+      isExpertMessage,
+      activeExpertResponse,
+      mergedMessage,
+      toolCallHistory,
+    })
   }, [
     isExpertMessage,
     activeExpertResponse?.searchBackend,
@@ -849,106 +818,12 @@ const MessageBubble = ({
   ])
 
   const getToolDisplayName = useCallback(
-    tool => {
-      if (!tool) return ''
-      const baseName = TOOL_TRANSLATION_KEYS[tool.name]
-        ? t(TOOL_TRANSLATION_KEYS[tool.name])
-        : tool.name
-      const parseArguments = rawArguments => {
-        if (!rawArguments) return null
-        if (typeof rawArguments === 'object') return rawArguments
-        if (typeof rawArguments !== 'string') return null
-        try {
-          const parsed = JSON.parse(rawArguments)
-          return parsed && typeof parsed === 'object' ? parsed : null
-        } catch {
-          return null
-        }
-      }
-      const getFileName = filePath => {
-        if (!filePath || typeof filePath !== 'string') return ''
-        const normalized = filePath.replace(/\\/g, '/')
-        const segments = normalized.split('/').filter(Boolean)
-        return segments[segments.length - 1] || filePath
-      }
-
-      const parsedArguments = parseArguments(tool.arguments)
-      let detail = ''
-
-      if (tool.name === 'execute_skill_script' || tool.name === 'get_skill_script') {
-        detail = getFileName(parsedArguments?.script_path)
-      } else if (tool.name === 'install_skill_dependency') {
-        detail =
-          typeof parsedArguments?.package_name === 'string'
-            ? parsedArguments.package_name.trim()
-            : ''
-      }
-
-      return detail ? `${baseName} (${detail})` : baseName
-    },
+    tool => getToolDisplayNameWithDetails(tool, t, TOOL_TRANSLATION_KEYS),
     [t],
   )
   const isSkillToolCall = useCallback(tool => isSkillToolName(tool?.name), [])
   const getSearchBackendForTool = useCallback(
-    tool => {
-      if (!tool) return null
-      const isWebSearch = tool.name === 'web_search' || tool.name === 'search_news'
-      const isImageSearch =
-        tool.name === 'duckduckgo_image_search' ||
-        tool.name === 'google_image_search' ||
-        tool.name === 'bing_image_search' ||
-        tool.name === 'serpapi_image_search'
-      const isVideoSearch =
-        tool.name === 'duckduckgo_video_search' || tool.name === 'search_youtube'
-
-      if (!isWebSearch && !isImageSearch && !isVideoSearch) return null
-
-      if (isImageSearch) {
-        if (tool.name.includes('google')) return 'google'
-        if (tool.name.includes('bing')) return 'bing'
-        if (tool.name.includes('duckduckgo')) return 'duckduckgo'
-        // serpapi_image_search uses 'engine' parameter (e.g., 'google_images', 'bing_images')
-        const args = tool.arguments
-        if (args && typeof args === 'object' && typeof args.engine === 'string') {
-          if (args.engine.includes('google')) return 'google'
-          if (args.engine.includes('bing')) return 'bing'
-          if (args.engine.includes('yahoo')) return 'yahoo'
-        }
-      }
-
-      if (isVideoSearch) {
-        if (tool.name === 'search_youtube') return 'youtube'
-        if (tool.name.includes('duckduckgo')) return 'duckduckgo'
-      }
-
-      const args = tool.arguments
-      if (args && typeof args === 'object') {
-        if (typeof args.backend === 'string' && args.backend) return args.backend
-        if (Array.isArray(args.backends) && args.backends.length > 0)
-          return String(args.backends[0])
-      }
-      if (typeof args === 'string') {
-        try {
-          const parsed = JSON.parse(args)
-          if (parsed && typeof parsed === 'object') {
-            // Handle 'engine' parameter for serpapi_image_search
-            if (typeof parsed.engine === 'string' && parsed.engine) {
-              if (parsed.engine.includes('google')) return 'google'
-              if (parsed.engine.includes('bing')) return 'bing'
-              if (parsed.engine.includes('yahoo')) return 'yahoo'
-            }
-            if (typeof parsed.backend === 'string' && parsed.backend) return parsed.backend
-            if (Array.isArray(parsed.backends) && parsed.backends.length > 0) {
-              return String(parsed.backends[0])
-            }
-          }
-        } catch {
-          // ignore parse failure
-        }
-      }
-      if (resolvedSearchBackends.length > 0) return resolvedSearchBackends[0]
-      return null
-    },
+    tool => resolveSearchBackendForTool(tool, resolvedSearchBackends),
     [resolvedSearchBackends],
   )
   const renderSearchBackendVisual = useCallback(backend => {
@@ -1032,39 +907,7 @@ const MessageBubble = ({
   }
 
   const getToolArgumentsForDisplay = useCallback(
-    tool => {
-      if (!tool || !tool.arguments) return tool?.arguments
-      if (tool.name !== 'web_search' && tool.name !== 'search_news') return tool.arguments
-      if (resolvedSearchBackends.length === 0) return tool.arguments
-
-      if (typeof tool.arguments === 'object') {
-        if (tool.arguments.backend || tool.arguments.backends) return tool.arguments
-        return resolvedSearchBackends.length > 1
-          ? {
-              ...tool.arguments,
-              backend: resolvedSearchBackends[0],
-              backends: resolvedSearchBackends,
-            }
-          : { ...tool.arguments, backend: resolvedSearchBackends[0] }
-      }
-
-      if (typeof tool.arguments === 'string') {
-        try {
-          const parsed = JSON.parse(tool.arguments)
-          if (!parsed || typeof parsed !== 'object') return tool.arguments
-          if (parsed.backend || parsed.backends) return tool.arguments
-          return JSON.stringify(
-            resolvedSearchBackends.length > 1
-              ? { ...parsed, backend: resolvedSearchBackends[0], backends: resolvedSearchBackends }
-              : { ...parsed, backend: resolvedSearchBackends[0] },
-          )
-        } catch {
-          return tool.arguments
-        }
-      }
-
-      return tool.arguments
-    },
+    tool => getToolArgumentsForDisplayWithResolvedBackends(tool, resolvedSearchBackends),
     [resolvedSearchBackends],
   )
 
@@ -1208,38 +1051,9 @@ const MessageBubble = ({
   // Extract all image search results from toolCallHistory to get rich metadata (title, source)
   // Update ref without triggering re-renders of markdownComponents
   const allImageResults = useMemo(() => {
-    const results = []
-    const imageSearchTools = [
-      'duckduckgo_image_search',
-      'google_image_search',
-      'bing_image_search',
-      'serpapi_image_search',
-    ]
-    toolCallHistory.forEach(tc => {
-      // Handle all image search tool names
-      if (imageSearchTools.includes(tc.name)) {
-        try {
-          const output = typeof tc.output === 'string' ? JSON.parse(tc.output) : tc.output
-          if (Array.isArray(output)) {
-            output.forEach(item => {
-              const imgUrl = item.image || item.url || item.thumbnailUrl || item.thumbnail
-              const sourceUrl = item.url || item.parentPage || ''
-              const hostname = sourceUrl ? getHostname(sourceUrl) : ''
-
-              if (imgUrl) {
-                results.push({
-                  src: imgUrl,
-                  title: item.title || '',
-                  source: hostname || item.source || '',
-                  sourceUrl: sourceUrl,
-                })
-              }
-            })
-          }
-        } catch (e) {
-          // ignore parse errors
-        }
-      }
+    const results = extractMessageImageResults({
+      toolCallHistory,
+      getHostname,
     })
     // Update ref for use in MessageImage without triggering deps
     imageMetadataRef.current = results
@@ -1249,148 +1063,18 @@ const MessageBubble = ({
   // Extract video search results to get title for iframe accessibility
   // Update ref without triggering re-renders of markdownComponents
   const allVideoResults = useMemo(() => {
-    const results = []
-    const videoSearchTools = ['duckduckgo_video_search', 'search_youtube']
-    toolCallHistory.forEach(tc => {
-      if (videoSearchTools.includes(tc.name)) {
-        try {
-          const output = typeof tc.output === 'string' ? JSON.parse(tc.output) : tc.output
-          let videoList = []
-          if (Array.isArray(output)) {
-            videoList = output
-          } else if (output && typeof output === 'object') {
-            videoList = output.video_results || output.videos || []
-          }
-          videoList.forEach(item => {
-            const videoUrl = item.link || item.url || item.content || ''
-            if (videoUrl) {
-              results.push({
-                url: videoUrl,
-                title: item.title || '',
-              })
-            }
-          })
-        } catch (e) {
-          // ignore parse errors
-        }
-      }
-    })
+    const results = extractMessageVideoResults({ toolCallHistory })
     videoMetadataRef.current = results
     return results
   }, [toolCallHistory])
 
-  // Helper function to convert supported video URLs to embed URL
-  const getVideoEmbedUrl = useCallback(url => {
-    if (!url) return null
-
-    // YouTube: various formats
-    const ytPatterns = [
-      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/)([a-zA-Z0-9_-]{11})/,
-      /youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/,
-    ]
-    for (const pattern of ytPatterns) {
-      const match = url.match(pattern)
-      if (match && match[1]) {
-        return `https://www.youtube.com/embed/${match[1]}`
-      }
-    }
-
-    // Bilibili: normal video links and player links
-    try {
-      const normalizedUrl = url.startsWith('//') ? `https:${url}` : url
-      const parsed = new URL(normalizedUrl)
-      const hostname = parsed.hostname.toLowerCase()
-
-      const buildBilibiliEmbedUrl = ({ bvid, aid, cid, page }) => {
-        const params = new URLSearchParams()
-        params.set('isOutside', 'true')
-        if (aid) params.set('aid', aid)
-        if (bvid) params.set('bvid', bvid)
-        if (cid) params.set('cid', cid)
-        params.set('p', page || '1')
-        return `https://player.bilibili.com/player.html?${params.toString()}`
-      }
-
-      // Example: player.bilibili.com/player.html?...&bvid=...&cid=...&p=1
-      if (hostname.includes('player.bilibili.com') && parsed.pathname.includes('/player.html')) {
-        const bvid = parsed.searchParams.get('bvid')
-        const aid = parsed.searchParams.get('aid')
-        const cid = parsed.searchParams.get('cid')
-        const page = parsed.searchParams.get('p') || parsed.searchParams.get('page')
-        if (bvid || aid || cid) {
-          return buildBilibiliEmbedUrl({ bvid, aid, cid, page })
-        }
-      }
-
-      // Example: www.bilibili.com/video/BV... or www.bilibili.com/video/av...
-      if (hostname.includes('bilibili.com')) {
-        const bvidMatch = parsed.pathname.match(/\/video\/(BV[a-zA-Z0-9]+)/i)
-        const aidMatch = parsed.pathname.match(/\/video\/av(\d+)/i)
-        const page = parsed.searchParams.get('p') || parsed.searchParams.get('page')
-
-        if (bvidMatch?.[1]) {
-          return buildBilibiliEmbedUrl({ bvid: bvidMatch[1], page })
-        }
-        if (aidMatch?.[1]) {
-          return buildBilibiliEmbedUrl({ aid: aidMatch[1], page })
-        }
-      }
-    } catch {
-      // ignore URL parse errors
-    }
-
-    return null
-  }, [])
-
-  const getVideoPlatform = useCallback(url => {
-    if (!url) return null
-
-    try {
-      const normalizedUrl = url.startsWith('//') ? `https:${url}` : url
-      const parsed = new URL(normalizedUrl)
-      const hostname = parsed.hostname.toLowerCase()
-
-      if (
-        hostname.includes('youtube.com') ||
-        hostname.includes('youtu.be') ||
-        hostname.includes('youtube-nocookie.com')
-      ) {
-        return 'youtube'
-      }
-
-      if (hostname.includes('player.bilibili.com') || hostname.includes('bilibili.com')) {
-        return 'bilibili'
-      }
-    } catch {
-      // ignore parse errors
-    }
-
-    return null
-  }, [])
-
   // Extract all images rendered in the mainContent markdown
   const messageImages = useMemo(() => {
-    if (!mainContent) return []
-    // Regex to find ![alt](url)
-    const regex = /!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g
-    const found = []
-    let match
-    while ((match = regex.exec(mainContent)) !== null) {
-      const alt = match[1]
-      const src = match[2]
-      // Match with allImageResults to find rich metadata
-      const metadata = allImageResults.find(r => r.src === src)
-      found.push({
-        src,
-        alt: alt || metadata?.title || '',
-        title: metadata?.title || alt || '',
-        source: metadata?.source || '',
-        sourceUrl: metadata?.sourceUrl || '',
-      })
-    }
-    // Do not filter out failed images to preserve index alignment with markdown rendering
-    return found
-  }, [mainContent, allImageResults, failedImageUrls])
+    return extractMessageImageEntries({
+      mainContent,
+      allImageResults,
+    })
+  }, [mainContent, allImageResults])
 
   // Use ref to store messageImages for stable openGallery callback
   const messageImagesRef = useRef(messageImages)
@@ -1447,26 +1131,7 @@ const MessageBubble = ({
   }, [isGalleryOpen, messageImages.length])
 
   // Utility function to copy text to clipboard
-  const copyToClipboard = async text => {
-    try {
-      if (navigator?.clipboard?.writeText) {
-        await navigator.clipboard.writeText(text)
-      } else {
-        const textarea = document.createElement('textarea')
-        textarea.value = text
-        textarea.style.position = 'fixed'
-        textarea.style.opacity = '0'
-        document.body.appendChild(textarea)
-        textarea.select()
-        document.execCommand('copy')
-        document.body.removeChild(textarea)
-      }
-      // Show a brief success indication
-      console.log('Text copied to clipboard')
-    } catch (err) {
-      console.error('Failed to copy text: ', err)
-    }
-  }
+  const copyToClipboard = useCallback(text => copyTextToClipboard(text), [])
 
   const renderPlainCodeBlock = useCallback(
     (codeText, language) => (
@@ -1559,135 +1224,16 @@ const MessageBubble = ({
     )
   }
 
-  const interleavedContent = useMemo(() => {
-    const rawContent = mainContent || ''
-    const parts = []
-    if (normalizedStreamBlocks.length === 0) {
-      return [{ type: 'text', content: rawContent }]
-    }
-
-    for (const block of normalizedStreamBlocks) {
-      if (block.type === 'text') {
-        if (block.content) parts.push({ type: 'text', content: block.content })
-        continue
-      }
-      if (block.type === 'reasoning' || block.type === 'thought') {
-        if (!isDeepResearch && block.content) {
-          const lastPart = parts[parts.length - 1]
-          if (lastPart?.type === 'thought') {
-            lastPart.content = `${lastPart.content || ''}${block.content || ''}`
-            const prevDuration = Number.isFinite(lastPart.durationMs)
-              ? Number(lastPart.durationMs)
-              : 0
-            const nextDuration = Number.isFinite(block.durationMs) ? Number(block.durationMs) : 0
-            lastPart.durationMs = prevDuration + nextDuration
-          } else {
-            parts.push({
-              type: 'thought',
-              key: `stream-thought-${block.seq}`,
-              content: block.content,
-              durationMs: block.durationMs,
-            })
-          }
-        }
-        continue
-      }
-      if (block.type === 'workflow_text') {
-        if (!isDeepResearch && block.content) {
-          parts.push({
-            type: 'workflow_text',
-            key: `stream-workflow-text-${block.seq}`,
-            content: block.content,
-          })
-        }
-        continue
-      }
-      if (block.type === 'search_filter') {
-        if (!isDeepResearch) {
-          parts.push({
-            type: 'search_filter',
-            key: `stream-search-filter-${block.id || block.toolCallId || block.seq}`,
-            id: block.id || block.toolCallId || null,
-            name: block.name || 'search_filter',
-            status: block.status || 'running',
-            query: block.query || '',
-            applied: typeof block.applied === 'boolean' ? block.applied : null,
-            originalCount: Number.isFinite(block.originalCount)
-              ? Number(block.originalCount)
-              : null,
-            filteredCount: Number.isFinite(block.filteredCount)
-              ? Number(block.filteredCount)
-              : null,
-            fallbackReason: block.fallbackReason || null,
-            originalResults: Array.isArray(block.originalResults) ? block.originalResults : [],
-            filteredResults: Array.isArray(block.filteredResults) ? block.filteredResults : [],
-            durationMs: Number.isFinite(block.durationMs) ? Number(block.durationMs) : null,
-          })
-        }
-        continue
-      }
-      if (block.type === 'tool' || block.type === 'tool_call' || block.type === 'tool_result') {
-        const matchedTool =
-          toolCallHistory.find(item => item?.id && item.id === block.toolCallId) || null
-        const toolItem =
-          matchedTool ||
-          (block.toolCallId
-            ? {
-                id: block.toolCallId,
-                name: block.name || 'tool',
-                status: block.status || 'done',
-                arguments: block.arguments,
-                output: block.output,
-                durationMs: block.durationMs,
-              }
-            : null)
-        if (toolItem) {
-          parts.push({
-            type: 'tools',
-            key: `stream-tool-${block.type || 'tool'}-${block.toolCallId || 'na'}-${block.seq}`,
-            items: [toolItem],
-          })
-        }
-      }
-    }
-
-    if (!isDeepResearch && parts.length > 1) {
-      const firstNonThoughtIndex = parts.findIndex(part => part.type !== 'thought')
-      if (firstNonThoughtIndex > 0 && parts[firstNonThoughtIndex]?.type === 'text') {
-        const thoughtPrefix = parts
-          .slice(0, firstNonThoughtIndex)
-          .filter(part => part.type === 'thought')
-          .map(part => String(part.content || ''))
-          .join('')
-        const textPart = String(parts[firstNonThoughtIndex].content || '')
-        const compactThought = thoughtPrefix.replace(/\s+/g, '')
-        const compactText = textPart.replace(/\s+/g, '')
-        if (compactThought && compactText) {
-          const minLen = Math.min(compactThought.length, compactText.length)
-          if (minLen >= 24) {
-            let common = 0
-            while (common < minLen && compactThought[common] === compactText[common]) common += 1
-            const overlapRatio = common / minLen
-            if (overlapRatio >= 0.92) {
-              const trimmedText = textPart.trimStart()
-              if (trimmedText.startsWith(thoughtPrefix)) {
-                const deduped = trimmedText.slice(thoughtPrefix.length).trimStart()
-                if (deduped) {
-                  parts[firstNonThoughtIndex] = { ...parts[firstNonThoughtIndex], content: deduped }
-                } else {
-                  parts.splice(firstNonThoughtIndex, 1)
-                }
-              } else if (compactText.startsWith(compactThought)) {
-                parts.splice(firstNonThoughtIndex, 1)
-              }
-            }
-          }
-        }
-      }
-    }
-
-    return parts.length > 0 ? parts : [{ type: 'text', content: rawContent }]
-  }, [mainContent, toolCallHistory, isDeepResearch, normalizedStreamBlocks])
+  const interleavedContent = useMemo(
+    () =>
+      buildInterleavedContent({
+        mainContent,
+        normalizedStreamBlocks,
+        isDeepResearch,
+        toolCallHistory,
+      }),
+    [mainContent, normalizedStreamBlocks, isDeepResearch, toolCallHistory],
+  )
 
   // Effect to handle copy success timeout with proper cleanup
   useEffect(() => {
@@ -2091,10 +1637,11 @@ const MessageBubble = ({
 
   const handleMobileSourceClick = useCallback(
     (selectedSources, title) => {
-      const resolvedSources = selectedSources || [
-        ...(Array.isArray(mergedMessage.sources) ? mergedMessage.sources : []),
-        ...documentCitationSources,
-      ]
+      const resolvedSources = resolveDefaultMobileDrawerSources({
+        selectedSources,
+        webSources: mergedMessage.sources,
+        documentCitationSources,
+      })
       setMobileDrawerSources(resolvedSources)
       setMobileDrawerTitle(title || t('sources.title'))
       setIsMobileDrawerOpen(true)
@@ -2269,104 +1816,38 @@ const MessageBubble = ({
   }, [shouldShowInitialSkeleton, skeletonFadeMs])
   const researchStatusText = DEEP_RESEARCH_STATUS_MESSAGES[0]
 
-  const CodeBlock = useCallback(
-    ({ inline, className, children, ...props }) => {
-      const match = /language-(\w+)/.exec(className || '')
-      const language = match ? match[1].toLowerCase() : ''
-      const langLabel = match ? match[1].toUpperCase() : 'CODE'
-      const rawCodeText = String(children)
-      const codeText = rawCodeText.replace(/\n$/, '')
-      const isBlock =
-        !inline && (language || rawCodeText.includes('\n') || className?.includes('language-'))
-
-      if (isBlock && language === 'mermaid') {
-        return (
-          <div className="mb-4">
-            <Streamdown mode="static" mermaid={mermaidOptions} controls={{ mermaid: true }}>
-              {`\`\`\`mermaid\n${codeText}\n\`\`\``}
-            </Streamdown>
-          </div>
-        )
-      }
-
-      if (isBlock) {
-        return (
-          <div className="group bg-user-bubble/20 relative mb-4 overflow-x-auto rounded-xl border border-gray-200 dark:border-zinc-700 dark:bg-zinc-800/40">
-            <div className="bg-user-bubble/50 flex items-center justify-between border-b border-gray-200 px-4 py-2 text-[11px] font-semibold text-gray-600 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-gray-300">
-              <span>{langLabel}</span>
-              <button
-                onClick={() => copyToClipboard(codeText)}
-                className="rounded-md bg-gray-200 px-2 py-1 text-[11px] text-gray-700 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 dark:bg-zinc-700 dark:text-gray-200"
-              >
-                Copy
-              </button>
-            </div>
-            <SyntaxHighlighter
-              style={isDark ? oneDark : oneLight}
-              language={language || 'text'}
-              PreTag="div"
-              className="code-scrollbar font-code! text-sm text-shadow-none!"
-              customStyle={{
-                margin: 0,
-                padding: '1rem',
-                background: 'transparent',
-                borderRadius: 'inherit',
-                whiteSpace: 'pre',
-                wordBreak: 'normal',
-              }}
-              codeTagProps={{
-                style: {
-                  backgroundColor: 'transparent',
-                  fontFamily: 'inherit',
-                  whiteSpace: 'inherit',
-                },
-              }}
-              {...props}
-            >
-              {codeText}
-            </SyntaxHighlighter>
-          </div>
-        )
-      }
-
-      return (
-        <code
-          className={`${className} bg-user-bubble rounded-md px-1.5 py-0.5 font-mono text-sm text-black dark:bg-zinc-800 dark:text-white`}
-          {...props}
-        >
-          {children}
-        </code>
-      )
-    },
-    [isDark, mermaidOptions],
+  const CodeBlock = useMemo(
+    () =>
+      createCodeBlockRenderer({
+        ReactSyntaxHighlighter: SyntaxHighlighter,
+        isDark,
+        oneDark,
+        oneLight,
+        StreamdownComponent: Streamdown,
+        mermaidOptions,
+        copyToClipboard,
+      }),
+    [copyToClipboard, isDark, mermaidOptions],
   )
 
   const headingCounterRef = useRef(0)
 
   const getNextHeadingId = useCallback(() => {
-    const id = `heading-${messageIndex}-${headingCounterRef.current}`
+    const id = buildHeadingId(messageIndex, headingCounterRef.current)
     headingCounterRef.current += 1
     return id
   }, [messageIndex])
 
   const createHeadingComponent = useCallback(
-    (Tag, className, withAnchors) => {
-      const Heading = ({ children, ...props }) => {
-        const headingId = withAnchors ? getNextHeadingId() : undefined
-        return (
-          <Tag
-            className={className}
-            {...(headingId ? { id: headingId, 'data-heading-id': headingId } : {})}
-            {...props}
-          >
-            {parseChildrenWithEmojis(children)}
-          </Tag>
-        )
-      }
-      Heading.displayName = `Heading\${Tag}`
-      return Heading
-    },
-    [getNextHeadingId],
+    (Tag, className, withAnchors) =>
+      createHeadingRenderer({
+        Tag,
+        className,
+        withAnchors,
+        getNextHeadingId,
+        parseChildrenWithEmojis,
+      }),
+    [getNextHeadingId, parseChildrenWithEmojis],
   )
 
   // Handle interactive form submission
@@ -2379,766 +1860,109 @@ const MessageBubble = ({
     [onFormSubmit],
   )
 
-  const MarkdownLinkRenderer = useMemo(() => {
-    const LinkRenderer = ({ href, children, ...props }) => {
-      const isInTable = React.useContext(InTableContext)
-      const safeHref = sanitizeMarkdownUrl(href)
-      let citationIndices = null
-
-      if (safeHref?.startsWith('citation:')) {
-        citationIndices = safeHref
-          .replace('citation:', '')
-          .split(',')
-          .map(Number)
-          .filter(n => !isNaN(n))
-      } else if (safeHref?.startsWith('https://citation.local/')) {
-        const path = safeHref.replace('https://citation.local/', '')
-        citationIndices = path
-          .split(',')
-          .map(Number)
-          .filter(n => !isNaN(n))
-      }
-
-      if (citationIndices) {
-        return (
-          <CitationChip
-            indices={citationIndices}
-            sources={documentCitationSources}
-            isMobile={isMobile}
-            onMobileClick={sources =>
-              handleMobileSourceClick(sources, t('sources.citationSources'))
-            }
-            label={children}
-          />
-        )
-      }
-      if (!safeHref) {
-        return <span {...props}>{parseChildrenWithEmojis(children)}</span>
-      }
-
-      const embedUrl = getVideoEmbedUrl(safeHref)
-      if (embedUrl) {
-        const videoInfo = videoMetadataRef.current.find(v => v.url === safeHref)
-        if (isInTable) {
-          const platform = getVideoPlatform(safeHref)
-          const platformMeta =
-            platform === 'youtube'
-              ? {
-                  label: 'YouTube',
-                  logo: YoutubeLogo,
-                  className: 'bg-red-600 text-white',
-                }
-              : platform === 'bilibili'
-                ? {
-                    label: 'Bilibili',
-                    logo: BilibiliLogo,
-                    className: 'bg-sky-500 text-white',
-                  }
-                : {
-                    label: '视频',
-                    logo: null,
-                    className: 'bg-rose-500 text-white',
-                  }
-
-          return (
-            <a
-              href={safeHref}
-              target="_blank"
-              rel="noreferrer"
-              className={clsx(
-                'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium',
-                platformMeta.className,
-              )}
-              title={videoInfo?.title || platformMeta.label}
-            >
-              {platformMeta.logo ? (
-                <img
-                  src={platformMeta.logo}
-                  alt={platformMeta.label}
-                  className="h-3.5 w-3.5 shrink-0 rounded-sm bg-white/90 p-px"
-                  loading="lazy"
-                />
-              ) : null}
-              <span>{platformMeta.label}</span>
-            </a>
-          )
-        }
-        return <InlineVideoEmbed embedUrl={embedUrl} title={videoInfo?.title || 'Video'} />
-      }
-
-      return (
-        <a
-          href={safeHref}
-          {...props}
-          target="_blank"
-          rel="noreferrer"
-          className="hover:bg-primary-300/50 dark:hover:bg-primary-700/50 dark:bg-primary-900/50 bg-primary-200/50 text-primary-700 dark:text-primary-300 mx-0.5 rounded-lg px-1 py-0.5 text-[12px]"
-        >
-          {parseChildrenWithEmojis(children)}
-        </a>
-      )
-    }
-    LinkRenderer.displayName = 'MarkdownLinkRenderer'
-    return LinkRenderer
-  }, [
-    documentCitationSources,
-    isMobile,
-    handleMobileSourceClick,
-    t,
-    getVideoEmbedUrl,
-    getVideoPlatform,
-  ])
-
-  const markdownComponents = useMemo(
-    () => ({
-      code: ({ inline, className, children, ...props }) => {
-        return (
-          <CodeBlock inline={inline} className={className} {...props}>
-            {children}
-          </CodeBlock>
-        )
-      },
-      p: ({ children, ...props }) => (
-        <p className="mb-4" {...props}>
-          {parseChildrenWithEmojis(children)}
-        </p>
-      ),
-      h1: createHeadingComponent('h1', 'text-2xl font-bold mb-4', false),
-      h2: createHeadingComponent('h2', 'text-xl font-bold mb-4', false),
-      h3: createHeadingComponent('h3', 'text-lg font-bold mb-4', false),
-      ul: ({ ...props }) => <ul className="mb-4 list-disc space-y-1 pl-5" {...props} />,
-      ol: ({ ...props }) => <ol className="mb-4 list-decimal space-y-1 pl-5" {...props} />,
-      li: ({ children, ...props }) => (
-        <li className="mb-1" {...props}>
-          {parseChildrenWithEmojis(children)}
-        </li>
-      ),
-      blockquote: ({ children, ...props }) => (
-        <blockquote
-          className="mb-4 border-l-4 border-gray-300 pl-4 text-gray-600 italic dark:border-zinc-600 dark:text-gray-400 [&_p]:mb-0"
-          {...props}
-        >
-          {parseChildrenWithEmojis(children)}
-        </blockquote>
-      ),
-      table: ({ ...props }) => (
-        <div className="table-scrollbar code-scrollbar mb-4 w-fit max-w-full overflow-x-auto rounded-lg border border-gray-200 dark:border-zinc-700">
-          <table className="w-auto divide-y divide-gray-200 dark:divide-zinc-700" {...props} />
-        </div>
-      ),
-      thead: ({ ...props }) => <thead className="bg-user-bubble dark:bg-zinc-800" {...props} />,
-      tbody: ({ ...props }) => (
-        <tbody
-          className="bg-user-bubble/20 divide-y divide-gray-200 dark:divide-zinc-700 dark:bg-zinc-900"
-          {...props}
-        />
-      ),
-      tr: ({ ...props }) => <tr {...props} />,
-      th: ({ children, ...props }) => (
-        <th
-          className="px-4 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase dark:text-gray-400"
-          {...props}
-        >
-          <InTableContext.Provider value>
-            {parseChildrenWithEmojis(children)}
-          </InTableContext.Provider>
-        </th>
-      ),
-      td: ({ children, ...props }) => (
-        <td
-          className="px-4 py-3 text-sm whitespace-nowrap text-gray-700 dark:text-gray-300"
-          {...props}
-        >
-          <InTableContext.Provider value>
-            {parseChildrenWithEmojis(children)}
-          </InTableContext.Provider>
-        </td>
-      ),
-      a: MarkdownLinkRenderer,
-      img: ({ src, alt }) => {
-        const safeSrc = sanitizeMarkdownUrl(src, { allowDataImage: true })
-        if (!safeSrc) return null
-
-        return (
-          <MessageImage
-            src={safeSrc}
-            alt={alt}
-            openGallery={openGallery}
-            isFailed={failedImageUrls.has(safeSrc)}
-            imageMetadataRef={imageMetadataRef}
-            onImageError={handleImageError}
-          />
-        )
-      },
-      hr: () => (
-        <div className="relative my-4">
-          <div className="h-px bg-linear-to-r from-transparent via-gray-300 to-transparent dark:via-zinc-700" />
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-            <div className="h-2.5 w-2.5 rounded-full bg-gray-200 shadow-sm ring-2 ring-white dark:bg-zinc-700 dark:ring-zinc-900" />
-          </div>
-        </div>
-      ),
-    }),
+  const MarkdownLinkRenderer = useMemo(
+    () =>
+      createMarkdownLinkRenderer({
+        InTableContext,
+        sanitizeMarkdownUrl,
+        CitationChip,
+        documentCitationSources,
+        isMobile,
+        handleMobileSourceClick,
+        t,
+        parseChildrenWithEmojis,
+        getVideoEmbedUrl,
+        getVideoPlatform,
+        videoMetadataRef,
+        InlineVideoEmbed,
+        YoutubeLogo,
+        BilibiliLogo,
+        clsx,
+      }),
     [
-      isDark,
-      mergedMessage.sources,
-      isMobile,
-      handleMobileSourceClick,
-      CodeBlock,
-      t,
-      openGallery,
-      handleImageError,
-      failedImageUrls,
+      documentCitationSources,
       getVideoEmbedUrl,
       getVideoPlatform,
-      // Note: imageMetadataRef and videoMetadataRef are excluded as they're stable refs that don't trigger re-renders
-    ], // Dependencies for markdownComponents
+      handleMobileSourceClick,
+      isMobile,
+      parseChildrenWithEmojis,
+      t,
+    ],
   )
 
-  const markdownComponentsWithAnchors = useMemo(() => {
-    // Use a local counter captured in the closure of this memoized value
-    let localHeadingCounter = 0
+  const markdownComponents = useMemo(
+    () =>
+      createMarkdownComponents({
+        React,
+        CodeBlock,
+        parseChildrenWithEmojis,
+        createHeadingComponent,
+        MarkdownLinkRenderer,
+        sanitizeMarkdownUrl,
+        MessageImage,
+        openGallery,
+        failedImageUrls,
+        imageMetadataRef,
+        handleImageError,
+        InTableContext,
+      }),
+    [
+      CodeBlock,
+      MarkdownLinkRenderer,
+      createHeadingComponent,
+      failedImageUrls,
+      handleImageError,
+      openGallery,
+      parseChildrenWithEmojis,
+    ],
+  )
 
-    // Helper to generate IDs using the local counter
-    const createLocalHeading = (Tag, className) => {
-      const Heading = ({ children, ...props }) => {
-        const id = `heading-${messageIndex}-${localHeadingCounter++}`
-        return (
-          <Tag className={className} id={id} data-heading-id={id} {...props}>
-            {parseChildrenWithEmojis(children)}
-          </Tag>
-        )
-      }
-      Heading.displayName = `Heading${Tag}`
-      return Heading
-    }
-
-    return {
-      ...markdownComponents,
-      h1: createLocalHeading('h1', 'text-2xl font-bold mb-4 mt-4'),
-      h2: createLocalHeading('h2', 'text-xl font-bold mb-4'),
-      h3: createLocalHeading('h3', 'text-lg font-bold mb-4'),
-    }
-  }, [markdownComponents, messageIndex, parseChildrenWithEmojis])
+  const markdownComponentsWithAnchors = useMemo(
+    () =>
+      createMarkdownComponentsWithAnchors({
+        markdownComponents,
+        messageIndex,
+        parseChildrenWithEmojis,
+      }),
+    [markdownComponents, messageIndex, parseChildrenWithEmojis],
+  )
 
   const workflowThoughtParts = useMemo(
-    () => interleavedContent.filter(part => part.type === 'thought'),
+    () => getWorkflowThoughtParts(interleavedContent),
     [interleavedContent],
   )
   const isDeepThinkingStreaming = isStreaming && !hasMainText && workflowThoughtParts.length > 0
   const workflowTextParts = useMemo(
-    () => interleavedContent.filter(part => part.type === 'workflow_text'),
+    () => getWorkflowTextParts(interleavedContent),
     [interleavedContent],
   )
-  const contentPartsOutsideWorkflow = useMemo(() => {
-    const rawParts = []
-
-    for (let i = 0; i < interleavedContent.length; i++) {
-      const part = interleavedContent[i]
-
-      if (part.type === 'text') {
-        rawParts.push({ type: 'text', key: `text-${i}`, content: part.content })
-        continue
-      }
-
-      if (part.type === 'tools' && Array.isArray(part.items)) {
-        const formItems = part.items.filter(item => item?.name === 'interactive_form')
-        const htmlWidgetItems = part.items.filter(item => item?.name === 'render_html_widget')
-        const pptxItems = part.items.filter(
-          item => item?.name === 'ppt_generator' || item?.name === 'html_to_pptx',
-        )
-        const regularTools = part.items.filter(
-          item =>
-            item?.name !== 'interactive_form' &&
-            item?.name !== 'form_submission_status' &&
-            item?.name !== 'ppt_generator' &&
-            item?.name !== 'html_to_pptx',
-        )
-
-        if (regularTools.length > 0) {
-          let prevToolPart = null
-          for (let j = rawParts.length - 1; j >= 0; j--) {
-            const rp = rawParts[j]
-            // Skip over empty/whitespace text blocks when looking for a tool block to merge into
-            if (rp.type === 'text' && (!rp.content || !rp.content.trim())) continue
-            if (rp.type === 'tools') prevToolPart = rp
-            break
-          }
-
-          if (prevToolPart) {
-            // Merge into previous tools block
-            prevToolPart.items = [...prevToolPart.items, ...regularTools]
-          } else {
-            // Create new tools block
-            rawParts.push({
-              type: 'tools',
-              key: part.key || `tools-${i}`,
-              items: [...regularTools],
-            })
-          }
-        }
-
-        if (formItems.length > 0) {
-          rawParts.push({
-            type: 'interactive_form',
-            key: `${part.key || `interactive-form-${i}`}-form`,
-            items: formItems,
-          })
-        }
-
-        if (htmlWidgetItems.length > 0) {
-          rawParts.push({
-            type: 'html_widget',
-            key: `${part.key || `html-widget-${i}`}-widget`,
-            items: htmlWidgetItems,
-          })
-        }
-
-        if (pptxItems.length > 0) {
-          rawParts.push({
-            type: 'pptx_file',
-            key: `${part.key || `pptx-file-${i}`}-file`,
-            items: pptxItems,
-          })
-        }
-      }
-    }
-
-    // Some streaming paths (e.g. expert synthetic message) can produce many tiny
-    // adjacent text segments; merge them before rendering to avoid per-chunk line breaks.
-    const shouldMergeAdjacentText = isExpertMessage || compactStreamingTextBlocks
-    const mergedTextParts = []
-    const sourceParts = shouldMergeAdjacentText ? rawParts : rawParts
-    for (const part of sourceParts) {
-      const prev = mergedTextParts[mergedTextParts.length - 1]
-      if (part.type === 'text' && prev?.type === 'text') {
-        prev.content = `${prev.content || ''}${part.content || ''}`
-        continue
-      }
-      mergedTextParts.push({ ...part })
-    }
-
-    const pptPartIndexes = mergedTextParts
-      .map((part, index) => (part.type === 'pptx_file' ? index : -1))
-      .filter(index => index >= 0)
-
-    if (pptPartIndexes.length <= 1) return mergedTextParts
-
-    let winnerIndex = pptPartIndexes[pptPartIndexes.length - 1]
-    for (let i = pptPartIndexes.length - 1; i >= 0; i--) {
-      const index = pptPartIndexes[i]
-      const part = mergedTextParts[index]
-      const hasSuccessfulPayload = Array.isArray(part?.items)
-        ? part.items.some(item =>
-            Boolean(parsePptxPayload(item?.output) || parsePptxPayload(item?.result)),
-          )
-        : false
-      if (hasSuccessfulPayload) {
-        winnerIndex = index
-        break
-      }
-    }
-
-    const collapsed = []
-    const hiddenRetryCount = pptPartIndexes.length - 1
-    for (let i = 0; i < mergedTextParts.length; i++) {
-      const part = mergedTextParts[i]
-      if (part.type !== 'pptx_file') {
-        collapsed.push(part)
-        continue
-      }
-      if (i !== winnerIndex) continue
-      collapsed.push({
-        ...part,
-        retryCountHidden: hiddenRetryCount,
-      })
-    }
-
-    return collapsed
-  }, [compactStreamingTextBlocks, interleavedContent, isExpertMessage, parsePptxPayload])
+  const contentPartsOutsideWorkflow = useMemo(
+    () =>
+      buildContentPartsOutsideWorkflow({
+        interleavedContent,
+        isExpertMessage,
+        compactStreamingTextBlocks,
+        parsePptxPayload,
+      }),
+    [compactStreamingTextBlocks, interleavedContent, isExpertMessage, parsePptxPayload],
+  )
   const allSources = useMemo(
-    () => [
-      ...(Array.isArray(mergedMessage.sources)
-        ? mergedMessage.sources.map((source, index) => ({
-            ...source,
-            sourceKind: 'web',
-            originalIndex: source?.originalIndex !== undefined ? source.originalIndex : index,
-          }))
-        : []),
-      ...documentCitationSources.map((source, index) => ({
-        ...source,
-        sourceKind: 'document',
-        originalIndex: source?.originalIndex !== undefined ? source.originalIndex : index,
-      })),
-    ],
+    () =>
+      buildAllSources({
+        webSources: mergedMessage.sources,
+        documentCitationSources,
+      }),
     [documentCitationSources, mergedMessage.sources],
   )
   const shouldShowSourcesDrawer = !isStreaming && allSources.length > 0
-  const SEARCH_STEP_TOOLS = useMemo(
-    () =>
-      new Set([
-        'Tavily_web_search',
-        'Tavily_academic_search',
-        'web_search_using_tavily',
-        'web_search_with_tavily',
-        'extract_url_content',
-        'web_search',
-        'search_news',
-        'search_arxiv_and_return_articles',
-        'search_wikipedia',
-      ]),
-    [],
-  )
   const processSteps = useMemo(() => {
-    if (isDeepResearch) return []
-    const toolById = new Map()
-    for (const tool of toolCallHistory) {
-      if (tool?.id) toolById.set(String(tool.id), tool)
-    }
-    const steps = []
-    const dedupeSearchResults = results => {
-      if (!Array.isArray(results) || results.length === 0) return []
-      const seen = new Set()
-      const deduped = []
-      results.forEach((item, index) => {
-        if (!item || typeof item !== 'object') return
-        const key = String(
-          item.url || item.link || item.href || item.id || item.title || `search-result-${index}`,
-        ).trim()
-        if (!key || seen.has(key)) return
-        seen.add(key)
-        deduped.push(item)
-      })
-      return deduped
-    }
-    const parseToolQuery = tool => {
-      if (!tool) return ''
-      const args = tool.arguments
-      if (args && typeof args === 'object' && typeof args.query === 'string') return args.query
-      if (typeof args === 'string') {
-        try {
-          const parsed = JSON.parse(args)
-          if (parsed && typeof parsed === 'object' && typeof parsed.query === 'string') {
-            return parsed.query
-          }
-        } catch {
-          return ''
-        }
-      }
-      return ''
-    }
-
-    const addToolToStep = (targetStep, tool) => {
-      const key = tool?.id
-        ? String(tool.id)
-        : `${tool?.name || 'tool'}:${String(tool?.arguments || '')}:${String(tool?.output || '')}`
-      if (!targetStep._toolKeys.has(key)) {
-        targetStep._toolKeys.add(key)
-        targetStep.items.push(tool)
-        if (typeof tool.durationMs === 'number') {
-          targetStep.durationMs = (targetStep.durationMs || 0) + tool.durationMs
-        }
-        const query = parseToolQuery(tool)
-        if (query && !targetStep._querySet.has(query)) {
-          targetStep._querySet.add(query)
-          targetStep.queries.push(query)
-        }
-      }
-    }
-
-    const getToolStepKey = tool =>
-      tool?.id
-        ? String(tool.id)
-        : `${tool?.name || 'tool'}:${String(tool?.arguments || '')}:${String(tool?.output || '')}`
-
-    for (const block of normalizedStreamBlocks) {
-      if ((block.type === 'reasoning' || block.type === 'thought') && block.content) {
-        const lastStep = steps[steps.length - 1]
-        if (lastStep?.kind === 'thought') {
-          lastStep.content = `${lastStep.content || ''}${block.content || ''}`
-          const prevDuration = Number.isFinite(lastStep.durationMs)
-            ? Number(lastStep.durationMs)
-            : 0
-          const nextDuration = Number.isFinite(block.durationMs) ? Number(block.durationMs) : 0
-          lastStep.durationMs = prevDuration + nextDuration
-        } else {
-          steps.push({
-            kind: 'thought',
-            content: block.content,
-            durationMs: Number.isFinite(block.durationMs) ? Number(block.durationMs) : 0,
-          })
-        }
-        continue
-      }
-
-      if (block.type === 'search_filter') {
-        steps.push({
-          kind: 'search_filter',
-          stepKey: `search-filter-${block.id || block.toolCallId || block.seq}`,
-          sourceStepKey: block.id || block.toolCallId || null,
-          queries: block.query ? [String(block.query)] : [],
-          status: String(block.status || 'running'),
-          applied: typeof block.applied === 'boolean' ? block.applied : false,
-          originalCount: Number.isFinite(block.originalCount) ? Number(block.originalCount) : 0,
-          filteredCount: Number.isFinite(block.filteredCount) ? Number(block.filteredCount) : 0,
-          fallbackReason: block.fallbackReason || null,
-          originalResults: Array.isArray(block.originalResults) ? block.originalResults : [],
-          filteredResults: Array.isArray(block.filteredResults) ? block.filteredResults : [],
-          durationMs: Number.isFinite(block.durationMs) ? Number(block.durationMs) : 0,
-          items: [],
-          _toolKeys: new Set(),
-          _querySet: new Set(),
-        })
-        continue
-      }
-
-      if (block.type === 'tool_call' || block.type === 'tool_result' || block.type === 'tool') {
-        const fallbackTool = {
-          id: block.toolCallId || null,
-          name: block.name || 'tool',
-          status: block.status || 'done',
-          arguments: block.arguments ?? null,
-          output: block.output ?? null,
-          durationMs: Number.isFinite(block.durationMs) ? Number(block.durationMs) : null,
-        }
-        const tool = (block.toolCallId && toolById.get(String(block.toolCallId))) || fallbackTool
-        if (
-          !tool?.name ||
-          tool.name === 'interactive_form' ||
-          tool.name === 'form_submission_status' ||
-          tool.name === 'search_result_filter'
-        ) {
-          continue
-        }
-
-        const isSearchTool = SEARCH_STEP_TOOLS.has(String(tool.name))
-        if (isSearchTool) {
-          const searchToolKey = getToolStepKey(tool)
-          const lastStep = steps[steps.length - 1]
-          if (lastStep?.kind === 'search' && lastStep.stepKey === searchToolKey) {
-            addToolToStep(lastStep, tool)
-          } else {
-            const newSearchStep = {
-              kind: 'search',
-              stepKey: searchToolKey,
-              items: [],
-              queries: [],
-              sources: [],
-              durationMs: 0,
-              _toolKeys: new Set(),
-              _querySet: new Set(),
-            }
-            steps.push(newSearchStep)
-            addToolToStep(newSearchStep, tool)
-          }
-          continue
-        }
-
-        const lastStep = steps[steps.length - 1]
-        if (lastStep?.kind === 'tools') {
-          if (!lastStep._toolKeys.has(String(tool.id || `${tool.name}:${lastStep.items.length}`))) {
-            lastStep._toolKeys.add(String(tool.id || `${tool.name}:${lastStep.items.length}`))
-            lastStep.items.push(tool)
-          }
-        } else {
-          steps.push({
-            kind: 'tools',
-            items: [tool],
-            _toolKeys: new Set([String(tool.id || `${tool.name}:0`)]),
-          })
-        }
-        continue
-      }
-    }
-
-    const _allSourcesList = Array.isArray(mergedMessage.sources) ? [...mergedMessage.sources] : []
-    const unallocatedSources = new Set(_allSourcesList)
-
-    steps.forEach(step => {
-      if (step.kind === 'search') {
-        const matchedSources = []
-        let originalResultCount = 0
-        let filteredResultCount = 0
-        let searchFilterApplied = false
-        let searchFilterStatus = 'done'
-        let searchFilterFallbackReason = null
-        let searchFilterOriginalResults = []
-        let searchFilterFilteredResults = []
-        const searchFilterEntries = []
-        // Process each tool execution to extract sources directly if possible
-        step.items.forEach(t => {
-          if (!t.output) return
-          let parsed = null
-          if (typeof t.output === 'string') {
-            try {
-              parsed = JSON.parse(t.output)
-            } catch (e) {
-              const match = t.output.match(/\{[\s\S]*\}|\[[\s\S]*\]/)
-              if (match) {
-                try {
-                  parsed = JSON.parse(match[0])
-                } catch (err) {}
-              }
-            }
-          } else if (typeof t.output === 'object') {
-            parsed = t.output
-          }
-
-          if (parsed) {
-            const results =
-              parsed.results || parsed.data || parsed.items || (Array.isArray(parsed) ? parsed : [])
-            if (Array.isArray(results)) {
-              const filterMeta =
-                parsed.search_filter && typeof parsed.search_filter === 'object'
-                  ? parsed.search_filter
-                  : parsed.searchFilter && typeof parsed.searchFilter === 'object'
-                    ? parsed.searchFilter
-                    : null
-              if (filterMeta) {
-                const currentOriginalCount = Number(
-                  filterMeta.original_count || filterMeta.originalCount || 0,
-                )
-                const currentFilteredCount = Number(
-                  filterMeta.filtered_count || filterMeta.filteredCount || 0,
-                )
-                originalResultCount += currentOriginalCount
-                filteredResultCount += currentFilteredCount
-                searchFilterApplied = searchFilterApplied || Boolean(filterMeta.applied)
-                if (filterMeta.status) searchFilterStatus = String(filterMeta.status)
-                if (filterMeta.fallback_reason) {
-                  searchFilterFallbackReason = String(filterMeta.fallback_reason)
-                }
-                const metaOriginalResults = Array.isArray(filterMeta.original_results)
-                  ? filterMeta.original_results
-                  : Array.isArray(filterMeta.originalResults)
-                    ? filterMeta.originalResults
-                    : []
-                const metaFilteredResults = Array.isArray(filterMeta.filtered_results)
-                  ? filterMeta.filtered_results
-                  : Array.isArray(filterMeta.filteredResults)
-                    ? filterMeta.filteredResults
-                    : []
-                searchFilterOriginalResults = dedupeSearchResults([
-                  ...searchFilterOriginalResults,
-                  ...metaOriginalResults,
-                ])
-                searchFilterFilteredResults = dedupeSearchResults([
-                  ...searchFilterFilteredResults,
-                  ...metaFilteredResults,
-                ])
-                searchFilterEntries.push({
-                  query:
-                    String(
-                      filterMeta.query ||
-                        parsed.query ||
-                        parsed.search_query ||
-                        parsed.searchQuery ||
-                        '',
-                    ).trim() || '',
-                  status: String(filterMeta.status || 'done'),
-                  applied: Boolean(filterMeta.applied),
-                  originalCount: currentOriginalCount || metaOriginalResults.length,
-                  filteredCount: currentFilteredCount || metaFilteredResults.length,
-                  fallbackReason: filterMeta.fallback_reason || filterMeta.fallbackReason || null,
-                  originalResults: dedupeSearchResults(metaOriginalResults),
-                  filteredResults: dedupeSearchResults(metaFilteredResults),
-                })
-              } else {
-                originalResultCount += results.length
-                filteredResultCount += results.length
-                searchFilterOriginalResults = dedupeSearchResults([
-                  ...searchFilterOriginalResults,
-                  ...results,
-                ])
-                searchFilterFilteredResults = dedupeSearchResults([
-                  ...searchFilterFilteredResults,
-                  ...results,
-                ])
-              }
-              results.forEach(result => {
-                const url = result?.url || result?.link || result?.href
-                if (url) {
-                  matchedSources.push({
-                    url,
-                    title: result.title || url,
-                    snippet: result.snippet || result.description || '',
-                    media: result.media || '',
-                    icon: result.icon || '',
-                  })
-                }
-              })
-            }
-          }
-        })
-
-        // Fallback: if we couldn't parse directly from output, match by text containment
-        if (matchedSources.length === 0) {
-          const stepOutputs = step.items
-            .map(t => {
-              let text = String(t.output || '')
-              if (typeof t.output === 'object') {
-                try {
-                  text = JSON.stringify(t.output)
-                } catch (e) {}
-              }
-              return text
-            })
-            .join('\n')
-
-          for (const src of unallocatedSources) {
-            if (
-              (src.url && stepOutputs.includes(src.url)) ||
-              (src.title && stepOutputs.includes(src.title)) ||
-              (src.id && stepOutputs.includes(`"${src.id}"`))
-            ) {
-              matchedSources.push(src)
-              unallocatedSources.delete(src)
-            }
-          }
-        }
-
-        // Deduplicate matched sources by URL
-        const seenUrls = new Set()
-        step.sources = matchedSources.filter(src => {
-          if (!src.url) return false
-          if (seenUrls.has(src.url)) return false
-          seenUrls.add(src.url)
-          return true
-        })
-        if (originalResultCount === 0 && step.sources.length > 0) {
-          originalResultCount = step.sources.length
-        }
-        if (filteredResultCount === 0 && step.sources.length > 0) {
-          filteredResultCount = step.sources.length
-        }
-        if (searchFilterOriginalResults.length === 0 && step.sources.length > 0) {
-          searchFilterOriginalResults = [...step.sources]
-        }
-        if (searchFilterFilteredResults.length === 0 && step.sources.length > 0) {
-          searchFilterFilteredResults = [...step.sources]
-        }
-        step.searchFilter = {
-          originalCount: originalResultCount,
-          filteredCount: filteredResultCount || step.sources.length,
-          applied: searchFilterApplied,
-          status: searchFilterStatus,
-          fallbackReason: searchFilterFallbackReason,
-          originalResults: searchFilterOriginalResults,
-          filteredResults:
-            searchFilterFilteredResults.length > 0 ? searchFilterFilteredResults : step.sources,
-          entries: searchFilterEntries,
-        }
-      }
-    })
-
-    return steps.map(step => {
-      const nextStep = { ...step }
-      delete nextStep._toolKeys
-      delete nextStep._querySet
-      return nextStep
+    return buildMessageProcessSteps({
+      isDeepResearch,
+      normalizedStreamBlocks,
+      toolCallHistory,
+      mergedSources: mergedMessage.sources,
     })
   }, [
-    SEARCH_STEP_TOOLS,
     isDeepResearch,
     mergedMessage.sources,
     normalizedStreamBlocks,
@@ -3292,224 +2116,83 @@ const MessageBubble = ({
     [workflowTextParts],
   )
 
-  const renderToolLoadingCard = (key, { title, badge, kind = 'form' }) => {
-    const isForm = kind === 'form'
+  const renderToolLoadingCard = useMemo(
+    () =>
+      createToolLoadingCardRenderer({
+        React,
+        DotLoader,
+        t,
+      }),
+    [t],
+  )
 
-    return (
-      <div
-        key={key}
-        className="mb-4 overflow-hidden rounded-2xl border border-white/10 bg-black/10 opacity-100 transition-all duration-300 ease-[cubic-bezier(0.2,0.6,0.2,1)]"
-      >
-        <div className="flex items-center justify-between border-b border-white/8 px-3 py-2">
-          <div className="flex items-center gap-2">
-            <div className="bg-pr00/10 h-4 w-4 rounded-full border">
-              <div className="bg-primary-500/35 bg-primary-500/35 animate- h-full w-full" />
-            </div>
-            <div className="truncate text-sm font-semibold text-zinc-200">{title}</div>
-          </div>
-          <span className="rounded-full border border-white/10 bg-white/6 px-2 py-0.5 text-[11px] font-medium text-zinc-400">
-            {badge}
-          </span>
-        </div>
-        <div className="space-y-3 px-4 py-4">
-          <div className="flex items-center gap-2 text-xs font-medium text-zinc-400">
-            <DotLoader size="sm" />
-            <span>
-              {isForm
-                ? t('tools.interactiveForm', 'Interactive Form')
-                : t('tools.renderHtmlWidget', 'HTML Widget')}
-              {t('messageBubble.toolStatusCalling', '调用中')}
-            </span>
-          </div>
-          {isForm ? (
-            <div className="rounded-2xl border border-white/8 bg-white/4 p-4">
-              <div className="mb-4 h-4 w-30 animate-pulse rounded-full bg-white/8" />
-              <div className="space-y-3">
-                <div className="space-y-2">
-                  <div className="h-3 w-16 animate-pulse rounded-full bg-white/10" />
-                  <div className="h-11 w-full animate-pulse rounded-xl bg-white/7" />
-                </div>
-                <div className="space-y-2">
-                  <div className="h-3 w-20 animate-pulse rounded-full bg-white/10" />
-                  <div className="h-11 w-full animate-pulse rounded-xl bg-white/7" />
-                </div>
-                <div className="bg-primary-500/20 bg-primary-500/20 animat mt-4 h-10 w-28" />
-              </div>
-            </div>
-          ) : (
-            <div className="rounded-2xl border border-white/8 bg-linear-to-b from-zinc-900/80 to-black/35 p-4">
-              <div className="mb-4 flex items-center justify-between">
-                <div className="h-4 w-32 animate-pulse rounded-full bg-white/10" />
-                <div className="h-5 w-14 animate-pulse rounded-full bg-white/8" />
-              </div>
-              <div className="space-y-3">
-                <div className="h-22 animate-pulse rounded-2xl bg-white/6" />
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="h-16 animate-pulse rounded-xl bg-white/5" />
-                  <div className="h-16 animate-pulse rounded-xl bg-white/5" />
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    )
-  }
+  const renderInteractiveFormItem = useMemo(
+    () =>
+      createInteractiveFormItemRenderer({
+        React,
+        parseFormPayload,
+        messages,
+        messageIndex,
+        handleFormSubmit,
+        messageId: message.id,
+        developerMode,
+        setActiveToolDetail,
+        InteractiveForm,
+        isStreaming,
+        getToolDisplayName,
+        t,
+        renderToolLoadingCard,
+      }),
+    [
+      developerMode,
+      getToolDisplayName,
+      handleFormSubmit,
+      isStreaming,
+      message.id,
+      messageIndex,
+      messages,
+      parseFormPayload,
+      renderToolLoadingCard,
+      setActiveToolDetail,
+      t,
+    ],
+  )
 
-  const renderInteractiveFormItem = (item, formKey) => {
-    const formData = parseFormPayload(item.arguments) || parseFormPayload(item.output)
+  const renderHtmlWidgetItem = useMemo(
+    () =>
+      createHtmlWidgetItemRenderer({
+        React,
+        parseHtmlWidgetPayload,
+        isStreaming,
+        getToolDisplayName,
+        t,
+        renderToolLoadingCard,
+        HtmlWidgetCard,
+      }),
+    [getToolDisplayName, isStreaming, parseHtmlWidgetPayload, renderToolLoadingCard, t],
+  )
 
-    const nextMsg = messages[messageIndex + 1]
-    const isInterrupted = nextMsg && nextMsg.role === 'user' && !nextMsg.hitlRunId
-
-    // If the tool status is 'done', it means the form was submitted.
-    // Also disable if the user interrupted the flow with a new message.
-    const isSubmitted = item.status === 'done'
-    const shouldDisableForm = isSubmitted || isInterrupted
-
-    if (formData) {
-      return (
-        <div
-          key={formKey}
-          className="opacity-100 transition-all duration-300 ease-[cubic-bezier(0.2,0.6,0.2,1)]"
-        >
-          <InteractiveForm
-            formData={formData}
-            onSubmit={handleFormSubmit}
-            messageId={message.id}
-            isSubmitted={shouldDisableForm}
-            submittedValues={parseFormPayload(item.result) || parseFormPayload(item.output) || {}}
-            developerMode={developerMode}
-            onShowDetails={() => setActiveToolDetail(item)}
-          />
-        </div>
-      )
-    }
-
-    const shouldShowSkeleton =
-      isStreaming ||
-      item.status === 'calling' ||
-      item.status === 'running' ||
-      item.status !== 'done'
-    if (shouldShowSkeleton) {
-      return renderToolLoadingCard(`form-skeleton-${formKey}`, {
-        title: getToolDisplayName(item) || t('tools.interactiveForm', 'Interactive Form'),
-        badge: 'FORM',
-        kind: 'form',
-      })
-    }
-
-    console.error('Failed to parse interactive form arguments:', item)
-    return (
-      <div
-        key={`form-error-${formKey}`}
-        className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300"
-      >
-        Error displaying form
-      </div>
-    )
-  }
-
-  const renderHtmlWidgetItem = (item, widgetKey) => {
-    const payload = parseHtmlWidgetPayload(item.output) || parseHtmlWidgetPayload(item.result)
-    const shouldShowSkeleton =
-      !payload &&
-      (isStreaming ||
-        item.status === 'calling' ||
-        item.status === 'running' ||
-        item.status !== 'done')
-
-    if (shouldShowSkeleton) {
-      return renderToolLoadingCard(`html-widget-skeleton-${widgetKey}`, {
-        title: getToolDisplayName(item) || t('tools.renderHtmlWidget', 'HTML Widget'),
-        badge: 'HTML',
-        kind: 'html',
-      })
-    }
-
-    const resolvedPayload = payload || {
-      type: 'html_widget_error',
-      code: 'missing_payload',
-      message: 'No widget payload found in tool result.',
-    }
-
-    if (resolvedPayload.type === 'html_widget_error') {
-      return (
-        <div
-          key={widgetKey}
-          className="mb-4 rounded-2xl border border-red-300/40 bg-red-500/8 p-3 text-sm text-red-200"
-        >
-          <div className="font-semibold">{t('tools.renderHtmlWidget', 'HTML Widget')}</div>
-          <div className="mt-1">
-            {t(
-              'messageBubble.htmlWidgetFallback',
-              'Unable to render HTML widget. Showing fallback info.',
-            )}
-          </div>
-          <div className="mt-1 opacity-80">
-            {resolvedPayload.code}: {resolvedPayload.message}
-          </div>
-        </div>
-      )
-    }
-
-    const displayTitle =
-      resolvedPayload.title ||
-      getToolDisplayName(item) ||
-      t('tools.renderHtmlWidget', 'HTML Widget')
-    return (
-      <HtmlWidgetCard
-        key={widgetKey}
-        widgetKey={widgetKey}
-        widget={resolvedPayload}
-        displayTitle={displayTitle}
-        t={t}
-      />
-    )
-  }
-
-  const renderPptxFileItem = (item, pptxKey) => {
-    const payload = parsePptxPayload(item.output) || parsePptxPayload(item.result)
-    const shouldShowSkeleton =
-      !payload &&
-      (isStreaming ||
-        item.status === 'calling' ||
-        item.status === 'running' ||
-        item.status !== 'done')
-
-    if (shouldShowSkeleton) {
-      return renderToolLoadingCard(`pptx-skeleton-${pptxKey}`, {
-        title: getToolDisplayName(item) || t('tools.pptGenerator', 'PPT Generator'),
-        badge: 'PPTX',
-        kind: 'html',
-      })
-    }
-
-    if (!payload) {
-      return (
-        <div
-          key={pptxKey}
-          className="mb-4 rounded-2xl border border-red-300/40 bg-red-500/8 p-3 text-sm text-red-200"
-        >
-          <div className="font-semibold">{t('tools.pptGenerator', 'PPT Generator')}</div>
-          <div className="mt-1">
-            {t('messageBubble.ppt.missingPayload', 'No PPTX payload found in the tool result.')}
-          </div>
-        </div>
-      )
-    }
-
-    return (
-      <PptxResultCard
-        key={pptxKey}
-        item={item}
-        payload={payload}
-        displayTitle={getToolDisplayName(item) || t('tools.pptGenerator', 'PPT Generator')}
-        resolveBackendDownloadUrl={resolveBackendDownloadUrl}
-        t={t}
-      />
-    )
-  }
+  const renderPptxFileItem = useMemo(
+    () =>
+      createPptxFileItemRenderer({
+        React,
+        parsePptxPayload,
+        isStreaming,
+        getToolDisplayName,
+        t,
+        renderToolLoadingCard,
+        PptxResultCard,
+        resolveBackendDownloadUrl,
+      }),
+    [
+      getToolDisplayName,
+      isStreaming,
+      parsePptxPayload,
+      renderToolLoadingCard,
+      resolveBackendDownloadUrl,
+      t,
+    ],
+  )
 
   const firstTextPartDisplayIndex = contentPartsOutsideWorkflow.findIndex(
     part => part.type === 'text',
@@ -4193,165 +2876,49 @@ const MessageBubble = ({
     return isLastRenderable
   }, [messages, messageIndex, isLastRenderable])
   const workflowContainerRef = useRef(null)
-  const workflowProcessSteps = useMemo(() => {
-    const base = Array.isArray(processSteps) ? [...processSteps] : []
-    const shouldShowAnswerStep = Boolean(
-      isStreaming || hasMainText || base.length > 0 || typeof wallClockFinalSec === 'number',
-    )
-
-    if (isDeepResearch) {
-      const mappedSteps = researchSteps.map(step => ({
-        kind: 'research_step',
-        ...step,
-      }))
-      if (!shouldShowAnswerStep) return mappedSteps
-
-      const finalMs = answerGenerationDurationMs > 0 ? answerGenerationDurationMs : 0
-
-      const stepMs = mappedSteps.reduce(
-        (sum, step) => sum + (typeof step.durationMs === 'number' ? step.durationMs : 0),
-        0,
-      )
-      mappedSteps.push({
-        kind: 'final_answer',
-        status: isStreaming ? 'running' : 'done',
-        durationMs: stepMs + finalMs > 0 ? stepMs + finalMs : null,
-      })
-
-      return mappedSteps
-    }
-
-    if (!shouldShowAnswerStep) return base
-
-    const finalMs = answerGenerationDurationMs > 0 ? answerGenerationDurationMs : 0
-
-    const hasExplicitSearchFilterStep = base.some(step => step?.kind === 'search_filter')
-    const expandedBase = hasExplicitSearchFilterStep
-      ? base
-      : base.flatMap((step, idx) => {
-          if (step?.kind !== 'search') return [step]
-
-          const searchFilterEntries = Array.isArray(step.searchFilter?.entries)
-            ? step.searchFilter.entries.filter(entry => {
-                const originalCount = Number(entry?.originalCount || 0)
-                const filteredCount = Number(entry?.filteredCount || 0)
-                return Boolean(entry?.applied) && originalCount > 0 && filteredCount > 0
-              })
-            : []
-
-          if (searchFilterEntries.length > 0) {
-            return [
-              step,
-              ...searchFilterEntries.map((entry, entryIdx) => ({
-                kind: 'search_filter',
-                sourceStepKey: `${step.stepKey || `search-${idx}`}-filter-${entryIdx}`,
-                queries: entry?.query
-                  ? [String(entry.query)]
-                  : Array.isArray(step.queries)
-                    ? [...step.queries]
-                    : [],
-                status: String(entry?.status || 'done'),
-                applied: Boolean(entry?.applied),
-                originalCount: Number(entry?.originalCount || 0),
-                filteredCount: Number(entry?.filteredCount || 0),
-                fallbackReason: entry?.fallbackReason || null,
-                originalResults: Array.isArray(entry?.originalResults)
-                  ? [...entry.originalResults]
-                  : [],
-                filteredResults: Array.isArray(entry?.filteredResults)
-                  ? [...entry.filteredResults]
-                  : [],
-              })),
-            ]
-          }
-
-          const originalCount = Number(step.searchFilter?.originalCount || 0)
-          const filteredCount = Number(step.searchFilter?.filteredCount || 0)
-          const applied = Boolean(step.searchFilter?.applied)
-          const hasSearchFilterNode =
-            applied && originalCount > 0 && filteredCount > 0 && filteredCount < originalCount
-
-          if (!hasSearchFilterNode) return [step]
-
-          return [
-            step,
-            {
-              kind: 'search_filter',
-              sourceStepKey: step.stepKey || `search-${idx}`,
-              queries: Array.isArray(step.queries) ? [...step.queries] : [],
-              status: String(step.searchFilter?.status || 'done'),
-              applied,
-              originalCount,
-              filteredCount,
-              fallbackReason: step.searchFilter?.fallbackReason || null,
-              originalResults: Array.isArray(step.searchFilter?.originalResults)
-                ? [...step.searchFilter.originalResults]
-                : [],
-              filteredResults: Array.isArray(step.searchFilter?.filteredResults)
-                ? [...step.searchFilter.filteredResults]
-                : [],
-            },
-          ]
-        })
-
-    const sumOfBaseMs = expandedBase.reduce((sum, step) => {
-      if (typeof step.durationMs === 'number') return sum + step.durationMs
-      if (step.kind === 'tools' && Array.isArray(step.items)) {
-        return (
-          sum +
-          step.items.reduce(
-            (s, it) => s + (typeof it.durationMs === 'number' ? it.durationMs : 0),
-            0,
-          )
-        )
-      }
-      return sum
-    }, 0)
-
-    const cumulativeMs = sumOfBaseMs + finalMs
-
-    expandedBase.push({
-      kind: 'final_answer',
-      status: isStreaming ? 'running' : 'done',
-      durationMs: cumulativeMs > 0 ? cumulativeMs : null,
-    })
-    return expandedBase
-  }, [
-    processSteps,
-    wallClockFinalSec,
-    isStreaming,
-    hasMainText,
-    wallClockElapsedSec,
-    isDeepResearch,
-    researchSteps,
-    persistedFinalAnswerDurationMs,
-    answerGenerationDurationMs,
-  ])
-  const hasWorkflowFinalAnswerStep = useMemo(
-    () => workflowProcessSteps.some(step => step?.kind === 'final_answer'),
-    [workflowProcessSteps],
+  const workflowProcessSteps = useMemo(
+    () =>
+      buildWorkflowProcessSteps({
+        processSteps,
+        isDeepResearch,
+        researchSteps,
+        isStreaming,
+        hasMainText,
+        wallClockFinalSec,
+        answerGenerationDurationMs,
+      }),
+    [
+      answerGenerationDurationMs,
+      hasMainText,
+      isDeepResearch,
+      isStreaming,
+      processSteps,
+      researchSteps,
+      wallClockFinalSec,
+    ],
   )
-  const finalAnswerWorkflowStep = useMemo(() => {
-    for (let i = workflowProcessSteps.length - 1; i >= 0; i -= 1) {
-      if (workflowProcessSteps[i]?.kind === 'final_answer') return workflowProcessSteps[i]
-    }
-    return null
-  }, [workflowProcessSteps])
-  const workflowSearchStep = useMemo(
-    () => workflowProcessSteps.find(step => step.kind === 'search') || null,
-    [workflowProcessSteps],
+  const {
+    hasWorkflowFinalAnswerStep,
+    finalAnswerWorkflowStep,
+    workflowSearchStep,
+    workflowThoughtStep,
+    workflowToolItems,
+    workflowSearchDurationMs,
+    processDurationMs,
+    processDurationSec,
+    completedDurationSec,
+    finalAnswerDurationMsForDisplay,
+    shouldShowWorkflowFinalAnswer,
+  } = useMemo(
+    () =>
+      deriveWorkflowState({
+        workflowProcessSteps,
+        answerGenerationDurationMs,
+        hasMainText,
+        isStreaming,
+      }),
+    [answerGenerationDurationMs, hasMainText, isStreaming, workflowProcessSteps],
   )
-  const workflowThoughtStep = useMemo(() => {
-    const thoughtParts = workflowProcessSteps.filter(step => step.kind === 'thought')
-    if (thoughtParts.length === 0) return null
-    return {
-      content: thoughtParts.map(step => String(step.content || '')).join(''),
-      durationMs: thoughtParts.reduce(
-        (sum, step) => sum + (typeof step.durationMs === 'number' ? step.durationMs : 0),
-        0,
-      ),
-    }
-  }, [workflowProcessSteps])
   useEffect(() => {
     const thoughtMs = workflowThoughtStep?.durationMs
     if (typeof thoughtMs === 'number' && thoughtMs > 0) {
@@ -4364,59 +2931,16 @@ const MessageBubble = ({
     if (thoughtDurationMemoryRef.current > 0) return thoughtDurationMemoryRef.current
     return null
   }, [workflowThoughtStep?.durationMs])
-  const workflowToolItems = useMemo(
+  const activeStreamingStepKind = useMemo(
     () =>
-      workflowProcessSteps
-        .filter(step => step.kind === 'tools' && Array.isArray(step.items))
-        .flatMap(step => step.items || []),
-    [workflowProcessSteps],
+      getActiveStreamingStepKind({
+        isStreaming,
+        normalizedStreamBlocks,
+        hasStartedAnswerTextStream,
+        processSteps,
+      }),
+    [hasStartedAnswerTextStream, isStreaming, normalizedStreamBlocks, processSteps],
   )
-  const workflowSearchDurationMs = useMemo(
-    () =>
-      workflowProcessSteps
-        .filter(step => step.kind === 'search')
-        .reduce(
-          (sum, step) => sum + (typeof step.durationMs === 'number' ? step.durationMs : 0),
-          0,
-        ),
-    [workflowProcessSteps],
-  )
-  const processDurationMs = useMemo(() => {
-    const thoughtMs = workflowThoughtStep?.durationMs || 0
-    const searchMs = workflowSearchDurationMs || 0
-    const toolMs = workflowToolItems.reduce(
-      (sum, item) => sum + (typeof item.durationMs === 'number' ? item.durationMs : 0),
-      0,
-    )
-    return thoughtMs + searchMs + toolMs
-  }, [workflowThoughtStep?.durationMs, workflowSearchDurationMs, workflowToolItems])
-  const processDurationSec = Math.max(0, Math.round(processDurationMs / 1000))
-  const completedDurationSec = useMemo(() => {
-    const totalMs =
-      processDurationMs + (answerGenerationDurationMs > 0 ? answerGenerationDurationMs : 0)
-    return totalMs > 0 ? Math.max(0, Math.round(totalMs / 1000)) : null
-  }, [answerGenerationDurationMs, processDurationMs])
-  const finalAnswerDurationMsForDisplay = useMemo(() => {
-    return answerGenerationDurationMs > 0 ? answerGenerationDurationMs : null
-  }, [answerGenerationDurationMs])
-  const activeStreamingStepKind = useMemo(() => {
-    if (!isStreaming) return null
-
-    const lastStreamBlock = normalizedStreamBlocks[normalizedStreamBlocks.length - 1]
-    const lastStreamType = String(lastStreamBlock?.type || '')
-    if (lastStreamType === 'text' && hasStartedAnswerTextStream) {
-      return 'final_answer'
-    }
-
-    const lastProcessStep = processSteps[processSteps.length - 1]
-    if (lastProcessStep?.kind === 'search_filter') return 'search_filter'
-    if (lastProcessStep?.kind === 'search') return 'search'
-    if (lastProcessStep?.kind === 'tools') return 'tools'
-    if (lastProcessStep?.kind === 'thought') return 'thought'
-
-    if (hasStartedAnswerTextStream) return 'final_answer'
-    return null
-  }, [isStreaming, normalizedStreamBlocks, hasStartedAnswerTextStream, processSteps])
   const isSearchStreamingActive = isStreaming && activeStreamingStepKind === 'search'
   useEffect(() => {
     if (isSearchStreamingActive) {
@@ -4444,18 +2968,11 @@ const MessageBubble = ({
 
     return undefined
   }, [isSearchStreamingActive, isStreaming])
-  const shouldShowWorkflowFinalAnswer = hasMainText && !isStreaming
   const headerSourceLogos = useMemo(() => {
-    const logos = []
-    for (const source of allSources) {
-      const url = source?.url || source?.uri || source?.link || source?.href || ''
-      const host = getHostname(url)
-      const icon =
-        source?.icon || (host ? `https://www.google.com/s2/favicons?domain=${host}&sz=64` : '')
-      if (icon) logos.push(icon)
-      if (logos.length >= 3) break
-    }
-    return logos
+    return buildHeaderSourceLogos({
+      allSources,
+      getHostname,
+    })
   }, [allSources])
 
   // Auto-scroll effect for thinking process

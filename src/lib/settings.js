@@ -282,8 +282,6 @@ const SESSION_SENSITIVE_KEYS = [
 
 export const updateMemorySettings = settings => {
   const source = settings && typeof settings === 'object' ? settings : {}
-  delete memorySettings.LiteLLMKey
-  delete memorySettings.LiteLLMUrl
   MEMORY_SETTINGS_KEYS.forEach(key => {
     if (Object.prototype.hasOwnProperty.call(source, key)) {
       memorySettings[key] = source[key]
@@ -313,10 +311,6 @@ const migrateLegacySensitiveSettings = () => {
 export const loadSettings = (overrides = {}) => {
   migrateLegacySensitiveSettings()
   const session = getSessionStorage()
-  delete memorySettings.LiteLLMKey
-  delete memorySettings.LiteLLMUrl
-  session?.removeItem('LiteLLMKey')
-  session?.removeItem('LiteLLMUrl')
   const electronMode = isElectronRuntime()
   const electronBackendUrl = getElectronBackendUrlFromBridge() || getElectronBackendUrlOverride()
 
@@ -702,11 +696,6 @@ export const saveSettings = async settings => {
     'MinimaxKey',
   ]
   SENSITIVE_KEYS.forEach(key => localStorage.removeItem(key))
-  localStorage.removeItem('LiteLLMKey')
-  localStorage.removeItem('LiteLLMUrl')
-  const session = getSessionStorage()
-  session?.removeItem('LiteLLMKey')
-  session?.removeItem('LiteLLMUrl')
 
   // ... (Save other non-sensitive preferences)
   if (settings.systemPrompt !== undefined) {

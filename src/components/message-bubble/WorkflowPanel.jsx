@@ -416,37 +416,6 @@ const WorkflowPanel = memo(function WorkflowPanel({
                           ))}
                         </div>
 
-                        {searchFallbackPresentation && (
-                          <div
-                            className={clsx(
-                              'mb-2 rounded-xl border px-3 py-2 text-sm shadow-[0_1px_0_rgba(255,255,255,0.03)] backdrop-blur-sm',
-                              searchFallbackPresentation.tone === 'warning'
-                                ? 'border-amber-500/20 bg-gradient-to-r from-amber-500/12 via-amber-500/6 to-transparent text-amber-700 dark:text-amber-300'
-                                : searchFallbackPresentation.tone === 'success'
-                                  ? 'border-primary-500/20 from-primary-500/12 text-primary-700 dark:border-primary-500/25 dark:from-primary-500/14 dark:text-primary-300 bg-gradient-to-r via-white/5 to-transparent'
-                                  : 'border-gray-200/80 bg-white/55 text-gray-700 dark:border-zinc-700/60 dark:bg-zinc-900/30 dark:text-zinc-200',
-                            )}
-                          >
-                            <div className="flex items-center gap-2">
-                              <span
-                                className={clsx(
-                                  'inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold tracking-[0.14em] uppercase',
-                                  searchFallbackPresentation.tone === 'warning'
-                                    ? 'border-amber-500/20 bg-amber-500/12 text-amber-700 dark:text-amber-300'
-                                    : searchFallbackPresentation.tone === 'success'
-                                      ? 'border-primary-500/20 bg-primary-500/12 text-primary-700 dark:text-primary-300'
-                                      : 'border-gray-200/80 bg-white/70 text-gray-700 dark:border-zinc-700/60 dark:bg-zinc-900/40 dark:text-zinc-300',
-                                )}
-                              >
-                                {t(searchFallbackPresentation.badgeKey)}
-                              </span>
-                              <span className="min-w-0 truncate text-sm font-medium opacity-90">
-                                {t(searchFallbackPresentation.bodyKey)}
-                              </span>
-                            </div>
-                          </div>
-                        )}
-
                         {hasOriginalCandidates && (
                           <div>
                             <SearchSourcesList sources={originalSearchResults} />
@@ -543,17 +512,6 @@ const WorkflowPanel = memo(function WorkflowPanel({
                                 )}
                               </div>
                             )}
-
-                            {originalResults.length > 0 &&
-                              filteredResults.length > 0 &&
-                              originalResults.length > filteredResults.length && (
-                                <div className="mt-3 text-[11px] text-gray-400 dark:text-zinc-500">
-                                  {t('messageBubble.searchFilterCompare', {
-                                    original: originalResults.length,
-                                    filtered: filteredResults.length,
-                                  })}
-                                </div>
-                              )}
                           </>
                         )}
                       </div>

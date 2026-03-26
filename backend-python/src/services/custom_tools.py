@@ -12,6 +12,7 @@ import json
 import operator
 import os
 import re
+from collections.abc import Awaitable, Callable
 from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -345,6 +346,7 @@ class DuckDuckGoWebSearchTools(Toolkit):
         self._search_result_filter_base_url = (
             search_result_filter_base_url or summary_base_url
         )
+        self._search_progress_callback: Callable[[dict[str, Any]], Awaitable[None]] | None = None
         super().__init__(
             name="DuckDuckGoWebSearchTools",
             tools=[self.web_search, self.search_news],
@@ -357,6 +359,68 @@ class DuckDuckGoWebSearchTools(Toolkit):
             and str(self._search_result_filter_model or "").strip()
             and str(self._search_result_filter_api_key or "").strip()
         )
+
+    def set_search_progress_callback(
+        self,
+        callback: Callable[[dict[str, Any]], Awaitable[None]] | None,
+    ) -> None:
+        self._search_progress_callback = callback
+
+    async def _emit_search_filter_progress(
+        self,
+        *,
+        tool_name: str,
+        query: str,
+        payload: dict[str, Any],
+    ) -> None:
+        callback = self._search_progress_callback
+        if callback is None:
+            return
+        results = payload.get("results") if isinstance(payload, dict) else None
+        normalized_results = results if isinstance(results, list) else []
+        if not normalized_results:
+            return
+        try:
+            await callback(
+                {
+                    "type": "search_filter",
+                    "name": tool_name,
+                    "status": "running",
+                    "query": query,
+                    "applied": False,
+                    "originalCount": len(normalized_results),
+                    "originalResults": normalized_results,
+                }
+            )
+        except Exception:
+            pass
+
+    async def _emit_search_preview(
+        self,
+        *,
+        tool_name: str,
+        query: str,
+        payload: dict[str, Any],
+    ) -> None:
+        callback = self._search_progress_callback
+        if callback is None:
+            return
+        results = payload.get("results") if isinstance(payload, dict) else None
+        normalized_results = results if isinstance(results, list) else []
+        if not normalized_results:
+            return
+        try:
+            await callback(
+                {
+                    "type": "search_preview",
+                    "name": tool_name,
+                    "query": query,
+                    "resultCount": len(normalized_results),
+                    "results": normalized_results,
+                }
+            )
+        except Exception:
+            pass
 
     async def _maybe_filter_search_payload(
         self,
@@ -398,6 +462,16 @@ class DuckDuckGoWebSearchTools(Toolkit):
             payload = {"query": q, "results": normalized}
             if self._search_filter_enabled():
                 try:
+                    await self._emit_search_preview(
+                        tool_name="web_search",
+                        query=q,
+                        payload=payload,
+                    )
+                    await self._emit_search_filter_progress(
+                        tool_name="web_search",
+                        query=q,
+                        payload=payload,
+                    )
                     filtered = await self._maybe_filter_search_payload(
                         tool_name="web_search",
                         query=q,
@@ -443,6 +517,16 @@ class DuckDuckGoWebSearchTools(Toolkit):
             payload = {"query": q, "results": normalized}
             if self._search_filter_enabled():
                 try:
+                    await self._emit_search_preview(
+                        tool_name="search_news",
+                        query=q,
+                        payload=payload,
+                    )
+                    await self._emit_search_filter_progress(
+                        tool_name="search_news",
+                        query=q,
+                        payload=payload,
+                    )
                     filtered = await self._maybe_filter_search_payload(
                         tool_name="search_news",
                         query=q,

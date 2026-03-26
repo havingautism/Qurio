@@ -1,4 +1,4 @@
-const PIPELINE_SCHEMA_VERSION = 8
+const PIPELINE_SCHEMA_VERSION = 9
 const MAX_SUMMARY_LENGTH = 92
 
 const stripMarkdownLikeSyntax = value =>
@@ -522,6 +522,12 @@ const buildSearchFilterNode = ({
   }
 }
 
+const getSearchToolBlockId = block => {
+  const toolName = String(block?.name || '').trim()
+  if (!SEARCH_FILTER_SOURCE_TOOLS.has(toolName)) return ''
+  return String(block?.tool_call_id || block?.id || '').trim()
+}
+
 const buildToolCallNode = ({
   id,
   toolName,
@@ -728,7 +734,72 @@ const extractOrderedNodesFromBlocks = ({
   actorNameById = new Map(),
 }) => {
   const nodes = []
-  const hasExplicitSearchFilterBlocks = blocks.some(block => block._type === 'search_filter')
+  const explicitSearchFilterByToolId = new Map()
+  const searchToolBlockIds = new Set()
+  const searchToolResultIds = new Set()
+
+  blocks.forEach(block => {
+    if (block._type === 'search_filter') {
+      const toolId = String(block?.id || block?.tool_call_id || '').trim()
+      if (toolId) explicitSearchFilterByToolId.set(toolId, block)
+      return
+    }
+    const toolId = getSearchToolBlockId(block)
+    if (!toolId) return
+    searchToolBlockIds.add(toolId)
+    const normalizedStatus = normalizeStatus(block?.status || 'done')
+    if (
+      block._type === 'tool_result' ||
+      block?.output != null ||
+      normalizedStatus === 'done' ||
+      normalizedStatus === 'error'
+    ) {
+      searchToolResultIds.add(toolId)
+    }
+  })
+
+  const emitExplicitSearchFilterNode = ({ toolId, toolName, durationMs, actor, afterResult }) => {
+    const filterBlock = explicitSearchFilterByToolId.get(String(toolId || '').trim())
+    if (!filterBlock) return
+    const normalizedStatus = String(filterBlock?.status || 'running').toLowerCase()
+    if (afterResult) {
+      if (!(normalizedStatus === 'filtered' || normalizedStatus === 'fallback' || normalizedStatus === 'unavailable')) {
+        return
+      }
+    } else if (searchToolResultIds.has(String(toolId || '').trim())) {
+      return
+    }
+
+    const searchFilterNode = buildSearchFilterNode({
+      id: toolId,
+      toolName,
+      outputValue: null,
+      durationMs: filterBlock?.duration_ms ?? durationMs,
+      actor,
+      searchFilterMeta: {
+        query: filterBlock?.query || '',
+        status: String(filterBlock?.status || 'running'),
+        applied: filterBlock?.applied,
+        originalCount:
+          filterBlock?.originalCount != null ? filterBlock.originalCount : filterBlock?.original_count,
+        filteredCount:
+          filterBlock?.filteredCount != null ? filterBlock.filteredCount : filterBlock?.filtered_count,
+        fallbackReason: filterBlock?.fallbackReason || filterBlock?.fallback_reason || null,
+        originalResults: Array.isArray(filterBlock?.originalResults)
+          ? filterBlock.originalResults
+          : Array.isArray(filterBlock?.original_results)
+            ? filterBlock.original_results
+            : [],
+        filteredResults: Array.isArray(filterBlock?.filteredResults)
+          ? filterBlock.filteredResults
+          : Array.isArray(filterBlock?.filtered_results)
+            ? filterBlock.filtered_results
+            : [],
+      },
+    })
+    if (searchFilterNode) nodes.push(searchFilterNode)
+  }
+
   let index = 0
   while (index < blocks.length) {
     const block = blocks[index]
@@ -750,34 +821,37 @@ const extractOrderedNodesFromBlocks = ({
     }
 
     if (type === 'search_filter') {
-      const searchFilterNode = buildSearchFilterNode({
-        id: block?.id || block?.tool_call_id || `${idPrefix}-${index}`,
-        toolName: block?.name || 'web_search',
-        outputValue: null,
-        durationMs: block?.duration_ms,
-        actor,
-        searchFilterMeta: {
-          query: block?.query || '',
-          status: String(block?.status || 'running'),
-          applied: block?.applied,
-          originalCount:
-            block?.originalCount != null ? block.originalCount : block?.original_count,
-          filteredCount:
-            block?.filteredCount != null ? block.filteredCount : block?.filtered_count,
-          fallbackReason: block?.fallbackReason || block?.fallback_reason || null,
-          originalResults: Array.isArray(block?.originalResults)
-            ? block.originalResults
-            : Array.isArray(block?.original_results)
-              ? block.original_results
-              : [],
-          filteredResults: Array.isArray(block?.filteredResults)
-            ? block.filteredResults
-            : Array.isArray(block?.filtered_results)
-              ? block.filtered_results
-              : [],
-        },
-      })
-      if (searchFilterNode) nodes.push(searchFilterNode)
+      const toolId = String(block?.id || block?.tool_call_id || '').trim()
+      if (!toolId || !searchToolBlockIds.has(toolId)) {
+        const searchFilterNode = buildSearchFilterNode({
+          id: block?.id || block?.tool_call_id || `${idPrefix}-${index}`,
+          toolName: block?.name || 'web_search',
+          outputValue: null,
+          durationMs: block?.duration_ms,
+          actor,
+          searchFilterMeta: {
+            query: block?.query || '',
+            status: String(block?.status || 'running'),
+            applied: block?.applied,
+            originalCount:
+              block?.originalCount != null ? block.originalCount : block?.original_count,
+            filteredCount:
+              block?.filteredCount != null ? block.filteredCount : block?.filtered_count,
+            fallbackReason: block?.fallbackReason || block?.fallback_reason || null,
+            originalResults: Array.isArray(block?.originalResults)
+              ? block.originalResults
+              : Array.isArray(block?.original_results)
+                ? block.original_results
+                : [],
+            filteredResults: Array.isArray(block?.filteredResults)
+              ? block.filteredResults
+              : Array.isArray(block?.filtered_results)
+                ? block.filtered_results
+                : [],
+          },
+        })
+        if (searchFilterNode) nodes.push(searchFilterNode)
+      }
       index += 1
       continue
     }
@@ -820,6 +894,15 @@ const extractOrderedNodesFromBlocks = ({
           actorNameById,
         }),
       )
+      if (SEARCH_FILTER_SOURCE_TOOLS.has(toolName)) {
+        emitExplicitSearchFilterNode({
+          toolId,
+          toolName,
+          durationMs: block?.duration_ms,
+          actor,
+          afterResult: false,
+        })
+      }
       if (
         type === 'tool' &&
         (block?.output != null || toolStatus === 'done' || toolStatus === 'error')
@@ -834,7 +917,15 @@ const extractOrderedNodesFromBlocks = ({
           argumentsValue: argumentsValue ?? block?.arguments,
         })
         nodes.push(resultNode)
-        if (!hasExplicitSearchFilterBlocks) {
+        if (SEARCH_FILTER_SOURCE_TOOLS.has(toolName)) {
+          emitExplicitSearchFilterNode({
+            toolId,
+            toolName,
+            durationMs: block?.duration_ms,
+            actor,
+            afterResult: true,
+          })
+        } else {
           const searchFilterNode = buildSearchFilterNode({
             id: toolId,
             toolName,
@@ -868,7 +959,15 @@ const extractOrderedNodesFromBlocks = ({
         argumentsValue: safeParseJson(block?.arguments) ?? block?.arguments,
       })
       nodes.push(resultNode)
-      if (!hasExplicitSearchFilterBlocks) {
+      if (SEARCH_FILTER_SOURCE_TOOLS.has(toolName)) {
+        emitExplicitSearchFilterNode({
+          toolId,
+          toolName,
+          durationMs: block?.duration_ms,
+          actor,
+          afterResult: true,
+        })
+      } else {
         const searchFilterNode = buildSearchFilterNode({
           id: toolId,
           toolName,

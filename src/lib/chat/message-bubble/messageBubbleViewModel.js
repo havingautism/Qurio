@@ -46,6 +46,12 @@ export function normalizeMessageStreamBlocks({ streamSource }) {
         : Array.isArray(item?.filteredResults)
           ? item.filteredResults
           : null,
+      resultCount: Number.isFinite(item?.result_count)
+        ? Number(item.result_count)
+        : Number.isFinite(item?.resultCount)
+          ? Number(item.resultCount)
+          : null,
+      results: Array.isArray(item?.results) ? item.results : null,
       durationMs: Number.isFinite(item?.duration_ms) ? Number(item.duration_ms) : null,
     }))
     .filter(item => item.type)
@@ -112,6 +118,19 @@ const getToolStepKey = tool =>
     ? String(tool.id)
     : `${tool?.name || 'tool'}:${String(tool?.arguments || '')}:${String(tool?.output || '')}`
 
+const getSearchStepKey = tool =>
+  tool?.id ? String(tool.id) : getToolStepKey(tool)
+
+const findExistingSearchStep = ({ steps, stepKey, query }) => {
+  const normalizedQuery = String(query || '').trim()
+  return [...steps].reverse().find(step => {
+    if (step?.kind !== 'search') return false
+    if (stepKey && step.stepKey === stepKey) return true
+    if (!normalizedQuery) return false
+    return Array.isArray(step.queries) && step.queries.some(item => String(item || '').trim() === normalizedQuery)
+  })
+}
+
 const parseToolOutput = output => {
   if (!output) return null
   if (typeof output === 'object') return output
@@ -163,6 +182,40 @@ export function buildMessageProcessSteps({
       continue
     }
 
+    if (block.type === 'search_preview') {
+      const stepKey = String(block.id || block.toolCallId || `search-preview-${block.seq}`)
+      const existingStep = findExistingSearchStep({
+        steps,
+        stepKey,
+        query: block.query,
+      })
+      if (existingStep) {
+        const previewResults = Array.isArray(block.results) ? [...block.results] : []
+        if (previewResults.length > 0) {
+          existingStep.previewResults = previewResults
+          existingStep.sources = previewResults
+        }
+        if (!existingStep.stepKey && stepKey) existingStep.stepKey = stepKey
+        if (block.query && existingStep._querySet && !existingStep._querySet.has(String(block.query))) {
+          existingStep._querySet.add(String(block.query))
+          existingStep.queries.push(String(block.query))
+        }
+      } else {
+        steps.push({
+          kind: 'search',
+          stepKey,
+          items: [],
+          queries: block.query ? [String(block.query)] : [],
+          sources: Array.isArray(block.results) ? [...block.results] : [],
+          durationMs: 0,
+          previewResults: Array.isArray(block.results) ? [...block.results] : [],
+          _toolKeys: new Set(),
+          _querySet: new Set(block.query ? [String(block.query)] : []),
+        })
+      }
+      continue
+    }
+
     if (block.type === 'search_filter') {
       steps.push({
         kind: 'search_filter',
@@ -205,10 +258,15 @@ export function buildMessageProcessSteps({
 
       const isSearchTool = SEARCH_STEP_TOOLS.has(String(tool.name))
       if (isSearchTool) {
-        const searchToolKey = getToolStepKey(tool)
-        const lastStep = steps[steps.length - 1]
-        if (lastStep?.kind === 'search' && lastStep.stepKey === searchToolKey) {
-          addToolToStep(lastStep, tool)
+        const searchToolKey = getSearchStepKey(tool)
+        const existingStep = findExistingSearchStep({
+          steps,
+          stepKey: searchToolKey,
+          query: parseToolQuery(tool),
+        })
+        if (existingStep) {
+          if (!existingStep.stepKey && searchToolKey) existingStep.stepKey = searchToolKey
+          addToolToStep(existingStep, tool)
         } else {
           const newSearchStep = {
             kind: 'search',
@@ -248,7 +306,10 @@ export function buildMessageProcessSteps({
   steps.forEach(step => {
     if (step.kind !== 'search') return
 
-    const matchedSources = []
+    const previewSources = Array.isArray(step.previewResults)
+      ? dedupeSearchResults(step.previewResults)
+      : []
+    const matchedSources = previewSources.length > 0 ? [...previewSources] : []
     let originalResultCount = 0
     let filteredResultCount = 0
     let searchFilterApplied = false
@@ -321,17 +382,19 @@ export function buildMessageProcessSteps({
         searchFilterFilteredResults = dedupeSearchResults([...searchFilterFilteredResults, ...results])
       }
 
-      results.forEach(result => {
-        const url = result?.url || result?.link || result?.href
-        if (!url) return
-        matchedSources.push({
-          url,
-          title: result.title || url,
-          snippet: result.snippet || result.description || '',
-          media: result.media || '',
-          icon: result.icon || '',
+      if (previewSources.length === 0) {
+        results.forEach(result => {
+          const url = result?.url || result?.link || result?.href
+          if (!url) return
+          matchedSources.push({
+            url,
+            title: result.title || url,
+            snippet: result.snippet || result.description || '',
+            media: result.media || '',
+            icon: result.icon || '',
+          })
         })
-      })
+      }
     })
 
     if (matchedSources.length === 0) {

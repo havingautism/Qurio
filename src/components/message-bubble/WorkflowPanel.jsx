@@ -345,10 +345,14 @@ const WorkflowPanel = memo(function WorkflowPanel({
                       : typeof step.durationMs === 'number'
                         ? step.durationMs
                         : null
-                  const originalSearchResults = Array.isArray(step.searchFilter?.originalResults)
-                    ? step.searchFilter.originalResults
-                    : []
+                  const originalSearchResults =
+                    Array.isArray(step.sources) && step.sources.length > 0
+                      ? step.sources
+                      : Array.isArray(step.searchFilter?.originalResults)
+                        ? step.searchFilter.originalResults
+                        : []
                   const hasOriginalCandidates = originalSearchResults.length > 0
+                  const isPreviewSearch = Array.isArray(step.previewResults) && step.previewResults.length > 0
                   const originalResultCount =
                     Number(step.searchFilter?.originalCount || 0) || originalSearchResults.length
                   const searchFilterStatus = String(step.searchFilter?.status || '').toLowerCase()
@@ -386,7 +390,9 @@ const WorkflowPanel = memo(function WorkflowPanel({
                               )
                             }
                             const count = originalResultCount || step.sources?.length || 0
-                            return t('messageBubble.searchFound', { count })
+                            return isPreviewSearch
+                              ? t('messageBubble.searchPreviewFound', { count })
+                              : t('messageBubble.searchFound', { count })
                           })()}
                         </div>
                         {(() => {
@@ -439,25 +445,39 @@ const WorkflowPanel = memo(function WorkflowPanel({
                       step.meta?.filtered_count ||
                       0,
                   )
-                  const originalResults = Array.isArray(step.originalResults)
-                    ? step.originalResults
-                    : []
                   const filteredResults = Array.isArray(step.filteredResults)
                     ? step.filteredResults
                     : []
                   const hasResults =
                     filteredResults.length > 0 && filteredResults.some(hasNavigableSourceLink)
+                  const normalizedFallbackReason = String(step.fallbackReason || '').trim().toLowerCase()
                   const isDone = String(step.status || '') === 'filtered'
                   const isFallback =
                     String(step.status || '') === 'fallback' ||
                     String(step.status || '') === 'unavailable'
+                  const isEmptySelectionFallback =
+                    isFallback && normalizedFallbackReason === 'empty_selection'
                   const isRunning = !isDone && !isFallback
-                  const summaryLabel = isRunning
-                    ? t('messageBubble.searchFiltering', '正在筛选高相关结果...')
-                    : t('messageBubble.searchFiltered', {
-                        filtered: filteredCount,
-                        original: originalCount,
-                      })
+                  const fallbackPresentation = isFallback
+                    ? getSearchFilterFallbackPresentation(step.fallbackReason || '')
+                    : null
+                  const summaryLabel = (() => {
+                    if (isRunning) return t('messageBubble.searchFiltering', '正在筛选高相关结果...')
+                    if (isEmptySelectionFallback) {
+                      return t(
+                        fallbackPresentation?.titleKey || 'messageBubble.searchFilterEmptySelectionTitle',
+                      )
+                    }
+                    if (isFallback) {
+                      return t(
+                        fallbackPresentation?.titleKey || 'messageBubble.searchFilterFallbackGenericTitle',
+                      )
+                    }
+                    return t('messageBubble.searchFiltered', {
+                      filtered: filteredCount,
+                      original: originalCount,
+                    })
+                  })()
 
                   return (
                     <div key={`search-filter-${idx}`} className="relative mb-4">
@@ -482,28 +502,44 @@ const WorkflowPanel = memo(function WorkflowPanel({
 
                       <div>
                         {isRunning && (
-                          <div className="border-primary-500/10 mb-3 flex items-center gap-3 rounded-2xl border bg-black/[0.02] p-3 dark:bg-white/[0.02]">
-                            <span className="bg-primary-500/12 text-primary-500 dark:text-primary-300 relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl">
-                              <span className="bg-primary-500/10 absolute inset-0 animate-pulse rounded-xl" />
-                              <SlidersHorizontal size={16} className="relative" />
-                            </span>
-                            <div className="min-w-0 flex-1">
-                              <div className="text-sm font-medium text-gray-700 dark:text-gray-100">
-                                {t('messageBubble.searchFiltering', '正在筛选高相关结果...')}
-                              </div>
-                              <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                {t('messageBubble.searchFilterRunningHint', '等待筛选结果返回')}
-                              </div>
-                              <div className="bg-primary-500/10 mt-2 h-1.5 overflow-hidden rounded-full">
-                                <div className="from-primary-400 via-primary-500 h-full w-1/3 animate-pulse rounded-full bg-gradient-to-r to-fuchsia-500" />
+                          <div className="space-y-3">
+                            <div className="border-primary-500/10 mb-3 flex items-center gap-3 rounded-2xl border bg-black/[0.02] p-3 dark:bg-white/[0.02]">
+                              <span className="bg-primary-500/12 text-primary-500 dark:text-primary-300 relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl">
+                                <span className="bg-primary-500/10 absolute inset-0 animate-pulse rounded-xl" />
+                                <SlidersHorizontal size={16} className="relative" />
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <div className="text-sm font-medium text-gray-700 dark:text-gray-100">
+                                  {t('messageBubble.searchFiltering', '正在筛选高相关结果...')}
+                                </div>
+                                <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                  {t('messageBubble.searchFilterRunningHint', '等待筛选结果返回')}
+                                </div>
+                                <div className="bg-primary-500/10 mt-2 h-1.5 overflow-hidden rounded-full">
+                                  <div className="from-primary-400 via-primary-500 h-full w-1/3 animate-pulse rounded-full bg-gradient-to-r to-fuchsia-500" />
+                                </div>
                               </div>
                             </div>
                           </div>
                         )}
                         {!isRunning && (
                           <>
-                            {hasResults ? (
+                            {isDone && hasResults ? (
                               <SearchSourcesList sources={filteredResults} />
+                            ) : isFallback ? (
+                              <div
+                                className={clsx(
+                                  'rounded-xl border px-3 py-2 text-sm',
+                                  fallbackPresentation?.tone === 'success'
+                                    ? 'border-primary-500/20 bg-primary-500/8 text-primary-700 dark:border-primary-500/30 dark:bg-primary-500/10 dark:text-primary-200'
+                                    : 'border-amber-500/20 bg-amber-500/8 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200',
+                                )}
+                              >
+                                {t(
+                                  fallbackPresentation?.titleKey ||
+                                    'messageBubble.searchFilterFallbackGenericTitle',
+                                )}
+                              </div>
                             ) : (
                               <div className="rounded-xl border border-dashed border-gray-200/70 bg-white/40 px-3 py-2 text-sm text-gray-500 dark:border-zinc-700/60 dark:bg-zinc-950/20 dark:text-gray-400">
                                 {t(

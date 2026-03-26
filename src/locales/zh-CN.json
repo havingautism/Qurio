@@ -1453,6 +1453,7 @@
     "regenerate": "重新生成",
     "webSearch": "网络搜索",
     "searchFound": "找到 {{count}} 条结果",
+    "searchPreviewFound": "原始搜索结果（{{count}} 条）",
     "searchFiltering": "正在筛选高相关结果...",
     "searchFiltered": "已筛选出 {{filtered}} 条高相关结果（原始 {{original}} 条）",
     "searchOriginalCandidates": "原始候选",

@@ -255,6 +255,7 @@ class ToolResultEvent(BaseModel):
     output: Any = None
     error: str | None = None
     duration_ms: int | None = Field(default=None, alias="durationMs")
+    text_index: int | None = Field(default=None, alias="textIndex")
     # Agent identification for Team mode
     agent_id: str | None = Field(default=None, alias="agentId")
     agent_name: str | None = Field(default=None, alias="agentName")
@@ -279,6 +280,25 @@ class SearchFilterEvent(BaseModel):
     original_results: list[dict[str, Any]] | None = Field(default=None, alias="originalResults")
     filtered_results: list[dict[str, Any]] | None = Field(default=None, alias="filteredResults")
     duration_ms: int | None = Field(default=None, alias="durationMs")
+    text_index: int | None = Field(default=None, alias="textIndex")
+    # Agent identification for Team mode
+    agent_id: str | None = Field(default=None, alias="agentId")
+    agent_name: str | None = Field(default=None, alias="agentName")
+    agent_role: str | None = Field(default=None, alias="agentRole")
+    agent_emoji: str | None = Field(default=None, alias="agentEmoji")
+    agent_status: AgentStatus | None = Field(default=None, alias="agentStatus")
+
+
+class SearchPreviewEvent(BaseModel):
+    """Search preview event carrying original candidate results."""
+    model_config = {"populate_by_name": True}
+
+    type: Literal["search_preview"] = Field(default="search_preview", alias="type")
+    id: str | None = None
+    name: str
+    query: str | None = None
+    result_count: int | None = Field(default=None, alias="resultCount")
+    results: list[dict[str, Any]] | None = None
     text_index: int | None = Field(default=None, alias="textIndex")
     # Agent identification for Team mode
     agent_id: str | None = Field(default=None, alias="agentId")
@@ -334,6 +354,7 @@ StreamEvent = (
     | ThoughtEvent
     | ToolCallEvent
     | ToolResultEvent
+    | SearchPreviewEvent
     | SearchFilterEvent
     | DoneEvent
     | ErrorEvent

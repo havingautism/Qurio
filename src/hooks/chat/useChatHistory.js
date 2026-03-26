@@ -163,6 +163,12 @@ const extractExpertState = message => {
                   : Array.isArray(block?.filteredResults)
                     ? block.filteredResults
                     : null,
+                result_count: Number.isFinite(block?.result_count)
+                  ? Number(block.result_count)
+                  : Number.isFinite(block?.resultCount)
+                    ? Number(block.resultCount)
+                    : null,
+                results: Array.isArray(block?.results) ? block.results : null,
               }))
               .filter(block => block.type)
               .sort((a, b) => {
@@ -310,6 +316,12 @@ const normalizeStreamBlocks = raw => {
         : Array.isArray(item?.filteredResults)
           ? item.filteredResults
           : null,
+      result_count: Number.isFinite(item?.result_count)
+        ? Number(item.result_count)
+        : Number.isFinite(item?.resultCount)
+          ? Number(item.resultCount)
+          : null,
+      results: Array.isArray(item?.results) ? item.results : null,
     }))
     .filter(item => item.type)
     .sort((a, b) => a.seq - b.seq)

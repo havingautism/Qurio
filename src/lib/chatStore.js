@@ -884,6 +884,57 @@ const useChatStore = create((set, get) => ({
               return
             }
 
+            if (chunk && typeof chunk === 'object' && chunk.type === 'search_preview') {
+              updateTargetResponse(item => {
+                const history = Array.isArray(item.searchPreviewHistory)
+                  ? [...item.searchPreviewHistory]
+                  : []
+                const toolId = chunk.id || chunk.toolCallId || chunk.name || 'search_preview'
+                const nextEntry = {
+                  id: toolId,
+                  toolCallId: toolId,
+                  name: chunk.name || 'search_preview',
+                  query: chunk.query || '',
+                  resultCount:
+                    typeof chunk.resultCount === 'number'
+                      ? chunk.resultCount
+                      : typeof chunk.result_count === 'number'
+                        ? chunk.result_count
+                        : Array.isArray(chunk.results)
+                          ? chunk.results.length
+                          : null,
+                  results: Array.isArray(chunk.results) ? chunk.results : [],
+                  textIndex:
+                    typeof chunk.textIndex === 'number'
+                      ? chunk.textIndex
+                      : (() => {
+                          const matchedTool = Array.isArray(item.toolCallHistory)
+                            ? item.toolCallHistory.find(
+                                entry => String(entry?.id || '') === String(toolId),
+                              )
+                            : null
+                          if (typeof matchedTool?.textIndex === 'number') return matchedTool.textIndex
+                          return (item.content || '').length
+                        })(),
+                  streamOrder: ++toolStreamOrder,
+                }
+                history.push(nextEntry)
+
+                const streamBlocks = Array.isArray(item.streamBlocks) ? [...item.streamBlocks] : []
+                streamBlocks.push({
+                  seq: ++streamSeq,
+                  type: 'search_preview',
+                  id: toolId,
+                  name: chunk.name || 'search_preview',
+                  query: chunk.query || '',
+                  resultCount: nextEntry.resultCount,
+                  results: nextEntry.results,
+                })
+                return { ...item, searchPreviewHistory: history, streamBlocks, status: 'running' }
+              })
+              return
+            }
+
             const chunkText = extractChunkText(chunk)
             if (!chunkText) return
             const cleanText = sanitizeExpertStreamChunk(chunkText)

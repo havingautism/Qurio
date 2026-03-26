@@ -79,6 +79,7 @@ const buildStreamBlocks = ({
   content = '',
   thoughtHistory = [],
   toolCallHistory = [],
+  searchPreviewHistory = [],
   searchFilterHistory = [],
 } = {}) => {
   const rawContent = typeof content === 'string' ? content : String(content || '')
@@ -142,7 +143,27 @@ const buildStreamBlocks = ({
         .filter(item => item.id)
     : []
 
-  events.push(...normalizedThoughts, ...normalizedTools, ...normalizedSearchFilters)
+  const normalizedSearchPreviews = Array.isArray(searchPreviewHistory)
+    ? searchPreviewHistory
+        .map((item, index) => ({
+          type: 'search_preview',
+          textIndex: Number.isFinite(item?.textIndex) ? Number(item.textIndex) : 0,
+          order: Number.isFinite(item?.streamOrder) ? Number(item.streamOrder) : 150000 + index,
+          id: item?.id || item?.toolCallId || item?.tool_call_id || `search-preview-${index}`,
+          name: item?.name || 'search_preview',
+          query: item?.query || '',
+          resultCount: item?.resultCount ?? item?.result_count ?? null,
+          results: item?.results ?? null,
+        }))
+        .filter(item => item.id)
+    : []
+
+  events.push(
+    ...normalizedThoughts,
+    ...normalizedTools,
+    ...normalizedSearchPreviews,
+    ...normalizedSearchFilters,
+  )
   events.sort((a, b) =>
     a.textIndex === b.textIndex ? a.order - b.order : a.textIndex - b.textIndex,
   )
@@ -177,6 +198,16 @@ const buildStreamBlocks = ({
         arguments: event.arguments,
         output: event.output,
         duration_ms: event.duration_ms,
+      })
+    } else if (event.type === 'search_preview') {
+      blocks.push({
+        seq: seq++,
+        type: 'search_preview',
+        id: event.id,
+        name: event.name,
+        query: event.query,
+        result_count: event.resultCount,
+        results: event.results,
       })
     } else if (event.type === 'search_filter') {
       blocks.push({
@@ -609,6 +640,9 @@ export const callAIAPI = async (
         content: lastMsg.content || '',
         thoughtHistory: thoughtHistoryForBlocks,
         toolCallHistory: Array.isArray(lastMsg.toolCallHistory) ? lastMsg.toolCallHistory : [],
+        searchPreviewHistory: Array.isArray(lastMsg.searchPreviewHistory)
+          ? lastMsg.searchPreviewHistory
+          : [],
         searchFilterHistory: Array.isArray(lastMsg.searchFilterHistory)
           ? lastMsg.searchFilterHistory
           : [],
@@ -1146,6 +1180,9 @@ export const callAIAPI = async (
                 content: lastMsg.content || '',
                 thoughtHistory: getThoughtHistoryForRebuild(lastMsg),
                 toolCallHistory: history,
+                searchPreviewHistory: Array.isArray(lastMsg.searchPreviewHistory)
+                  ? lastMsg.searchPreviewHistory
+                  : [],
                 searchFilterHistory: Array.isArray(lastMsg.searchFilterHistory)
                   ? lastMsg.searchFilterHistory
                   : [],
@@ -1188,6 +1225,10 @@ export const callAIAPI = async (
                     startedAtMs: startedAt,
                     existingDurationMs: history[targetIndex].durationMs,
                   }),
+                  textIndex:
+                    typeof chunk.textIndex === 'number'
+                      ? chunk.textIndex
+                      : history[targetIndex].textIndex,
                   step: typeof chunk.step === 'number' ? chunk.step : history[targetIndex].step,
                   total: typeof chunk.total === 'number' ? chunk.total : history[targetIndex].total,
                 }
@@ -1231,6 +1272,65 @@ export const callAIAPI = async (
                 content: lastMsg.content || '',
                 thoughtHistory: getThoughtHistoryForRebuild(lastMsg),
                 toolCallHistory: history,
+                searchPreviewHistory: Array.isArray(lastMsg.searchPreviewHistory)
+                  ? lastMsg.searchPreviewHistory
+                  : [],
+                searchFilterHistory: Array.isArray(lastMsg.searchFilterHistory)
+                  ? lastMsg.searchFilterHistory
+                  : [],
+              })
+              updated[lastMsgIndex] = lastMsg
+              return { messages: updated }
+            })
+            return
+          }
+          if (chunk.type === 'search_preview') {
+            flushPending()
+            hasNonThoughtEvent = true
+            set(state => {
+              const updated = [...state.messages]
+              const lastMsgIndex = updated.length - 1
+              if (lastMsgIndex < 0 || updated[lastMsgIndex].role !== 'ai')
+                return { messages: updated }
+              const lastMsg = { ...updated[lastMsgIndex] }
+              const history = Array.isArray(lastMsg.searchPreviewHistory)
+                ? [...lastMsg.searchPreviewHistory]
+                : []
+              const toolId = chunk.id || chunk.toolCallId || `${chunk.name || 'search_preview'}`
+              history.push({
+                id: toolId,
+                toolCallId: toolId,
+                name: chunk.name || 'search_preview',
+                query: chunk.query || '',
+                resultCount:
+                  typeof chunk.resultCount === 'number'
+                    ? chunk.resultCount
+                    : typeof chunk.result_count === 'number'
+                      ? chunk.result_count
+                      : Array.isArray(chunk.results)
+                        ? chunk.results.length
+                        : null,
+                results: Array.isArray(chunk.results) ? chunk.results : [],
+                textIndex:
+                  typeof chunk.textIndex === 'number'
+                    ? chunk.textIndex
+                    : (() => {
+                        const matchedTool = Array.isArray(lastMsg.toolCallHistory)
+                          ? lastMsg.toolCallHistory.find(entry => String(entry?.id || '') === String(toolId))
+                          : null
+                        if (typeof matchedTool?.textIndex === 'number') return matchedTool.textIndex
+                        return String(lastMsg.content || '').length
+                      })(),
+                streamOrder: ++streamEventOrder,
+              })
+              lastMsg.searchPreviewHistory = history
+              lastMsg.streamBlocks = buildStreamBlocks({
+                content: lastMsg.content || '',
+                thoughtHistory: getThoughtHistoryForRebuild(lastMsg),
+                toolCallHistory: Array.isArray(lastMsg.toolCallHistory)
+                  ? lastMsg.toolCallHistory
+                  : [],
+                searchPreviewHistory: history,
                 searchFilterHistory: Array.isArray(lastMsg.searchFilterHistory)
                   ? lastMsg.searchFilterHistory
                   : [],
@@ -1323,6 +1423,9 @@ export const callAIAPI = async (
                 toolCallHistory: Array.isArray(lastMsg.toolCallHistory)
                   ? lastMsg.toolCallHistory
                   : [],
+                searchPreviewHistory: Array.isArray(lastMsg.searchPreviewHistory)
+                  ? lastMsg.searchPreviewHistory
+                  : [],
                 searchFilterHistory: history,
               })
               updated[lastMsgIndex] = lastMsg
@@ -1411,6 +1514,9 @@ export const callAIAPI = async (
                 content: lastMsg.content || '',
                 thoughtHistory: getThoughtHistoryForRebuild(lastMsg),
                 toolCallHistory: history,
+                searchPreviewHistory: Array.isArray(lastMsg.searchPreviewHistory)
+                  ? lastMsg.searchPreviewHistory
+                  : [],
                 searchFilterHistory: Array.isArray(lastMsg.searchFilterHistory)
                   ? lastMsg.searchFilterHistory
                   : [],
@@ -1964,6 +2070,9 @@ export const finalizeMessage = async (
       content: contentForPersistence,
       thoughtHistory: thoughtHistoryForPersistence || [],
       toolCallHistory: toolCallHistoryForPersistence || [],
+      searchPreviewHistory: Array.isArray(latestAi?.searchPreviewHistory)
+        ? latestAi.searchPreviewHistory
+        : [],
       searchFilterHistory: Array.isArray(latestAi?.searchFilterHistory)
         ? latestAi.searchFilterHistory
         : [],

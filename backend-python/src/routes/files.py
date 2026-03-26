@@ -11,6 +11,11 @@ from fastapi import APIRouter, Body, HTTPException
 from fastapi.responses import FileResponse
 
 from ..services.pptx_builder import build_pptx_file_async
+from ..services.excel_builder import build_excel_file
+from ..services.excel_schema import build_excel_payload
+from ..services.excel_store import create_excel_path
+from ..services.excel_store import get_excel_file
+from ..services.excel_store import register_excel_file
 from ..services.pptx_schema import build_pptx_payload
 from ..services.pptx_store import create_pptx_path
 from ..services.pptx_store import get_pptx_file
@@ -30,6 +35,17 @@ def _sanitize_pptx_filename(raw_title: Any) -> str:
     return title
 
 
+def _sanitize_excel_filename(raw_title: Any) -> str:
+    title = str(raw_title or "Generated Workbook").strip()
+    if not title:
+        title = "Generated Workbook"
+    title = re.sub(r"[\\/:*?\"<>|]+", " ", title)
+    title = re.sub(r"\s+", " ", title).strip()
+    if not title.lower().endswith(".xlsx"):
+        title = f"{title}.xlsx"
+    return title
+
+
 @router.get("/files/pptx/{token}")
 async def download_pptx_file(token: str):
     if not token or len(token) < 8:
@@ -43,6 +59,22 @@ async def download_pptx_file(token: str):
         path=str(meta["path"]),
         media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
         filename=str(meta.get("filename") or "presentation.pptx"),
+    )
+
+
+@router.get("/files/excel/{token}")
+async def download_excel_file(token: str):
+    if not token or len(token) < 8:
+        raise HTTPException(status_code=400, detail="Invalid token")
+
+    meta = get_excel_file(token)
+    if not meta:
+        raise HTTPException(status_code=404, detail="File not found or expired")
+
+    return FileResponse(
+        path=str(meta["path"]),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        filename=str(meta.get("filename") or "workbook.xlsx"),
     )
 
 
@@ -70,4 +102,28 @@ async def rebuild_pptx_file(payload: dict[str, Any] = Body(...)):
         "preview_height": int(render_result.get("preview_height") or 560),
         "qa_issues": render_result.get("qa_issues") if isinstance(render_result.get("qa_issues"), list) else [],
         "render_mode_used": str(render_result.get("render_mode_used") or "semantic"),
+    }
+
+
+@router.post("/files/excel/rebuild")
+async def rebuild_excel_file(payload: dict[str, Any] = Body(...)):
+    request_payload = build_excel_payload(payload or {})
+    if request_payload.get("type") == "excel_error":
+        return request_payload
+
+    output_path = create_excel_path()
+    render_result = build_excel_file(request_payload, str(output_path))
+    if render_result.get("type") == "excel_error":
+        return render_result
+
+    file_name = _sanitize_excel_filename(request_payload.get("title"))
+    registered = register_excel_file(file_path=str(output_path), filename=file_name)
+    return {
+        "type": "excel_file",
+        "title": request_payload.get("title") or "Generated Workbook",
+        "sheet_count": int(render_result.get("sheet_count") or 0),
+        "filename": file_name,
+        "download_url": registered["download_url"],
+        "expires_at": registered["expires_at"],
+        "preview": render_result.get("preview") if isinstance(render_result.get("preview"), dict) else {"sheets": []},
     }

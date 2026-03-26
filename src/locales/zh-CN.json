@@ -48,6 +48,8 @@
     "renderHtmlWidgetInfo": "在对话中通过 iframe 渲染结构化 HTML 可视化（表格、时间线、卡片等）。",
     "pptGenerator": "PPT 生成器",
     "pptGeneratorInfo": "直接生成可下载的真实 .pptx 演示文稿，支持自动分页。",
+    "excelGenerator": "Excel 生成器",
+    "excelGeneratorInfo": "将结构化表格数据直接导出为可下载的真实 .xlsx 工作簿，并附带轻量预览。",
     "installSkillDependency": "安装技能依赖",
     "installSkillDependencyInfo": "将已获用户批准的 Python 依赖安装到技能的隔离虚拟环境中。",
     "executeSkillScript": "执行技能脚本",
@@ -1379,6 +1381,15 @@
     "downloadPdf": "PDF",
     "downloadWord": "Word",
     "pptRetriesHidden": "已隐藏更早的 PPT 尝试，仅显示最新结果。",
+    "excelRetriesHidden": "已隐藏更早的 Excel 尝试，仅显示最新结果。",
+    "excel": {
+      "missingPayload": "工具结果中未找到 Excel 载荷。",
+      "download": "下载 Excel",
+      "sheetCount": "{{count}} 个工作表",
+      "previewRows": "{{count}} 行",
+      "additionalSheets": "+ 另外 {{count}} 个工作表",
+      "unnamedColumn": "列"
+    },
     "ppt": {
       "missingPayload": "工具结果中未找到 PPTX 载荷。",
       "slideCount": "{{count}} 页",

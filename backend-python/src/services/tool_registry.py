@@ -297,6 +297,73 @@ AGENT_TOOLS: list[dict[str, Any]] = [
         },
     },
     {
+        "id": "excel_generator",
+        "name": "excel_generator",
+        "category": "visualization",
+        "description": (
+            "Generate a downloadable .xlsx Excel workbook from structured sheet data. "
+            "For multi-sheet workbooks, you MUST pass a sheets array with one object per worksheet. "
+            "Use top-level sheet_name/columns/rows only for a simple single-sheet workbook. "
+            "Use rows as the canonical row field; data is accepted as a compatibility alias if emitted by the model. "
+            "If the user requests a summary sheet, calculate that summary first and include it as another item in sheets. "
+            "Returns {type: excel_file, filename, download_url, expires_at, preview} on success."
+        ),
+        "parameters": {
+            "type": "object",
+            "required": [],
+            "properties": {
+                "title": {
+                    "type": "string",
+                    "description": "Workbook title and filename prefix.",
+                },
+                "sheet_name": {
+                    "type": "string",
+                    "description": "Single-sheet fallback only. Do not use this for multi-sheet workbooks.",
+                },
+                "columns": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Single-sheet fallback columns only. For multi-sheet output, put columns inside each sheets[] item.",
+                },
+                "rows": {
+                    "type": "array",
+                    "description": "Single-sheet fallback rows only. For multi-sheet output, put rows inside each sheets[] item. Some models may call this data; rows is preferred.",
+                    "items": {
+                        "anyOf": [
+                            {"type": "array", "items": {}},
+                            {"type": "object"},
+                        ]
+                    },
+                },
+                "sheets": {
+                    "type": "array",
+                    "description": "Preferred workbook payload. REQUIRED when creating multiple worksheets. Each item represents one worksheet, including summary sheets.",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string", "description": "Worksheet name."},
+                            "columns": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "Column headers for this worksheet.",
+                            },
+                            "rows": {
+                                "type": "array",
+                                "description": "Row data for this worksheet. Can be arrays or objects. Some models may call this data; rows is preferred.",
+                                "items": {
+                                    "anyOf": [
+                                        {"type": "array", "items": {}},
+                                        {"type": "object"},
+                                    ]
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    },
+    {
         "id": "ppt_generator",
         "name": "ppt_generator",
         "category": "visualization",

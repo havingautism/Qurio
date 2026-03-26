@@ -146,6 +146,7 @@ export function buildContentPartsOutsideWorkflow({
   isExpertMessage,
   compactStreamingTextBlocks,
   parsePptxPayload,
+  parseExcelPayload,
 }) {
   const rawParts = []
 
@@ -160,6 +161,7 @@ export function buildContentPartsOutsideWorkflow({
     if (part.type === 'tools' && Array.isArray(part.items)) {
       const formItems = part.items.filter(item => item?.name === 'interactive_form')
       const htmlWidgetItems = part.items.filter(item => item?.name === 'render_html_widget')
+      const excelItems = part.items.filter(item => item?.name === 'excel_generator')
       const pptxItems = part.items.filter(
         item => item?.name === 'ppt_generator' || item?.name === 'html_to_pptx',
       )
@@ -167,6 +169,7 @@ export function buildContentPartsOutsideWorkflow({
         item =>
           item?.name !== 'interactive_form' &&
           item?.name !== 'form_submission_status' &&
+          item?.name !== 'excel_generator' &&
           item?.name !== 'ppt_generator' &&
           item?.name !== 'html_to_pptx',
       )
@@ -207,6 +210,14 @@ export function buildContentPartsOutsideWorkflow({
         })
       }
 
+      if (excelItems.length > 0) {
+        rawParts.push({
+          type: 'excel_file',
+          key: `${part.key || `excel-file-${i}`}-file`,
+          items: excelItems,
+        })
+      }
+
       if (pptxItems.length > 0) {
         rawParts.push({
           type: 'pptx_file',
@@ -229,39 +240,41 @@ export function buildContentPartsOutsideWorkflow({
     mergedTextParts.push({ ...part })
   }
 
-  const pptPartIndexes = mergedTextParts
-    .map((part, index) => (part.type === 'pptx_file' ? index : -1))
-    .filter(index => index >= 0)
+  const collapseFileToolParts = (parts, type, parsePayload) => {
+    const indexes = parts.map((part, index) => (part.type === type ? index : -1)).filter(index => index >= 0)
+    if (indexes.length <= 1) return parts
 
-  if (pptPartIndexes.length <= 1) return mergedTextParts
-
-  let winnerIndex = pptPartIndexes[pptPartIndexes.length - 1]
-  for (let i = pptPartIndexes.length - 1; i >= 0; i--) {
-    const index = pptPartIndexes[i]
-    const part = mergedTextParts[index]
-    const hasSuccessfulPayload = Array.isArray(part?.items)
-      ? part.items.some(item => Boolean(parsePptxPayload(item?.output) || parsePptxPayload(item?.result)))
-      : false
-    if (hasSuccessfulPayload) {
-      winnerIndex = index
-      break
+    let winnerIndex = indexes[indexes.length - 1]
+    for (let i = indexes.length - 1; i >= 0; i--) {
+      const index = indexes[i]
+      const part = parts[index]
+      const hasSuccessfulPayload = Array.isArray(part?.items)
+        ? part.items.some(item => Boolean(parsePayload(item?.output) || parsePayload(item?.result)))
+        : false
+      if (hasSuccessfulPayload) {
+        winnerIndex = index
+        break
+      }
     }
+
+    const collapsed = []
+    const hiddenRetryCount = indexes.length - 1
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i]
+      if (part.type !== type) {
+        collapsed.push(part)
+        continue
+      }
+      if (i !== winnerIndex) continue
+      collapsed.push({
+        ...part,
+        retryCountHidden: hiddenRetryCount,
+      })
+    }
+    return collapsed
   }
 
-  const collapsed = []
-  const hiddenRetryCount = pptPartIndexes.length - 1
-  for (let i = 0; i < mergedTextParts.length; i++) {
-    const part = mergedTextParts[i]
-    if (part.type !== 'pptx_file') {
-      collapsed.push(part)
-      continue
-    }
-    if (i !== winnerIndex) continue
-    collapsed.push({
-      ...part,
-      retryCountHidden: hiddenRetryCount,
-    })
-  }
+  const collapsedExcelParts = collapseFileToolParts(mergedTextParts, 'excel_file', parseExcelPayload)
 
-  return collapsed
+  return collapseFileToolParts(collapsedExcelParts, 'pptx_file', parsePptxPayload)
 }

@@ -97,3 +97,6 @@ backend-python/.skills/agent-memory/memories/**
 
 # Generated PPT exports
 backend-python/.runtime/exports/pptx/
+
+# Generated Excel exports
+backend-python/.runtime/exports/excel/

@@ -27,6 +27,9 @@ except Exception:  # pragma: no cover - backward compatibility only
 
 from .academic_domains import ACADEMIC_DOMAINS
 from .html_widget_schema import build_html_widget_payload
+from .excel_builder import build_excel_file
+from .excel_schema import build_excel_payload
+from .excel_store import create_excel_path, register_excel_file
 from .pptx_builder import build_pptx_file_async
 from .pptx_schema import build_pptx_payload
 from .pptx_store import create_pptx_path, register_pptx_file
@@ -187,6 +190,14 @@ def _sanitize_pptx_filename(raw_title: Any) -> str:
     if not safe:
         safe = "presentation"
     return f"{safe}.pptx"
+
+
+def _sanitize_excel_filename(raw_title: Any) -> str:
+    title = str(raw_title or "workbook").strip() or "workbook"
+    safe = re.sub(r'[\\/:*?"<>|]+', "-", title).strip().strip(".")
+    if not safe:
+        safe = "workbook"
+    return f"{safe}.xlsx"
 
 
 @tool(
@@ -669,6 +680,7 @@ class QurioLocalTools(Toolkit):
             self.extract_text,
             self.json_repair,
             self.render_html_widget,
+            self.excel_generator,
             self.ppt_generator,
             interactive_form,
             self.install_skill_dependency,
@@ -740,6 +752,54 @@ class QurioLocalTools(Toolkit):
     )
     def render_html_widget(self, html: str, title: str = "", height: int = 360) -> dict[str, Any]:
         return build_html_widget_payload({"html": html, "title": title, "height": height})
+
+    @tool(
+        name="excel_generator",
+        description=(
+            "Generate a real downloadable Excel workbook (.xlsx) from structured sheet data. "
+            "For multi-sheet workbooks, you MUST pass a sheets array with one object per worksheet. "
+            "Use top-level sheet_name/columns/rows only for a simple single-sheet workbook. "
+            "Use rows as the canonical row field; data is accepted as a compatibility alias if a model emits it. "
+            "Prefer explicit columns and rows for every sheet, and compute any requested summary sheets before calling the tool. "
+            "Supports a lightweight preview so users can verify structure before downloading."
+        ),
+    )
+    def excel_generator(
+        self,
+        title: str = "Generated Workbook",
+        sheets: Any = None,
+        columns: Any = None,
+        rows: Any = None,
+        sheet_name: str = "Sheet 1",
+    ) -> dict[str, Any]:
+        request_payload = build_excel_payload(
+            {
+                "title": title,
+                "sheets": sheets if sheets is not None else [],
+                "columns": columns if columns is not None else [],
+                "rows": rows if rows is not None else [],
+                "sheet_name": sheet_name,
+            }
+        )
+        if request_payload.get("type") == "excel_error":
+            return request_payload
+
+        output_path = create_excel_path()
+        render_result = build_excel_file(request_payload, str(output_path))
+        if render_result.get("type") == "excel_error":
+            return render_result
+
+        file_name = _sanitize_excel_filename(request_payload.get("title"))
+        registered = register_excel_file(file_path=str(output_path), filename=file_name)
+        return {
+            "type": "excel_file",
+            "title": request_payload.get("title") or "Generated Workbook",
+            "sheet_count": int(render_result.get("sheet_count") or 0),
+            "filename": file_name,
+            "download_url": registered["download_url"],
+            "expires_at": registered["expires_at"],
+            "preview": render_result.get("preview") if isinstance(render_result.get("preview"), dict) else {"sheets": []},
+        }
 
     @tool(
         name="ppt_generator",

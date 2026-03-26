@@ -74,6 +74,7 @@ import {
   getWorkflowThoughtParts,
 } from '../lib/chat/message-bubble/messageBubbleContentViewModel'
 import {
+  createExcelFileItemRenderer,
   createHtmlWidgetItemRenderer,
   createInteractiveFormItemRenderer,
   createPptxFileItemRenderer,
@@ -94,6 +95,7 @@ import DesktopSourcesSheet from './DesktopSourcesSheet'
 import DotLoader from './DotLoader'
 import InteractiveForm from './InteractiveForm'
 import DeepResearchGoalCard from './message/DeepResearchGoalCard'
+import ExcelResultCard from './message/ExcelResultCard'
 import HtmlWidgetCard from './message/HtmlWidgetCard'
 import MessageActionBar from './message/MessageActionBar'
 import PipelineDrawer from './message/PipelineDrawer'
@@ -863,6 +865,50 @@ const MessageBubble = ({
       previewHeight,
       qaIssuesRaw,
       renderModeUsed,
+    }
+  }
+
+  const parseExcelPayload = raw => {
+    if (!raw) return null
+    let payload = raw
+    if (typeof raw === 'string') {
+      try {
+        payload = JSON.parse(raw)
+      } catch {
+        return null
+      }
+    }
+    if (!payload || typeof payload !== 'object') return null
+    if (String(payload.type || '').trim() !== 'excel_file') return null
+
+    const downloadUrl = typeof payload.download_url === 'string' ? payload.download_url.trim() : ''
+    if (!downloadUrl) return null
+
+    const previewSheets = Array.isArray(payload.preview?.sheets)
+      ? payload.preview.sheets.map(sheet => ({
+          name: typeof sheet?.name === 'string' ? sheet.name.trim() : '',
+          columns: Array.isArray(sheet?.columns) ? sheet.columns.map(item => String(item ?? '')) : [],
+          rows: Array.isArray(sheet?.rows)
+            ? sheet.rows.map(row => (Array.isArray(row) ? row.map(item => item ?? '') : []))
+            : [],
+          total_rows: Number.isFinite(sheet?.total_rows) ? Number(sheet.total_rows) : 0,
+          total_columns: Number.isFinite(sheet?.total_columns) ? Number(sheet.total_columns) : 0,
+        }))
+      : []
+
+    const filename = typeof payload.filename === 'string' ? payload.filename.trim() : 'workbook.xlsx'
+    const title = typeof payload.title === 'string' ? payload.title.trim() : ''
+    const expiresAt = typeof payload.expires_at === 'string' ? payload.expires_at.trim() : ''
+    const sheetCount = Number(payload.sheet_count)
+
+    return {
+      type: 'excel_file',
+      filename: filename || 'workbook.xlsx',
+      title,
+      downloadUrl,
+      expiresAt,
+      sheetCount: Number.isFinite(sheetCount) ? Math.max(0, Math.floor(sheetCount)) : 0,
+      preview: { sheets: previewSheets },
     }
   }
 
@@ -1787,8 +1833,15 @@ const MessageBubble = ({
         isExpertMessage,
         compactStreamingTextBlocks,
         parsePptxPayload,
+        parseExcelPayload,
       }),
-    [compactStreamingTextBlocks, interleavedContent, isExpertMessage, parsePptxPayload],
+    [
+      compactStreamingTextBlocks,
+      interleavedContent,
+      isExpertMessage,
+      parseExcelPayload,
+      parsePptxPayload,
+    ],
   )
   const allSources = useMemo(
     () =>
@@ -2038,6 +2091,28 @@ const MessageBubble = ({
     ],
   )
 
+  const renderExcelFileItem = useMemo(
+    () =>
+      createExcelFileItemRenderer({
+        React,
+        parseExcelPayload,
+        isStreaming,
+        getToolDisplayName,
+        t,
+        renderToolLoadingCard,
+        ExcelResultCard,
+        resolveBackendDownloadUrl,
+      }),
+    [
+      getToolDisplayName,
+      isStreaming,
+      parseExcelPayload,
+      renderToolLoadingCard,
+      resolveBackendDownloadUrl,
+      t,
+    ],
+  )
+
   const firstTextPartDisplayIndex = contentPartsOutsideWorkflow.findIndex(
     part => part.type === 'text',
   )
@@ -2115,6 +2190,23 @@ const MessageBubble = ({
           ) : null}
           {part.items.map((item, fileIdx) =>
             renderPptxFileItem(item, `pptx-file-${part.key || idx}-${item.id || fileIdx}`),
+          )}
+        </React.Fragment>
+      )
+    }
+
+    if (part.type === 'excel_file') {
+      return (
+        <React.Fragment key={part.key || `excel-file-outside-${idx}`}>
+          {Number(part.retryCountHidden) > 0 ? (
+            <div className="mb-3 text-xs text-zinc-400">
+              {t('messageBubble.excelRetriesHidden', {
+                defaultValue: 'Earlier Excel attempts were hidden. Showing the latest result.',
+              })}
+            </div>
+          ) : null}
+          {part.items.map((item, fileIdx) =>
+            renderExcelFileItem(item, `excel-file-${part.key || idx}-${item.id || fileIdx}`),
           )}
         </React.Fragment>
       )

@@ -329,3 +329,61 @@ export function createPptxFileItemRenderer({
     })
   }
 }
+
+export function createExcelFileItemRenderer({
+  React,
+  parseExcelPayload,
+  isStreaming,
+  getToolDisplayName,
+  t,
+  renderToolLoadingCard,
+  ExcelResultCard,
+  resolveBackendDownloadUrl,
+}) {
+  return (item, excelKey) => {
+    const payload = parseExcelPayload(item.output) || parseExcelPayload(item.result)
+    const shouldShowSkeleton =
+      !payload &&
+      (isStreaming ||
+        item.status === 'calling' ||
+        item.status === 'running' ||
+        item.status !== 'done')
+
+    if (shouldShowSkeleton) {
+      return renderToolLoadingCard(`excel-skeleton-${excelKey}`, {
+        title: getToolDisplayName(item) || t('tools.excelGenerator', 'Excel Generator'),
+        badge: 'XLSX',
+        kind: 'html',
+      })
+    }
+
+    if (!payload) {
+      return React.createElement(
+        'div',
+        {
+          key: excelKey,
+          className: 'mb-4 rounded-2xl border border-red-300/40 bg-red-500/8 p-3 text-sm text-red-200',
+        },
+        React.createElement(
+          'div',
+          { className: 'font-semibold' },
+          t('tools.excelGenerator', 'Excel Generator'),
+        ),
+        React.createElement(
+          'div',
+          { className: 'mt-1' },
+          t('messageBubble.excel.missingPayload', 'No Excel payload found in the tool result.'),
+        ),
+      )
+    }
+
+    return React.createElement(ExcelResultCard, {
+      key: excelKey,
+      item,
+      payload,
+      displayTitle: getToolDisplayName(item) || t('tools.excelGenerator', 'Excel Generator'),
+      resolveBackendDownloadUrl,
+      t,
+    })
+  }
+}

@@ -48,6 +48,8 @@
     "renderHtmlWidgetInfo": "Render structured HTML visualizations (table, timeline, cards) in chat via iframe.",
     "pptGenerator": "PPT Generator",
     "pptGeneratorInfo": "Generate a real downloadable .pptx presentation with auto pagination.",
+    "excelGenerator": "Excel Generator",
+    "excelGeneratorInfo": "Export structured table data into a real downloadable .xlsx workbook with lightweight preview.",
     "installSkillDependency": "Install Skill Dependency",
     "installSkillDependencyInfo": "Install an approved Python dependency into a skill's isolated virtual environment.",
     "executeSkillScript": "Execute Skill Script",
@@ -1387,6 +1389,15 @@
     "downloadPdf": "PDF",
     "downloadWord": "Word",
     "pptRetriesHidden": "Earlier PPT attempts were hidden. Showing the latest result.",
+    "excelRetriesHidden": "Earlier Excel attempts were hidden. Showing the latest result.",
+    "excel": {
+      "missingPayload": "No Excel payload found in the tool result.",
+      "download": "Download Excel",
+      "sheetCount": "{{count}} sheets",
+      "previewRows": "{{count}} rows",
+      "additionalSheets": "+{{count}} more sheets",
+      "unnamedColumn": "Column"
+    },
     "ppt": {
       "missingPayload": "No PPTX payload found in the tool result.",
       "slideCount": "{{count}} slides",

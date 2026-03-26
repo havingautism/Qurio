@@ -161,3 +161,4 @@ test_*.py
 
 src/data/*
 /.runtime/exports/pptx/
+/.runtime/exports/excel/

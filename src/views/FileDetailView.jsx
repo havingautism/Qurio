@@ -108,31 +108,24 @@ const FileDetailView = () => {
         <ColorBendsBackground />
       </div>
       <div className="relative z-10 flex h-full flex-col">
-        <div className="mx-auto w-full max-w-[1400px] shrink-0 px-4 pt-4 pb-2 sm:px-8 sm:pt-8 sm:pb-4">
-          <div className="mb-6 flex items-center justify-between sm:mb-8">
-            <div className="flex items-center gap-3">
+        <div className="mx-auto w-full max-w-[1360px] shrink-0 px-4 pt-4 pb-3 sm:px-8 sm:pt-6 sm:pb-4">
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-2.5 sm:gap-3">
               <button
                 onClick={() => toggleSidebar()}
                 className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-gray-200/50 bg-white/90 p-0 text-gray-600 shadow-sm backdrop-blur-xl transition-all hover:bg-white sm:hidden dark:border-zinc-800/50 dark:bg-zinc-900/90 dark:text-gray-300"
               >
                 <Menu size={20} strokeWidth={2} />
               </button>
-              <div className="flex items-center gap-3">
-                <FolderOpenIcon size={32} weight="duotone" className="text-primary-500" />
-                <div>
-                  <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-                    {t('views.fileDetailView.title', 'File details')}
-                  </h1>
-                  <p className="mt-1 text-sm text-gray-500 dark:text-zinc-400">
-                    {t('views.fileDetailView.subtitle', 'Preview metadata and content for this generated file.')}
-                  </p>
-                </div>
-              </div>
+              <FolderOpenIcon size={30} weight="duotone" className="text-primary-500" />
+              <h1 className="text-xl font-semibold tracking-tight text-gray-950 sm:text-2xl dark:text-white">
+                {t('views.fileDetailView.title', 'File details')}
+              </h1>
             </div>
             <div className="flex items-center gap-2">
               <Link
                 to="/files"
-                className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/80 px-3 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-white dark:border-white/10 dark:bg-white/6 dark:text-zinc-200 dark:hover:bg-white/10"
+                className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/80 px-3 py-2 text-xs font-medium text-zinc-700 transition-colors hover:bg-white dark:border-white/10 dark:bg-white/6 dark:text-zinc-200 dark:hover:bg-white/10"
               >
                 <ArrowLeft size={14} />
                 {t('views.fileDetailView.back', 'Back to files')}
@@ -140,7 +133,7 @@ const FileDetailView = () => {
               {item?.download_url ? (
                 <a
                   href={resolveBackendDownloadUrl(item.download_url)}
-                  className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-gray-900 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-black dark:border-white/10 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
+                  className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-gray-900 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-black dark:border-white/10 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
                 >
                   <Download size={14} />
                   {t('views.filesView.download', 'Download')}
@@ -179,8 +172,8 @@ const FileDetailView = () => {
               </div>
             </div>
           ) : item ? (
-            <div className="mx-auto max-w-[1400px] space-y-4">
-              <div className="rounded-[2rem] border border-white/60 bg-white/72 p-5 shadow-sm backdrop-blur-xl dark:border-white/8 dark:bg-zinc-900/38">
+            <div className="mx-auto max-w-[1360px] space-y-4">
+              <div className="rounded-[2.15rem] border border-white/60 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.85),rgba(255,255,255,0.66))] p-5 shadow-[0_22px_55px_-32px_rgba(0,0,0,0.35)] backdrop-blur-xl dark:border-white/8 dark:bg-[radial-gradient(circle_at_bottom_left,rgba(16,35,31,0.36),rgba(10,10,14,0.92))]">
                 <div className="mb-4 flex items-center gap-2">
                   <span
                     className={clsx(
@@ -192,42 +185,42 @@ const FileDetailView = () => {
                     {t(meta.labelKey, meta.defaultLabel)}
                   </span>
                 </div>
-                <div className="text-xl font-semibold text-gray-900 dark:text-white">
+                <div className="text-2xl font-semibold tracking-tight text-gray-950 sm:text-3xl dark:text-white">
                   {item.title || item.filename}
                 </div>
-                <div className="mt-1 text-sm text-gray-500 dark:text-zinc-400">{item.filename}</div>
-                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                  <div className="rounded-2xl border border-black/6 bg-black/3 px-4 py-3 dark:border-white/8 dark:bg-white/5">
-                    <div className="text-xs font-medium text-gray-500 dark:text-zinc-400">
+                <div className="mt-2 text-base text-gray-500 dark:text-zinc-400">{item.filename}</div>
+                <div className="mt-5 flex flex-wrap gap-2.5">
+                  <div className="rounded-full border border-black/6 bg-black/[0.03] px-4 py-2 text-xs text-gray-600 dark:border-white/8 dark:bg-white/[0.04] dark:text-zinc-300">
+                    <span className="mr-1 text-gray-500 dark:text-zinc-400">
                       {t('views.fileDetailView.createdAt', 'Created at')}
-                    </div>
-                    <div className="mt-1 text-sm font-medium text-gray-900 dark:text-white">
+                    </span>
+                    <span className="font-medium text-gray-900 dark:text-white">
                       {formatDateTime(item.created_at, i18n.language)}
-                    </div>
+                    </span>
                   </div>
-                  <div className="rounded-2xl border border-black/6 bg-black/3 px-4 py-3 dark:border-white/8 dark:bg-white/5">
-                    <div className="text-xs font-medium text-gray-500 dark:text-zinc-400">
+                  <div className="rounded-full border border-black/6 bg-black/[0.03] px-4 py-2 text-xs text-gray-600 dark:border-white/8 dark:bg-white/[0.04] dark:text-zinc-300">
+                    <span className="mr-1 text-gray-500 dark:text-zinc-400">
                       {t('views.fileDetailView.sourceTool', 'Source tool')}
-                    </div>
-                    <div className="mt-1 text-sm font-medium text-gray-900 dark:text-white">
+                    </span>
+                    <span className="font-medium text-gray-900 dark:text-white">
                       {item.source_tool || '-'}
-                    </div>
+                    </span>
                   </div>
-                  <div className="rounded-2xl border border-black/6 bg-black/3 px-4 py-3 dark:border-white/8 dark:bg-white/5">
-                    <div className="text-xs font-medium text-gray-500 dark:text-zinc-400">
-                      {t('views.fileDetailView.fileId', 'File ID')}
-                    </div>
-                    <div className="mt-1 break-all text-sm font-medium text-gray-900 dark:text-white">
-                      {item.file_id}
-                    </div>
-                  </div>
-                  <div className="rounded-2xl border border-black/6 bg-black/3 px-4 py-3 dark:border-white/8 dark:bg-white/5">
-                    <div className="text-xs font-medium text-gray-500 dark:text-zinc-400">
+                  <div className="rounded-full border border-black/6 bg-black/[0.03] px-4 py-2 text-xs text-gray-600 dark:border-white/8 dark:bg-white/[0.04] dark:text-zinc-300">
+                    <span className="mr-1 text-gray-500 dark:text-zinc-400">
                       {t('views.fileDetailView.mimeType', 'MIME type')}
-                    </div>
-                    <div className="mt-1 break-all text-sm font-medium text-gray-900 dark:text-white">
+                    </span>
+                    <span className="font-medium text-gray-900 dark:text-white">
                       {item.mime_type || '-'}
-                    </div>
+                    </span>
+                  </div>
+                  <div className="min-w-0 rounded-full border border-black/6 bg-black/[0.03] px-4 py-2 text-xs text-gray-600 dark:border-white/8 dark:bg-white/[0.04] dark:text-zinc-300">
+                    <span className="mr-1 text-gray-500 dark:text-zinc-400">
+                      {t('views.fileDetailView.fileId', 'File ID')}
+                    </span>
+                    <span className="break-all font-medium text-gray-900 dark:text-white">
+                      {item.file_id}
+                    </span>
                   </div>
                 </div>
               </div>

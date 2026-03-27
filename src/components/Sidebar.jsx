@@ -1192,7 +1192,7 @@ const Sidebar = ({
                   }
                   if (item.id === 'files') {
                     setActiveTab('files')
-                    onNavigate('files')
+                    if (!isOpen) onNavigate('files')
                     return
                   }
                   setActiveTab(item.id)
@@ -1736,6 +1736,62 @@ const Sidebar = ({
                         />
                       </div>
                     )}
+                  </div>
+                )}
+
+                {displayTab === 'files' && (
+                  <div className="no-scrollbar flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-2 py-2">
+                    <button
+                      onClick={() => onNavigate('files')}
+                      className={clsx(
+                        'relative flex w-full cursor-pointer items-center gap-3 rounded-xl p-2.5 text-left transition-all',
+                        isScrapbookSidebarTheme
+                          ? glassTone(
+                              'border border-white/8 bg-white/3 text-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] hover:scale-[1.01] hover:border-white/12 hover:bg-white/6',
+                              'border border-white/80 bg-white/52 text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] hover:scale-[1.01] hover:border-white hover:bg-white/74',
+                            )
+                          : 'bg-user-bubble/50 hover:bg-user-bubble dark:hover:bg-user-bubble/10 text-gray-600 transition-transform hover:scale-105 dark:bg-zinc-800 dark:text-gray-300',
+                      )}
+                    >
+                      <div
+                        className={clsx(
+                          'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-base',
+                          isScrapbookSidebarTheme
+                            ? glassTone(
+                                'border border-white/12 bg-linear-to-br from-emerald-400/20 via-cyan-400/10 to-blue-300/20 text-white',
+                                'border border-white/80 bg-linear-to-br from-emerald-100/90 via-cyan-50/90 to-blue-100/90 text-slate-700',
+                              )
+                            : 'bg-primary-100/70 dark:bg-primary-900/30 text-gray-700 dark:text-gray-100',
+                        )}
+                      >
+                        <FolderOpenIcon size={16} weight="duotone" />
+                      </div>
+                      <div className="min-w-0">
+                        <div
+                          className={clsx(
+                            'text-sm font-medium',
+                            isScrapbookSidebarTheme
+                              ? glassTone('text-white', 'text-slate-800')
+                              : 'text-gray-700 dark:text-gray-300',
+                          )}
+                        >
+                          {t('sidebar.files')}
+                        </div>
+                        <div
+                          className={clsx(
+                            'mt-0.5 text-xs',
+                            isScrapbookSidebarTheme
+                              ? glassTone('text-white/55', 'text-slate-500')
+                              : 'text-gray-500 dark:text-gray-400',
+                          )}
+                        >
+                          {t(
+                            'views.filesView.subtitle',
+                            'Browse exported PPT and Excel files saved by your tools.',
+                          )}
+                        </div>
+                      </div>
+                    </button>
                   </div>
                 )}
 

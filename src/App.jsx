@@ -921,6 +921,7 @@ function App() {
                     !location.pathname.includes('/agents') &&
                     !location.pathname.includes('/space') &&
                     !location.pathname.includes('/bookmarks') &&
+                    !location.pathname.includes('/files') &&
                     !location.pathname.includes('/new_chat') && (
                       <div className="relative z-30 h-20 shrink-0 md:hidden">
                         <div

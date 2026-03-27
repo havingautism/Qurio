@@ -4,6 +4,8 @@ import {
   ChevronDown,
   ChevronUp,
   Coffee,
+  FileSpreadsheet,
+  FileType2,
   Laptop,
   Moon,
   Pin,
@@ -44,6 +46,7 @@ import {
   toggleFavorite,
 } from '../lib/conversationsService'
 import { getSpaceDisplayLabel } from '../lib/spaceDisplay'
+import { listGeneratedFiles } from '../lib/generatedFilesService'
 import { listScrapbookEntries } from '../lib/scrapbookService'
 import { SCRAPBOOK_AGENT_ID } from '../lib/systemAgents'
 import { deleteConversation } from '../lib/supabase'
@@ -136,6 +139,11 @@ const Sidebar = ({
   const [isScrapbookLoading, setIsScrapbookLoading] = useState(false)
   const [scrapbookLoadingMore, setScrapbookLoadingMore] = useState(false)
   const [scrapbookDirty, setScrapbookDirty] = useState(false)
+  const [generatedFiles, setGeneratedFiles] = useState([])
+  const [generatedFilesLimit, setGeneratedFilesLimit] = useState(SIDEBAR_FETCH_LIMIT)
+  const [isGeneratedFilesLoading, setIsGeneratedFilesLoading] = useState(false)
+  const [generatedFilesLoadingMore, setGeneratedFilesLoadingMore] = useState(false)
+  const [generatedFilesDirty, setGeneratedFilesDirty] = useState(false)
 
   // Spaces interaction state
   const [expandedSpaces, setExpandedSpaces] = useState(new Set())
@@ -536,6 +544,25 @@ const Sidebar = ({
     }
   }
 
+  const fetchGeneratedFiles = async (loadMore = false) => {
+    try {
+      if (loadMore) {
+        setGeneratedFilesLoadingMore(true)
+        setGeneratedFilesLimit(prev => prev + SIDEBAR_FETCH_LIMIT)
+        return
+      }
+      setIsGeneratedFilesLoading(true)
+      const result = await listGeneratedFiles({ sort: 'desc' })
+      setGeneratedFiles(Array.isArray(result?.items) ? result.items : [])
+      setGeneratedFilesLimit(SIDEBAR_FETCH_LIMIT)
+    } catch (err) {
+      console.error('Error loading generated files:', err)
+    } finally {
+      setIsGeneratedFilesLoading(false)
+      setGeneratedFilesLoadingMore(false)
+    }
+  }
+
   useEffect(() => {
     const filtered = (appConversations || []).filter(
       conv => !deepResearchSpaceIds.includes(String(conv.space_id)),
@@ -686,17 +713,27 @@ const Sidebar = ({
         fetchScrapbookEntries().finally(() => setScrapbookDirty(false))
       }
     }
+    if (sidebarLoadTab === 'files') {
+      if (
+        generatedFilesDirty ||
+        (!isGeneratedFilesLoading && !generatedFilesLoadingMore && generatedFiles.length === 0)
+      ) {
+        fetchGeneratedFiles().finally(() => setGeneratedFilesDirty(false))
+      }
+    }
   }, [
     sidebarLoadTab,
     bookmarksDirty,
     deepResearchDirty,
     expertDirty,
     scrapbookDirty,
+    generatedFilesDirty,
     deepResearchSpaceId,
     bookmarkedConversations.length,
     deepResearchConversations.length,
     expertConversations.length,
     scrapbookEntries.length,
+    generatedFiles.length,
     isBookmarksLoading,
     bookmarksLoadingMore,
     isDeepResearchLoading,
@@ -705,6 +742,8 @@ const Sidebar = ({
     expertLoadingMore,
     isScrapbookLoading,
     scrapbookLoadingMore,
+    isGeneratedFilesLoading,
+    generatedFilesLoadingMore,
   ])
 
   // Close dropdown when sidebar collapses (mouse leaves)
@@ -791,6 +830,12 @@ const Sidebar = ({
   const activeScrapbookEntryId = useMemo(() => {
     const match = String(location?.pathname || '').match(/^\/scrapbook\/([^/]+)/)
     return match?.[1] || null
+  }, [location?.pathname])
+
+  const activeGeneratedFileKey = useMemo(() => {
+    const match = String(location?.pathname || '').match(/^\/files\/([^/]+)\/([^/]+)/)
+    if (!match?.[1] || !match?.[2]) return null
+    return `${match[1]}:${match[2]}`
   }, [location?.pathname])
 
   const getThemeIcon = () => {
@@ -1058,6 +1103,26 @@ const Sidebar = ({
       totalCount: section.items.length,
     }))
   }, [scrapbookEntries])
+
+  const visibleGeneratedFiles = useMemo(
+    () => generatedFiles.slice(0, generatedFilesLimit),
+    [generatedFiles, generatedFilesLimit],
+  )
+
+  const generatedFilesHasMore = useMemo(
+    () => generatedFiles.length > generatedFilesLimit,
+    [generatedFiles.length, generatedFilesLimit],
+  )
+
+  const groupedGeneratedFiles = useMemo(() => {
+    const groups = groupConversationsByDate(visibleGeneratedFiles)
+    return groups.map(section => ({
+      ...section,
+      items: section.items.slice(0, MAX_CONVERSATIONS_PER_SECTION),
+      hasMore: section.items.length > MAX_CONVERSATIONS_PER_SECTION,
+      totalCount: section.items.length,
+    }))
+  }, [visibleGeneratedFiles])
 
   // Spaces list pagination inside sidebar
   const visibleSpaces = useMemo(() => {
@@ -1447,6 +1512,7 @@ const Sidebar = ({
               displayTab === 'bookmarks' ||
               displayTab === 'expert' ||
               displayTab === 'deepResearch' ||
+              displayTab === 'files' ||
               displayTab === 'scrapbook') && (
               <div className="no-scrollbar flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-2">
                 {!isConversationsLoading &&
@@ -1740,34 +1806,34 @@ const Sidebar = ({
                 )}
 
                 {displayTab === 'files' && (
-                  <div className="no-scrollbar flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-2 py-2">
-                    <button
-                      onClick={() => onNavigate('files')}
-                      className={clsx(
-                        'relative flex w-full cursor-pointer items-center gap-3 rounded-xl p-2.5 text-left transition-all',
-                        isScrapbookSidebarTheme
-                          ? glassTone(
-                              'border border-white/8 bg-white/3 text-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] hover:scale-[1.01] hover:border-white/12 hover:bg-white/6',
-                              'border border-white/80 bg-white/52 text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] hover:scale-[1.01] hover:border-white hover:bg-white/74',
-                            )
-                          : 'bg-user-bubble/50 hover:bg-user-bubble dark:hover:bg-user-bubble/10 text-gray-600 transition-transform hover:scale-105 dark:bg-zinc-800 dark:text-gray-300',
-                      )}
-                    >
-                      <div
+                  <div className="flex h-full min-h-0 flex-col">
+                    <div className="shrink-0 px-2 pb-2">
+                      <button
+                        onClick={() => onNavigate('files')}
                         className={clsx(
-                          'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-base',
+                          'relative flex w-full cursor-pointer items-center gap-3 rounded-xl p-2.5 text-left transition-all',
                           isScrapbookSidebarTheme
                             ? glassTone(
-                                'border border-white/12 bg-linear-to-br from-emerald-400/20 via-cyan-400/10 to-blue-300/20 text-white',
-                                'border border-white/80 bg-linear-to-br from-emerald-100/90 via-cyan-50/90 to-blue-100/90 text-slate-700',
+                                'border border-white/8 bg-white/3 text-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] hover:scale-[1.01] hover:border-white/12 hover:bg-white/6',
+                                'border border-white/80 bg-white/52 text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] hover:scale-[1.01] hover:border-white hover:bg-white/74',
                               )
-                            : 'bg-primary-100/70 dark:bg-primary-900/30 text-gray-700 dark:text-gray-100',
+                            : 'bg-user-bubble/50 hover:bg-user-bubble dark:hover:bg-user-bubble/10 text-gray-600 transition-transform hover:scale-105 dark:bg-zinc-800 dark:text-gray-300',
                         )}
                       >
-                        <FolderOpenIcon size={16} weight="duotone" />
-                      </div>
-                      <div className="min-w-0">
                         <div
+                          className={clsx(
+                            'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-base',
+                            isScrapbookSidebarTheme
+                              ? glassTone(
+                                  'border border-white/12 bg-linear-to-br from-emerald-400/20 via-cyan-400/10 to-blue-300/20 text-white',
+                                  'border border-white/80 bg-linear-to-br from-emerald-100/90 via-cyan-50/90 to-blue-100/90 text-slate-700',
+                                )
+                              : 'bg-primary-100/70 dark:bg-primary-900/30 text-gray-700 dark:text-gray-100',
+                          )}
+                        >
+                          <FolderOpenIcon size={16} weight="duotone" />
+                        </div>
+                        <span
                           className={clsx(
                             'text-sm font-medium',
                             isScrapbookSidebarTheme
@@ -1776,22 +1842,176 @@ const Sidebar = ({
                           )}
                         >
                           {t('sidebar.files')}
+                        </span>
+                      </button>
+                      <div
+                        className={clsx(
+                          'mt-2 h-px',
+                          isScrapbookSidebarTheme
+                            ? glassTone('bg-white/8', 'bg-slate-200/70')
+                            : 'bg-gray-200 dark:bg-zinc-800',
+                        )}
+                      />
+                    </div>
+
+                    <div className="no-scrollbar flex flex-1 flex-col gap-2 overflow-y-auto overscroll-contain px-2">
+                      {isGeneratedFilesLoading && generatedFiles.length === 0 && (
+                        <div className="flex justify-center py-2">
+                          <DotLoader />
                         </div>
-                        <div
-                          className={clsx(
-                            'mt-0.5 text-xs',
-                            isScrapbookSidebarTheme
-                              ? glassTone('text-white/55', 'text-slate-500')
-                              : 'text-gray-500 dark:text-gray-400',
-                          )}
-                        >
-                          {t(
-                            'views.filesView.subtitle',
-                            'Browse exported PPT and Excel files saved by your tools.',
+                      )}
+
+                      {!isGeneratedFilesLoading && generatedFiles.length === 0 && (
+                        <div className="flex flex-col items-center gap-2 px-2 py-3 text-xs text-gray-500 dark:text-gray-400">
+                          <FolderOpenIcon size={24} weight="duotone" className="text-black dark:text-white" />
+                          <div>{t('sidebar.noFiles')}</div>
+                        </div>
+                      )}
+
+                      {groupedGeneratedFiles.map(section => (
+                        <div key={section.title} className="flex flex-col gap-1">
+                          <div
+                            className={clsx(
+                              'mt-1 flex justify-center px-2 text-[10px] tracking-wide uppercase',
+                              isScrapbookSidebarTheme
+                                ? glassTone('text-white/40', 'text-slate-400')
+                                : 'text-gray-400',
+                            )}
+                          >
+                            {translateDateTitle(section.title)}
+                          </div>
+                          {section.items.map(file => {
+                            const fileId = String(file?.file_id || '')
+                            const fileKind = String(file?.kind || 'excel')
+                            const isActive = activeGeneratedFileKey === `${fileKind}:${fileId}`
+                            const title = String(file?.title || file?.filename || '').trim() || fileId
+                            const KindIcon = fileKind === 'pptx' ? FileType2 : FileSpreadsheet
+
+                            return (
+                              <div
+                                key={`${fileKind}:${fileId}`}
+                                onClick={() => {
+                                  if (!fileId) return
+                                  navigate({
+                                    to: '/files/$kind/$fileId',
+                                    params: { kind: fileKind, fileId },
+                                  })
+                                  if (isMobile && onClose) onClose()
+                                }}
+                                className={clsx(
+                                  'group relative cursor-pointer truncate rounded-xl px-1 py-2.5 text-sm transition-all duration-200 md:p-2.5',
+                                  isActive
+                                    ? isScrapbookSidebarTheme
+                                      ? glassTone(
+                                          'border border-white/12 bg-white/8 text-white shadow-[0_8px_20px_rgba(37,99,235,0.12)]',
+                                          'border border-white/80 bg-white/68 text-slate-900 shadow-[0_8px_20px_rgba(37,99,235,0.08)]',
+                                        )
+                                      : 'bg-primary-500/10 text-primary-500 dark:bg-primary-500/20 dark:text-primary-400'
+                                    : isScrapbookSidebarTheme
+                                      ? glassTone(
+                                          'border border-transparent text-white/88 hover:border-white/8 hover:bg-white/4',
+                                          'border border-transparent text-slate-700 hover:border-slate-200/90 hover:bg-white/85 hover:shadow-[0_4px_14px_rgba(15,23,42,0.05)]',
+                                        )
+                                      : 'hover:bg-primary-50 text-gray-700 dark:text-gray-300 dark:hover:bg-zinc-800',
+                                )}
+                                title={title}
+                              >
+                                <div className="relative z-10 flex w-full items-center gap-3 overflow-hidden">
+                                  <div
+                                    className={clsx(
+                                      'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg',
+                                      isScrapbookSidebarTheme
+                                        ? isActive
+                                          ? glassTone(
+                                              'border border-white/15 bg-linear-to-br from-emerald-400/25 to-cyan-400/20',
+                                              'border border-white/80 bg-linear-to-br from-emerald-100/90 to-cyan-100/90',
+                                            )
+                                          : glassTone(
+                                              'border border-white/8 bg-white/3',
+                                              'border border-white/75 bg-white/42',
+                                            )
+                                        : 'bg-primary-100 dark:bg-primary-900/30',
+                                    )}
+                                  >
+                                    <KindIcon size={18} className="shrink-0" />
+                                  </div>
+                                  <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+                                    <span className="truncate font-medium">{title}</span>
+                                    <span
+                                      className={clsx(
+                                        'mt-0.5 text-[11px]',
+                                        isActive
+                                          ? isScrapbookSidebarTheme
+                                            ? glassTone('text-white/70', 'text-slate-500')
+                                            : 'text-primary-600 dark:text-primary-400'
+                                          : isScrapbookSidebarTheme
+                                            ? glassTone('text-white/45', 'text-slate-400')
+                                            : 'text-gray-400',
+                                      )}
+                                    >
+                                      {t(`views.filesView.kind${fileKind === 'pptx' ? 'Pptx' : 'Excel'}`)} ·{' '}
+                                      {formatDateTime(file?.created_at)}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      ))}
+
+                      {generatedFiles.length > 0 && (
+                        <div className="px-2 py-2">
+                          {generatedFilesHasMore ? (
+                            <button
+                              onClick={e => {
+                                e.stopPropagation()
+                                fetchGeneratedFiles(true)
+                              }}
+                              disabled={generatedFilesLoadingMore}
+                              className={clsx(
+                                'flex w-full items-center justify-center gap-2 rounded-xl py-2 text-xs font-medium transition-colors',
+                                isScrapbookSidebarTheme
+                                  ? glassTone(
+                                      'border border-white/8 bg-white/3 text-white/80 hover:bg-white/6',
+                                      'border border-white/75 bg-white/45 text-slate-700 hover:bg-white/70',
+                                    )
+                                  : 'bg-user-bubble hover:bg-user-bubble/10 text-gray-700 dark:bg-zinc-800 dark:text-gray-200 dark:hover:bg-zinc-700',
+                              )}
+                            >
+                              {generatedFilesLoadingMore ? <DotLoader /> : t('sidebar.loadMore')}
+                            </button>
+                          ) : (
+                            <div
+                              className={clsx(
+                                'flex items-center gap-2 py-2 text-[10px]',
+                                isScrapbookSidebarTheme
+                                  ? glassTone('text-white/40', 'text-slate-400')
+                                  : 'text-gray-400',
+                              )}
+                            >
+                              <span
+                                className={clsx(
+                                  'h-px flex-1',
+                                  isScrapbookSidebarTheme
+                                    ? glassTone('bg-white/8', 'bg-slate-200/70')
+                                    : 'bg-gray-200 dark:bg-zinc-800',
+                                )}
+                              />
+                              <span className="whitespace-nowrap">{t('sidebar.noMoreFiles')}</span>
+                              <span
+                                className={clsx(
+                                  'h-px flex-1',
+                                  isScrapbookSidebarTheme
+                                    ? glassTone('bg-white/8', 'bg-slate-200/70')
+                                    : 'bg-gray-200 dark:bg-zinc-800',
+                                )}
+                              />
+                            </div>
                           )}
                         </div>
-                      </div>
-                    </button>
+                      )}
+                    </div>
                   </div>
                 )}
 

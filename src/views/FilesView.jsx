@@ -393,14 +393,14 @@ const FilesView = () => {
                 </div>
               </div>
             ) : (
-              <div className="grid gap-4 sm:grid-cols-2 lg:gap-5 xl:grid-cols-3">
+              <div className="pt-1 grid gap-4 sm:grid-cols-2 lg:gap-5 xl:grid-cols-3">
                 {pagedItems.map(item => {
                   const meta = KIND_META[item.kind] || KIND_META.excel
                   const KindIcon = meta.icon
                   return (
                     <div
                       key={item.file_id}
-                      className="rounded-[2.15rem] border border-white/60 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.85),rgba(255,255,255,0.66))] p-5 shadow-[0_22px_55px_-32px_rgba(0,0,0,0.35)] backdrop-blur-xl dark:border-white/8 dark:bg-[radial-gradient(circle_at_bottom_left,rgba(16,35,31,0.36),rgba(10,10,14,0.92))]"
+                      className="group rounded-[2.15rem] border border-white/60 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.85),rgba(255,255,255,0.66))] p-5 shadow-[0_22px_55px_-32px_rgba(0,0,0,0.35)] backdrop-blur-xl transition-all duration-300 hover:translate-y-[-4px] hover:scale-[1.01] hover:border-white/80 hover:bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.92),rgba(255,255,255,0.78))] hover:shadow-[0_30px_70px_-30px_rgba(0,0,0,0.32)] active:scale-[0.985] dark:border-white/8 dark:bg-[radial-gradient(circle_at_bottom_left,rgba(16,35,31,0.36),rgba(10,10,14,0.92))] dark:hover:border-white/12 dark:hover:bg-[radial-gradient(circle_at_bottom_left,rgba(20,44,40,0.45),rgba(12,12,18,0.96))]"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">

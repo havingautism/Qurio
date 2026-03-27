@@ -109,34 +109,42 @@ const FileDetailView = () => {
       </div>
       <div className="relative z-10 flex h-full flex-col">
         <div className="mx-auto w-full max-w-[1360px] shrink-0 px-4 pt-4 pb-3 sm:px-8 sm:pt-6 sm:pb-4">
-          <div className="mb-4 flex items-center justify-between">
-            <div className="flex items-center gap-2.5 sm:gap-3">
+          <div className="mb-4 flex items-start justify-between gap-3 sm:items-center">
+            <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
               <button
                 onClick={() => toggleSidebar()}
                 className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-gray-200/50 bg-white/90 p-0 text-gray-600 shadow-sm backdrop-blur-xl transition-all hover:bg-white sm:hidden dark:border-zinc-800/50 dark:bg-zinc-900/90 dark:text-gray-300"
               >
                 <Menu size={20} strokeWidth={2} />
               </button>
-              <FolderOpenIcon size={30} weight="duotone" className="text-primary-500" />
-              <h1 className="text-xl font-semibold tracking-tight text-gray-950 sm:text-2xl dark:text-white">
+              <FolderOpenIcon
+                size={28}
+                weight="duotone"
+                className="mt-0.5 shrink-0 text-primary-500 sm:mt-0"
+              />
+              <h1 className="min-w-0 text-xl leading-none font-semibold tracking-tight text-gray-950 sm:text-2xl dark:text-white">
                 {t('views.fileDetailView.title', 'File details')}
               </h1>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex shrink-0 items-center gap-2">
               <Link
                 to="/files"
-                className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/80 px-3 py-2 text-xs font-medium text-zinc-700 transition-colors hover:bg-white dark:border-white/10 dark:bg-white/6 dark:text-zinc-200 dark:hover:bg-white/10"
+                className="inline-flex h-11 items-center gap-2 rounded-full border border-black/10 bg-white/80 px-3 py-2 text-xs font-medium text-zinc-700 transition-colors hover:bg-white dark:border-white/10 dark:bg-white/6 dark:text-zinc-200 dark:hover:bg-white/10"
               >
                 <ArrowLeft size={14} />
-                {t('views.fileDetailView.back', 'Back to files')}
+                <span className="hidden sm:inline">
+                  {t('views.fileDetailView.back', 'Back to files')}
+                </span>
               </Link>
               {item?.download_url ? (
                 <a
                   href={resolveBackendDownloadUrl(item.download_url)}
-                  className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-gray-900 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-black dark:border-white/10 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
+                  className="inline-flex h-11 items-center gap-2 rounded-full border border-black/10 bg-gray-900 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-black dark:border-white/10 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
                 >
                   <Download size={14} />
-                  {t('views.filesView.download', 'Download')}
+                  <span className="hidden sm:inline">
+                    {t('views.filesView.download', 'Download')}
+                  </span>
                 </a>
               ) : null}
             </div>
@@ -150,7 +158,7 @@ const FileDetailView = () => {
             </div>
           ) : isMissing ? (
             <div className="mx-auto max-w-3xl">
-              <div className="rounded-[2rem] border border-dashed border-gray-300/80 bg-white/60 px-8 py-16 text-center backdrop-blur-xl dark:border-white/10 dark:bg-zinc-900/30">
+              <div className="rounded-[1.5rem] border border-dashed border-gray-300/80 bg-white/60 px-8 py-16 text-center backdrop-blur-xl dark:border-white/10 dark:bg-zinc-900/30">
                 <div className="text-lg font-semibold text-gray-900 dark:text-white">
                   {t('views.fileDetailView.missingTitle', 'File not found')}
                 </div>
@@ -173,7 +181,7 @@ const FileDetailView = () => {
             </div>
           ) : item ? (
             <div className="mx-auto max-w-[1360px] space-y-4">
-              <div className="rounded-[2.15rem] border border-white/60 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.85),rgba(255,255,255,0.66))] p-5 shadow-[0_22px_55px_-32px_rgba(0,0,0,0.35)] backdrop-blur-xl dark:border-white/8 dark:bg-[radial-gradient(circle_at_bottom_left,rgba(16,35,31,0.36),rgba(10,10,14,0.92))]">
+              <div className="rounded-[1.75rem] border border-white/60 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.85),rgba(255,255,255,0.66))] p-5 shadow-[0_22px_55px_-32px_rgba(0,0,0,0.35)] backdrop-blur-xl dark:border-white/8 dark:bg-[radial-gradient(circle_at_bottom_left,rgba(16,35,31,0.36),rgba(10,10,14,0.92))]">
                 <div className="mb-4 flex items-center gap-2">
                   <span
                     className={clsx(
@@ -238,7 +246,7 @@ const FileDetailView = () => {
                     t={t}
                   />
                 ) : (
-                  <div className="rounded-[2rem] border border-dashed border-gray-300/80 bg-white/60 px-8 py-16 text-center backdrop-blur-xl dark:border-white/10 dark:bg-zinc-900/30">
+                  <div className="rounded-[1.5rem] border border-dashed border-gray-300/80 bg-white/60 px-8 py-16 text-center backdrop-blur-xl dark:border-white/10 dark:bg-zinc-900/30">
                     <div className="text-lg font-semibold text-gray-900 dark:text-white">
                       {t('views.fileDetailView.noPreviewTitle', 'No preview available')}
                     </div>
@@ -248,7 +256,7 @@ const FileDetailView = () => {
                   </div>
                 )
               ) : excelSheets.length > 0 && activeExcelSheet ? (
-                <div className="overflow-hidden rounded-[2rem] border border-white/60 bg-white/72 shadow-sm backdrop-blur-xl dark:border-white/8 dark:bg-zinc-900/38">
+                <div className="overflow-hidden rounded-[1.5rem] border border-white/60 bg-white/72 shadow-sm backdrop-blur-xl dark:border-white/8 dark:bg-zinc-900/38">
                   {excelSheets.length > 1 ? (
                     <div className="border-b border-black/6 bg-black/2 px-4 py-3 dark:border-white/8 dark:bg-white/4">
                       <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
@@ -315,7 +323,7 @@ const FileDetailView = () => {
                   </div>
                 </div>
               ) : (
-                <div className="rounded-[2rem] border border-dashed border-gray-300/80 bg-white/60 px-8 py-16 text-center backdrop-blur-xl dark:border-white/10 dark:bg-zinc-900/30">
+                <div className="rounded-[1.5rem] border border-dashed border-gray-300/80 bg-white/60 px-8 py-16 text-center backdrop-blur-xl dark:border-white/10 dark:bg-zinc-900/30">
                   <div className="text-lg font-semibold text-gray-900 dark:text-white">
                     {t('views.fileDetailView.noPreviewTitle', 'No preview available')}
                   </div>

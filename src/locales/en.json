@@ -255,6 +255,7 @@
     "failedToUpdateFavorite": "Failed to update favorite status",
     "library": "Library",
     "bookmarks": "Bookmarks",
+    "files": "Files",
     "spaces": "Spaces",
     "agents": "Agents",
     "role": {
@@ -1358,6 +1359,11 @@
     }
   },
   "messageBubble": {
+    "fileCard": {
+      "openFiles": "Open files",
+      "downloadMissing": "This file was deleted or no longer exists. Open Files to check your generated files.",
+      "deletedUnavailable": "This file was deleted or no longer exists. Preview is kept from chat history, but download and detail view are unavailable."
+    },
     "workflow": "Workflow",
     "usedSpecificTools": "Used {{tools}}",
     "completedAnswer": "Completed answer, took {{duration}}s",
@@ -1388,8 +1394,9 @@
     "download": "Download",
     "downloadPdf": "PDF",
     "downloadWord": "Word",
-    "pptRetriesHidden": "Earlier PPT attempts were hidden. Showing the latest result.",
-    "excelRetriesHidden": "Earlier Excel attempts were hidden. Showing the latest result.",
+    "earlierResultsHint": "Only earlier result cards are folded here.",
+    "pptEarlierResults": "Show {{count}} earlier PPT result(s)",
+    "excelEarlierResults": "Show {{count}} earlier Excel result(s)",
     "excel": {
       "missingPayload": "No Excel payload found in the tool result.",
       "download": "Download Excel",
@@ -1620,6 +1627,53 @@
       "noBookmarks": "No bookmarks yet. Save one to see it here.",
       "loadingMore": "Loading more bookmarks...",
       "noMoreToLoad": "No more bookmarks to load"
+    },
+    "filesView": {
+      "title": "Generated Files",
+      "subtitle": "Browse PPT and Excel files exported and saved by your tools.",
+      "totalFiles": "Total files",
+      "totalPptx": "PPT files",
+      "totalExcel": "Excel files",
+      "searchPlaceholder": "Search filename or title",
+      "search": "Search",
+      "details": "Details",
+      "download": "Download",
+      "delete": "Delete",
+      "deleting": "Deleting...",
+      "deleteTitle": "Delete file",
+      "deleteMessage": "Are you sure you want to delete \"{{name}}\"? This cannot be undone.",
+      "deleteConfirm": "Delete",
+      "deleteSuccess": "File deleted",
+      "deleteFailed": "Failed to delete file",
+      "loadFailed": "Failed to load files",
+      "emptyTitle": "No generated files yet",
+      "emptyBody": "Generated PPT and Excel files will appear here after your tools export them.",
+      "kindPptx": "PPT",
+      "kindExcel": "Excel",
+      "filter": {
+        "all": "All",
+        "pptx": "PPT",
+        "excel": "Excel"
+      },
+      "sort": {
+        "newest": "Newest first",
+        "oldest": "Oldest first"
+      }
+    },
+    "fileDetailView": {
+      "title": "File details",
+      "subtitle": "Preview metadata and content for this generated file.",
+      "back": "Back to files",
+      "createdAt": "Created at",
+      "sourceTool": "Source tool",
+      "fileId": "File ID",
+      "mimeType": "MIME type",
+      "preview": "Preview",
+      "loadFailed": "Failed to load file details",
+      "missingTitle": "File not found",
+      "missingBody": "This file was deleted or no longer exists in the generated files directory.",
+      "noPreviewTitle": "No preview available",
+      "noPreviewBody": "This file was saved before preview metadata was persisted, or no preview was generated."
     },
     "spaceView": {
       "title": "Space",

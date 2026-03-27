@@ -241,35 +241,63 @@ export function buildContentPartsOutsideWorkflow({
   }
 
   const collapseFileToolParts = (parts, type, parsePayload) => {
-    const indexes = parts.map((part, index) => (part.type === type ? index : -1)).filter(index => index >= 0)
+    const indexes = parts
+      .map((part, index) => (part.type === type ? index : -1))
+      .filter(index => index >= 0)
     if (indexes.length <= 1) return parts
 
-    let winnerIndex = indexes[indexes.length - 1]
-    for (let i = indexes.length - 1; i >= 0; i--) {
-      const index = indexes[i]
+    const analyses = indexes.map(index => {
       const part = parts[index]
-      const hasSuccessfulPayload = Array.isArray(part?.items)
-        ? part.items.some(item => Boolean(parsePayload(item?.output) || parsePayload(item?.result)))
-        : false
-      if (hasSuccessfulPayload) {
-        winnerIndex = index
-        break
+      const items = Array.isArray(part?.items) ? part.items : []
+      const successfulItems = items.filter(item => Boolean(parsePayload(item?.output) || parsePayload(item?.result)))
+      const remainingItems = items.filter(
+        item => !successfulItems.includes(item),
+      )
+      return {
+        index,
+        part,
+        successfulItems,
+        remainingItems,
       }
-    }
+    })
+
+    const successfulEntries = analyses.filter(entry => entry.successfulItems.length > 0)
+    if (successfulEntries.length <= 1) return parts
+
+    const winner = successfulEntries[successfulEntries.length - 1]
+    const hiddenEarlierItems = successfulEntries
+      .filter(entry => entry.index !== winner.index)
+      .flatMap(entry => entry.successfulItems)
 
     const collapsed = []
-    const hiddenRetryCount = indexes.length - 1
     for (let i = 0; i < parts.length; i++) {
       const part = parts[i]
       if (part.type !== type) {
         collapsed.push(part)
         continue
       }
-      if (i !== winnerIndex) continue
-      collapsed.push({
-        ...part,
-        retryCountHidden: hiddenRetryCount,
-      })
+
+      const analysis = analyses.find(entry => entry.index === i)
+      if (!analysis) {
+        collapsed.push(part)
+        continue
+      }
+
+      if (i === winner.index) {
+        collapsed.push({
+          ...part,
+          hiddenEarlierItems,
+          hiddenEarlierCount: hiddenEarlierItems.length,
+        })
+        continue
+      }
+
+      if (analysis.remainingItems.length > 0) {
+        collapsed.push({
+          ...part,
+          items: analysis.remainingItems,
+        })
+      }
     }
     return collapsed
   }

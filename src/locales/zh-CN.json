@@ -239,6 +239,7 @@
     "failedToUpdateFavorite": "更新收藏状态失败",
     "library": "对话库",
     "bookmarks": "收藏夹",
+    "files": "文件",
     "spaces": "空间",
     "seeAll": "查看全部",
     "pin": "固定侧边栏",
@@ -1350,6 +1351,11 @@
     }
   },
   "messageBubble": {
+    "fileCard": {
+      "openFiles": "查看文件",
+      "downloadMissing": "该文件已被删除或不存在。可前往文件页查看当前生成文件。",
+      "deletedUnavailable": "该文件已被删除或不存在。当前预览来自对话历史，但下载和详情查看已不可用。"
+    },
     "workflow": "工作流",
     "usedSpecificTools": "已调用 {{tools}}",
     "completedAnswer": "完成回答，用时 {{duration}} 秒",
@@ -1380,8 +1386,9 @@
     "download": "下载",
     "downloadPdf": "PDF",
     "downloadWord": "Word",
-    "pptRetriesHidden": "已隐藏更早的 PPT 尝试，仅显示最新结果。",
-    "excelRetriesHidden": "已隐藏更早的 Excel 尝试，仅显示最新结果。",
+    "earlierResultsHint": "这里只折叠更早的结果卡，不影响正文内容。",
+    "pptEarlierResults": "查看更早的 {{count}} 个 PPT 结果",
+    "excelEarlierResults": "查看更早的 {{count}} 个 Excel 结果",
     "excel": {
       "missingPayload": "工具结果中未找到 Excel 载荷。",
       "download": "下载 Excel",
@@ -1612,6 +1619,53 @@
       "noBookmarks": "暂无收藏。保存一个即可在此查看。",
       "loadingMore": "正在加载更多收藏...",
       "noMoreToLoad": "没有更多收藏了"
+    },
+    "filesView": {
+      "title": "生成文件",
+      "subtitle": "浏览工具生成并持久保存的 PPT 与 Excel 文件。",
+      "totalFiles": "文件总数",
+      "totalPptx": "PPT 文件",
+      "totalExcel": "Excel 文件",
+      "searchPlaceholder": "搜索文件名或标题",
+      "search": "搜索",
+      "details": "详情",
+      "download": "下载",
+      "delete": "删除",
+      "deleting": "删除中...",
+      "deleteTitle": "删除文件",
+      "deleteMessage": "确定要删除“{{name}}”吗？此操作无法撤销。",
+      "deleteConfirm": "删除",
+      "deleteSuccess": "文件已删除",
+      "deleteFailed": "删除文件失败",
+      "loadFailed": "加载文件失败",
+      "emptyTitle": "还没有生成文件",
+      "emptyBody": "当工具导出 PPT 或 Excel 后，它们会出现在这里。",
+      "kindPptx": "PPT",
+      "kindExcel": "Excel",
+      "filter": {
+        "all": "全部",
+        "pptx": "PPT",
+        "excel": "Excel"
+      },
+      "sort": {
+        "newest": "最新优先",
+        "oldest": "最早优先"
+      }
+    },
+    "fileDetailView": {
+      "title": "文件详情",
+      "subtitle": "查看这个生成文件的元数据与预览内容。",
+      "back": "返回文件列表",
+      "createdAt": "创建时间",
+      "sourceTool": "来源工具",
+      "fileId": "文件 ID",
+      "mimeType": "MIME 类型",
+      "preview": "预览",
+      "loadFailed": "加载文件详情失败",
+      "missingTitle": "文件不存在",
+      "missingBody": "这个文件已被删除，或已不在生成文件目录中。",
+      "noPreviewTitle": "暂无预览",
+      "noPreviewBody": "这个文件是在预览元数据持久化之前生成的，或当时没有生成可用预览。"
     },
     "spaceView": {
       "title": "空间",

@@ -23,6 +23,7 @@ import {
   Calculator,
   Clock,
   FileText,
+  FileSpreadsheet,
   ScanText,
   SlidersHorizontal,
   Wrench,
@@ -34,6 +35,7 @@ import {
   Image as ImageIcon,
   ChevronLeft,
   Newspaper,
+  Presentation,
   User,
 } from 'lucide-react'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
@@ -843,7 +845,6 @@ const MessageBubble = ({
       typeof payload.filename === 'string' ? payload.filename.trim() : 'presentation.pptx'
     const title = typeof payload.title === 'string' ? payload.title.trim() : ''
     const slideCount = Number(payload.slide_count)
-    const expiresAt = typeof payload.expires_at === 'string' ? payload.expires_at.trim() : ''
     const previewHtml = typeof payload.preview_html === 'string' ? payload.preview_html.trim() : ''
     const previewHeightRaw = Number(payload.preview_height)
     const previewHeight = Number.isFinite(previewHeightRaw)
@@ -860,7 +861,6 @@ const MessageBubble = ({
       title,
       slideCount: Number.isFinite(slideCount) ? Math.max(0, Math.floor(slideCount)) : 0,
       downloadUrl,
-      expiresAt,
       previewHtml,
       previewHeight,
       qaIssuesRaw,
@@ -898,7 +898,6 @@ const MessageBubble = ({
 
     const filename = typeof payload.filename === 'string' ? payload.filename.trim() : 'workbook.xlsx'
     const title = typeof payload.title === 'string' ? payload.title.trim() : ''
-    const expiresAt = typeof payload.expires_at === 'string' ? payload.expires_at.trim() : ''
     const sheetCount = Number(payload.sheet_count)
 
     return {
@@ -906,7 +905,6 @@ const MessageBubble = ({
       filename: filename || 'workbook.xlsx',
       title,
       downloadUrl,
-      expiresAt,
       sheetCount: Number.isFinite(sheetCount) ? Math.max(0, Math.floor(sheetCount)) : 0,
       preview: { sheets: previewSheets },
     }
@@ -2181,12 +2179,36 @@ const MessageBubble = ({
     if (part.type === 'pptx_file') {
       return (
         <React.Fragment key={part.key || `pptx-file-outside-${idx}`}>
-          {Number(part.retryCountHidden) > 0 ? (
-            <div className="mb-3 text-xs text-zinc-400">
-              {t('messageBubble.pptRetriesHidden', {
-                defaultValue: 'Earlier PPT attempts were hidden. Showing the latest result.',
-              })}
-            </div>
+          {Number(part.hiddenEarlierCount) > 0 && Array.isArray(part.hiddenEarlierItems) ? (
+            <details className="group mb-3 overflow-hidden rounded-2xl border border-white/8 bg-white/[0.035] text-sm shadow-[0_10px_30px_-22px_rgba(0,0,0,0.45)] backdrop-blur-sm transition-colors dark:border-white/8 dark:bg-white/[0.04]">
+              <summary className="flex cursor-pointer list-none items-center gap-3 px-3 py-3 marker:hidden sm:px-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-amber-300/25 bg-amber-500/10 text-amber-200">
+                  <Presentation size={18} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-semibold text-zinc-100">
+                    {t('messageBubble.pptEarlierResults', {
+                      count: part.hiddenEarlierCount,
+                      defaultValue: 'Show {{count}} earlier PPT result(s)',
+                    })}
+                  </div>
+                </div>
+                <div className="flex shrink-0 items-center gap-2 self-start sm:self-center">
+                  <span className="rounded-full border border-white/10 bg-white/6 px-2 py-1 text-[11px] font-medium text-zinc-300">
+                    {part.hiddenEarlierCount}
+                  </span>
+                  <ChevronDown
+                    size={16}
+                    className="text-zinc-400 transition-transform duration-200 group-open:rotate-180"
+                  />
+                </div>
+              </summary>
+              <div className="border-t border-white/8 px-3 py-3 sm:px-4">
+                {part.hiddenEarlierItems.map((item, fileIdx) =>
+                  renderPptxFileItem(item, `pptx-file-hidden-${part.key || idx}-${item.id || fileIdx}`),
+                )}
+              </div>
+            </details>
           ) : null}
           {part.items.map((item, fileIdx) =>
             renderPptxFileItem(item, `pptx-file-${part.key || idx}-${item.id || fileIdx}`),
@@ -2198,12 +2220,36 @@ const MessageBubble = ({
     if (part.type === 'excel_file') {
       return (
         <React.Fragment key={part.key || `excel-file-outside-${idx}`}>
-          {Number(part.retryCountHidden) > 0 ? (
-            <div className="mb-3 text-xs text-zinc-400">
-              {t('messageBubble.excelRetriesHidden', {
-                defaultValue: 'Earlier Excel attempts were hidden. Showing the latest result.',
-              })}
-            </div>
+          {Number(part.hiddenEarlierCount) > 0 && Array.isArray(part.hiddenEarlierItems) ? (
+            <details className="group mb-3 overflow-hidden rounded-2xl border border-white/8 bg-white/[0.035] text-sm shadow-[0_10px_30px_-22px_rgba(0,0,0,0.45)] backdrop-blur-sm transition-colors dark:border-white/8 dark:bg-white/[0.04]">
+              <summary className="flex cursor-pointer list-none items-center gap-3 px-3 py-3 marker:hidden sm:px-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-emerald-300/25 bg-emerald-500/10 text-emerald-200">
+                  <FileSpreadsheet size={18} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-semibold text-zinc-100">
+                    {t('messageBubble.excelEarlierResults', {
+                      count: part.hiddenEarlierCount,
+                      defaultValue: 'Show {{count}} earlier Excel result(s)',
+                    })}
+                  </div>
+                </div>
+                <div className="flex shrink-0 items-center gap-2 self-start sm:self-center">
+                  <span className="rounded-full border border-white/10 bg-white/6 px-2 py-1 text-[11px] font-medium text-zinc-300">
+                    {part.hiddenEarlierCount}
+                  </span>
+                  <ChevronDown
+                    size={16}
+                    className="text-zinc-400 transition-transform duration-200 group-open:rotate-180"
+                  />
+                </div>
+              </summary>
+              <div className="border-t border-white/8 px-3 py-3 sm:px-4">
+                {part.hiddenEarlierItems.map((item, fileIdx) =>
+                  renderExcelFileItem(item, `excel-file-hidden-${part.key || idx}-${item.id || fileIdx}`),
+                )}
+              </div>
+            </details>
           ) : null}
           {part.items.map((item, fileIdx) =>
             renderExcelFileItem(item, `excel-file-${part.key || idx}-${item.id || fileIdx}`),

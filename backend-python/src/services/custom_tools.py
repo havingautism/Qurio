@@ -757,10 +757,13 @@ class QurioLocalTools(Toolkit):
         name="excel_generator",
         description=(
             "Generate a real downloadable Excel workbook (.xlsx) from structured sheet data. "
-            "For multi-sheet workbooks, you MUST pass a sheets array with one object per worksheet. "
-            "Use top-level sheet_name/columns/rows only for a simple single-sheet workbook. "
-            "Use rows as the canonical row field; data is accepted as a compatibility alias if a model emits it. "
+            "Use this canonical payload shape: { title, sheets: [{ name, columns, rows }] }. "
+            "ALWAYS put worksheet data inside sheets[].rows. "
+            "For a single-sheet workbook, still prefer the same sheets array format instead of top-level sheet_name/columns/rows. "
             "Prefer explicit columns and rows for every sheet, and compute any requested summary sheets before calling the tool. "
+            "If the user asks for one Excel workbook with multiple sheets, you MUST produce all requested sheets in this single call and MUST NOT split them across multiple Excel files or repeated excel_generator calls. "
+            "For multi-sheet workbooks, do not put row maps or any other sheet-specific data at the top level. "
+            "Top-level sheet_name/columns/rows and aliases like data are compatibility fallbacks only, not the preferred output format. "
             "Supports a lightweight preview so users can verify structure before downloading."
         ),
     )
@@ -770,17 +773,26 @@ class QurioLocalTools(Toolkit):
         sheets: Any = None,
         columns: Any = None,
         rows: Any = None,
-        sheet_name: str = "Sheet 1",
+        sheet_name: str | None = None,
+        data: Any = None,
     ) -> dict[str, Any]:
-        request_payload = build_excel_payload(
-            {
-                "title": title,
-                "sheets": sheets if sheets is not None else [],
-                "columns": columns if columns is not None else [],
-                "rows": rows if rows is not None else [],
-                "sheet_name": sheet_name,
-            }
-        )
+        request_args: dict[str, Any] = {"title": title}
+        has_sheet_list = isinstance(sheets, list) and len(sheets) > 0
+
+        if has_sheet_list:
+            request_args["sheets"] = sheets
+        else:
+            request_args["sheets"] = sheets if sheets is not None else []
+            if columns is not None:
+                request_args["columns"] = columns
+            if rows is not None:
+                request_args["rows"] = rows
+            elif data is not None:
+                request_args["data"] = data
+            if sheet_name is not None:
+                request_args["sheet_name"] = sheet_name
+
+        request_payload = build_excel_payload(request_args)
         if request_payload.get("type") == "excel_error":
             return request_payload
 
@@ -790,14 +802,20 @@ class QurioLocalTools(Toolkit):
             return render_result
 
         file_name = _sanitize_excel_filename(request_payload.get("title"))
-        registered = register_excel_file(file_path=str(output_path), filename=file_name)
+        registered = register_excel_file(
+            file_path=str(output_path),
+            filename=file_name,
+            extra_metadata={
+                "sheet_count": int(render_result.get("sheet_count") or 0),
+                "preview": render_result.get("preview") if isinstance(render_result.get("preview"), dict) else {"sheets": []},
+            },
+        )
         return {
             "type": "excel_file",
             "title": request_payload.get("title") or "Generated Workbook",
             "sheet_count": int(render_result.get("sheet_count") or 0),
             "filename": file_name,
             "download_url": registered["download_url"],
-            "expires_at": registered["expires_at"],
             "preview": render_result.get("preview") if isinstance(render_result.get("preview"), dict) else {"sheets": []},
         }
 
@@ -847,14 +865,23 @@ class QurioLocalTools(Toolkit):
             return render_result
 
         file_name = _sanitize_pptx_filename(request_payload.get("title"))
-        registered = register_pptx_file(file_path=str(output_path), filename=file_name)
+        registered = register_pptx_file(
+            file_path=str(output_path),
+            filename=file_name,
+            extra_metadata={
+                "slide_count": int(render_result.get("slide_count") or 0),
+                "preview_html": str(render_result.get("preview_html") or ""),
+                "preview_height": int(render_result.get("preview_height") or 560),
+                "qa_issues": render_result.get("qa_issues") if isinstance(render_result.get("qa_issues"), list) else [],
+                "render_mode_used": str(render_result.get("render_mode_used") or "semantic"),
+            },
+        )
         return {
             "type": "pptx_file",
             "title": request_payload.get("title") or "Generated Presentation",
             "slide_count": int(render_result.get("slide_count") or 0),
             "filename": file_name,
             "download_url": registered["download_url"],
-            "expires_at": registered["expires_at"],
             "preview_html": str(render_result.get("preview_html") or ""),
             "preview_height": int(render_result.get("preview_height") or 560),
             "qa_issues": render_result.get("qa_issues") if isinstance(render_result.get("qa_issues"), list) else [],

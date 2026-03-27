@@ -302,11 +302,14 @@ AGENT_TOOLS: list[dict[str, Any]] = [
         "category": "visualization",
         "description": (
             "Generate a downloadable .xlsx Excel workbook from structured sheet data. "
-            "For multi-sheet workbooks, you MUST pass a sheets array with one object per worksheet. "
-            "Use top-level sheet_name/columns/rows only for a simple single-sheet workbook. "
-            "Use rows as the canonical row field; data is accepted as a compatibility alias if emitted by the model. "
+            "Use this canonical payload shape: { title, sheets: [{ name, columns, rows }] }. "
+            "ALWAYS put worksheet data inside sheets[].rows. "
+            "For a single-sheet workbook, still prefer the same sheets array format instead of top-level sheet_name/columns/rows. "
             "If the user requests a summary sheet, calculate that summary first and include it as another item in sheets. "
-            "Returns {type: excel_file, filename, download_url, expires_at, preview} on success."
+            "If the user asks for one workbook with multiple sheets, you MUST return that workbook in one excel_generator call and MUST NOT split sheets across multiple Excel files or repeated calls. "
+            "For multi-sheet workbooks, do not put row maps or any other sheet-specific data at the top level. "
+            "Top-level sheet_name/columns/rows and aliases like data are compatibility fallbacks only, not the preferred output format. "
+            "Returns {type: excel_file, filename, download_url, preview} on success."
         ),
         "parameters": {
             "type": "object",
@@ -318,16 +321,16 @@ AGENT_TOOLS: list[dict[str, Any]] = [
                 },
                 "sheet_name": {
                     "type": "string",
-                    "description": "Single-sheet fallback only. Do not use this for multi-sheet workbooks.",
+                    "description": "Legacy single-sheet compatibility field. Prefer sheets[].name instead.",
                 },
                 "columns": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "Single-sheet fallback columns only. For multi-sheet output, put columns inside each sheets[] item.",
+                    "description": "Legacy single-sheet compatibility field. Prefer sheets[].columns instead.",
                 },
                 "rows": {
                     "type": "array",
-                    "description": "Single-sheet fallback rows only. For multi-sheet output, put rows inside each sheets[] item. Some models may call this data; rows is preferred.",
+                    "description": "Legacy single-sheet compatibility field. Prefer sheets[].rows instead. Some models may call this data; rows is preferred.",
                     "items": {
                         "anyOf": [
                             {"type": "array", "items": {}},
@@ -337,7 +340,7 @@ AGENT_TOOLS: list[dict[str, Any]] = [
                 },
                 "sheets": {
                     "type": "array",
-                    "description": "Preferred workbook payload. REQUIRED when creating multiple worksheets. Each item represents one worksheet, including summary sheets.",
+                    "description": "Canonical workbook payload. Prefer this for both single-sheet and multi-sheet workbooks. Each item represents one worksheet, including summary sheets.",
                     "items": {
                         "type": "object",
                         "properties": {
@@ -373,7 +376,7 @@ AGENT_TOOLS: list[dict[str, Any]] = [
             "or provide a single HTML document with explicit slide wrappers like `.slide`. "
             "Design each slide for a 16:9 presentation canvas and use stable responsive layout so both the smaller preview viewport and the larger fidelity export viewport keep a similar structure. "
             "Prefer robust flex/grid layouts, avoid extreme viewport-dependent sizing that can cause overflow, and keep each slide self-contained. "
-            "Returns {type: pptx_file, slide_count, filename, download_url, expires_at} on success."
+            "Returns {type: pptx_file, slide_count, filename, download_url} on success."
         ),
         "parameters": {
             "type": "object",

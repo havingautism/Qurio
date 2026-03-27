@@ -21,6 +21,7 @@ import {
   Flask as FlaskIcon,
   Gear as GearIcon,
   Notebook as NotebookIcon,
+  FolderOpen as FolderOpenIcon,
   Robot as RobotIcon,
   SquaresFour as SquaresFourIcon,
   Student as StudentIcon,
@@ -732,6 +733,10 @@ const Sidebar = ({
       setActiveTab(prev => (prev === 'bookmarks' ? prev : 'bookmarks'))
       return
     }
+    if (path.startsWith('/files')) {
+      setActiveTab(prev => (prev === 'files' ? prev : 'files'))
+      return
+    }
     if (path.startsWith('/agents')) {
       setActiveTab(prev => (prev === 'agents' ? prev : 'agents'))
       return
@@ -766,6 +771,7 @@ const Sidebar = ({
     { id: 'spaces', icon: SquaresFourIcon },
     { id: 'agents', icon: RobotIcon },
     { id: 'bookmarks', icon: BookmarkSimpleIcon },
+    { id: 'files', icon: FolderOpenIcon },
     { id: 'scrapbook', icon: NotebookIcon },
   ]
 
@@ -1184,6 +1190,11 @@ const Sidebar = ({
                     if (!isOpen) onNavigate('scrapbook')
                     return
                   }
+                  if (item.id === 'files') {
+                    setActiveTab('files')
+                    onNavigate('files')
+                    return
+                  }
                   setActiveTab(item.id)
                   // On mobile (isOpen), only switch tab, don't navigate full page
                   if (!isOpen) {
@@ -1192,6 +1203,7 @@ const Sidebar = ({
                     else if (item.id === 'expert') onNavigate('expert')
                     else if (item.id === 'spaces') onNavigate('spaces')
                     else if (item.id === 'bookmarks') onNavigate('bookmarks')
+                    else if (item.id === 'files') onNavigate('files')
                     else if (item.id === 'agents') onNavigate('agents')
                   }
                 }}
@@ -1376,6 +1388,8 @@ const Sidebar = ({
                             ? t('sidebar.spaces')
                             : displayTab === 'agents'
                               ? t('sidebar.agents')
+                              : displayTab === 'files'
+                                ? t('sidebar.files')
                               : displayTab === 'scrapbook'
                                 ? t('sidebar.scrapbook')
                                 : ''}

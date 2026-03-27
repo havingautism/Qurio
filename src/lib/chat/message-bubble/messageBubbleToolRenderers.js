@@ -283,13 +283,29 @@ export function createPptxFileItemRenderer({
   resolveBackendDownloadUrl,
 }) {
   return (item, pptxKey) => {
+    const parseRawObject = raw => {
+      if (!raw) return null
+      if (typeof raw === 'object') return raw
+      if (typeof raw !== 'string') return null
+      try {
+        return JSON.parse(raw)
+      } catch {
+        return null
+      }
+    }
+
+    const outputObject = parseRawObject(item.output)
+    const resultObject = parseRawObject(item.result)
     const payload = parsePptxPayload(item.output) || parsePptxPayload(item.result)
+    const hasExplicitError =
+      String(outputObject?.type || '').trim() === 'pptx_error' ||
+      String(resultObject?.type || '').trim() === 'pptx_error'
     const shouldShowSkeleton =
       !payload &&
-      (isStreaming ||
-        item.status === 'calling' ||
+      !hasExplicitError &&
+      (item.status === 'calling' ||
         item.status === 'running' ||
-        item.status !== 'done')
+        (isStreaming && !item.output && !item.result))
 
     if (shouldShowSkeleton) {
       return renderToolLoadingCard(`pptx-skeleton-${pptxKey}`, {
@@ -300,23 +316,7 @@ export function createPptxFileItemRenderer({
     }
 
     if (!payload) {
-      return React.createElement(
-        'div',
-        {
-          key: pptxKey,
-          className: 'mb-4 rounded-2xl border border-red-300/40 bg-red-500/8 p-3 text-sm text-red-200',
-        },
-        React.createElement(
-          'div',
-          { className: 'font-semibold' },
-          t('tools.pptGenerator', 'PPT Generator'),
-        ),
-        React.createElement(
-          'div',
-          { className: 'mt-1' },
-          t('messageBubble.ppt.missingPayload', 'No PPTX payload found in the tool result.'),
-        ),
-      )
+      return null
     }
 
     return React.createElement(PptxResultCard, {
@@ -341,13 +341,29 @@ export function createExcelFileItemRenderer({
   resolveBackendDownloadUrl,
 }) {
   return (item, excelKey) => {
+    const parseRawObject = raw => {
+      if (!raw) return null
+      if (typeof raw === 'object') return raw
+      if (typeof raw !== 'string') return null
+      try {
+        return JSON.parse(raw)
+      } catch {
+        return null
+      }
+    }
+
+    const outputObject = parseRawObject(item.output)
+    const resultObject = parseRawObject(item.result)
     const payload = parseExcelPayload(item.output) || parseExcelPayload(item.result)
+    const hasExplicitError =
+      String(outputObject?.type || '').trim() === 'excel_error' ||
+      String(resultObject?.type || '').trim() === 'excel_error'
     const shouldShowSkeleton =
       !payload &&
-      (isStreaming ||
-        item.status === 'calling' ||
+      !hasExplicitError &&
+      (item.status === 'calling' ||
         item.status === 'running' ||
-        item.status !== 'done')
+        (isStreaming && !item.output && !item.result))
 
     if (shouldShowSkeleton) {
       return renderToolLoadingCard(`excel-skeleton-${excelKey}`, {
@@ -358,23 +374,7 @@ export function createExcelFileItemRenderer({
     }
 
     if (!payload) {
-      return React.createElement(
-        'div',
-        {
-          key: excelKey,
-          className: 'mb-4 rounded-2xl border border-red-300/40 bg-red-500/8 p-3 text-sm text-red-200',
-        },
-        React.createElement(
-          'div',
-          { className: 'font-semibold' },
-          t('tools.excelGenerator', 'Excel Generator'),
-        ),
-        React.createElement(
-          'div',
-          { className: 'mt-1' },
-          t('messageBubble.excel.missingPayload', 'No Excel payload found in the tool result.'),
-        ),
-      )
+      return null
     }
 
     return React.createElement(ExcelResultCard, {

@@ -89,7 +89,8 @@ def _normalize_sheet(raw_sheet: Any, index: int) -> dict[str, Any] | None:
         rows = [row[: len(columns)] for row in rows]
 
     return {
-        "name": str(raw_sheet.get("name") or f"Sheet {index + 1}").strip()[:31] or f"Sheet {index + 1}",
+        "name": str(raw_sheet.get("name") or raw_sheet.get("sheet_name") or f"Sheet {index + 1}").strip()[:31]
+        or f"Sheet {index + 1}",
         "columns": columns,
         "rows": rows,
     }
@@ -100,7 +101,29 @@ def build_excel_payload(args: dict[str, Any] | None) -> dict[str, Any]:
     title = str(payload.get("title") or EXCEL_DEFAULT_TITLE).strip() or EXCEL_DEFAULT_TITLE
 
     raw_sheets = payload.get("sheets")
-    if not isinstance(raw_sheets, list) or not raw_sheets:
+    has_multi_sheet_input = isinstance(raw_sheets, list) and len(raw_sheets) > 0
+    if has_multi_sheet_input:
+        if isinstance(payload.get("rows"), dict):
+            return build_excel_error(
+                "invalid_multi_sheet_rows",
+                "For multi-sheet workbooks, each worksheet must place its row data inside sheets[].rows. Do not use a top-level rows object keyed by sheet name.",
+            )
+
+        top_level_single_sheet_fields_present = any(
+            [
+                bool(str(payload.get("sheet_name") or "").strip()),
+                isinstance(payload.get("columns"), list) and len(payload.get("columns")) > 0,
+                isinstance(payload.get("rows"), list) and len(payload.get("rows")) > 0,
+                isinstance(payload.get("data"), list) and len(payload.get("data")) > 0,
+            ]
+        )
+        if top_level_single_sheet_fields_present:
+            return build_excel_error(
+                "invalid_multi_sheet_structure",
+                "For multi-sheet workbooks, put name, columns, and rows inside each sheets[] item. Top-level sheet_name, columns, rows, and data are single-sheet only.",
+            )
+
+    if not has_multi_sheet_input:
         fallback_sheet = {
             "name": payload.get("sheet_name") or "Sheet 1",
             "columns": payload.get("columns") or [],

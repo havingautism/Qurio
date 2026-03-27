@@ -16,6 +16,8 @@ const LibraryView = React.lazy(() => import('./views/LibraryView'))
 const DeepResearchView = React.lazy(() => import('./views/DeepResearchView'))
 const ExpertView = React.lazy(() => import('./views/ExpertView'))
 const BookmarksView = React.lazy(() => import('./views/BookmarksView'))
+const FilesView = React.lazy(() => import('./views/FilesView'))
+const FileDetailView = React.lazy(() => import('./views/FileDetailView'))
 const ScrapbookView = React.lazy(() => import('./views/ScrapbookView'))
 const ScrapbookDetailView = React.lazy(() => import('./views/ScrapbookDetailView'))
 const ShareImageView = React.lazy(() => import('./views/ShareImageView'))
@@ -222,6 +224,26 @@ export const bookmarksRoute = createRoute({
   ),
 })
 
+export const filesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: 'files',
+  component: () => (
+    <SuspensePage>
+      <FilesView />
+    </SuspensePage>
+  ),
+})
+
+export const fileDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: 'files/$kind/$fileId',
+  component: () => (
+    <SuspensePage>
+      <FileDetailView />
+    </SuspensePage>
+  ),
+})
+
 export const scrapbookRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: 'scrapbook',
@@ -265,6 +287,8 @@ export const routeTree = rootRoute.addChildren([
   deepResearchRoute,
   expertRoute,
   bookmarksRoute,
+  filesRoute,
+  fileDetailRoute,
   scrapbookRoute,
   scrapbookDetailRoute,
   shareImageRoute,

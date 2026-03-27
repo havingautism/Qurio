@@ -100,3 +100,6 @@ backend-python/.runtime/exports/pptx/
 
 # Generated Excel exports
 backend-python/.runtime/exports/excel/
+
+# Persistent generated documents
+backend-python/.documents/

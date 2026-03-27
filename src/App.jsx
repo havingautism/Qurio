@@ -412,6 +412,9 @@ function App() {
         case 'bookmarks':
           navigate({ to: '/bookmarks' })
           break
+        case 'files':
+          navigate({ to: '/files' })
+          break
         case 'scrapbook':
           navigate({ to: '/scrapbook' })
           break

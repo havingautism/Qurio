@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, Download, LoaderCircle, Sparkles } from 'lucide-react'
+import { Link } from '@tanstack/react-router'
+import { AlertTriangle, Download, FolderOpen, LoaderCircle, Sparkles } from 'lucide-react'
 import HtmlWidgetCard from './HtmlWidgetCard'
 import { checkEnvStatus, installScraperEngine } from '../../lib/services/envService'
 import { rebuildPptxFromPayload } from '../../lib/services/pptxService'
+import { useToast } from '../../contexts/ToastContext'
 import {
   Dialog,
   DialogContent,
@@ -11,6 +13,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../ui/dialog'
+
+const extractGeneratedFileRouteParams = (downloadUrl, expectedKind) => {
+  const value = String(downloadUrl || '').trim()
+  const match = value.match(/\/api\/files\/(pptx|excel)\/([^/?#]+)/i)
+  if (!match) return null
+  const [, kind, fileId] = match
+  if (expectedKind && kind.toLowerCase() !== expectedKind.toLowerCase()) return null
+  return { kind: kind.toLowerCase(), fileId }
+}
 
 const parseToolArguments = raw => {
   if (!raw) return null
@@ -43,14 +54,6 @@ const downloadResolvedFile = async (url, filename = 'presentation.pptx') => {
   setTimeout(() => URL.revokeObjectURL(objectUrl), 1000)
 }
 
-const hasUsableExpiry = expiresAt => {
-  const value = String(expiresAt || '').trim()
-  if (!value) return false
-  const timestamp = Date.parse(value)
-  if (!Number.isFinite(timestamp)) return false
-  return timestamp > Date.now() + 5_000
-}
-
 const buildVariantDownloadsFromPayload = payload => {
   const renderMode = String(payload?.renderModeUsed || '').toLowerCase()
   const normalizedMode = renderMode === 'fidelity' ? 'fidelity' : renderMode === 'semantic' ? 'semantic' : ''
@@ -59,7 +62,6 @@ const buildVariantDownloadsFromPayload = payload => {
       ? {
           downloadUrl: payload.downloadUrl,
           filename: payload?.filename || 'presentation.pptx',
-          expiresAt: payload?.expiresAt || '',
           source: 'payload',
         }
       : null
@@ -78,6 +80,7 @@ export default function PptxResultCard({
   resolveBackendDownloadUrl,
   t,
 }) {
+  const toast = useToast()
   const [isGeneratingSemantic, setIsGeneratingSemantic] = useState(false)
   const [isInstalling, setIsInstalling] = useState(false)
   const [installError, setInstallError] = useState('')
@@ -129,6 +132,10 @@ export default function PptxResultCard({
 
   const semanticVariant = variantDownloads.semantic
   const fidelityVariant = variantDownloads.fidelity
+  const detailParams = useMemo(
+    () => extractGeneratedFileRouteParams(payload?.downloadUrl, 'pptx'),
+    [payload?.downloadUrl],
+  )
 
   const registerVariantDownload = (mode, data) => {
     if (!data?.download_url) return
@@ -137,7 +144,6 @@ export default function PptxResultCard({
       [mode]: {
         downloadUrl: data.download_url,
         filename: data.filename || payload?.filename || 'presentation.pptx',
-        expiresAt: data.expires_at || '',
         source: 'runtime',
       },
       activeMode: mode,
@@ -176,19 +182,26 @@ export default function PptxResultCard({
   const handleSemanticDownload = async () => {
     if (isGeneratingSemantic || isGeneratingFidelity) return
     setSemanticError('')
-    if (semanticVariant?.downloadUrl && hasUsableExpiry(semanticVariant.expiresAt)) {
+    if (semanticVariant?.downloadUrl) {
       try {
         await downloadResolvedFile(
           resolveBackendDownloadUrl(semanticVariant.downloadUrl),
           semanticVariant.filename || 'presentation.pptx',
         )
         return
-      } catch {
+      } catch (error) {
+        console.error('Failed to download generated ppt file:', error)
         setVariantDownloads(current => ({
           ...current,
           semantic: null,
           activeMode: current.activeMode === 'semantic' ? null : current.activeMode,
         }))
+        toast.error(
+          t(
+            'messageBubble.fileCard.downloadMissing',
+            'This file was deleted or no longer exists. Open Files to check your generated files.',
+          ),
+        )
       }
     }
     await generateAndDownloadSemantic()
@@ -227,19 +240,26 @@ export default function PptxResultCard({
   const handleFidelityDownload = async () => {
     if (isGeneratingSemantic || isGeneratingFidelity) return
     setFidelityError('')
-    if (fidelityVariant?.downloadUrl && hasUsableExpiry(fidelityVariant.expiresAt)) {
+    if (fidelityVariant?.downloadUrl) {
       try {
         await downloadResolvedFile(
           resolveBackendDownloadUrl(fidelityVariant.downloadUrl),
           fidelityVariant.filename || 'presentation.pptx',
         )
         return
-      } catch {
+      } catch (error) {
+        console.error('Failed to download generated ppt file:', error)
         setVariantDownloads(current => ({
           ...current,
           fidelity: null,
           activeMode: current.activeMode === 'fidelity' ? null : current.activeMode,
         }))
+        toast.error(
+          t(
+            'messageBubble.fileCard.downloadMissing',
+            'This file was deleted or no longer exists. Open Files to check your generated files.',
+          ),
+        )
       }
     }
     const status = await checkEnvStatus()
@@ -314,7 +334,26 @@ export default function PptxResultCard({
           </div>
         )}
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          {detailParams ? (
+            <Link
+              to="/files/$kind/$fileId"
+              params={detailParams}
+              className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/70 px-3 py-1.5 text-xs font-medium text-zinc-600 transition-colors hover:bg-white dark:border-white/10 dark:bg-white/6 dark:text-zinc-200 dark:hover:bg-white/10"
+            >
+              <FolderOpen size={14} />
+              {t('messageBubble.fileCard.openFiles', 'Open files')}
+            </Link>
+          ) : (
+            <Link
+              to="/files"
+              className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/70 px-3 py-1.5 text-xs font-medium text-zinc-600 transition-colors hover:bg-white dark:border-white/10 dark:bg-white/6 dark:text-zinc-200 dark:hover:bg-white/10"
+            >
+              <FolderOpen size={14} />
+              {t('messageBubble.fileCard.openFiles', 'Open files')}
+            </Link>
+          )}
+          <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={handleSemanticDownload}
@@ -342,6 +381,7 @@ export default function PptxResultCard({
             )}
             {t('messageBubble.ppt.downloadFidelity', 'Download high-fidelity PPT')}
           </button>
+          </div>
         </div>
       </div>
 

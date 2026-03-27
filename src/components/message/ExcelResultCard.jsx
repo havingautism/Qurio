@@ -1,5 +1,17 @@
-import React from 'react'
-import { Download, FileSpreadsheet } from 'lucide-react'
+import React, { useEffect, useMemo, useState } from 'react'
+import { Link } from '@tanstack/react-router'
+import { Download, FileSpreadsheet, FolderOpen } from 'lucide-react'
+import clsx from 'clsx'
+import { useToast } from '../../contexts/ToastContext'
+
+const extractGeneratedFileRouteParams = (downloadUrl, expectedKind) => {
+  const value = String(downloadUrl || '').trim()
+  const match = value.match(/\/api\/files\/(pptx|excel)\/([^/?#]+)/i)
+  if (!match) return null
+  const [, kind, fileId] = match
+  if (expectedKind && kind.toLowerCase() !== expectedKind.toLowerCase()) return null
+  return { kind: kind.toLowerCase(), fileId }
+}
 
 const downloadResolvedFile = async (url, filename = 'workbook.xlsx') => {
   const res = await fetch(url)
@@ -29,13 +41,33 @@ const normalizePreviewSheets = payload => {
 }
 
 export default function ExcelResultCard({ payload, displayTitle, resolveBackendDownloadUrl, t }) {
+  const toast = useToast()
   const previewSheets = normalizePreviewSheets(payload)
-  const primarySheet = previewSheets[0] || null
+  const [activeSheetIndex, setActiveSheetIndex] = useState(0)
+  const primarySheet = useMemo(
+    () => previewSheets[activeSheetIndex] || previewSheets[0] || null,
+    [activeSheetIndex, previewSheets],
+  )
+  const detailParams = extractGeneratedFileRouteParams(payload?.downloadUrl, 'excel')
+
+  useEffect(() => {
+    setActiveSheetIndex(0)
+  }, [payload?.downloadUrl])
 
   const handleDownload = async () => {
     const url = resolveBackendDownloadUrl(payload?.downloadUrl)
     if (!url) return
-    await downloadResolvedFile(url, payload?.filename || 'workbook.xlsx')
+    try {
+      await downloadResolvedFile(url, payload?.filename || 'workbook.xlsx')
+    } catch (error) {
+      console.error('Failed to download generated excel file:', error)
+      toast.error(
+        t(
+          'messageBubble.fileCard.downloadMissing',
+          'This file was deleted or no longer exists. Open Files to check your generated files.',
+        ),
+      )
+    }
   }
 
   return (
@@ -59,19 +91,60 @@ export default function ExcelResultCard({ payload, displayTitle, resolveBackendD
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={handleDownload}
-          disabled={!payload?.downloadUrl}
-          className="inline-flex items-center gap-2 rounded-full border border-emerald-300/60 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-emerald-400/20 dark:bg-emerald-500/10 dark:text-emerald-100 dark:hover:bg-emerald-500/16"
-        >
-          <Download size={14} />
-          {t('messageBubble.excel.download', 'Download Excel')}
-        </button>
+        <div className="flex items-center gap-2">
+          {detailParams ? (
+            <Link
+              to="/files/$kind/$fileId"
+              params={detailParams}
+              className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/70 px-3 py-1.5 text-xs font-medium text-zinc-600 transition-colors hover:bg-white dark:border-white/10 dark:bg-white/6 dark:text-zinc-200 dark:hover:bg-white/10"
+            >
+              <FolderOpen size={14} />
+              {t('messageBubble.fileCard.openFiles', 'Open files')}
+            </Link>
+          ) : (
+            <Link
+              to="/files"
+              className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/70 px-3 py-1.5 text-xs font-medium text-zinc-600 transition-colors hover:bg-white dark:border-white/10 dark:bg-white/6 dark:text-zinc-200 dark:hover:bg-white/10"
+            >
+              <FolderOpen size={14} />
+              {t('messageBubble.fileCard.openFiles', 'Open files')}
+            </Link>
+          )}
+          <button
+            type="button"
+            onClick={handleDownload}
+            disabled={!payload?.downloadUrl}
+            className="inline-flex items-center gap-2 rounded-full border border-emerald-300/60 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-emerald-400/20 dark:bg-emerald-500/10 dark:text-emerald-100 dark:hover:bg-emerald-500/16"
+          >
+            <Download size={14} />
+            {t('messageBubble.excel.download', 'Download Excel')}
+          </button>
+        </div>
       </div>
 
       {primarySheet ? (
         <div className="mt-4 overflow-hidden rounded-2xl border border-black/6 dark:border-white/8">
+          {previewSheets.length > 1 ? (
+            <div className="border-b border-black/6 bg-black/2 px-3 py-2 dark:border-white/8 dark:bg-white/4">
+              <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+                {previewSheets.map((sheet, index) => (
+                  <button
+                    key={`${sheet.name}-${index}`}
+                    type="button"
+                    onClick={() => setActiveSheetIndex(index)}
+                    className={clsx(
+                      'shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-medium transition-colors',
+                      index === activeSheetIndex
+                        ? 'border-emerald-300/60 bg-emerald-50 text-emerald-700 dark:border-emerald-400/30 dark:bg-emerald-500/12 dark:text-emerald-100'
+                        : 'border-black/8 bg-white/65 text-zinc-600 hover:bg-white dark:border-white/10 dark:bg-white/6 dark:text-zinc-300 dark:hover:bg-white/10',
+                    )}
+                  >
+                    {sheet.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
           <div className="border-b border-black/6 bg-black/3 px-3 py-2 text-xs font-medium text-zinc-600 dark:border-white/8 dark:bg-white/5 dark:text-zinc-300">
             {primarySheet.name}
             {primarySheet.totalRows > 0
@@ -116,14 +189,6 @@ export default function ExcelResultCard({ payload, displayTitle, resolveBackendD
               </tbody>
             </table>
           </div>
-          {previewSheets.length > 1 ? (
-            <div className="border-t border-black/6 px-3 py-2 text-[11px] text-zinc-500 dark:border-white/8 dark:text-zinc-400">
-              {t('messageBubble.excel.additionalSheets', {
-                count: previewSheets.length - 1,
-                defaultValue: '+{{count}} more sheets',
-              })}
-            </div>
-          ) : null}
         </div>
       ) : null}
     </div>

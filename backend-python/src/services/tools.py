@@ -353,14 +353,23 @@ async def _execute_ppt_generator(args: dict[str, Any]) -> dict[str, Any]:
         return render_result
 
     filename = _sanitize_pptx_filename(request_payload.get("title"))
-    registered = register_pptx_file(file_path=str(output_path), filename=filename)
+    registered = register_pptx_file(
+        file_path=str(output_path),
+        filename=filename,
+        extra_metadata={
+            "slide_count": int(render_result.get("slide_count") or 0),
+            "preview_html": str(render_result.get("preview_html") or ""),
+            "preview_height": int(render_result.get("preview_height") or 560),
+            "qa_issues": render_result.get("qa_issues") if isinstance(render_result.get("qa_issues"), list) else [],
+            "render_mode_used": str(render_result.get("render_mode_used") or "semantic"),
+        },
+    )
     return {
         "type": "pptx_file",
         "title": request_payload.get("title") or "Generated Presentation",
         "slide_count": int(render_result.get("slide_count") or 0),
         "filename": filename,
         "download_url": registered["download_url"],
-        "expires_at": registered["expires_at"],
         "preview_html": str(render_result.get("preview_html") or ""),
         "preview_height": int(render_result.get("preview_height") or 560),
         "qa_issues": render_result.get("qa_issues") if isinstance(render_result.get("qa_issues"), list) else [],

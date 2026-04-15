@@ -1,10 +1,13 @@
+// ─── Imports ────────────────────────────────────────────────────────────────
 import { Outlet, useLocation, useNavigate } from '@tanstack/react-router'
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { I18nextProvider } from 'react-i18next'
+
+// Components
 import AgentModal from './components/AgentModal'
 import ConfirmationModal from './components/ConfirmationModal'
 import { GitHubPagesRedirectHandler } from './components/GitHubPagesRedirectHandler'
-const SettingsModal = React.lazy(() => import('./components/SettingsModal'))
+const SettingsModal = React.lazy(() => import('./components/SettingsModal')) // code-split
 import ToolsModal from './components/ToolsModal'
 import SkillsWorkshopModal from './components/SkillsWorkshopModal'
 import Sidebar from './components/Sidebar'
@@ -12,6 +15,8 @@ import SpaceModal from './components/SpaceModal'
 import DatabaseSetupModal from './components/DatabaseSetupModal'
 import { ToastProvider } from './contexts/ToastContext'
 import KnowledgeBaseModal from './components/KnowledgeBaseModal'
+
+// Data services — all go through POST /api/db/query to backend
 import {
   createAgent,
   deleteAgent,
@@ -31,11 +36,13 @@ import {
   deleteSpace,
   listSpaces,
   updateSpace,
-  updateSpaceAgents,
+  updateSpaceAgents, // updates the space-agent join table
 } from './lib/spacesService'
 import { fetchRemoteSettings, initSupabase } from './lib/supabase'
 import { applyTheme } from './lib/themes'
 import { DeepResearchGuideProvider } from './contexts/DeepResearchGuideContext'
+
+// System agent constants & helpers — 3 fixed system agents: Default, Deep Research, Scrapbook
 import {
   annotateSystemAgent,
   buildDefaultSystemAgentPayload,
@@ -47,13 +54,21 @@ import {
 } from './lib/systemAgents'
 import { resolveDefaultAgentStartupAction } from './lib/systemAgentStartupPolicy'
 
+// ─── Global Context ─────────────────────────────────────────────────────────
+// AppContext holds all shared state (spaces, agents, conversations, handlers).
+// NOTE: The Provider value is NOT wrapped in useMemo — a known performance issue
+// that causes all consumers to re-render on every App re-render.
 export const AppContext = React.createContext(null)
 export const useAppContext = () => React.useContext(AppContext)
+
+// ─── Utility Functions ──────────────────────────────────────────────────────
 
 const isDeepResearchSpace = space => space?.isDeepResearch || space?.is_deep_research
 
 const isDeepResearchAgent = agent => isDeepResearchSystemAgent(agent)
 
+// Fields to compare when syncing system agent config with the database.
+// Only these fields trigger an update if they differ.
 const SYSTEM_AGENT_SYNC_KEYS = [
   'name',
   'description',
@@ -86,6 +101,7 @@ const SYSTEM_AGENT_SYNC_KEYS = [
 
 const SCRAPBOOK_AGENT_SYNC_KEYS = ['name', 'description', 'emoji', 'isHidden']
 
+// Diff utility: compare current vs desired agent, return only changed fields
 const buildAgentPatch = (currentAgent, nextAgent) => {
   const patch = {}
   for (const key of SYSTEM_AGENT_SYNC_KEYS) {
@@ -96,6 +112,7 @@ const buildAgentPatch = (currentAgent, nextAgent) => {
   return patch
 }
 
+// Same as buildAgentPatch but accepts custom key list instead of SYSTEM_AGENT_SYNC_KEYS
 const buildScopedAgentPatch = (currentAgent, nextAgent, keys) => {
   const patch = {}
   for (const key of keys) {
@@ -106,6 +123,7 @@ const buildScopedAgentPatch = (currentAgent, nextAgent, keys) => {
   return patch
 }
 
+// Notify backend of current DB provider so email monitor uses the right connection
 const syncEmailMonitorProvider = async () => {
   try {
     await fetch(`${getBackendUrl()}/api/email/monitor/provider`, { method: 'POST' })
@@ -114,11 +132,15 @@ const syncEmailMonitorProvider = async () => {
   }
 }
 
+// ─── App Component ──────────────────────────────────────────────────────────
+// Central orchestrator: holds all global state, loads data, provides context.
 function App() {
   const location = useLocation()
   const navigate = useNavigate()
 
-  // Initialize theme based on system preference or default to dark
+  // ─── State Declarations ────────────────────────────────────────────────
+
+  // Theme mode: 'light' | 'dark' | 'system'. Uses lazy init from localStorage.
   const [theme, setTheme] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('app-theme-mode') || 'system'
@@ -154,33 +176,36 @@ function App() {
   // Agents Data
   const [agents, setAgents] = useState([])
   const [agentsLoading, setAgentsLoading] = useState(true)
+  // Derived values — not separate state, recomputed on every render from agents/spaces arrays
   const defaultAgent = agents.find(agent => agent.isDefault) || null
   const deepResearchSpace = spaces.find(space => space.isDeepResearchSystem) || null
   const deepResearchAgent = agents.find(agent => agent.isDeepResearchSystem) || null
   const scrapbookAgent = agents.find(agent => String(agent.id) === SCRAPBOOK_AGENT_ID) || null
 
-  // Conversations Data
+  // Conversations Data — cursor-based pagination (load 50 at a time)
   const [conversations, setConversations] = useState([])
   const [conversationsLoading, setConversationsLoading] = useState(false)
   const [conversationsNextCursor, setConversationsNextCursor] = useState(null)
   const [conversationsHasMore, setConversationsHasMore] = useState(false)
+
+  // Tracks streaming status per conversation: { [conversationId]: 'loading' | 'done' | 'error' }
   const [conversationStatuses, setConversationStatuses] = useState({})
   const setConversationStatus = useCallback((conversationId, status) => {
     if (!conversationId) return
     setConversationStatuses(prev => {
-      if (prev[conversationId] === status) return prev
+      if (prev[conversationId] === status) return prev // bail out if unchanged
       return { ...prev, [conversationId]: status }
     })
   }, [])
   const [spacesLoading, setSpacesLoading] = useState(true)
 
-  // Sidebar pin state
+  // Sidebar pin state — persisted in localStorage
   const [isSidebarPinned, setIsSidebarPinned] = useState(() => {
     const saved = localStorage.getItem('sidebar-pinned')
     return saved === 'true'
   })
 
-  // Global confirmation dialog state
+  // Global confirmation dialog — reusable confirm/cancel prompt
   const [confirmation, setConfirmation] = useState({
     isOpen: false,
     title: '',
@@ -192,13 +217,13 @@ function App() {
     onClose: null,
   })
 
-  // Extract conversation ID from URL
+  // Extract active conversation ID from URL via regex
   const activeConversationId = React.useMemo(() => {
     const match = location.pathname.match(/\/(conversation|deepresearch|expert)\/(.+)/)
     return match ? match[2] : null
   }, [location])
 
-  // Global confirmation dialog handler
+  // Convenience function to open the confirmation dialog with options
   const showConfirmation = options => {
     setConfirmation({
       isOpen: true,
@@ -212,9 +237,11 @@ function App() {
     })
   }
 
+  // Whether the currently viewed conversation is still streaming a response
   const isActiveConversationStreaming =
     activeConversationId && conversationStatuses[activeConversationId] === 'loading'
 
+  // Navigation guard: if streaming, show confirmation dialog before navigating away
   const confirmNavigationIfStreaming = useCallback(
     onProceed => {
       if (!isActiveConversationStreaming) {
@@ -231,12 +258,13 @@ function App() {
     },
     [isActiveConversationStreaming],
   )
+  // Share routes render without sidebar/layout
   const isShareRoute = location.pathname.includes('/share')
 
-  // Derive current view from location (removed unused logic)
-  // const currentView = React.useMemo(() => { ... })
+  // ─── useEffects ────────────────────────────────────────────────────────
 
-  // Reset scroll on route changes (only for non-conversation routes)
+  // Reset scroll position on route change, but not for conversation routes
+  // (users expect to keep their scroll position within a chat)
   useEffect(() => {
     // Don't reset scroll for conversation routes to maintain scroll position
     const isConversationRoute =
@@ -251,7 +279,8 @@ function App() {
     }
   }, [location.pathname, location.search])
 
-  // Combined theme application to avoid race conditions and ensure CSS variables are applied before first render
+  // Apply dark mode class + theme color CSS variables before browser paint
+  // to prevent flash of unstyled content (FOUC). Uses useLayoutEffect for sync timing.
   useLayoutEffect(() => {
     const root = document.documentElement
     const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
@@ -302,7 +331,7 @@ function App() {
     }
   }, [theme])
 
-  // Apply User Configured Message Font Size
+  // Apply user-configured message font size as CSS custom properties
   useLayoutEffect(() => {
     const applyFontSize = () => {
       const settings = loadSettings()
@@ -333,7 +362,8 @@ function App() {
     return () => window.removeEventListener('settings-changed', applyFontSize)
   }, [])
 
-  // Sync Remote Settings to Memory on Mount
+  // Sync remote settings from backend to in-memory cache on mount
+  // so all components start with the latest settings
   useEffect(() => {
     const syncRemoteSettings = async () => {
       const localSettings = loadSettings()
@@ -356,8 +386,8 @@ function App() {
     syncRemoteSettings()
   }, [])
 
-  // Keep backend email monitor provider aligned with the selected DB provider on app startup
-  // and after DB settings changes, without requiring the user to open the Email panel first.
+  // Keep backend email monitor aligned with current DB provider on startup
+  // and after DB settings changes
   useEffect(() => {
     syncEmailMonitorProvider()
     const handleDatabaseSettingsChanged = () => {
@@ -368,6 +398,7 @@ function App() {
       window.removeEventListener('database-settings-changed', handleDatabaseSettingsChanged)
   }, [])
 
+  // Auto-open database setup modal if no database provider is configured
   useEffect(() => {
     const settings = loadSettings()
     if (!settings.databaseProvider) {
@@ -375,6 +406,7 @@ function App() {
     }
   }, [location.pathname])
 
+  // Listen for db-auth-failed events (e.g. expired credentials) and redirect to DB setup
   useEffect(() => {
     const handleDbAuthFailed = () => {
       setIsSettingsOpen(false)
@@ -385,6 +417,9 @@ function App() {
     return () => window.removeEventListener('db-auth-failed', handleDbAuthFailed)
   }, [])
 
+  // ─── Navigation & Theme Handlers ───────────────────────────────────────
+
+  // Cycle through light → dark → system using functional update (depends on prev state)
   const cycleTheme = () => {
     setTheme(prev => {
       if (prev === 'light') return 'dark'
@@ -393,6 +428,7 @@ function App() {
     })
   }
 
+  // Generic view navigator — closes sidebar, guarded by streaming check
   const handleNavigate = view => {
     const proceed = () => {
       setIsSidebarOpen(false)
@@ -434,6 +470,7 @@ function App() {
     confirmNavigationIfStreaming(proceed)
   }
 
+  // Navigate to a specific space or the spaces list
   const handleNavigateToSpace = space => {
     const proceed = () => {
       setIsSidebarOpen(false)
@@ -449,26 +486,30 @@ function App() {
     confirmNavigationIfStreaming(proceed)
   }
 
+  // Open expert guide — uses Date.now() as router state to force re-trigger on repeated clicks
   const handleOpenExpertGuide = () => {
     const proceed = () => {
       setIsSidebarOpen(false)
       navigate({
         to: '/expert',
         state: {
-          openGuideAt: Date.now(),
+          openGuideAt: Date.now(), // unique value ensures effect re-fires each time
         },
       })
     }
     confirmNavigationIfStreaming(proceed)
   }
 
+  // ─── Space & Agent Modal Handlers ──────────────────────────────────────
+  // Pattern: null editingSpace/editingAgent = create mode, object = edit mode
+
   const handleCreateSpace = () => {
-    setEditingSpace(null)
+    setEditingSpace(null) // null signals "create" to SpaceModal
     setIsSpaceModalOpen(true)
   }
 
   const handleEditSpace = space => {
-    setEditingSpace(space)
+    setEditingSpace(space) // passing the space signals "edit"
     setIsSpaceModalOpen(true)
   }
 
@@ -482,6 +523,8 @@ function App() {
     setIsAgentModalOpen(true)
   }
 
+  // Create or update agent based on whether editingAgent is set.
+  // Uses functional setState to safely update the agents array.
   const handleSaveAgent = async agent => {
     if (editingAgent) {
       const { data, error } = await updateAgent(editingAgent.id, agent)
@@ -508,6 +551,7 @@ function App() {
     setEditingAgent(null)
   }
 
+  // Delete agent — prevent deletion of the default agent
   const handleDeleteAgent = async id => {
     const target = agents.find(agent => agent.id === id)
     if (target?.isDefault) {
@@ -523,6 +567,8 @@ function App() {
     setEditingAgent(null)
   }
 
+  // Route a conversation to the correct view: /conversation, /expert, or /deepresearch
+  // Determines type by checking space_id and calling isExpertConversation API
   const handleOpenConversation = (conversation, source = 'default') => {
     const proceed = async () => {
       setIsSidebarOpen(false)
@@ -559,6 +605,9 @@ function App() {
     confirmNavigationIfStreaming(proceed)
   }
 
+  // ─── Data Loading ─────────────────────────────────────────────────────
+
+  // Load spaces on mount, annotate each with isDeepResearchSystem flag
   // Load spaces from Supabase on mount
   useEffect(() => {
     const load = async () => {
@@ -585,9 +634,12 @@ function App() {
     load()
   }, [])
 
+  // Refs used as one-time locks to prevent duplicate creation in StrictMode
   const creatingDefaultAgentRef = useRef(false)
   const cleaningDuplicatesRef = useRef(false)
 
+  // Load agents, ensure all 3 system agents exist (Default, Deep Research, Scrapbook).
+  // For Scrapbook: if it exists, diff and patch only changed fields (SCRAPBOOK_AGENT_SYNC_KEYS).
   // Load agents from Supabase
   const loadAgents = async () => {
     setAgentsLoading(true)
@@ -667,6 +719,7 @@ function App() {
     }
   }
 
+  // Pub/sub: listen for 'agents-changed' events from other components to reload
   // Load agents on mount and listen for changes
   useEffect(() => {
     loadAgents()
@@ -678,6 +731,8 @@ function App() {
     }
   }, [])
 
+  // Deduplicate system agents (keep oldest, delete the rest).
+  // Re-runs when agents/spaces change to catch duplicates created by race conditions.
   useEffect(() => {
     const cleanupDuplicates = async () => {
       if (cleaningDuplicatesRef.current) return
@@ -747,6 +802,10 @@ function App() {
     cleanupDuplicates()
   }, [agents, agentsLoading, spaces, spacesLoading])
 
+  // Load conversations with cursor-based pagination.
+  // Two event listeners:
+  //   'conversations-changed' — full reload (for add/delete), filtered by scope
+  //   'conversation-patched'  — partial update (for field changes), no backend request
   // Load conversations from Supabase on mount
   useEffect(() => {
     const loadConversations = async () => {
@@ -768,11 +827,12 @@ function App() {
     }
     loadConversations()
 
-    // Listen for conversation changes
+    // Listen for conversation events
     const handleConversationsChanged = event => {
       if (!conversationEventHasScope(event, 'library')) return
       loadConversations()
     }
+    // Partial update: apply only changed fields from event.detail to local state
     const handleConversationPatched = event => {
       const patch = event?.detail || {}
       const id = patch?.id ? String(patch.id) : ''
@@ -803,6 +863,11 @@ function App() {
     }
   }, [])
 
+  // ─── Space CRUD ────────────────────────────────────────────────────────
+
+  // Create or update space. Payload is split into:
+  //   spacePayload → upserts the Space record
+  //   agentIds/defaultAgentId → updates the space-agent join table
   const handleSaveSpace = async payload => {
     const { agentIds = [], defaultAgentId = null, ...spacePayload } = payload || {}
     if (editingSpace) {
@@ -826,6 +891,7 @@ function App() {
     setEditingSpace(null)
   }
 
+  // Delete space — remove from local state, navigate away if user is viewing it
   const handleDeleteSpace = async id => {
     const { error } = await deleteSpace(id)
     if (!error) {
@@ -841,7 +907,9 @@ function App() {
     setEditingSpace(null)
   }
 
-  // Remove old route sync logic - React Router handles this automatically
+  // ─── JSX Render ───────────────────────────────────────────────────────
+  // Context nesting (outer → inner): I18nextProvider → ToastProvider → DeepResearchGuideProvider → AppContext.Provider
+  // Layout: Sidebar + main content (<Outlet />) + modals (controlled by isOpen state)
 
   return (
     <I18nextProvider i18n={i18n}>
@@ -880,6 +948,7 @@ function App() {
               showConfirmation,
             }}
           >
+            {/* Share routes render standalone, no sidebar or layout */}
             {isShareRoute ? (
               <Outlet />
             ) : (
@@ -912,7 +981,8 @@ function App() {
                 <div
                   className={`relative ml-0 flex w-full flex-1 flex-col overflow-hidden transition-all duration-300`}
                 >
-                  {/* Mobile Header - Hide on Chat/Conversation/Scrapbook/Main Views as they have their own header */}
+                  {/* Mobile-only header (hamburger menu + new chat button).
+                      Hidden on routes that render their own header. */}
                   {!location.pathname.includes('/conversation') &&
                     !location.pathname.includes('/deepresearch') &&
                     !location.pathname.includes('/expert') &&
@@ -980,10 +1050,13 @@ function App() {
                         </div>
                       </div>
                     )}
+                  {/* TanStack Router outlet — matched route component renders here */}
                   <div className="min-h-0 flex-1 overflow-hidden">
                     <Outlet />
                   </div>
                 </div>
+                {/* Modals — all controlled by isOpen + onClose pattern.
+                    SettingsModal is lazy-loaded (code-split via React.lazy). */}
                 <React.Suspense fallback={null}>
                   <SettingsModal
                     isOpen={isSettingsOpen}

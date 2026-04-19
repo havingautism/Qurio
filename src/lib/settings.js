@@ -1,7 +1,19 @@
+/**
+ * Centralized settings management for Qurio.
+ *
+ * Handles loading and saving of all app configuration (API keys, model selection,
+ * theme, language, response style, database provider, etc.).
+ *
+ * Load priority: Memory (synced from backend DB by App.jsx) + SessionStorage > Overrides > LocalStorage > Env > Defaults
+ * Save strategy: Sensitive keys (API keys) → Memory + SessionStorage only;
+ *               Non-sensitive → LocalStorage.
+ */
 import { getPublicEnv } from './publicEnv'
 
+// Default backend URL for development
 export const DEFAULT_BACKEND_URL = 'http://127.0.0.1:3002'
 
+// Placeholder values that indicate an API key has NOT been actually configured
 const DEFAULT_SECRET_PLACEHOLDERS = new Set([
   'your-api-key',
   'your_api_key',
@@ -13,6 +25,7 @@ const DEFAULT_SECRET_PLACEHOLDERS = new Set([
   'replace_me',
 ])
 
+// Returns true if the value is a real API key (not empty, not a placeholder)
 export const isConfiguredApiSecret = (value, placeholders = []) => {
   const trimmed = String(value || '').trim()
   if (!trimmed) return false
@@ -27,10 +40,12 @@ export const isConfiguredApiSecret = (value, placeholders = []) => {
     .includes(normalized)
 }
 
+// Detect if running inside Electron (file: protocol or Electron user agent)
 const isElectronRuntime = () =>
   typeof window !== 'undefined' &&
   (window.location.protocol === 'file:' || navigator.userAgent.includes('Electron'))
 
+// Get backend URL from Electron's preload bridge (window.qurioRuntime)
 const getElectronBackendUrlFromBridge = () => {
   if (!isElectronRuntime() || typeof window === 'undefined') return ''
   const raw = window.qurioRuntime?.backendUrl
@@ -39,6 +54,7 @@ const getElectronBackendUrlFromBridge = () => {
   return /^https?:\/\/[^/]+$/i.test(trimmed) ? trimmed : ''
 }
 
+// Get backend URL from URL query param ?backend_url=... (Electron fallback)
 const getElectronBackendUrlOverride = () => {
   if (!isElectronRuntime() || typeof window === 'undefined') return ''
   try {
@@ -64,6 +80,7 @@ const getElectronBackendUrlOverride = () => {
  * @param {Object} [overrides={}] - Optional overrides
  * @returns {Object} The consolidated settings object
  */
+// Default AI response style settings (general chat)
 const DEFAULT_STYLE_SETTINGS = {
   baseTone: 'technical',
   traits: 'default',
@@ -74,6 +91,7 @@ const DEFAULT_STYLE_SETTINGS = {
   customInstruction: '',
 }
 
+// Default AI response style settings (scrapbook chat)
 const DEFAULT_SCRAPBOOK_STYLE_SETTINGS = {
   scrapbookBaseTone: '',
   scrapbookTraits: '',
@@ -84,6 +102,7 @@ const DEFAULT_SCRAPBOOK_STYLE_SETTINGS = {
   scrapbookCustomInstruction: '',
 }
 
+// Maps style option values to prompt text injected into chat requests
 const STYLE_PROMPTS = {
   baseTone: {
     technical: 'Use a technical, precise tone suitable for developers.',
@@ -129,6 +148,7 @@ const STYLE_PROMPTS = {
   },
 }
 
+// Build a Markdown prompt section from the user's style settings
 const buildResponseStylePrompt = settings => {
   const rules = []
   const baseTonePrompt = STYLE_PROMPTS.baseTone[settings.baseTone]
@@ -157,6 +177,7 @@ const buildResponseStylePrompt = settings => {
   return `## Response Style\n${rules.map(rule => `- ${rule}`).join('\n')}`
 }
 
+// Resolve scrapbook style with fallback to global style settings
 export const resolveScrapbookStyleSettings = settings => {
   const source = settings && typeof settings === 'object' ? settings : {}
   return {
@@ -174,11 +195,13 @@ export const resolveScrapbookStyleSettings = settings => {
   }
 }
 
+// Build scrapbook style prompt (resolves fallback first)
 export const buildScrapbookResponseStylePrompt = settings => {
   const resolved = resolveScrapbookStyleSettings(settings)
   return buildResponseStylePrompt(resolved)
 }
 
+// Build style prompt from an agent object (used when agent has its own style config)
 export const buildResponseStylePromptFromAgent = agent => {
   if (!agent) return ''
   const rules = []
@@ -210,10 +233,11 @@ export const buildResponseStylePromptFromAgent = agent => {
   return `## Response Style\n${rules.map(rule => `- ${rule}`).join('\n')}`
 }
 
-// In-memory cache for sensitive settings (API keys) fetched from Supabase
+// Runtime cache for settings synced from backend DB (populated by updateMemorySettings)
 let memorySettings = {}
 let legacySensitiveSettingsMigrated = false
 
+// Safe sessionStorage accessor (returns null in SSR or when storage is blocked)
 const getSessionStorage = () => {
   try {
     return typeof sessionStorage === 'undefined' ? null : sessionStorage
@@ -222,6 +246,7 @@ const getSessionStorage = () => {
   }
 }
 
+// Keys that can be synced from backend DB into memory cache
 const MEMORY_SETTINGS_KEYS = [
   'OpenAICompatibilityKey',
   'OpenAICompatibilityUrl',
@@ -259,8 +284,10 @@ const MEMORY_SETTINGS_KEYS = [
   'scrapbookModelSource',
 ]
 
+// Keys that were historically stored in localStorage and need migration to sessionStorage
 const LEGACY_LOCAL_SENSITIVE_KEYS = ['tavilyApiKey', 'serpapiApiKey', 'exaApiKey']
 
+// Sensitive keys (API keys) stored only in memory + sessionStorage, never localStorage
 const SESSION_SENSITIVE_KEYS = [
   'OpenAICompatibilityKey',
   'OpenAICompatibilityUrl',
@@ -280,6 +307,7 @@ const SESSION_SENSITIVE_KEYS = [
   'MinimaxKey',
 ]
 
+// Update memory cache from a settings object (e.g., fetched from backend DB)
 export const updateMemorySettings = settings => {
   const source = settings && typeof settings === 'object' ? settings : {}
   MEMORY_SETTINGS_KEYS.forEach(key => {
@@ -308,6 +336,14 @@ const migrateLegacySensitiveSettings = () => {
   })
 }
 
+/**
+ * Load and merge settings from all sources.
+ * Step 1: Read env vars and localStorage into local variables
+ * Step 2: Build settings object (overrides > localStorage > defaults)
+ * Step 3: Supplement memory from sessionStorage for missing keys
+ * Step 4: Merge memory on top (memory wins over everything)
+ * Step 5: Fallback to env for API keys still empty
+ */
 export const loadSettings = (overrides = {}) => {
   migrateLegacySensitiveSettings()
   const session = getSessionStorage()
@@ -623,6 +659,7 @@ export const loadSettings = (overrides = {}) => {
   }
 }
 
+// Convenience: get backend URL with trailing slashes stripped
 export const getBackendUrl = (overrides = {}) => {
   const settings = loadSettings(overrides)
   const value = String(settings.backendUrl || '').trim()
@@ -630,9 +667,12 @@ export const getBackendUrl = (overrides = {}) => {
 }
 
 /**
- * Save user settings
- * - Non-sensitive -> LocalStorage
- * - Sensitive -> Memory Only (and caller handles Remote Save)
+ * Save user settings.
+ * 1. Update memory cache (immediate)
+ * 2. Sensitive keys → sessionStorage only
+ * 3. Non-sensitive keys → localStorage
+ * 4. Cleanup: remove any sensitive keys leftover in localStorage
+ * 5. Dispatch 'settings-changed' event to notify all useSettings consumers
  */
 export const saveSettings = async settings => {
   // Update Memory Cache

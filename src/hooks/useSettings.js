@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react'
 import { loadSettings } from '../lib/settings'
 
 /**
- * Hook to access application settings reactively.
- * Listens for the 'settings-changed' event dispatched by settings.js.
- * @returns {Object} The current settings object
+ * Reactive settings hook — mirrors consolidated settings (env + memory + session + localStorage)
+ * into React state via custom 'settings-changed' event pub/sub.
  */
 const useSettings = () => {
+  // Lazy init: run loadSettings() only on first render
   const [settings, setSettings] = useState(() => loadSettings())
 
   useEffect(() => {

@@ -1,3 +1,4 @@
+// App entry point: registers SW, inits emoji library, creates router, mounts React root
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'

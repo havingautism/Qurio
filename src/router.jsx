@@ -1,3 +1,5 @@
+// Route definitions: lazy-loaded views mounted under root App component
+// TanStack Router with code-splitting via React.lazy + Suspense
 import React from 'react'
 import { createRootRoute, createRoute, createRouter, redirect } from '@tanstack/react-router'
 import { AlertTriangle, MoveLeft } from 'lucide-react'

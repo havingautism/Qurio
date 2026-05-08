@@ -1,15 +1,20 @@
+// Conversation CRUD service: caching, pagination, expert/scrapbook filtering, pub/sub notifications
 import { getSupabaseClient } from './supabase'
 
 const table = 'conversations'
 const CACHE_TTL_MS = 1500
 const EXPERT_IDS_CACHE_TTL_MS = 30000
+// List query cache (short TTL to avoid stale data)
 const listCache = new Map()
+// In-flight request deduplication: reuse Promise for concurrent identical queries
 const inFlight = new Map()
 let expertIdsCache = null
 let expertIdsInFlight = null
+// Debounce timer for batched conversations-changed events
 let conversationsChangedTimer = null
 let pendingConversationsChangedDetail = null
 
+// Generate a stable cache key from function name + params
 const getCacheKey = (prefix, params) => {
   try {
     return `${prefix}:${JSON.stringify(params)}`
@@ -18,6 +23,7 @@ const getCacheKey = (prefix, params) => {
   }
 }
 
+// Read from listCache if not expired
 const getCached = key => {
   const entry = listCache.get(key)
   if (!entry) return null
@@ -28,10 +34,12 @@ const getCached = key => {
   return entry.value
 }
 
+// Write to listCache with timestamp
 const setCached = (key, value) => {
   listCache.set(key, { ts: Date.now(), value })
 }
 
+// Clear all caches (called after mutations like create/update/delete)
 const invalidateConversationCaches = () => {
   listCache.clear()
   inFlight.clear()
@@ -41,18 +49,24 @@ const invalidateExpertConversationIdsCache = () => {
   expertIdsCache = null
 }
 
+// Strip dangerous chars from values used in SQL IN() filters
 const _sanitizeInFilterValue = value =>
   String(value || '')
     .replace(/[,()]/g, '')
     .trim()
 
+// Fetch all conversation_ids marked as expert_mode_start, cached with longer TTL
+// Also uses in-flight dedup to avoid duplicate queries
 const listExpertConversationIds = async supabase => {
+  // Return cached result if still fresh
   if (expertIdsCache && Date.now() - Number(expertIdsCache.ts || 0) <= EXPERT_IDS_CACHE_TTL_MS) {
     return expertIdsCache.value
   }
+  // If a request is already in-flight, reuse its Promise
   if (expertIdsInFlight) return expertIdsInFlight
 
   const request = (async () => {
+    // Query conversation_events table for expert mode markers
     const { data, error } = await supabase
       .from('conversation_events')
       .select('conversation_id')
@@ -60,6 +74,7 @@ const listExpertConversationIds = async supabase => {
 
     if (error) return { data: [], error }
 
+    // Deduplicate IDs: sanitize + Set + filter empty
     const ids = Array.from(
       new Set(
         (Array.isArray(data) ? data : [])
@@ -72,6 +87,7 @@ const listExpertConversationIds = async supabase => {
     return result
   })()
 
+  // Store in-flight Promise for dedup
   expertIdsInFlight = request
   try {
     return await request
@@ -80,6 +96,7 @@ const listExpertConversationIds = async supabase => {
   }
 }
 
+// Normalize scope values into a deduplicated string array
 const normalizeScopes = value => {
   const raw = Array.isArray(value) ? value : value ? [value] : []
   return Array.from(new Set(raw.map(item => String(item || '').trim()).filter(Boolean)))
@@ -106,6 +123,7 @@ export const conversationEventHasScope = (event, expectedScope) => {
   return expected.some(scope => scopes.includes(scope) || scopes.includes('all'))
 }
 
+// Debounced pub/sub: merge multiple rapid calls into one event after delay
 export const notifyConversationsChanged = (optionsOrDelay = 150) => {
   if (typeof window === 'undefined') return
   let delayMs = 150
@@ -154,6 +172,7 @@ export const notifyConversationPatched = patch => {
   )
 }
 
+// Main list function: supports cursor/page pagination, search, expert exclusion, space filtering
 export const listConversations = async (options = {}) => {
   const cacheKey = getCacheKey('listConversations', options)
   const cached = getCached(cacheKey)
@@ -421,6 +440,7 @@ export const isExpertConversation = async conversationId => {
   return { isExpert: Array.isArray(data) && data.length > 0, error: null }
 }
 
+// Insert a new conversation and invalidate caches
 export const createConversation = async payload => {
   const supabase = getSupabaseClient()
   if (!supabase) return { data: null, error: new Error('Supabase not configured') }
@@ -675,6 +695,7 @@ export const updateMessageById = async (id, payload) => {
   return { data, error }
 }
 
+// Insert event record; invalidate expert cache if expert_mode_start
 export const addConversationEvent = async (conversationId, eventType, payload = null) => {
   const supabase = getSupabaseClient()
   if (!supabase) return { data: null, error: new Error('Supabase not configured') }

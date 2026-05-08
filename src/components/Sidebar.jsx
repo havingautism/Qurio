@@ -1,3 +1,6 @@
+// Sidebar component: main navigation panel with tabs for Library, Deep Research,
+// Expert, Scrapbook, and Spaces. Manages conversation lists with cursor-based pagination,
+// pub/sub event listeners for real-time updates, and responsive mobile/desktop layouts.
 import clsx from 'clsx'
 import {
   Bookmark,
@@ -59,6 +62,8 @@ import { useDeepResearchGuide } from '../contexts/DeepResearchGuideContext'
 
 const SIDEBAR_FETCH_LIMIT = 20
 
+// Sidebar: receives control callbacks and external data from App.jsx,
+// manages its own state for each tab's conversation list with pagination.
 const Sidebar = ({
   isOpen = false, // Mobile state
   onClose, // Mobile state
@@ -71,9 +76,9 @@ const Sidebar = ({
   onCreateSpace,
   onEditSpace,
   onOpenConversation,
-  spaces,
+  spaces, // Space list from App.jsx
   spacesLoading = false,
-  agents = [],
+  agents = [], // Agent list from App.jsx
   agentsLoading = false,
   onCreateAgent,
   onEditAgent,
@@ -94,22 +99,26 @@ const Sidebar = ({
       window.navigator?.standalone === true)
   useScrollLock(isOpen && !isStandalone)
 
+  // UI interaction state
   const [isHovered, setIsHovered] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
+  // Pin state persisted to localStorage; pinned sidebar stays open on desktop
   const [isPinned, setIsPinned] = useState(() => {
     const saved = localStorage.getItem('sidebar-pinned')
-    // Default to false on mobile if using simple logic, but here relying on isOpen for mobile
     return saved === 'true'
   })
-  const [activeTab, setActiveTab] = useState('library') // 'library', 'deepResearch', 'discover', 'spaces'
+  // Active tab: library | bookmarks | deepResearch | expert | scrapbook | files | agents | spaces
+  const [activeTab, setActiveTab] = useState('library')
   const [hoveredTab, setHoveredTab] = useState(null)
+
+  // Library tab: regular conversation list with cursor-based pagination
   const [conversations, setConversations] = useState([])
   const [nextCursor, setNextCursor] = useState(null)
   const [hasMore, setHasMore] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   // const [emojiTick, setEmojiTick] = useState(0)
 
-  // Dedicated Bookmarks State
+  // Bookmarks tab: favorited conversations with cursor-based pagination
   const [bookmarkedConversations, setBookmarkedConversations] = useState([])
   const [bookmarkNextCursor, setBookmarkNextCursor] = useState(null)
   const [bookmarkHasMore, setBookmarkHasMore] = useState(true)
@@ -118,7 +127,7 @@ const Sidebar = ({
   const [bookmarksDirty, setBookmarksDirty] = useState(false)
   const [expandedActionId, setExpandedActionId] = useState(null)
 
-  // Deep Research conversations
+  // Deep Research tab: same pagination pattern
   const [deepResearchConversations, setDeepResearchConversations] = useState([])
   const [deepResearchNextCursor, setDeepResearchNextCursor] = useState(null)
   const [deepResearchHasMore, setDeepResearchHasMore] = useState(true)
@@ -126,26 +135,30 @@ const Sidebar = ({
   const [deepResearchLoadingMore, setDeepResearchLoadingMore] = useState(false)
   const [deepResearchDirty, setDeepResearchDirty] = useState(false)
 
-  // Expert conversations
+  // Expert tab: same pagination pattern
   const [expertConversations, setExpertConversations] = useState([])
   const [expertNextCursor, setExpertNextCursor] = useState(null)
   const [expertHasMore, setExpertHasMore] = useState(true)
   const [isExpertLoading, setIsExpertLoading] = useState(false)
   const [expertLoadingMore, setExpertLoadingMore] = useState(false)
   const [expertDirty, setExpertDirty] = useState(false)
+
+  // Scrapbook tab: same pagination pattern
   const [scrapbookEntries, setScrapbookEntries] = useState([])
   const [scrapbookNextCursor, setScrapbookNextCursor] = useState(null)
   const [scrapbookHasMore, setScrapbookHasMore] = useState(true)
   const [isScrapbookLoading, setIsScrapbookLoading] = useState(false)
   const [scrapbookLoadingMore, setScrapbookLoadingMore] = useState(false)
   const [scrapbookDirty, setScrapbookDirty] = useState(false)
+
+  // Generated files: PPT/Excel files from conversations
   const [generatedFiles, setGeneratedFiles] = useState([])
   const [generatedFilesLimit, setGeneratedFilesLimit] = useState(SIDEBAR_FETCH_LIMIT)
   const [isGeneratedFilesLoading, setIsGeneratedFilesLoading] = useState(false)
   const [generatedFilesLoadingMore, setGeneratedFilesLoadingMore] = useState(false)
   const [generatedFilesDirty, setGeneratedFilesDirty] = useState(false)
 
-  // Spaces interaction state
+  // Spaces tab: expanded spaces and their conversation lists
   const [expandedSpaces, setExpandedSpaces] = useState(new Set())
   const [spaceConversations, setSpaceConversations] = useState({}) // { [spaceId]: { items: [], nextCursor: null, hasMore: true, loading: false } }
   const [spacesLimit, setSpacesLimit] = useState(SIDEBAR_FETCH_LIMIT)
@@ -191,6 +204,7 @@ const Sidebar = ({
     )
   }
 
+  // Build a Map from spaces array for O(1) lookup by id
   const spaceById = useMemo(() => {
     const map = new Map()
     for (const space of spaces || []) {
@@ -201,6 +215,7 @@ const Sidebar = ({
     return map
   }, [spaces])
 
+  // Collect all Deep Research space IDs (normally just one, but handles legacy data)
   const deepResearchSpaceIds = useMemo(() => {
     const ids = new Set()
     if (deepResearchSpace?.id) ids.add(String(deepResearchSpace.id))
@@ -213,12 +228,14 @@ const Sidebar = ({
   }, [deepResearchSpace?.id, spaces])
   const deepResearchSpaceId = deepResearchSpaceIds[0] || null
 
+  // Get the space object for a conversation via O(1) Map lookup
   const getConversationSpace = conv => {
     const spaceId = conv?.space_id
     if (!spaceId) return null
     return spaceById.get(String(spaceId)) || null
   }
 
+  // Normalize title_emojis to an array (handles both array and JSON string formats)
   const normalizeTitleEmojis = value => {
     if (Array.isArray(value)) {
       return value
@@ -242,6 +259,7 @@ const Sidebar = ({
     return []
   }
 
+  // Resolve display emoji for a conversation: prefer title_emojis, then fallback, else default '💬'
   const resolveConversationEmoji = (conv, fallbackEmoji) => {
     const emojiList = normalizeTitleEmojis(conv?.title_emojis ?? conv?.titleEmojis)
     const resolvedList = emojiList.length > 0 ? emojiList : fallbackEmoji ? [fallbackEmoji] : []
@@ -256,12 +274,14 @@ const Sidebar = ({
     // return resolvedList[index]
   }
 
+  // Remove leading '# ' prefix from auto-generated titles
   const stripGeneratedTitlePrefix = value => {
     const raw = String(value || '').trim()
     if (!raw) return ''
     return raw.replace(/^#\s*/u, '').trim()
   }
 
+  // Format datetime string according to current i18n locale
   const formatDateTime = value => {
     if (!value) return t('sidebar.recently')
     // Use current language for date formatting
@@ -278,12 +298,15 @@ const Sidebar = ({
 
   const closeActions = () => setExpandedActionId(null)
 
+  // displayTab: use hovered tab if hovering, otherwise active tab
   const displayTab = hoveredTab || activeTab
+  // Filter out Scrapbook agent from visible agents list
   const visibleAgents = useMemo(
     () => (agents || []).filter(agent => String(agent?.id || '') !== SCRAPBOOK_AGENT_ID),
     [agents],
   )
   const isMobileFastSidebar = isMobile
+  // Resolve dark mode: explicit theme setting takes priority, then check CSS class
   const readResolvedSidebarDark = () => {
     if (theme === 'dark') return true
     if (theme === 'light') return false
@@ -294,8 +317,10 @@ const Sidebar = ({
   }
   const [isSidebarDarkMode, setIsSidebarDarkMode] = useState(readResolvedSidebarDark)
   const isScrapbookSidebarTheme = true
+  // Utility to toggle CSS classes based on sidebar dark mode
   const glassTone = (darkClasses, lightClasses) => (isSidebarDarkMode ? darkClasses : lightClasses)
 
+  // Responsive breakpoint detection (same pattern as useIsMobile hook)
   useEffect(() => {
     if (typeof window === 'undefined' || !window.matchMedia) return undefined
     const mediaQuery = window.matchMedia('(max-width: 768px)')
@@ -308,7 +333,10 @@ const Sidebar = ({
     mediaQuery.addListener(update)
     return () => mediaQuery.removeListener(update)
   }, [])
+
+  // Sidebar is expanded when: mobile drawer open, or desktop pinned, or mouse hovered
   const isExpanded = isOpen || isPinned || isHovered
+  // Expanded panel shows for all tabs except 'discover' (legacy, no longer triggered)
   const shouldShowExpandedPanel = isExpanded && displayTab !== 'discover'
   const shouldShowPanelShadow = shouldShowExpandedPanel && (!isMobile || isOpen)
 
@@ -359,6 +387,7 @@ const Sidebar = ({
   //   return () => clearInterval(intervalId)
   // }, [])
 
+  // Load more library conversations (cursor-based, appends to existing list)
   const fetchMoreConversations = async () => {
     try {
       setLoadingMore(true)
@@ -388,6 +417,7 @@ const Sidebar = ({
     }
   }
 
+  // Load bookmarked conversations: isInitial=true replaces list, false appends (load more)
   const fetchBookmarkedConversations = async (isInitial = true) => {
     try {
       if (isInitial) {
@@ -425,6 +455,7 @@ const Sidebar = ({
     }
   }
 
+  // Load Deep Research conversations from the dedicated space
   const fetchDeepResearchConversations = async (isInitial = true) => {
     if (!deepResearchSpaceId) {
       setDeepResearchConversations([])
@@ -471,6 +502,7 @@ const Sidebar = ({
     }
   }
 
+  // Load Expert conversations via conversation_events lookup + two-step query
   const fetchExpertConversations = async (isInitial = true) => {
     try {
       if (isInitial) {
@@ -508,6 +540,7 @@ const Sidebar = ({
     }
   }
 
+  // Load Scrapbook entries (uses loadMore flag instead of isInitial)
   const fetchScrapbookEntries = async (loadMore = false) => {
     if (loadMore && !scrapbookHasMore) return
     const currentCursor = loadMore ? scrapbookNextCursor : null
@@ -544,6 +577,7 @@ const Sidebar = ({
     }
   }
 
+  // Load generated files (PPT/Excel); uses limit-based pagination instead of cursor
   const fetchGeneratedFiles = async (loadMore = false) => {
     try {
       if (loadMore) {
@@ -563,6 +597,8 @@ const Sidebar = ({
     }
   }
 
+  // Sync appConversations from App context to Sidebar's local state,
+  // filtering out Deep Research space conversations
   useEffect(() => {
     const filtered = (appConversations || []).filter(
       conv => !deepResearchSpaceIds.includes(String(conv.space_id)),
@@ -573,7 +609,10 @@ const Sidebar = ({
     setLoadingMore(false)
   }, [appConversations, deepResearchSpaceIds])
 
+  // Pub/sub event listeners: conversations-changed and conversation-patched
+  // This is the core real-time update mechanism for sidebar conversation lists
   useEffect(() => {
+    // Patch a single conversation in a list by merging updated fields
     const patchConversationList = (items, patch) => {
       if (!Array.isArray(items) || items.length === 0) return items
       const id = patch?.id ? String(patch.id) : ''
@@ -643,6 +682,7 @@ const Sidebar = ({
     }
   }, [activeTab, deepResearchSpaceId])
 
+  // Listen for scrapbook-changed events (local update: delete filter or merge patch)
   useEffect(() => {
     const handleScrapbookChanged = event => {
       const detail = event?.detail || {}
@@ -676,8 +716,10 @@ const Sidebar = ({
     return () => window.removeEventListener('scrapbook-changed', handleScrapbookChanged)
   }, [])
 
+  // sidebarLoadTab: on mobile use activeTab (only one visible), on desktop use displayTab (hover preview)
   const sidebarLoadTab = isMobile ? activeTab : displayTab
 
+  // Lazy-load tab data: fetch when tab becomes active, data is dirty, or list is empty
   useEffect(() => {
     if (sidebarLoadTab === 'bookmarks') {
       if (

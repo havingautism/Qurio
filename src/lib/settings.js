@@ -344,6 +344,13 @@ const migrateLegacySensitiveSettings = () => {
  * Step 4: Merge memory on top (memory wins over everything)
  * Step 5: Fallback to env for API keys still empty
  */
+// Merge priority differs by field type:
+//   API keys:      memory cache → sessionStorage → env vars (NOT localStorage, for security)
+//   Config         localStorage → overrides → defaults:
+//                  including database, model selection, search provider, chat behavior (systemPrompt, contextTurns),
+//                  UI preferences (theme, font, language), OCR, scrapbook style, response style, developerMode
+//   backendUrl:    Electron bridge → env vars → localStorage → overrides → DEFAULT_BACKEND_URL
+//   Final merge:   { ...settings, ...memorySettings } — memorySettings wins over everything above
 export const loadSettings = (overrides = {}) => {
   migrateLegacySensitiveSettings()
   const session = getSessionStorage()
@@ -611,12 +618,14 @@ export const loadSettings = (overrides = {}) => {
   if (!mergedSettings.OpenAICompatibilityUrl)
     mergedSettings.OpenAICompatibilityUrl = envOpenAIBaseUrl || ''
   if (!mergedSettings.OpenRouterKey) {
-    mergedSettings.OpenRouterKey =
-      electronMode ? '' : getPublicEnv('PUBLIC_OPENROUTER_API_KEY') || ''
+    mergedSettings.OpenRouterKey = electronMode
+      ? ''
+      : getPublicEnv('PUBLIC_OPENROUTER_API_KEY') || ''
   }
   if (!mergedSettings.HuggingFaceKey) {
-    mergedSettings.HuggingFaceKey =
-      electronMode ? '' : getPublicEnv('PUBLIC_HUGGINGFACE_API_KEY') || ''
+    mergedSettings.HuggingFaceKey = electronMode
+      ? ''
+      : getPublicEnv('PUBLIC_HUGGINGFACE_API_KEY') || ''
   }
   if (!mergedSettings.SiliconFlowKey)
     mergedSettings.SiliconFlowKey = electronMode

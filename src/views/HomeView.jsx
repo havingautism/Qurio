@@ -1,3 +1,5 @@
+// Home page — entry point for all conversation modes (Normal / Expert / Deep Research)
+// Core actions: handleStartChat → /conversation/$id, handleStartExpertConversation → /expert/$id
 import { useGSAP } from '@gsap/react'
 import { useNavigate } from '@tanstack/react-router'
 import clsx from 'clsx'
@@ -748,6 +750,7 @@ const HomeView = () => {
     setIsHomeSpaceSelectorOpen(false)
   }
 
+  // Create conversation → attach documents → navigate to /conversation/$id with initial state
   const handleStartChat = async () => {
     if (!homeInput.trim() && homeAttachments.length === 0) return
     const resolvedThinkingMode = homeThinkingMode
@@ -832,6 +835,7 @@ const HomeView = () => {
     }
   }
 
+  // Create expert conversation → add expert_mode_start event → navigate to /expert/$id
   const handleStartExpertConversation = async ({
     question,
     space,

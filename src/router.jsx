@@ -1,5 +1,6 @@
 // Route definitions: lazy-loaded views mounted under root App component
 // TanStack Router with code-splitting via React.lazy + Suspense
+// Key concepts: beforeLoad guards, basepath for GitHub Pages, Suspense fallback variants
 import React from 'react'
 import { createRootRoute, createRoute, createRouter, redirect } from '@tanstack/react-router'
 import { AlertTriangle, MoveLeft } from 'lucide-react'
@@ -27,6 +28,7 @@ const DeepResearchConversationView = React.lazy(
   () => import('./views/DeepResearchConversationView'),
 )
 
+// Generic Suspense wrapper — default fallback is centered DotLoader
 const SuspensePage = ({ children, fallback = null }) => (
   <React.Suspense
     fallback={
@@ -43,6 +45,7 @@ const SuspensePage = ({ children, fallback = null }) => (
   </React.Suspense>
 )
 
+// Conversation pages use this identical fallback (explicit for clarity)
 const ConversationSuspenseFallback = () => (
   <div className="bg-background text-foreground flex min-h-screen items-center justify-center">
     <div className="text-(--color-text-secondary) drop-shadow-[0_4px_18px_rgba(0,0,0,0.18)]">
@@ -51,9 +54,11 @@ const ConversationSuspenseFallback = () => (
   </div>
 )
 
+// Scrapbook pages use plain background — no spinner needed
 const PlainPageSuspenseFallback = () => <div className="bg-background min-h-screen" />
 
 const NotFound = () => {
+  // basepath differs between dev (/) and prod (/Qurio on GitHub Pages)
   const basepath = (
     getNodeEnv() === 'development' ? '/' : getPublicEnv('PUBLIC_BASE_PATH') || '/Qurio'
   ).replace(/\/$/, '')
@@ -98,7 +103,7 @@ export const rootRoute = createRootRoute({
 export const homeRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
-  beforeLoad: () => redirect({ to: '/new_chat' }),
+  beforeLoad: () => redirect({ to: '/new_chat' }), // root path always redirects to home
 })
 
 export const newChatRoute = createRoute({
@@ -115,6 +120,7 @@ export const conversationRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: 'conversation/$conversationId',
   beforeLoad: async ({ params }) => {
+    // Guard: if conversation belongs to a scrapbook, redirect to scrapbook detail
     const { conversationId } = params
     try {
       const { data: conv } = await getConversation(conversationId)
@@ -124,7 +130,7 @@ export const conversationRoute = createRoute({
         })
       }
     } catch (err) {
-      // If it's a redirect, re-throw it
+      // Must re-throw TanStack redirects — they are exceptions by design
       if (err?.isRedirect || err?.name === 'Redirect') throw err
       console.error('[Router] Failed to check for scrapbook redirect:', err)
     }
@@ -296,6 +302,7 @@ export const routeTree = rootRoute.addChildren([
   shareImageRoute,
 ])
 
+// Resolve basepath: dev uses root, prod uses PUBLIC_BASE_PATH (e.g. /Qurio for GitHub Pages)
 const getBasePath = () =>
   (getNodeEnv() === 'development' ? '/' : getPublicEnv('PUBLIC_BASE_PATH') || '/Qurio').replace(
     /\/$/,

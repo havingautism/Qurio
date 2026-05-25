@@ -1,3 +1,6 @@
+// Deep Research conversation list page — same pattern as ExpertView
+// Data source: listConversationsBySpace(deepResearchSpaceId)
+// New entry: openDeepResearchGuide() → DeepResearchGuideModal
 import { useNavigate } from '@tanstack/react-router'
 import clsx from 'clsx'
 import {

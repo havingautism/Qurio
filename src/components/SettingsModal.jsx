@@ -3149,7 +3149,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                           )}
                         >
                           {exists ? t('settings.initModal.ready') : t('settings.initModal.missing')}{' '}
-                          鐠?{table}
+                          {table}
                         </span>
                       )
                     })}

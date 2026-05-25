@@ -1,3 +1,5 @@
+// Expert conversation list page — search, sort, paginate, CRUD for expert conversations
+// Key action: handleStartExpertConversation → /expert/$id with location.state
 import { useLocation, useNavigate } from '@tanstack/react-router'
 import clsx from 'clsx'
 import {
@@ -71,6 +73,7 @@ const ExpertView = () => {
     setCurrentPage(1)
   }, [sortOption, activeSearchQuery])
 
+  // Auto-open guide when navigated with location.state.openGuideAt
   useEffect(() => {
     if (location.state?.openGuideAt) {
       setIsGuideOpen(true)
@@ -173,6 +176,7 @@ const ExpertView = () => {
     })
   }
 
+  // Create expert conversation → add expert_mode_start event → navigate to /expert/$id
   const handleStartExpertConversation = async ({
     question,
     space,

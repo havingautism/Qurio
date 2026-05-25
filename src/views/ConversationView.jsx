@@ -1,3 +1,6 @@
+// Conversation detail page — loads conversation data, detects type, and delegates to ChatInterface or DeepResearchChatInterface
+// Expert conversations are auto-redirected to /expert/$id
+// Initial state comes from either location.state (HomeView navigation) or chatStore optimisticSelection (Sidebar click)
 import { useEffect, useMemo, useState } from 'react'
 import { conversationRoute } from '../router'
 import { useLocation, useNavigate } from '@tanstack/react-router'
@@ -25,12 +28,12 @@ const ConversationView = () => {
   const [conversation, setConversation] = useState(null)
   const [reloadToken, setReloadToken] = useState(0)
 
-  // Get initial chat state from router navigation state
+  // Get initial chat state from router navigation state (set by HomeView's navigate)
   const initialChatState = location.state
 
   const [fetchError, setFetchError] = useState(null)
 
-  // Effect to fetch conversation data when conversationId changes
+  // Effect to fetch conversation data when conversationId changes (with retry for network errors)
   useEffect(() => {
     let cancelled = false
 
@@ -67,6 +70,7 @@ const ConversationView = () => {
               console.warn('Failed to check expert conversation marker:', expertCheckError)
             }
             if (!expertCheckError && isExpert) {
+              // Expert conversation detected → redirect to dedicated route
               navigate({
                 to: '/expert/$conversationId',
                 params: { conversationId: String(conversationId) },
@@ -164,8 +168,8 @@ const ConversationView = () => {
     optimisticSelection?.conversationId === conversationId ? optimisticSelection : null
 
   // Determine initial state - prioritize router state, then optimisticSelection
+  // Initial state priority: location.state (HomeView) > optimisticSelection (chatStore) > default
   const initialSpaceSelection = useMemo(() => {
-    // First priority: router state from HomeView navigation
     if (initialChatState?.initialSpaceSelection) {
       return initialChatState.initialSpaceSelection
     }
@@ -211,6 +215,7 @@ const ConversationView = () => {
   // Use useState to preserve scrapbookEntry even if location.state is cleared after navigation
   const [scrapbookEntry] = useState(() => initialChatState?.scrapbookEntry || null)
 
+  // Detect Deep Research — if true, render DeepResearchChatInterface instead of ChatInterface
   const isDeepResearchConversation = useMemo(() => {
     if (initialChatState?.initialToggles?.deepResearch) return true
     const deepResearchId = deepResearchSpace?.id ? String(deepResearchSpace.id) : null
@@ -227,6 +232,7 @@ const ConversationView = () => {
     initialSpaceSelection?.space?.id,
   ])
 
+  // Component switch: Deep Research uses a different chat interface
   const ChatComponent = isDeepResearchConversation ? DeepResearchChatInterface : ChatInterface
 
   if (fetchError) {

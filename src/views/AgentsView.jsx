@@ -1,3 +1,7 @@
+// Agent list page — displays all user agents as cards, with a create-agent card
+// Route: /agents — sidebar Agents tab entry (note: route not in router.jsx, accessed via sidebar)
+// Filters out SCRAPBOOK_AGENT_ID (system agent, shouldn't be edited by user)
+// Sorts default agents to top; create card → onCreateAgent, agent card → onEditAgent (opens AgentModal)
 import clsx from 'clsx'
 import { Plus, Sparkles, Menu } from 'lucide-react'
 import { Robot as RobotIcon } from '@phosphor-icons/react'

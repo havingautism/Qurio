@@ -1,3 +1,6 @@
+// Space detail page — shows documents uploaded to this space + conversations tagged with this space
+// Route: /space/$spaceId — navigated from Sidebar/SpacesView
+// Key features: document upload (click/drag) with index progress tracking, conversation list with CRUD
 import clsx from 'clsx'
 import {
   ChevronLeft,
@@ -80,6 +83,7 @@ const SpaceView = () => {
     deepResearchSpace,
   } = useAppContext()
 
+// Find the active space from App context by matching URL param
   const activeSpace = spaces?.find(s => String(s.id) === String(spaceId)) || null
 
   const normalizeTitleEmojis = value => {
@@ -111,6 +115,7 @@ const SpaceView = () => {
     return fallbackEmoji || null
   }
 
+  // Conversation list: server-side paginated, same pattern as ExpertView
   // State for conversations
   const [conversations, setConversations] = useState([])
   const [loading, setLoading] = useState(false)
@@ -122,6 +127,7 @@ const SpaceView = () => {
   // State for collapsible actions
   const [expandedActionId, setExpandedActionId] = useState(null)
 
+  // Document upload state: tracked per-space via documentUploadTracker (survives navigation)
   // State for space documents
   const [spaceDocuments, setSpaceDocuments] = useState([])
   const [documentsLoading, setDocumentsLoading] = useState(false)
@@ -207,6 +213,7 @@ const SpaceView = () => {
     [activeSpace?.id],
   )
 
+  // Fetch conversations for this space (server-side paginated)
   // Fetch conversations for this space
   useEffect(() => {
     const fetchConversations = async () => {
@@ -348,6 +355,8 @@ const SpaceView = () => {
     }
   }
 
+  // Document upload flow: file → index via backend → create DB record → refresh list
+  // Upload state is tracked in documentUploadTracker so progress survives page navigation
   const handleDocumentUpload = async (event, droppedFile = null) => {
     const file = droppedFile || event.target.files?.[0]
     if (!file || !activeSpace?.id) return

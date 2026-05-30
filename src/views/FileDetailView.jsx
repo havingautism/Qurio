@@ -1,3 +1,7 @@
+// Generated file detail page — shows metadata and preview (PPT slides or Excel table)
+// Route: /files/$kind/$fileId — navigated from FilesView card clicks
+// PPT: rendered via HtmlWidgetCard with preview_html
+// Excel: built-in spreadsheet viewer with column hide, row/column/cell selection, column filter
 import { Link, useParams } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -28,6 +32,7 @@ import { useToast } from '../contexts/ToastContext'
 import { getGeneratedFileDetail } from '../lib/generatedFilesService'
 import { getBackendUrl } from '../lib/settings'
 
+// Per-kind display metadata (shared with FilesView)
 const KIND_META = {
   pptx: {
     labelKey: 'views.filesView.kindPptx',
@@ -64,6 +69,7 @@ const formatDateTime = (value, locale) => {
   })
 }
 
+// Default view state for each Excel sheet (per-sheet isolation)
 const DEFAULT_EXCEL_VIEW_STATE = {
   searchQuery: '',
   hiddenColumnIndexes: [],
@@ -74,8 +80,10 @@ const DEFAULT_EXCEL_VIEW_STATE = {
   filterColumnIndex: 0,
 }
 
+// Stable key for each sheet to isolate view state (uses name or fallback index)
 const getSheetKey = (sheet, index) => String(sheet?.name || '').trim() || `sheet-${index + 1}`
 
+// Convert zero-based column index to Excel column label (0→A, 25→Z, 26→AA, etc.)
 const getExcelColumnLabel = index => {
   let value = Number(index) + 1
   if (!Number.isFinite(value) || value <= 0) return ''
@@ -88,12 +96,14 @@ const getExcelColumnLabel = index => {
   return label
 }
 
+// Build cell coordinate string like "B3"
 const getExcelCellCoordinate = (rowIndex, columnIndex) => {
   const columnLabel = getExcelColumnLabel(columnIndex)
   const rowLabel = Number.isFinite(rowIndex) ? rowIndex + 1 : ''
   return `${columnLabel}${rowLabel}`
 }
 
+// Extract cell value from a row (supports both array and object row formats)
 const getExcelCellValue = (row, columnIndex, columns = []) => {
   if (Array.isArray(row)) {
     return row[columnIndex]
@@ -109,6 +119,7 @@ const getExcelCellValue = (row, columnIndex, columns = []) => {
   return undefined
 }
 
+// Normalize a row (object or array) into a plain array for uniform rendering
 const normalizeExcelPreviewRow = (row, columns = []) => {
   if (Array.isArray(row)) return row
   if (!row || typeof row !== 'object') return []
@@ -116,6 +127,7 @@ const normalizeExcelPreviewRow = (row, columns = []) => {
 }
 
 const FileDetailView = () => {
+  // Extract kind and fileId from URL params (e.g. /files/excel/abc123)
   const { kind, fileId } = useParams({ strict: false })
   const { t, i18n } = useTranslation()
   const { isSidebarPinned, toggleSidebar } = useAppContext()
@@ -124,6 +136,7 @@ const FileDetailView = () => {
   const [loading, setLoading] = useState(true)
   const [isMissing, setIsMissing] = useState(false)
   const [activeExcelSheetIndex, setActiveExcelSheetIndex] = useState(0)
+  // Per-sheet view state keyed by sheet name, isolated from other sheets
   const [excelViewState, setExcelViewState] = useState({})
 
   useEffect(() => {
@@ -251,6 +264,7 @@ const FileDetailView = () => {
     }
   }, [activeExcelSheetState.selectedCell, activeTotalRowCount, activeTotalColumnCount])
 
+  // Update per-sheet view state for the currently active sheet
   const updateActiveExcelSheetState = updater => {
     setExcelViewState(current => {
       const existing = current[activeExcelSheetKey] || DEFAULT_EXCEL_VIEW_STATE
@@ -382,6 +396,7 @@ const FileDetailView = () => {
     })
   }
 
+  // Reset sheet state when switching to a different file
   useEffect(() => {
     setActiveExcelSheetIndex(0)
     setExcelViewState({})

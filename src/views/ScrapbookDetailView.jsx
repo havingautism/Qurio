@@ -1,3 +1,7 @@
+// Scrapbook entry detail page — displays a single scrapbook entry with AI-generated summary,
+// supports title/emoji regeneration, auto-triggers deep summary generation when content exists but no summary,
+// and provides an embedded ChatInterface overlay for follow-up questions about the entry content.
+// Route: /scrapbook/$entryId — navigated from ScrapbookView list clicks or AddModal after save
 import { useParams, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -41,6 +45,7 @@ import {
 } from '../lib/backendClient'
 import { getBackendUrl } from '../lib/settings'
 
+// Platform-specific color classes for the tag badge on each entry
 const PLATFORM_COLORS = {
   xhs: 'bg-red-50 text-red-600 border-red-100 dark:bg-red-900/20 dark:border-red-900/30',
   wechat:
@@ -56,6 +61,7 @@ const PLATFORM_COLORS = {
   unknown: 'bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-800 dark:border-gray-700',
 }
 
+// Strip AI-generated prefix like "title: " or "标题：" from title strings
 const stripGeneratedTitlePrefix = value => {
   if (!value) return ''
   const trimmed = String(value).trim()
@@ -65,6 +71,7 @@ const stripGeneratedTitlePrefix = value => {
 export default function ScrapbookDetailView() {
   const { t } = useTranslation()
   const { defaultAgent, isSidebarPinned, showConfirmation, scrapbookAgent } = useAppContext()
+  // useParams({ strict: false }) allows reading params without being inside the route's component tree
   const { entryId } = useParams({ strict: false })
   const navigate = useNavigate()
 
@@ -83,8 +90,9 @@ export default function ScrapbookDetailView() {
   const [askMessageCount, setAskMessageCount] = useState(0)
   const [chatConversation, setChatConversation] = useState(null)
   const [chatLoading, setChatLoading] = useState(false)
-  const creationInFlightRef = useRef(false)
+  const creationInFlightRef = useRef(false) // Prevent concurrent conversation creation for this entry
 
+  // Refresh the message count badge on the "Ask" button
   const refreshAskMessageCount = async conversationId => {
     if (!conversationId) {
       setAskMessageCount(0)
@@ -95,6 +103,8 @@ export default function ScrapbookDetailView() {
     setAskMessageCount(Array.isArray(data) ? data.length : 0)
   }
 
+  // Load entry data + auto-create/reuse conversation linked via scrapbook_id
+  // Each scrapbook entry gets exactly one conversation for the "Ask" feature
   useEffect(() => {
     async function load() {
       if (!entryId) return
@@ -109,12 +119,13 @@ export default function ScrapbookDetailView() {
         try {
           const { data: conv } = await getConversationByScrapbookId(entryId)
           if (conv) {
+            // Reuse existing linked conversation
             setChatConversation(conv)
             await refreshAskMessageCount(conv.id)
           } else {
             if (creationInFlightRef.current) return
             creationInFlightRef.current = true
-            // Create a new one with fixed parameters
+            // Create a new one with fixed parameters — locked to scrapbook agent
             const { data: newConv } = await createConversation({
               title: data.title || 'Untitled',
               scrapbook_id: entryId,
@@ -139,6 +150,7 @@ export default function ScrapbookDetailView() {
     load()
   }, [entryId])
 
+  // Regenerate title and emoji in parallel, then PATCH to persist
   const handleRegenerateTitle = async () => {
     if (!entry || isRegeneratingTitle) return
 
@@ -195,6 +207,7 @@ export default function ScrapbookDetailView() {
           return { emojis: [] }
         })
 
+      // Title and emoji generation run concurrently via Promise.allSettled
       await Promise.allSettled([titlePromise, emojiPromise])
 
       if (!nextTitle) return
@@ -225,6 +238,7 @@ export default function ScrapbookDetailView() {
     }
   }
 
+  // Delete entry with confirmation, then navigate back to list
   const handleDelete = () => {
     showConfirmation({
       title: t('scrapbook.detail.deleteConfirmTitle'),
@@ -240,7 +254,8 @@ export default function ScrapbookDetailView() {
     })
   }
 
-  // Calculate system context for AI
+  // Build system context string from entry data — injected into embedded ChatInterface
+  // so the AI knows what content the user is reading
   const scrapbookContext = useMemo(() => {
     if (!entry) return ''
     const contextLines = [
@@ -263,6 +278,8 @@ export default function ScrapbookDetailView() {
   }
 
   // Auto-trigger generation
+  // Auto-trigger deep summary generation when entry has content but no summary
+  // hasTriggeredRef prevents duplicate triggers on re-render
   const hasTriggeredRef = useRef(false)
 
   // Reset trigger when entryId changes
@@ -291,6 +308,9 @@ export default function ScrapbookDetailView() {
     }
   }, [entry, loading, isGenerating, streamedSummary, generationError])
 
+  // SSE streaming deep summary generation with think-block filtering.
+  // Some models output <think>...</think> blocks as plain text — filter them out.
+  // On finish, PATCH to persist summary to database.
   const handleGenerateDeepSummary = async () => {
     if (!entry?.content) return
     setIsGenerating(true)
@@ -329,6 +349,7 @@ Source URL: ${entry.source_url}
 Content:
 ${entry.content}`
 
+      // State machine for filtering <think>...</think> blocks from streamed text
       let finalSummary = ''
       let insideThinkBlock = false
 
@@ -382,7 +403,7 @@ ${entry.content}`
         },
         onFinish: async () => {
           setIsGenerating(false)
-          // Use the locally accumulated finalSummary (most reliable)
+          // Persist the locally accumulated summary — more reliable than external state
           console.log('[Scrapbook] Generation finished, summary length:', finalSummary.length)
           if (!finalSummary) {
             console.warn('[Scrapbook] finalSummary is empty - skipping persist')
@@ -696,6 +717,7 @@ ${entry.content}`
         </div>
       </div>
 
+      {/* Embedded ChatInterface overlay — opens as a slide-up/sidebar panel */}
       {isChatOpen && chatConversation && (
         <div
           className={clsx(
@@ -734,15 +756,15 @@ ${entry.content}`
             <div className="flex-1 overflow-hidden">
               {entry && (
                 <ChatInterface
-                  isEmbedded={true}
+                  isEmbedded={true} // Embedded mode — different layout/behavior from standalone
                   activeConversation={chatConversation}
-                  systemContextPrefix={scrapbookContext}
+                  systemContextPrefix={scrapbookContext} // Injects entry content as AI context
                   isSidebarPinned={false}
-                  isSpaceSelectionLocked={true}
+                  isSpaceSelectionLocked={true} // Space selection locked for scrapbook chat
                   initialSpaceSelection={{ mode: 'manual', space: null }}
-                  initialAgentSelection={scrapbookAgent}
+                  initialAgentSelection={scrapbookAgent} // Locked to scrapbook system agent
                   initialIsAgentAutoMode={false}
-                  scrapbookEntry={{
+                  scrapbookEntry={{ // Pass entry metadata for context
                     id: entry.id,
                     title: entry.title,
                     source_url: entry.source_url || null,

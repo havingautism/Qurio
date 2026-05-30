@@ -1,3 +1,7 @@
+// Space list page — displays all user spaces as cards, with a create-space card
+// Route: /spaces — sidebar Spaces tab entry
+// Filters out deepResearchSpace from display (it's system-managed, not user-facing)
+// Create card calls onCreateSpace from App context, space cards navigate to /space/$spaceId
 import { useNavigate } from '@tanstack/react-router'
 import clsx from 'clsx'
 import { Brain, Clock, DollarSign, Laptop, Plus, Menu } from 'lucide-react'

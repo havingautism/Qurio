@@ -1,3 +1,6 @@
+// Generated files list page — displays PPT/Excel files exported by tools
+// Route: /files — sidebar Files tab entry
+// Differs from conversation list pages: frontend pagination, setTimeout debounce search, shadcn/ui Select
 import { Link } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -23,17 +26,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '../contexts/ToastContext'
 import { getBackendUrl } from '../lib/settings'
 
+// Filter by file kind (all / pptx / excel)
 const FILTER_OPTIONS = [
   { key: 'all', value: '' },
   { key: 'pptx', value: 'pptx' },
   { key: 'excel', value: 'excel' },
 ]
 
+// Sort by creation time (newest first / oldest first)
 const SORT_OPTIONS = [
   { key: 'newest', value: 'desc' },
   { key: 'oldest', value: 'asc' },
 ]
 
+// Per-kind display metadata: label, icon, badge styling
 const KIND_META = {
   pptx: {
     labelKey: 'views.filesView.kindPptx',
@@ -64,6 +70,7 @@ const formatDateTime = (value, locale) => {
   })
 }
 
+// Resolve download URL: relative paths get prefixed with backend URL, absolute URLs returned as-is
 const resolveBackendDownloadUrl = path => {
   if (!path) return ''
   if (/^https?:\/\//i.test(path)) return path
@@ -85,6 +92,8 @@ const FilesView = () => {
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 12
 
+  // setTimeout debounce: auto-trigger search 180ms after user stops typing
+  // Differs from ExpertView's manual-confirm pattern (press Enter or click search)
   useEffect(() => {
     const timer = window.setTimeout(() => {
       setActiveSearchQuery(searchQuery.trim())
@@ -96,6 +105,8 @@ const FilesView = () => {
     setCurrentPage(1)
   }, [kindFilter, activeSearchQuery, sortOrder, pageSize])
 
+  // Fetch all generated files in one batch (frontend pagination, not server-side)
+  // Uses cancelled flag to prevent setting state on unmounted component
   useEffect(() => {
     let cancelled = false
     const run = async () => {
@@ -126,6 +137,7 @@ const FilesView = () => {
     }
   }, [kindFilter, activeSearchQuery, sortOrder, t, toast])
 
+  // Compute file type statistics from full dataset (for dashboard cards)
   const stats = useMemo(() => {
     let pptxCount = 0
     let excelCount = 0
@@ -136,6 +148,7 @@ const FilesView = () => {
     return { total: items.length, pptx: pptxCount, excel: excelCount }
   }, [items])
 
+  // Frontend pagination: slice the full items array by current page
   const totalPages = Math.max(1, Math.ceil(items.length / pageSize))
   const safeCurrentPage = Math.min(currentPage, totalPages)
   const pagedItems = useMemo(() => {
@@ -143,6 +156,7 @@ const FilesView = () => {
     return items.slice(start, start + pageSize)
   }, [items, pageSize, safeCurrentPage])
 
+  // Delete with confirmation, then filter out from local state (no refetch)
   const handleDelete = item => {
     if (!item?.file_id || !item?.kind) return
 

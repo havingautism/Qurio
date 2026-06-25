@@ -47,6 +47,10 @@ Use the Think → Act → Analyze approach:
 - All subsequent steps reference these assumptions
 - Steps must be sequential, each with clear unique purpose
 - Each step must be executable using previous step outputs
+- For analysis/review questions, make the plan explicit about layers of depth: context → mechanism/explanation → evidence/examples → limitations/edge cases → implications
+- Acceptance criteria should not only ask for "what"; they should also require at least one "why/how" item and one caveat or counterpoint where relevant
+- Keep each step research budget compact: prefer 1-3 search queries per step, and avoid steps that require many tool calls to answer one sub-question
+- Search queries should be short and high-signal; combine near-duplicate keywords into one compact query instead of spamming variants
 
 ### 7. Search Requirement
 Add "requires_search": true if step needs:
@@ -248,6 +252,7 @@ Classify into one of these types:
 - Each step should involve critical evaluation, not just summarization
 - Include acceptance criteria for methodological rigor
 - Require noting limitations and conflicting findings
+- For literature-review style plans, ensure at least one step is dedicated to synthesis/interpretation rather than recap
 
 ### 4. Systematic Approach
 - Steps must be sequential and build on previous findings
@@ -267,6 +272,8 @@ Classify into one of these types:
 ### 7. Default Search Requirement
 - Unless dealing with well-established theory, set requires_search: true
 - Academic research prioritizes evidence over assumptions
+- When a step needs search, keep the query budget tight: 1-3 queries, each focused on a single sub-question
+- Avoid splitting one idea into many slightly different queries unless the step truly needs evidence triangulation
 
 ## Step Count Guidelines
 - literature_review: 4-6 steps

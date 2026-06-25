@@ -187,6 +187,13 @@ def _coerce_agent_memory_args(script_path: str, raw_args: Any) -> list[str] | No
         ]
         title = str(payload.get("title") or "").strip()
         status = str(payload.get("status") or "").strip()
+        priority = payload.get("priority")
+        applicable_when = str(
+            payload.get("applicable_when") or payload.get("applicableWhen") or ""
+        ).strip()
+        not_applicable_when = str(
+            payload.get("not_applicable_when") or payload.get("notApplicableWhen") or ""
+        ).strip()
         tags = payload.get("tags")
         related = payload.get("related")
         overwrite = bool(payload.get("overwrite"))
@@ -194,6 +201,12 @@ def _coerce_agent_memory_args(script_path: str, raw_args: Any) -> list[str] | No
             args.extend(["--title", title])
         if status:
             args.extend(["--status", status])
+        if priority not in (None, ""):
+            args.extend(["--priority", str(priority)])
+        if applicable_when:
+            args.extend(["--applicable-when", applicable_when])
+        if not_applicable_when:
+            args.extend(["--not-applicable-when", not_applicable_when])
         if isinstance(tags, list) and tags:
             args.extend(["--tags", ",".join(str(item).strip() for item in tags if str(item).strip())])
         if isinstance(related, list) and related:
@@ -340,14 +353,23 @@ async def _execute_ppt_generator(args: dict[str, Any]) -> dict[str, Any]:
         return render_result
 
     filename = _sanitize_pptx_filename(request_payload.get("title"))
-    registered = register_pptx_file(file_path=str(output_path), filename=filename)
+    registered = register_pptx_file(
+        file_path=str(output_path),
+        filename=filename,
+        extra_metadata={
+            "slide_count": int(render_result.get("slide_count") or 0),
+            "preview_html": str(render_result.get("preview_html") or ""),
+            "preview_height": int(render_result.get("preview_height") or 560),
+            "qa_issues": render_result.get("qa_issues") if isinstance(render_result.get("qa_issues"), list) else [],
+            "render_mode_used": str(render_result.get("render_mode_used") or "semantic"),
+        },
+    )
     return {
         "type": "pptx_file",
         "title": request_payload.get("title") or "Generated Presentation",
         "slide_count": int(render_result.get("slide_count") or 0),
         "filename": filename,
         "download_url": registered["download_url"],
-        "expires_at": registered["expires_at"],
         "preview_html": str(render_result.get("preview_html") or ""),
         "preview_height": int(render_result.get("preview_height") or 560),
         "qa_issues": render_result.get("qa_issues") if isinstance(render_result.get("qa_issues"), list) else [],

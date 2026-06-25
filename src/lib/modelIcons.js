@@ -38,12 +38,6 @@ export const PROVIDER_ICON_META = {
     bgClassName: DEFAULT_ICON_BG_CLASS,
     imgClassName: 'invert-0 dark:invert',
   },
-  litellm_openai: {
-    emoji: '🚄',
-    alt: 'LiteLLM OpenAI',
-    bgClassName: 'bg-transparent',
-    emojiClassName: 'text-base leading-none',
-  },
   huggingface: {
     src: HuggingFaceIcon,
     alt: 'Hugging Face',

@@ -883,6 +883,57 @@ export const generateRelatedQuestionsViaBackend = async (
 }
 
 /**
+ * Generate a short turn summary for a completed assistant response.
+ * @param {string} provider - AI provider name
+ * @param {string} question - User question for the turn
+ * @param {string} answer - Final assistant answer for the turn
+ * @param {string} apiKey - API key for the provider
+ * @param {string} baseUrl - Optional custom base URL
+ * @param {string} model - Optional model name
+ * @returns {Promise<{summary: string}>}
+ */
+export const generateTurnSummaryViaBackend = async (
+  provider,
+  question,
+  answer,
+  apiKey,
+  baseUrl,
+  model,
+  userTimezone,
+  userLocale,
+  languageInstruction,
+) => {
+  const response = await fetchWithTimeout(
+    `${getBackendUrl()}/api/turn-summary`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...buildSecretHeaders({ apiKey }),
+      },
+      body: JSON.stringify({
+        provider,
+        question,
+        answer,
+        baseUrl,
+        model,
+        userTimezone,
+        userLocale,
+        languageInstruction,
+      }),
+    },
+    30000,
+  )
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Unknown error' }))
+    throw new Error(getBackendErrorMessage(error, response.status))
+  }
+
+  return response.json()
+}
+
+/**
  * Stream chat completion
  * Uses Server-Sent Events (SSE) for streaming responses
  * @param {Object} params - Stream parameters

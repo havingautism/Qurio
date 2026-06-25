@@ -44,5 +44,7 @@ async def deep_research_stream(request: Request) -> Response:
                 yield {"data": json.dumps(event, ensure_ascii=False)}
         except asyncio.CancelledError:
             return
+        except Exception as exc:
+            yield {"data": json.dumps({"type": "error", "error": str(exc)}, ensure_ascii=False)}
 
     return EventSourceResponse(event_generator(), media_type="text/event-stream")

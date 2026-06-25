@@ -11,6 +11,28 @@ const extractUserQuestion = msg => {
   return ''
 }
 
+const extractAssistantTurnSummary = msg => {
+  if (!msg) return ''
+  const direct =
+    typeof msg.turnSummary === 'string'
+      ? msg.turnSummary
+      : typeof msg.turn_summary === 'string'
+        ? msg.turn_summary
+        : ''
+  return direct.trim()
+}
+
+const findFinalAssistantInTurn = (messages, startIndex) => {
+  let lastAssistant = null
+  for (let i = startIndex + 1; i < messages.length; i += 1) {
+    const next = messages[i]
+    if (!next) continue
+    if (next.role === 'user') break
+    if (next.role === 'ai') lastAssistant = next
+  }
+  return lastAssistant
+}
+
 const isFormSubmission = msg =>
   msg?.role === 'user' &&
   typeof msg.content === 'string' &&
@@ -33,10 +55,13 @@ const QuestionTimelineController = ({
           if (isFormSubmission(msg)) return null
           const text = extractUserQuestion(msg).trim()
           if (!text) return null
+          const assistant = findFinalAssistantInTurn(messages, idx)
+          const summary = extractAssistantTurnSummary(assistant)
           return {
             id: `message-${idx}`,
             index: idx + 1,
             label: text.length > 120 ? `${text.slice(0, 117)}...` : text,
+            summary: summary.length > 180 ? `${summary.slice(0, 177)}...` : summary,
             timestamp: msg.created_at,
           }
         })

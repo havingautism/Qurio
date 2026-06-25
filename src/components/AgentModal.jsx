@@ -117,8 +117,6 @@ const ENV_VARS = {
   openAIKey: getPublicEnv('PUBLIC_OPENAI_API_KEY'),
   openAIBaseUrl: getPublicEnv('PUBLIC_OPENAI_BASE_URL'),
   openRouterKey: getPublicEnv('PUBLIC_OPENROUTER_API_KEY'),
-  liteLLMKey: getPublicEnv('PUBLIC_LITELLM_API_KEY'),
-  liteLLMBaseUrl: getPublicEnv('PUBLIC_LITELLM_BASE_URL'),
   huggingFaceKey: getPublicEnv('PUBLIC_HUGGINGFACE_API_KEY'),
   googleApiKey: getPublicEnv('PUBLIC_GOOGLE_API_KEY'),
   siliconFlowKey: getPublicEnv('PUBLIC_SILICONFLOW_API_KEY'),
@@ -427,8 +425,6 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
       gemini: settings.googleApiKey,
       openai_compatibility: settings.OpenAICompatibilityKey,
       openrouter: settings.OpenRouterKey,
-      litellm_openai: settings.LiteLLMKey,
-      litellm_openai_url: settings.LiteLLMUrl,
       huggingface: settings.HuggingFaceKey,
       siliconflow: settings.SiliconFlowKey,
       glm: settings.GlmKey,
@@ -448,8 +444,6 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
       if (key === 'gemini') credentials = { apiKey: keys.gemini }
       else if (key === 'openrouter')
         credentials = { apiKey: keys.openrouter, baseUrl: 'https://openrouter.ai/api/v1' }
-      else if (key === 'litellm_openai')
-        credentials = { apiKey: keys.litellm_openai, baseUrl: keys.litellm_openai_url }
       else if (key === 'huggingface') credentials = { apiKey: keys.huggingface }
       else if (key === 'siliconflow')
         credentials = { apiKey: keys.siliconflow, baseUrl: SILICONFLOW_BASE_URL }
@@ -483,7 +477,6 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
         (key === 'gemini' && ENV_VARS.googleApiKey) ||
         (key === 'openai_compatibility' && ENV_VARS.openAIKey) ||
         (key === 'openrouter' && ENV_VARS.openRouterKey) ||
-        (key === 'litellm_openai' && ENV_VARS.liteLLMKey) ||
         (key === 'huggingface' && ENV_VARS.huggingFaceKey)
 
       if (!hasApiKey && !credentials.apiKey) {

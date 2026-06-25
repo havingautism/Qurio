@@ -2,7 +2,6 @@ import { createBackendProvider } from './backendProviderForBackend'
 import {
   DEEPSEEK_BASE_URL,
   GLM_BASE_URL,
-  LITELLM_BASE_URL,
   MODELSCOPE_BASE_URL,
   OPENROUTER_BASE_URL,
   VOLCENGINE_BASE_URL,
@@ -122,18 +121,6 @@ export const PROVIDERS = {
     getCredentials: settings => ({
       apiKey: settings.OpenRouterKey || getPublicEnv('PUBLIC_OPENROUTER_API_KEY'),
       baseUrl: OPENROUTER_BASE_URL,
-    }),
-    getTools: (isSearchActive, searchTool, enableMemory) =>
-      resolveTools(isSearchActive, searchTool, enableMemory),
-    parseMessage: defaultParseMessage,
-  },
-  litellm_openai: {
-    ...createBackendProvider('litellm_openai'),
-    id: 'litellm_openai',
-    name: 'LiteLLM OpenAI',
-    getCredentials: settings => ({
-      apiKey: settings.LiteLLMKey || getPublicEnv('PUBLIC_LITELLM_API_KEY'),
-      baseUrl: settings.LiteLLMUrl || getPublicEnv('PUBLIC_LITELLM_BASE_URL') || LITELLM_BASE_URL,
     }),
     getTools: (isSearchActive, searchTool, enableMemory) =>
       resolveTools(isSearchActive, searchTool, enableMemory),
@@ -319,6 +306,23 @@ export const getProvider = providerName => {
 }
 
 /**
+ * Thinking helpers
+ *
+ * `resolveThinkingToggleRule` is for UI state only: whether the toggle should
+ * be locked or forced on/off for a given provider/model.
+ * `getThinkingParams` is for request payloads only: it translates the boolean
+ * thinking state into provider-specific API parameters.
+ *
+ * Providers may opt out by omitting getThinking; backend adapters default to
+ * undefined so callers can always invoke this helper without branching.
+ */
+export const getThinkingParams = (providerName, isThinkingActive, modelName) => {
+  const provider = getProvider(providerName)
+  if (!provider || typeof provider.getThinking !== 'function') return undefined
+  return provider.getThinking(isThinkingActive, modelName)
+}
+
+/**
  * Check if a provider supports search functionality.
  * Determined by whether getTools returns a non-empty array when search is active.
  *
@@ -332,6 +336,11 @@ export const providerSupportsSearch = providerName => {
   return tools && tools.length > 0
 }
 
+/**
+ * Resolve the UI toggle policy for thinking mode.
+ *
+ * This does not build request params. Call getThinkingParams() for that.
+ */
 export const resolveThinkingToggleRule = (_providerName, _modelName) => {
   return { isLocked: false, isThinkingActive: false }
 }

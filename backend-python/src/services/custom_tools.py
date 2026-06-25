@@ -12,6 +12,7 @@ import json
 import operator
 import os
 import re
+from collections.abc import Awaitable, Callable
 from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -26,9 +27,13 @@ except Exception:  # pragma: no cover - backward compatibility only
 
 from .academic_domains import ACADEMIC_DOMAINS
 from .html_widget_schema import build_html_widget_payload
+from .excel_builder import build_excel_file
+from .excel_schema import build_excel_payload
+from .excel_store import create_excel_path, register_excel_file
 from .pptx_builder import build_pptx_file_async
 from .pptx_schema import build_pptx_payload
 from .pptx_store import create_pptx_path, register_pptx_file
+from .search_filter import maybe_filter_search_results
 from .skill_runtime import (
     execute_skill_script as execute_skill_script_runtime,
 )
@@ -36,7 +41,9 @@ from .skill_runtime import (
     install_skill_dependency as install_skill_dependency_runtime,
 )
 
-FIXED_SEARCH_MAX_RESULTS = 5
+FIXED_SEARCH_MAX_RESULTS = 10
+SEARCH_QUERY_CHAR_LIMIT = max(24, int(os.getenv("QURIO_SEARCH_QUERY_CHAR_LIMIT", "80")))
+SEARCH_QUERY_WORD_LIMIT = max(6, int(os.getenv("QURIO_SEARCH_QUERY_WORD_LIMIT", "12")))
 
 
 def _tool_timeout_seconds(default: float = 20.0) -> float:
@@ -70,6 +77,11 @@ def _run_blocking_with_timeout(fn: Any, timeout_sec: float | None = None) -> Any
 
 def _run_async_tool_sync(coro_factory: Any, timeout_sec: float | None = None) -> Any:
     return _run_blocking_with_timeout(lambda: asyncio.run(coro_factory()), timeout_sec=timeout_sec)
+
+
+async def _run_blocking_async(fn: Any, timeout_sec: float | None = None) -> Any:
+    timeout = timeout_sec if timeout_sec and timeout_sec > 0 else _tool_timeout_seconds()
+    return await asyncio.wait_for(asyncio.to_thread(fn), timeout=timeout)
 
 
 def _create_ddgs_client() -> Any:
@@ -147,12 +159,45 @@ def _normalize_list_input(val: Any) -> list[str]:
     return []
 
 
+def _normalize_search_query(
+    query: Any,
+    *,
+    word_limit: int = SEARCH_QUERY_WORD_LIMIT,
+    char_limit: int = SEARCH_QUERY_CHAR_LIMIT,
+) -> str:
+    """Trim search queries to a compact, high-signal form."""
+    text = re.sub(r"\s+", " ", str(query or "").strip())
+    if not text:
+        return ""
+
+    words = text.split(" ")
+    if len(words) > word_limit:
+        text = " ".join(words[:word_limit])
+
+    if len(text) > char_limit:
+        truncated = text[:char_limit].rstrip()
+        if " " in truncated and len(truncated) < len(text):
+            text = truncated.rsplit(" ", 1)[0].strip()
+        else:
+            text = truncated
+
+    return text.strip(" ,;|")
+
+
 def _sanitize_pptx_filename(raw_title: Any) -> str:
     title = str(raw_title or "presentation").strip() or "presentation"
     safe = re.sub(r'[\\/:*?"<>|]+', "-", title).strip().strip(".")
     if not safe:
         safe = "presentation"
     return f"{safe}.pptx"
+
+
+def _sanitize_excel_filename(raw_title: Any) -> str:
+    title = str(raw_title or "workbook").strip() or "workbook"
+    safe = re.sub(r'[\\/:*?"<>|]+', "-", title).strip().strip(".")
+    if not safe:
+        safe = "workbook"
+    return f"{safe}.xlsx"
 
 
 @tool(
@@ -210,6 +255,7 @@ class DuckDuckGoImageTools(Toolkit):
         Returns:
             str: JSON string containing the image results.
         """
+        query = _normalize_search_query(query)
         limit = FIXED_SEARCH_MAX_RESULTS
         try:
             def _search():
@@ -255,6 +301,7 @@ class DuckDuckGoVideoTools(Toolkit):
         Returns:
             str: JSON string containing the video results with title, url, thumbnail, source, duration.
         """
+        query = _normalize_search_query(query)
         limit = FIXED_SEARCH_MAX_RESULTS
         try:
             def _search():
@@ -286,17 +333,126 @@ class DuckDuckGoVideoTools(Toolkit):
 class DuckDuckGoWebSearchTools(Toolkit):
     """Web/news search using DuckDuckGo with safe no-result handling."""
 
-    def __init__(self, include_tools: list[str] | None = None, backend: str = "auto") -> None:
+    def __init__(
+        self,
+        include_tools: list[str] | None = None,
+        backend: str = "auto",
+        search_result_filter_provider: str | None = None,
+        search_result_filter_model: str | None = None,
+        search_result_filter_api_key: str | None = None,
+        search_result_filter_base_url: str | None = None,
+        # Backward-compatible aliases. Keep accepting the legacy summary_* names
+        # until request plumbing is fully migrated.
+        summary_provider: str | None = None,
+        summary_model: str | None = None,
+        summary_api_key: str | None = None,
+        summary_base_url: str | None = None,
+    ) -> None:
         self._backend = backend or "auto"
+        self._search_result_filter_provider = (
+            search_result_filter_provider or summary_provider
+        )
+        self._search_result_filter_model = search_result_filter_model or summary_model
+        self._search_result_filter_api_key = search_result_filter_api_key or summary_api_key
+        self._search_result_filter_base_url = (
+            search_result_filter_base_url or summary_base_url
+        )
+        self._search_progress_callback: Callable[[dict[str, Any]], Awaitable[None]] | None = None
         super().__init__(
             name="DuckDuckGoWebSearchTools",
             tools=[self.web_search, self.search_news],
             include_tools=include_tools,
         )
 
+    def _search_filter_enabled(self) -> bool:
+        return bool(
+            str(self._search_result_filter_provider or "").strip()
+            and str(self._search_result_filter_model or "").strip()
+            and str(self._search_result_filter_api_key or "").strip()
+        )
+
+    def set_search_progress_callback(
+        self,
+        callback: Callable[[dict[str, Any]], Awaitable[None]] | None,
+    ) -> None:
+        self._search_progress_callback = callback
+
+    async def _emit_search_filter_progress(
+        self,
+        *,
+        tool_name: str,
+        query: str,
+        payload: dict[str, Any],
+    ) -> None:
+        callback = self._search_progress_callback
+        if callback is None:
+            return
+        results = payload.get("results") if isinstance(payload, dict) else None
+        normalized_results = results if isinstance(results, list) else []
+        if not normalized_results:
+            return
+        try:
+            await callback(
+                {
+                    "type": "search_filter",
+                    "name": tool_name,
+                    "status": "running",
+                    "query": query,
+                    "applied": False,
+                    "originalCount": len(normalized_results),
+                    "originalResults": normalized_results,
+                }
+            )
+        except Exception:
+            pass
+
+    async def _emit_search_preview(
+        self,
+        *,
+        tool_name: str,
+        query: str,
+        payload: dict[str, Any],
+    ) -> None:
+        callback = self._search_progress_callback
+        if callback is None:
+            return
+        results = payload.get("results") if isinstance(payload, dict) else None
+        normalized_results = results if isinstance(results, list) else []
+        if not normalized_results:
+            return
+        try:
+            await callback(
+                {
+                    "type": "search_preview",
+                    "name": tool_name,
+                    "query": query,
+                    "resultCount": len(normalized_results),
+                    "results": normalized_results,
+                }
+            )
+        except Exception:
+            pass
+
+    async def _maybe_filter_search_payload(
+        self,
+        *,
+        tool_name: str,
+        query: str,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        return await maybe_filter_search_results(
+            tool_name=tool_name,
+            query=query,
+            payload=payload,
+            search_result_filter_provider=self._search_result_filter_provider,
+            search_result_filter_model=self._search_result_filter_model,
+            search_result_filter_api_key=self._search_result_filter_api_key,
+            search_result_filter_base_url=self._search_result_filter_base_url,
+        )
+
     @tool
-    def web_search(self, query: str) -> str:
-        q = str(query or "").strip()
+    async def web_search(self, query: str) -> str:
+        q = _normalize_search_query(query)
         limit = FIXED_SEARCH_MAX_RESULTS
         if not q:
             return json.dumps({"query": q, "results": [], "error": "Missing query"}, ensure_ascii=False)
@@ -313,8 +469,29 @@ class DuckDuckGoWebSearchTools(Toolkit):
                         for item in (results or [])
                     ]
 
-            normalized = _run_blocking_with_timeout(_search)
-            return json.dumps({"query": q, "results": normalized}, ensure_ascii=False)
+            normalized = await _run_blocking_async(_search)
+            payload = {"query": q, "results": normalized}
+            if self._search_filter_enabled():
+                try:
+                    await self._emit_search_preview(
+                        tool_name="web_search",
+                        query=q,
+                        payload=payload,
+                    )
+                    await self._emit_search_filter_progress(
+                        tool_name="web_search",
+                        query=q,
+                        payload=payload,
+                    )
+                    filtered = await self._maybe_filter_search_payload(
+                        tool_name="web_search",
+                        query=q,
+                        payload=payload,
+                    )
+                    return json.dumps(filtered, ensure_ascii=False)
+                except Exception:
+                    pass
+            return json.dumps(payload, ensure_ascii=False)
         except TimeoutError as exc:
             return json.dumps(
                 {"query": q, "results": [], "error": str(exc), "timed_out": True},
@@ -327,8 +504,8 @@ class DuckDuckGoWebSearchTools(Toolkit):
             return json.dumps({"query": q, "results": [], "error": str(exc)}, ensure_ascii=False)
 
     @tool
-    def search_news(self, query: str) -> str:
-        q = str(query or "").strip()
+    async def search_news(self, query: str) -> str:
+        q = _normalize_search_query(query)
         limit = FIXED_SEARCH_MAX_RESULTS
         if not q:
             return json.dumps({"query": q, "results": [], "error": "Missing query"}, ensure_ascii=False)
@@ -347,8 +524,29 @@ class DuckDuckGoWebSearchTools(Toolkit):
                         for item in (results or [])
                     ]
 
-            normalized = _run_blocking_with_timeout(_search)
-            return json.dumps({"query": q, "results": normalized}, ensure_ascii=False)
+            normalized = await _run_blocking_async(_search)
+            payload = {"query": q, "results": normalized}
+            if self._search_filter_enabled():
+                try:
+                    await self._emit_search_preview(
+                        tool_name="search_news",
+                        query=q,
+                        payload=payload,
+                    )
+                    await self._emit_search_filter_progress(
+                        tool_name="search_news",
+                        query=q,
+                        payload=payload,
+                    )
+                    filtered = await self._maybe_filter_search_payload(
+                        tool_name="search_news",
+                        query=q,
+                        payload=payload,
+                    )
+                    return json.dumps(filtered, ensure_ascii=False)
+                except Exception:
+                    pass
+            return json.dumps(payload, ensure_ascii=False)
         except TimeoutError as exc:
             return json.dumps(
                 {"query": q, "results": [], "error": str(exc), "timed_out": True},
@@ -383,7 +581,10 @@ class SerpApiImageTools(Toolkit):
         Returns:
             str: JSON string containing the image results.
         """
-        return _run_async_tool_sync(lambda: self._serpapi_search(query, engine="google_images"), 30.0)
+        return _run_async_tool_sync(
+            lambda: self._serpapi_search(_normalize_search_query(query), engine="google_images"),
+            30.0,
+        )
 
     @tool
     def bing_image_search(self, query: str) -> str:
@@ -393,7 +594,10 @@ class SerpApiImageTools(Toolkit):
         Args:
             query (str): The search query.
         """
-        return _run_async_tool_sync(lambda: self._serpapi_search(query, engine="bing_images"), 30.0)
+        return _run_async_tool_sync(
+            lambda: self._serpapi_search(_normalize_search_query(query), engine="bing_images"),
+            30.0,
+        )
 
     @tool
     def serpapi_image_search(self, query: str, engine: str = "google_images") -> str:
@@ -407,7 +611,10 @@ class SerpApiImageTools(Toolkit):
         Returns:
             str: JSON string containing the image results.
         """
-        return _run_async_tool_sync(lambda: self._serpapi_search(query, engine=engine), 30.0)
+        return _run_async_tool_sync(
+            lambda: self._serpapi_search(_normalize_search_query(query), engine=engine),
+            30.0,
+        )
 
     async def _serpapi_search(self, query: str, engine: str) -> str:
         """
@@ -473,6 +680,7 @@ class QurioLocalTools(Toolkit):
             self.extract_text,
             self.json_repair,
             self.render_html_widget,
+            self.excel_generator,
             self.ppt_generator,
             interactive_form,
             self.install_skill_dependency,
@@ -546,6 +754,72 @@ class QurioLocalTools(Toolkit):
         return build_html_widget_payload({"html": html, "title": title, "height": height})
 
     @tool(
+        name="excel_generator",
+        description=(
+            "Generate a real downloadable Excel workbook (.xlsx) from structured sheet data. "
+            "Use this canonical payload shape: { title, sheets: [{ name, columns, rows }] }. "
+            "ALWAYS put worksheet data inside sheets[].rows. "
+            "For a single-sheet workbook, still prefer the same sheets array format instead of top-level sheet_name/columns/rows. "
+            "Prefer explicit columns and rows for every sheet, and compute any requested summary sheets before calling the tool. "
+            "If the user asks for one Excel workbook with multiple sheets, you MUST produce all requested sheets in this single call and MUST NOT split them across multiple Excel files or repeated excel_generator calls. "
+            "For multi-sheet workbooks, do not put row maps or any other sheet-specific data at the top level. "
+            "Top-level sheet_name/columns/rows and aliases like data are compatibility fallbacks only, not the preferred output format. "
+            "Supports a lightweight preview so users can verify structure before downloading."
+        ),
+    )
+    def excel_generator(
+        self,
+        title: str = "Generated Workbook",
+        sheets: Any = None,
+        columns: Any = None,
+        rows: Any = None,
+        sheet_name: str | None = None,
+        data: Any = None,
+    ) -> dict[str, Any]:
+        request_args: dict[str, Any] = {"title": title}
+        has_sheet_list = isinstance(sheets, list) and len(sheets) > 0
+
+        if has_sheet_list:
+            request_args["sheets"] = sheets
+        else:
+            request_args["sheets"] = sheets if sheets is not None else []
+            if columns is not None:
+                request_args["columns"] = columns
+            if rows is not None:
+                request_args["rows"] = rows
+            elif data is not None:
+                request_args["data"] = data
+            if sheet_name is not None:
+                request_args["sheet_name"] = sheet_name
+
+        request_payload = build_excel_payload(request_args)
+        if request_payload.get("type") == "excel_error":
+            return request_payload
+
+        output_path = create_excel_path()
+        render_result = build_excel_file(request_payload, str(output_path))
+        if render_result.get("type") == "excel_error":
+            return render_result
+
+        file_name = _sanitize_excel_filename(request_payload.get("title"))
+        registered = register_excel_file(
+            file_path=str(output_path),
+            filename=file_name,
+            extra_metadata={
+                "sheet_count": int(render_result.get("sheet_count") or 0),
+                "preview": render_result.get("preview") if isinstance(render_result.get("preview"), dict) else {"sheets": []},
+            },
+        )
+        return {
+            "type": "excel_file",
+            "title": request_payload.get("title") or "Generated Workbook",
+            "sheet_count": int(render_result.get("sheet_count") or 0),
+            "filename": file_name,
+            "download_url": registered["download_url"],
+            "preview": render_result.get("preview") if isinstance(render_result.get("preview"), dict) else {"sheets": []},
+        }
+
+    @tool(
         name="ppt_generator",
         description=(
             "Generate a real downloadable PPTX file with preview support. "
@@ -591,14 +865,23 @@ class QurioLocalTools(Toolkit):
             return render_result
 
         file_name = _sanitize_pptx_filename(request_payload.get("title"))
-        registered = register_pptx_file(file_path=str(output_path), filename=file_name)
+        registered = register_pptx_file(
+            file_path=str(output_path),
+            filename=file_name,
+            extra_metadata={
+                "slide_count": int(render_result.get("slide_count") or 0),
+                "preview_html": str(render_result.get("preview_html") or ""),
+                "preview_height": int(render_result.get("preview_height") or 560),
+                "qa_issues": render_result.get("qa_issues") if isinstance(render_result.get("qa_issues"), list) else [],
+                "render_mode_used": str(render_result.get("render_mode_used") or "semantic"),
+            },
+        )
         return {
             "type": "pptx_file",
             "title": request_payload.get("title") or "Generated Presentation",
             "slide_count": int(render_result.get("slide_count") or 0),
             "filename": file_name,
             "download_url": registered["download_url"],
-            "expires_at": registered["expires_at"],
             "preview_html": str(render_result.get("preview_html") or ""),
             "preview_height": int(render_result.get("preview_height") or 560),
             "qa_issues": render_result.get("qa_issues") if isinstance(render_result.get("qa_issues"), list) else [],
@@ -774,6 +1057,7 @@ class QurioLocalTools(Toolkit):
         return _run_async_tool_sync(lambda: self._tavily_web_search_async(query), 30.0)
 
     async def _tavily_web_search_async(self, query: str) -> dict[str, Any]:
+        query = _normalize_search_query(query)
         limit = FIXED_SEARCH_MAX_RESULTS
         api_key = self._resolve_tavily_api_key()
         if not api_key:
@@ -825,6 +1109,7 @@ class QurioLocalTools(Toolkit):
         query: str,
         min_score: float = 0.9,
     ) -> dict[str, Any]:
+        query = _normalize_search_query(query)
         limit = FIXED_SEARCH_MAX_RESULTS
         try:
             score_threshold = float(min_score)

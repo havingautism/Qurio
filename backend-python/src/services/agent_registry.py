@@ -22,10 +22,6 @@ except Exception:  # pragma: no cover - optional dependency
     HuggingFace = None
 from agno.models.nvidia import Nvidia
 try:
-    from agno.models.litellm import LiteLLMOpenAI
-except Exception:  # pragma: no cover - optional dependency
-    LiteLLMOpenAI = None
-try:
     from agno.models.openrouter import OpenRouter
 except Exception:  # pragma: no cover - optional dependency
     OpenRouter = None
@@ -86,7 +82,6 @@ DEFAULT_MODELS: dict[str, str] = {
     "openai": os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
     "openai_compatibility": os.getenv("OPENAI_COMPAT_MODEL", "gpt-4o-mini"),
     "openrouter": os.getenv("OPENROUTER_MODEL", "openai/gpt-4o-mini"),
-    "litellm_openai": os.getenv("LITELLM_MODEL", "gpt-5-mini"),
     "huggingface": os.getenv(
         "HUGGINGFACE_MODEL",
         "meta-llama/Meta-Llama-3.1-8B-Instruct",
@@ -106,7 +101,6 @@ DEFAULT_BASE_URLS: dict[str, str] = {
     "openai": os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
     "openai_compatibility": os.getenv("OPENAI_COMPAT_BASE_URL", "https://api.openai.com/v1"),
     "openrouter": os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
-    "litellm_openai": os.getenv("LITELLM_BASE_URL", "http://0.0.0.0:4000"),
     "huggingface": os.getenv("HUGGINGFACE_BASE_URL", ""),
     "siliconflow": os.getenv("SILICONFLOW_BASE_URL", "https://api.siliconflow.cn/v1"),
     "glm": os.getenv("GLM_BASE_URL", "https://open.bigmodel.cn/api/paas/v4"),
@@ -149,10 +143,6 @@ def _build_model(provider: str, api_key: str | None, base_url: str | None, model
         if OpenRouter is None:
             raise ImportError("OpenRouter support requires agno.models.openrouter and its dependencies")
         return OpenRouter(id=model_id, api_key=api_key, base_url=resolved_base or DEFAULT_BASE_URLS["openrouter"])
-    if provider_key == "litellm_openai":
-        if LiteLLMOpenAI is None:
-            raise ImportError("LiteLLM support requires agno.models.litellm and its dependencies")
-        return LiteLLMOpenAI(id=model_id, api_key=api_key, base_url=resolved_base or DEFAULT_BASE_URLS["litellm_openai"])
     if provider_key == "huggingface":
         if HuggingFace is None:
             raise ImportError("HuggingFace support requires agno.models.huggingface and its dependencies")
@@ -467,10 +457,17 @@ def _build_agno_toolkits(request: Any, include_agno: list[str]) -> list[Any]:
                 logger.warning("Exa backend requested but ExaTools is unavailable or API key is missing.")
         else:
             selected = [name for name in include_agno if name in websearch_tools]
+            filter_provider, filter_model, filter_api_key, filter_base_url = (
+                _get_search_result_filter_config(request)
+            )
             toolkits.append(
                 DuckDuckGoWebSearchTools(
                     include_tools=selected,
                     backend=backend,
+                    search_result_filter_provider=filter_provider,
+                    search_result_filter_model=filter_model,
+                    search_result_filter_api_key=filter_api_key,
+                    search_result_filter_base_url=filter_base_url,
                 )
             )
 
@@ -657,6 +654,31 @@ def get_summary_model(request: Any) -> Any | None:
         return None
 
 
+def _get_search_result_filter_config(request: Any) -> tuple[str | None, str | None, str | None, str | None]:
+    settings = get_settings()
+    provider = (
+        getattr(request, "search_result_filter_provider", None)
+        or getattr(request, "summary_provider", None)
+        or settings.summary_lite_provider
+    )
+    model = (
+        getattr(request, "search_result_filter_model", None)
+        or getattr(request, "summary_model", None)
+        or settings.summary_lite_model
+    )
+    api_key = (
+        getattr(request, "search_result_filter_api_key", None)
+        or getattr(request, "summary_api_key", None)
+        or settings.summary_agent_api_key
+    )
+    base_url = (
+        getattr(request, "search_result_filter_base_url", None)
+        or getattr(request, "summary_base_url", None)
+        or settings.summary_lite_base_url
+    )
+    return provider, model, api_key, base_url
+
+
 
 def build_agent(request: Any = None, **kwargs: Any) -> Agent:
     # Backward-compatible shim for legacy build_agent(provider=..., api_key=...) calls.
@@ -678,6 +700,7 @@ def build_agent(request: Any = None, **kwargs: Any) -> Agent:
             tools=kwargs.get("tools"),
             user_tools=kwargs.get("user_tools"),
             tool_choice=kwargs.get("tool_choice"),
+            tool_call_limit=kwargs.get("tool_call_limit"),
         )
 
     model = _build_model(request.provider, request.api_key, request.base_url, request.model)
@@ -852,6 +875,7 @@ def build_agent(request: Any = None, **kwargs: Any) -> Agent:
         tools=tools or None,
         markdown=True,
         tool_choice=tool_choice,
+        tool_call_limit=getattr(request, "tool_call_limit", None),
         instructions=instructions,
         skills=skills,
     )
@@ -864,7 +888,6 @@ _PROVIDER_KEY_MAP: dict[str, str] = {
     "openai": "OpenAICompatibilityKey",
     "openai_compatibility": "OpenAICompatibilityKey",
     "openrouter": "OpenRouterKey",
-    "litellm_openai": "LiteLLMKey",
     "huggingface": "HuggingFaceKey",
     "siliconflow": "SiliconFlowKey",
     "glm": "GlmKey",
@@ -914,8 +937,6 @@ def _get_provider_credentials(provider: str) -> tuple[str | None, str | None]:
         api_key = os.getenv(f"{provider_upper}_API_KEY")
     if not api_key and provider == "openrouter":
         api_key = os.getenv("OPENROUTER_API_KEY", "")
-    if not api_key and provider == "litellm_openai":
-        api_key = os.getenv("LITELLM_API_KEY", "")
     if not api_key and provider == "huggingface":
         api_key = os.getenv("HF_TOKEN", os.getenv("HUGGINGFACE_API_KEY", ""))
 

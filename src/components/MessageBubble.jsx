@@ -23,7 +23,9 @@ import {
   Calculator,
   Clock,
   FileText,
+  FileSpreadsheet,
   ScanText,
+  SlidersHorizontal,
   Wrench,
   FormInput,
   Globe,
@@ -33,6 +35,7 @@ import {
   Image as ImageIcon,
   ChevronLeft,
   Newspaper,
+  Presentation,
   User,
 } from 'lucide-react'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
@@ -49,13 +52,52 @@ import { TOOL_TRANSLATION_KEYS, TOOL_ICONS } from '../lib/toolConstants'
 import { splitTextWithUrls } from '../lib/urlHighlight'
 import { normalizeExpertBrokenTokenLines } from '../lib/chat/expertTextUtils'
 import { getExpertTabIndicators, getExpertTaskCardModel } from '../lib/chat/expertUiUtils'
+import {
+  buildMessageProcessSteps,
+  normalizeMessageStreamBlocks,
+} from '../lib/chat/message-bubble/messageBubbleViewModel'
+import {
+  getToolArgumentsForDisplayWithResolvedBackends,
+  getToolDisplayNameWithDetails,
+  resolveMessageSearchBackends,
+  resolveSearchBackendForTool,
+} from '../lib/chat/message-bubble/messageBubbleSearchViewModel'
+import {
+  extractMessageImageEntries,
+  extractMessageImageResults,
+  extractMessageVideoResults,
+  getVideoEmbedUrl,
+  getVideoPlatform,
+} from '../lib/chat/message-bubble/messageBubbleMediaViewModel'
+import {
+  buildContentPartsOutsideWorkflow,
+  buildInterleavedContent,
+  getWorkflowTextParts,
+  getWorkflowThoughtParts,
+} from '../lib/chat/message-bubble/messageBubbleContentViewModel'
+import {
+  createExcelFileItemRenderer,
+  createHtmlWidgetItemRenderer,
+  createInteractiveFormItemRenderer,
+  createPptxFileItemRenderer,
+  createToolLoadingCardRenderer,
+} from '../lib/chat/message-bubble/messageBubbleToolRenderers'
+import {
+  buildHeadingId,
+  copyTextToClipboard,
+  createCodeBlockRenderer,
+  createHeadingRenderer,
+  createMarkdownComponents,
+  createMarkdownComponentsWithAnchors,
+  createMarkdownLinkRenderer,
+} from '../lib/chat/message-bubble/messageBubbleMarkdownViewModel'
+import { getSearchFilterFallbackPresentation } from '../lib/chat/searchFilterPresentation'
 import DesktopSourcesSection from './DesktopSourcesSection'
 import DesktopSourcesSheet from './DesktopSourcesSheet'
 import DotLoader from './DotLoader'
-import AgentAvatar from './AgentAvatar'
-import AgentBannerSurface from './AgentBannerSurface'
 import InteractiveForm from './InteractiveForm'
 import DeepResearchGoalCard from './message/DeepResearchGoalCard'
+import ExcelResultCard from './message/ExcelResultCard'
 import HtmlWidgetCard from './message/HtmlWidgetCard'
 import MessageActionBar from './message/MessageActionBar'
 import PipelineDrawer from './message/PipelineDrawer'
@@ -66,6 +108,15 @@ import RelatedQuestions from './message/RelatedQuestions'
 import { useMessageExport } from './message/useMessageExport'
 import MobileSourcesDrawer from './MobileSourcesDrawer'
 import ShareModal from './ShareModal'
+import CitationChip from './message-bubble/CitationChip'
+import InlineVideoEmbed from './message-bubble/InlineVideoEmbed'
+import MessageImage from './message-bubble/MessageImage'
+import SearchSourcesList from './message-bubble/SearchSourcesList'
+import WorkflowPanel from './message-bubble/WorkflowPanel'
+import UserMessageBubble from './message-bubble/UserMessageBubble'
+import MessageBubbleHeader from './message-bubble/MessageBubbleHeader'
+import ExpertPlanPanel from './message-bubble/ExpertPlanPanel'
+import ExpertTaskCard from './message-bubble/ExpertTaskCard'
 import YoutubeLogo from '../assets/youtube.svg?url'
 import BilibiliLogo from '../assets/bilibili.png?url'
 import useSettings from '../hooks/useSettings'
@@ -78,8 +129,20 @@ import {
 import {
   canExpandDocumentCitation,
   buildDocumentCitationPath,
-  prepareDocumentCitationSources,
 } from '../lib/documentCitationViewModel'
+import {
+  buildAllSources,
+  buildDocumentCitationSources,
+  buildHeaderSourceLogos,
+  hasNavigableSourceLink,
+  resolveDefaultMobileDrawerSources,
+  shouldShowWorkflowSourceSummary as resolveShouldShowWorkflowSourceSummary,
+} from '../lib/chat/message-bubble/messageBubbleSourcesViewModel'
+import {
+  buildWorkflowProcessSteps,
+  deriveWorkflowState,
+  getActiveStreamingStepKind,
+} from '../lib/chat/message-bubble/messageBubbleWorkflowViewModel'
 import { ensureMessagePipeline } from '../lib/chat/pipelineViewModel'
 import { getBackendUrl } from '../lib/settings'
 
@@ -98,11 +161,6 @@ const PROVIDER_META = {
     label: 'OpenRouter',
     id: 'openrouter',
     fallback: 'R',
-  },
-  litellm_openai: {
-    label: 'LiteLLM OpenAI',
-    id: 'litellm_openai',
-    fallback: 'L',
   },
   huggingface: {
     label: 'Hugging Face',
@@ -177,38 +235,6 @@ const getToolIconComponent = toolName => {
 
 const InTableContext = React.createContext(false)
 
-const InlineVideoEmbed = memo(({ embedUrl, title = 'Video' }) => {
-  const iframeSrc = useMemo(() => {
-    if (!embedUrl) return null
-    try {
-      const parsed = new URL(embedUrl)
-      parsed.searchParams.set('autoplay', '0')
-      parsed.searchParams.set('auto_play', '0')
-      return parsed.toString()
-    } catch {
-      return embedUrl
-    }
-  }, [embedUrl])
-
-  if (!iframeSrc) return null
-
-  return (
-    <span className="my-3 block aspect-video w-full max-w-md overflow-hidden rounded-lg">
-      <iframe
-        src={iframeSrc}
-        title={title}
-        loading="lazy"
-        fetchPriority="low"
-        referrerPolicy="strict-origin-when-cross-origin"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-        allowFullScreen
-        className="h-full w-full border-0"
-      />
-    </span>
-  )
-})
-InlineVideoEmbed.displayName = 'InlineVideoEmbed'
-
 const sanitizeDisplayText = value => {
   if (typeof value !== 'string') return ''
   return value
@@ -249,72 +275,6 @@ const sanitizeMarkdownUrl = (value, { allowDataImage = false } = {}) => {
   }
 }
 
-const MessageImage = memo(({ src, alt, openGallery, onImageError, isFailed, imageMetadataRef }) => {
-  const { t } = useTranslation()
-  const [isLoaded, setIsLoaded] = useState(false)
-  const [hasError, setHasError] = useState(false)
-
-  // Get metadata from ref to avoid prop changes during streaming
-  const metadata = imageMetadataRef?.current?.find(r => r.src === src)
-  const sourceUrl = metadata?.sourceUrl
-  const sourceName = metadata?.source
-
-  // Effectively remove the img from DOM on error to prevent broken icon
-  if (isFailed || hasError) {
-    const displayHostname = sourceUrl ? getHostname(sourceUrl) : null
-
-    return (
-      <span className="my-2 flex flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50/50 p-4 dark:border-zinc-700 dark:bg-zinc-800/30">
-        <span className="mb-2 flex items-center gap-2 text-gray-400">
-          <AlertTriangle size={16} />
-          <span className="text-xs font-medium">
-            {t('messageBubble.imageLoadError', 'Image failed to load')}
-          </span>
-        </span>
-        <span className="mb-1 line-clamp-1 text-[10px] text-gray-500 opacity-70">
-          {typeof alt === 'string' ? alt : src}
-        </span>
-        {sourceUrl && (
-          <a
-            href={sourceUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 mt-1 flex items-center gap-1.25 text-[10px] font-medium transition-colors"
-            onClick={e => e.stopPropagation()}
-          >
-            <Globe size={11} className="opacity-70" />
-            {t('messageBubble.viewOriginalSource', 'Try opening original link')}
-            {displayHostname ? ` (${displayHostname})` : ''}
-          </a>
-        )}
-      </span>
-    )
-  }
-
-  return (
-    <span
-      className={clsx(
-        'group relative my-2 inline-block overflow-hidden rounded-lg shadow-sm transition-all duration-500 hover:shadow-lg active:shadow-md',
-        isLoaded ? 'opacity-100' : 'opacity-0',
-      )}
-    >
-      <img
-        src={src}
-        alt={typeof alt === 'string' ? alt : ''}
-        onLoad={() => setIsLoaded(true)}
-        onError={() => {
-          setHasError(true)
-          onImageError(src)
-        }}
-        onClick={() => openGallery(src)}
-        className="cursor-zoom-in transition-all duration-500 ease-out group-hover:scale-110 group-hover:brightness-105 active:scale-95"
-      />
-    </span>
-  )
-})
-
-MessageImage.displayName = 'MessageImage'
-
 const ToolEnter = ({ children, className }) => {
   const [entered, setEntered] = useState(false)
 
@@ -340,66 +300,6 @@ const ToolEnter = ({ children, className }) => {
  * MessageBubble component that directly accesses messages from chatStore via index
  * Reduces props drilling and improves component independence
  */
-
-const SearchSourcesList = React.memo(({ sources }) => {
-  const { t } = useTranslation()
-  const [isExpanded, setIsExpanded] = useState(false)
-
-  if (!sources || sources.length === 0) return null
-
-  // Decide threshold, e.g., 6 items
-  const THRESHOLD = 6
-  const hasMore = sources.length > THRESHOLD
-  const displaySources = isExpanded ? sources : sources.slice(0, THRESHOLD)
-
-  return (
-    <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-      {displaySources.map((src, sIdx) => {
-        const url = src?.url || src?.uri || src?.link || src?.href || ''
-        let hostname = t('sources.source')
-        try {
-          hostname = new URL(url).hostname.replace(/^www\./, '')
-        } catch (e) {}
-        return (
-          <a
-            key={`src-${sIdx}`}
-            href={url || '#'}
-            target={url ? '_blank' : undefined}
-            rel={url ? 'noopener noreferrer' : undefined}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-gray-100/80 px-2.5 py-1.5 transition-colors hover:bg-gray-200 dark:bg-zinc-800 dark:hover:bg-zinc-700"
-          >
-            <img
-              src={src.icon || `https://www.google.com/s2/favicons?domain=${hostname}&sz=128`}
-              alt=""
-              className="h-3.5 w-3.5 rounded-full bg-white object-cover"
-            />
-            <span className="max-w-[140px] truncate text-[12px]! font-medium text-gray-600 dark:text-gray-300">
-              {src.media || src.title || hostname}
-            </span>
-          </a>
-        )
-      })}
-      {hasMore && (
-        <button
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="inline-flex cursor-pointer items-center gap-0.5 rounded-lg bg-transparent px-2.5 py-1.5 text-[12px] text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-zinc-800 dark:hover:text-gray-300"
-        >
-          {isExpanded ? (
-            <>
-              {t('common.collapse', { defaultValue: '收起' })}
-              <ChevronUp size={14} className="ml-0.5" />
-            </>
-          ) : (
-            <>
-              {t('common.expand', { defaultValue: '展开' })}
-              <ChevronDown size={14} className="ml-0.5" />
-            </>
-          )}
-        </button>
-      )}
-    </div>
-  )
-})
 
 const MessageBubble = ({
   messageIndex,
@@ -647,29 +547,14 @@ const MessageBubble = ({
     }
   }, [hasPipelineData, isPipelineOpen, pipelineTrace, pipelineBuildInput])
   const documentCitationSources = useMemo(
-    () =>
-      prepareDocumentCitationSources(
-        Array.isArray(mergedMessage.documentSources)
-          ? mergedMessage.documentSources.map(source => ({
-              ...source,
-              title: source?.title || 'Document',
-              snippet: source?.snippet || source?.content || '',
-            }))
-          : [],
-      ),
+    () => buildDocumentCitationSources(mergedMessage.documentSources),
     [mergedMessage.documentSources],
   )
-  const hasExplicitWebSources = useMemo(
-    () => Array.isArray(mergedMessage.sources) && mergedMessage.sources.length > 0,
-    [mergedMessage.sources],
-  )
-  const hasNavigableSourceLink = useCallback(source => {
-    const candidate =
-      source?.url || source?.uri || source?.link || source?.href || source?.sourceUrl || ''
-    return typeof candidate === 'string' && candidate.trim().length > 0
-  }, [])
-  const hasAnySources = hasExplicitWebSources || documentCitationSources.length > 0
-  const shouldShowWorkflowSourceSummary = !isStreamingMessage && hasAnySources
+  const shouldShowWorkflowSourceSummary = resolveShouldShowWorkflowSourceSummary({
+    isStreamingMessage,
+    webSources: mergedMessage.sources,
+    documentCitationSources,
+  })
   const displayProviderId = isExpertMessage
     ? activeExpertResponse?.provider || providerId
     : providerId
@@ -745,21 +630,7 @@ const MessageBubble = ({
       isExpertMessage && Array.isArray(activeExpertResponse?.streamBlocks)
         ? activeExpertResponse.streamBlocks
         : mergedMessage?.streamBlocks
-    if (!Array.isArray(streamSource)) return []
-    return streamSource
-      .map((item, index) => ({
-        seq: Number.isFinite(item?.seq) ? Number(item.seq) : index + 1,
-        type: String(item?.type || '').toLowerCase(),
-        content: typeof item?.content === 'string' ? item.content : '',
-        toolCallId: item?.tool_call_id || item?.toolCallId || null,
-        name: item?.name || null,
-        status: item?.status || null,
-        arguments: item?.arguments ?? null,
-        output: item?.output ?? null,
-        durationMs: Number.isFinite(item?.duration_ms) ? Number(item.duration_ms) : null,
-      }))
-      .filter(item => item.type)
-      .sort((a, b) => a.seq - b.seq)
+    return normalizeMessageStreamBlocks({ streamSource })
   }, [isExpertMessage, activeExpertResponse?.streamBlocks, mergedMessage?.streamBlocks])
   const thoughtExportContent = useMemo(
     () =>
@@ -779,41 +650,12 @@ const MessageBubble = ({
   )
 
   const resolvedSearchBackends = useMemo(() => {
-    const explicitBackends = isExpertMessage
-      ? activeExpertResponse?.searchBackends
-      : mergedMessage?.searchBackends
-    if (Array.isArray(explicitBackends) && explicitBackends.length > 0) {
-      return explicitBackends.map(item => String(item)).filter(Boolean)
-    }
-    const explicitBackend = isExpertMessage
-      ? activeExpertResponse?.searchBackend
-      : mergedMessage?.searchBackend
-    if (typeof explicitBackend === 'string' && explicitBackend) {
-      return [explicitBackend]
-    }
-    for (const item of toolCallHistory) {
-      if (!item || (item.name !== 'web_search' && item.name !== 'search_news')) continue
-      if (!item.arguments) continue
-      if (typeof item.arguments === 'object') {
-        if (Array.isArray(item.arguments.backends) && item.arguments.backends.length > 0) {
-          return item.arguments.backends.map(value => String(value)).filter(Boolean)
-        }
-        if (item.arguments.backend) return [String(item.arguments.backend)]
-        continue
-      }
-      if (typeof item.arguments !== 'string') continue
-      try {
-        const parsed = JSON.parse(item.arguments)
-        if (!parsed || typeof parsed !== 'object') continue
-        if (Array.isArray(parsed.backends) && parsed.backends.length > 0) {
-          return parsed.backends.map(value => String(value)).filter(Boolean)
-        }
-        if (parsed.backend) return [String(parsed.backend)]
-      } catch {
-        continue
-      }
-    }
-    return []
+    return resolveMessageSearchBackends({
+      isExpertMessage,
+      activeExpertResponse,
+      mergedMessage,
+      toolCallHistory,
+    })
   }, [
     isExpertMessage,
     activeExpertResponse?.searchBackend,
@@ -824,106 +666,12 @@ const MessageBubble = ({
   ])
 
   const getToolDisplayName = useCallback(
-    tool => {
-      if (!tool) return ''
-      const baseName = TOOL_TRANSLATION_KEYS[tool.name]
-        ? t(TOOL_TRANSLATION_KEYS[tool.name])
-        : tool.name
-      const parseArguments = rawArguments => {
-        if (!rawArguments) return null
-        if (typeof rawArguments === 'object') return rawArguments
-        if (typeof rawArguments !== 'string') return null
-        try {
-          const parsed = JSON.parse(rawArguments)
-          return parsed && typeof parsed === 'object' ? parsed : null
-        } catch {
-          return null
-        }
-      }
-      const getFileName = filePath => {
-        if (!filePath || typeof filePath !== 'string') return ''
-        const normalized = filePath.replace(/\\/g, '/')
-        const segments = normalized.split('/').filter(Boolean)
-        return segments[segments.length - 1] || filePath
-      }
-
-      const parsedArguments = parseArguments(tool.arguments)
-      let detail = ''
-
-      if (tool.name === 'execute_skill_script' || tool.name === 'get_skill_script') {
-        detail = getFileName(parsedArguments?.script_path)
-      } else if (tool.name === 'install_skill_dependency') {
-        detail =
-          typeof parsedArguments?.package_name === 'string'
-            ? parsedArguments.package_name.trim()
-            : ''
-      }
-
-      return detail ? `${baseName} (${detail})` : baseName
-    },
+    tool => getToolDisplayNameWithDetails(tool, t, TOOL_TRANSLATION_KEYS),
     [t],
   )
   const isSkillToolCall = useCallback(tool => isSkillToolName(tool?.name), [])
   const getSearchBackendForTool = useCallback(
-    tool => {
-      if (!tool) return null
-      const isWebSearch = tool.name === 'web_search' || tool.name === 'search_news'
-      const isImageSearch =
-        tool.name === 'duckduckgo_image_search' ||
-        tool.name === 'google_image_search' ||
-        tool.name === 'bing_image_search' ||
-        tool.name === 'serpapi_image_search'
-      const isVideoSearch =
-        tool.name === 'duckduckgo_video_search' || tool.name === 'search_youtube'
-
-      if (!isWebSearch && !isImageSearch && !isVideoSearch) return null
-
-      if (isImageSearch) {
-        if (tool.name.includes('google')) return 'google'
-        if (tool.name.includes('bing')) return 'bing'
-        if (tool.name.includes('duckduckgo')) return 'duckduckgo'
-        // serpapi_image_search uses 'engine' parameter (e.g., 'google_images', 'bing_images')
-        const args = tool.arguments
-        if (args && typeof args === 'object' && typeof args.engine === 'string') {
-          if (args.engine.includes('google')) return 'google'
-          if (args.engine.includes('bing')) return 'bing'
-          if (args.engine.includes('yahoo')) return 'yahoo'
-        }
-      }
-
-      if (isVideoSearch) {
-        if (tool.name === 'search_youtube') return 'youtube'
-        if (tool.name.includes('duckduckgo')) return 'duckduckgo'
-      }
-
-      const args = tool.arguments
-      if (args && typeof args === 'object') {
-        if (typeof args.backend === 'string' && args.backend) return args.backend
-        if (Array.isArray(args.backends) && args.backends.length > 0)
-          return String(args.backends[0])
-      }
-      if (typeof args === 'string') {
-        try {
-          const parsed = JSON.parse(args)
-          if (parsed && typeof parsed === 'object') {
-            // Handle 'engine' parameter for serpapi_image_search
-            if (typeof parsed.engine === 'string' && parsed.engine) {
-              if (parsed.engine.includes('google')) return 'google'
-              if (parsed.engine.includes('bing')) return 'bing'
-              if (parsed.engine.includes('yahoo')) return 'yahoo'
-            }
-            if (typeof parsed.backend === 'string' && parsed.backend) return parsed.backend
-            if (Array.isArray(parsed.backends) && parsed.backends.length > 0) {
-              return String(parsed.backends[0])
-            }
-          }
-        } catch {
-          // ignore parse failure
-        }
-      }
-      if (resolvedSearchBackends.length > 0) return resolvedSearchBackends[0]
-      return null
-    },
+    tool => resolveSearchBackendForTool(tool, resolvedSearchBackends),
     [resolvedSearchBackends],
   )
   const renderSearchBackendVisual = useCallback(backend => {
@@ -1007,39 +755,7 @@ const MessageBubble = ({
   }
 
   const getToolArgumentsForDisplay = useCallback(
-    tool => {
-      if (!tool || !tool.arguments) return tool?.arguments
-      if (tool.name !== 'web_search' && tool.name !== 'search_news') return tool.arguments
-      if (resolvedSearchBackends.length === 0) return tool.arguments
-
-      if (typeof tool.arguments === 'object') {
-        if (tool.arguments.backend || tool.arguments.backends) return tool.arguments
-        return resolvedSearchBackends.length > 1
-          ? {
-              ...tool.arguments,
-              backend: resolvedSearchBackends[0],
-              backends: resolvedSearchBackends,
-            }
-          : { ...tool.arguments, backend: resolvedSearchBackends[0] }
-      }
-
-      if (typeof tool.arguments === 'string') {
-        try {
-          const parsed = JSON.parse(tool.arguments)
-          if (!parsed || typeof parsed !== 'object') return tool.arguments
-          if (parsed.backend || parsed.backends) return tool.arguments
-          return JSON.stringify(
-            resolvedSearchBackends.length > 1
-              ? { ...parsed, backend: resolvedSearchBackends[0], backends: resolvedSearchBackends }
-              : { ...parsed, backend: resolvedSearchBackends[0] },
-          )
-        } catch {
-          return tool.arguments
-        }
-      }
-
-      return tool.arguments
-    },
+    tool => getToolArgumentsForDisplayWithResolvedBackends(tool, resolvedSearchBackends),
     [resolvedSearchBackends],
   )
 
@@ -1129,7 +845,6 @@ const MessageBubble = ({
       typeof payload.filename === 'string' ? payload.filename.trim() : 'presentation.pptx'
     const title = typeof payload.title === 'string' ? payload.title.trim() : ''
     const slideCount = Number(payload.slide_count)
-    const expiresAt = typeof payload.expires_at === 'string' ? payload.expires_at.trim() : ''
     const previewHtml = typeof payload.preview_html === 'string' ? payload.preview_html.trim() : ''
     const previewHeightRaw = Number(payload.preview_height)
     const previewHeight = Number.isFinite(previewHeightRaw)
@@ -1146,11 +861,52 @@ const MessageBubble = ({
       title,
       slideCount: Number.isFinite(slideCount) ? Math.max(0, Math.floor(slideCount)) : 0,
       downloadUrl,
-      expiresAt,
       previewHtml,
       previewHeight,
       qaIssuesRaw,
       renderModeUsed,
+    }
+  }
+
+  const parseExcelPayload = raw => {
+    if (!raw) return null
+    let payload = raw
+    if (typeof raw === 'string') {
+      try {
+        payload = JSON.parse(raw)
+      } catch {
+        return null
+      }
+    }
+    if (!payload || typeof payload !== 'object') return null
+    if (String(payload.type || '').trim() !== 'excel_file') return null
+
+    const downloadUrl = typeof payload.download_url === 'string' ? payload.download_url.trim() : ''
+    if (!downloadUrl) return null
+
+    const previewSheets = Array.isArray(payload.preview?.sheets)
+      ? payload.preview.sheets.map(sheet => ({
+          name: typeof sheet?.name === 'string' ? sheet.name.trim() : '',
+          columns: Array.isArray(sheet?.columns) ? sheet.columns.map(item => String(item ?? '')) : [],
+          rows: Array.isArray(sheet?.rows)
+            ? sheet.rows.map(row => (Array.isArray(row) ? row.map(item => item ?? '') : []))
+            : [],
+          total_rows: Number.isFinite(sheet?.total_rows) ? Number(sheet.total_rows) : 0,
+          total_columns: Number.isFinite(sheet?.total_columns) ? Number(sheet.total_columns) : 0,
+        }))
+      : []
+
+    const filename = typeof payload.filename === 'string' ? payload.filename.trim() : 'workbook.xlsx'
+    const title = typeof payload.title === 'string' ? payload.title.trim() : ''
+    const sheetCount = Number(payload.sheet_count)
+
+    return {
+      type: 'excel_file',
+      filename: filename || 'workbook.xlsx',
+      title,
+      downloadUrl,
+      sheetCount: Number.isFinite(sheetCount) ? Math.max(0, Math.floor(sheetCount)) : 0,
+      preview: { sheets: previewSheets },
     }
   }
 
@@ -1183,38 +939,9 @@ const MessageBubble = ({
   // Extract all image search results from toolCallHistory to get rich metadata (title, source)
   // Update ref without triggering re-renders of markdownComponents
   const allImageResults = useMemo(() => {
-    const results = []
-    const imageSearchTools = [
-      'duckduckgo_image_search',
-      'google_image_search',
-      'bing_image_search',
-      'serpapi_image_search',
-    ]
-    toolCallHistory.forEach(tc => {
-      // Handle all image search tool names
-      if (imageSearchTools.includes(tc.name)) {
-        try {
-          const output = typeof tc.output === 'string' ? JSON.parse(tc.output) : tc.output
-          if (Array.isArray(output)) {
-            output.forEach(item => {
-              const imgUrl = item.image || item.url || item.thumbnailUrl || item.thumbnail
-              const sourceUrl = item.url || item.parentPage || ''
-              const hostname = sourceUrl ? getHostname(sourceUrl) : ''
-
-              if (imgUrl) {
-                results.push({
-                  src: imgUrl,
-                  title: item.title || '',
-                  source: hostname || item.source || '',
-                  sourceUrl: sourceUrl,
-                })
-              }
-            })
-          }
-        } catch (e) {
-          // ignore parse errors
-        }
-      }
+    const results = extractMessageImageResults({
+      toolCallHistory,
+      getHostname,
     })
     // Update ref for use in MessageImage without triggering deps
     imageMetadataRef.current = results
@@ -1224,148 +951,18 @@ const MessageBubble = ({
   // Extract video search results to get title for iframe accessibility
   // Update ref without triggering re-renders of markdownComponents
   const allVideoResults = useMemo(() => {
-    const results = []
-    const videoSearchTools = ['duckduckgo_video_search', 'search_youtube']
-    toolCallHistory.forEach(tc => {
-      if (videoSearchTools.includes(tc.name)) {
-        try {
-          const output = typeof tc.output === 'string' ? JSON.parse(tc.output) : tc.output
-          let videoList = []
-          if (Array.isArray(output)) {
-            videoList = output
-          } else if (output && typeof output === 'object') {
-            videoList = output.video_results || output.videos || []
-          }
-          videoList.forEach(item => {
-            const videoUrl = item.link || item.url || item.content || ''
-            if (videoUrl) {
-              results.push({
-                url: videoUrl,
-                title: item.title || '',
-              })
-            }
-          })
-        } catch (e) {
-          // ignore parse errors
-        }
-      }
-    })
+    const results = extractMessageVideoResults({ toolCallHistory })
     videoMetadataRef.current = results
     return results
   }, [toolCallHistory])
 
-  // Helper function to convert supported video URLs to embed URL
-  const getVideoEmbedUrl = useCallback(url => {
-    if (!url) return null
-
-    // YouTube: various formats
-    const ytPatterns = [
-      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/)([a-zA-Z0-9_-]{11})/,
-      /youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/,
-    ]
-    for (const pattern of ytPatterns) {
-      const match = url.match(pattern)
-      if (match && match[1]) {
-        return `https://www.youtube.com/embed/${match[1]}`
-      }
-    }
-
-    // Bilibili: normal video links and player links
-    try {
-      const normalizedUrl = url.startsWith('//') ? `https:${url}` : url
-      const parsed = new URL(normalizedUrl)
-      const hostname = parsed.hostname.toLowerCase()
-
-      const buildBilibiliEmbedUrl = ({ bvid, aid, cid, page }) => {
-        const params = new URLSearchParams()
-        params.set('isOutside', 'true')
-        if (aid) params.set('aid', aid)
-        if (bvid) params.set('bvid', bvid)
-        if (cid) params.set('cid', cid)
-        params.set('p', page || '1')
-        return `https://player.bilibili.com/player.html?${params.toString()}`
-      }
-
-      // Example: player.bilibili.com/player.html?...&bvid=...&cid=...&p=1
-      if (hostname.includes('player.bilibili.com') && parsed.pathname.includes('/player.html')) {
-        const bvid = parsed.searchParams.get('bvid')
-        const aid = parsed.searchParams.get('aid')
-        const cid = parsed.searchParams.get('cid')
-        const page = parsed.searchParams.get('p') || parsed.searchParams.get('page')
-        if (bvid || aid || cid) {
-          return buildBilibiliEmbedUrl({ bvid, aid, cid, page })
-        }
-      }
-
-      // Example: www.bilibili.com/video/BV... or www.bilibili.com/video/av...
-      if (hostname.includes('bilibili.com')) {
-        const bvidMatch = parsed.pathname.match(/\/video\/(BV[a-zA-Z0-9]+)/i)
-        const aidMatch = parsed.pathname.match(/\/video\/av(\d+)/i)
-        const page = parsed.searchParams.get('p') || parsed.searchParams.get('page')
-
-        if (bvidMatch?.[1]) {
-          return buildBilibiliEmbedUrl({ bvid: bvidMatch[1], page })
-        }
-        if (aidMatch?.[1]) {
-          return buildBilibiliEmbedUrl({ aid: aidMatch[1], page })
-        }
-      }
-    } catch {
-      // ignore URL parse errors
-    }
-
-    return null
-  }, [])
-
-  const getVideoPlatform = useCallback(url => {
-    if (!url) return null
-
-    try {
-      const normalizedUrl = url.startsWith('//') ? `https:${url}` : url
-      const parsed = new URL(normalizedUrl)
-      const hostname = parsed.hostname.toLowerCase()
-
-      if (
-        hostname.includes('youtube.com') ||
-        hostname.includes('youtu.be') ||
-        hostname.includes('youtube-nocookie.com')
-      ) {
-        return 'youtube'
-      }
-
-      if (hostname.includes('player.bilibili.com') || hostname.includes('bilibili.com')) {
-        return 'bilibili'
-      }
-    } catch {
-      // ignore parse errors
-    }
-
-    return null
-  }, [])
-
   // Extract all images rendered in the mainContent markdown
   const messageImages = useMemo(() => {
-    if (!mainContent) return []
-    // Regex to find ![alt](url)
-    const regex = /!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g
-    const found = []
-    let match
-    while ((match = regex.exec(mainContent)) !== null) {
-      const alt = match[1]
-      const src = match[2]
-      // Match with allImageResults to find rich metadata
-      const metadata = allImageResults.find(r => r.src === src)
-      found.push({
-        src,
-        alt: alt || metadata?.title || '',
-        title: metadata?.title || alt || '',
-        source: metadata?.source || '',
-        sourceUrl: metadata?.sourceUrl || '',
-      })
-    }
-    // Do not filter out failed images to preserve index alignment with markdown rendering
-    return found
-  }, [mainContent, allImageResults, failedImageUrls])
+    return extractMessageImageEntries({
+      mainContent,
+      allImageResults,
+    })
+  }, [mainContent, allImageResults])
 
   // Use ref to store messageImages for stable openGallery callback
   const messageImagesRef = useRef(messageImages)
@@ -1422,26 +1019,7 @@ const MessageBubble = ({
   }, [isGalleryOpen, messageImages.length])
 
   // Utility function to copy text to clipboard
-  const copyToClipboard = async text => {
-    try {
-      if (navigator?.clipboard?.writeText) {
-        await navigator.clipboard.writeText(text)
-      } else {
-        const textarea = document.createElement('textarea')
-        textarea.value = text
-        textarea.style.position = 'fixed'
-        textarea.style.opacity = '0'
-        document.body.appendChild(textarea)
-        textarea.select()
-        document.execCommand('copy')
-        document.body.removeChild(textarea)
-      }
-      // Show a brief success indication
-      console.log('Text copied to clipboard')
-    } catch (err) {
-      console.error('Failed to copy text: ', err)
-    }
-  }
+  const copyToClipboard = useCallback(text => copyTextToClipboard(text), [])
 
   const renderPlainCodeBlock = useCallback(
     (codeText, language) => (
@@ -1534,111 +1112,16 @@ const MessageBubble = ({
     )
   }
 
-  const interleavedContent = useMemo(() => {
-    const rawContent = mainContent || ''
-    const parts = []
-    if (normalizedStreamBlocks.length === 0) {
-      return [{ type: 'text', content: rawContent }]
-    }
-
-    for (const block of normalizedStreamBlocks) {
-      if (block.type === 'text') {
-        if (block.content) parts.push({ type: 'text', content: block.content })
-        continue
-      }
-      if (block.type === 'reasoning' || block.type === 'thought') {
-        if (!isDeepResearch && block.content) {
-          const lastPart = parts[parts.length - 1]
-          if (lastPart?.type === 'thought') {
-            lastPart.content = `${lastPart.content || ''}${block.content || ''}`
-            const prevDuration = Number.isFinite(lastPart.durationMs)
-              ? Number(lastPart.durationMs)
-              : 0
-            const nextDuration = Number.isFinite(block.durationMs) ? Number(block.durationMs) : 0
-            lastPart.durationMs = prevDuration + nextDuration
-          } else {
-            parts.push({
-              type: 'thought',
-              key: `stream-thought-${block.seq}`,
-              content: block.content,
-              durationMs: block.durationMs,
-            })
-          }
-        }
-        continue
-      }
-      if (block.type === 'workflow_text') {
-        if (!isDeepResearch && block.content) {
-          parts.push({
-            type: 'workflow_text',
-            key: `stream-workflow-text-${block.seq}`,
-            content: block.content,
-          })
-        }
-        continue
-      }
-      if (block.type === 'tool' || block.type === 'tool_call' || block.type === 'tool_result') {
-        const matchedTool =
-          toolCallHistory.find(item => item?.id && item.id === block.toolCallId) || null
-        const toolItem =
-          matchedTool ||
-          (block.toolCallId
-            ? {
-                id: block.toolCallId,
-                name: block.name || 'tool',
-                status: block.status || 'done',
-                arguments: block.arguments,
-                output: block.output,
-                durationMs: block.durationMs,
-              }
-            : null)
-        if (toolItem) {
-          parts.push({
-            type: 'tools',
-            key: `stream-tool-${block.type || 'tool'}-${block.toolCallId || 'na'}-${block.seq}`,
-            items: [toolItem],
-          })
-        }
-      }
-    }
-
-    if (!isDeepResearch && parts.length > 1) {
-      const firstNonThoughtIndex = parts.findIndex(part => part.type !== 'thought')
-      if (firstNonThoughtIndex > 0 && parts[firstNonThoughtIndex]?.type === 'text') {
-        const thoughtPrefix = parts
-          .slice(0, firstNonThoughtIndex)
-          .filter(part => part.type === 'thought')
-          .map(part => String(part.content || ''))
-          .join('')
-        const textPart = String(parts[firstNonThoughtIndex].content || '')
-        const compactThought = thoughtPrefix.replace(/\s+/g, '')
-        const compactText = textPart.replace(/\s+/g, '')
-        if (compactThought && compactText) {
-          const minLen = Math.min(compactThought.length, compactText.length)
-          if (minLen >= 24) {
-            let common = 0
-            while (common < minLen && compactThought[common] === compactText[common]) common += 1
-            const overlapRatio = common / minLen
-            if (overlapRatio >= 0.92) {
-              const trimmedText = textPart.trimStart()
-              if (trimmedText.startsWith(thoughtPrefix)) {
-                const deduped = trimmedText.slice(thoughtPrefix.length).trimStart()
-                if (deduped) {
-                  parts[firstNonThoughtIndex] = { ...parts[firstNonThoughtIndex], content: deduped }
-                } else {
-                  parts.splice(firstNonThoughtIndex, 1)
-                }
-              } else if (compactText.startsWith(compactThought)) {
-                parts.splice(firstNonThoughtIndex, 1)
-              }
-            }
-          }
-        }
-      }
-    }
-
-    return parts.length > 0 ? parts : [{ type: 'text', content: rawContent }]
-  }, [mainContent, toolCallHistory, isDeepResearch, normalizedStreamBlocks])
+  const interleavedContent = useMemo(
+    () =>
+      buildInterleavedContent({
+        mainContent,
+        normalizedStreamBlocks,
+        isDeepResearch,
+        toolCallHistory,
+      }),
+    [mainContent, normalizedStreamBlocks, isDeepResearch, toolCallHistory],
+  )
 
   // Effect to handle copy success timeout with proper cleanup
   useEffect(() => {
@@ -2042,10 +1525,11 @@ const MessageBubble = ({
 
   const handleMobileSourceClick = useCallback(
     (selectedSources, title) => {
-      const resolvedSources = selectedSources || [
-        ...(Array.isArray(mergedMessage.sources) ? mergedMessage.sources : []),
-        ...documentCitationSources,
-      ]
+      const resolvedSources = resolveDefaultMobileDrawerSources({
+        selectedSources,
+        webSources: mergedMessage.sources,
+        documentCitationSources,
+      })
       setMobileDrawerSources(resolvedSources)
       setMobileDrawerTitle(title || t('sources.title'))
       setIsMobileDrawerOpen(true)
@@ -2220,104 +1704,38 @@ const MessageBubble = ({
   }, [shouldShowInitialSkeleton, skeletonFadeMs])
   const researchStatusText = DEEP_RESEARCH_STATUS_MESSAGES[0]
 
-  const CodeBlock = useCallback(
-    ({ inline, className, children, ...props }) => {
-      const match = /language-(\w+)/.exec(className || '')
-      const language = match ? match[1].toLowerCase() : ''
-      const langLabel = match ? match[1].toUpperCase() : 'CODE'
-      const rawCodeText = String(children)
-      const codeText = rawCodeText.replace(/\n$/, '')
-      const isBlock =
-        !inline && (language || rawCodeText.includes('\n') || className?.includes('language-'))
-
-      if (isBlock && language === 'mermaid') {
-        return (
-          <div className="mb-4">
-            <Streamdown mode="static" mermaid={mermaidOptions} controls={{ mermaid: true }}>
-              {`\`\`\`mermaid\n${codeText}\n\`\`\``}
-            </Streamdown>
-          </div>
-        )
-      }
-
-      if (isBlock) {
-        return (
-          <div className="group bg-user-bubble/20 relative mb-4 overflow-x-auto rounded-xl border border-gray-200 dark:border-zinc-700 dark:bg-zinc-800/40">
-            <div className="bg-user-bubble/50 flex items-center justify-between border-b border-gray-200 px-4 py-2 text-[11px] font-semibold text-gray-600 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-gray-300">
-              <span>{langLabel}</span>
-              <button
-                onClick={() => copyToClipboard(codeText)}
-                className="rounded-md bg-gray-200 px-2 py-1 text-[11px] text-gray-700 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 dark:bg-zinc-700 dark:text-gray-200"
-              >
-                Copy
-              </button>
-            </div>
-            <SyntaxHighlighter
-              style={isDark ? oneDark : oneLight}
-              language={language || 'text'}
-              PreTag="div"
-              className="code-scrollbar font-code! text-sm text-shadow-none!"
-              customStyle={{
-                margin: 0,
-                padding: '1rem',
-                background: 'transparent',
-                borderRadius: 'inherit',
-                whiteSpace: 'pre',
-                wordBreak: 'normal',
-              }}
-              codeTagProps={{
-                style: {
-                  backgroundColor: 'transparent',
-                  fontFamily: 'inherit',
-                  whiteSpace: 'inherit',
-                },
-              }}
-              {...props}
-            >
-              {codeText}
-            </SyntaxHighlighter>
-          </div>
-        )
-      }
-
-      return (
-        <code
-          className={`${className} bg-user-bubble rounded-md px-1.5 py-0.5 font-mono text-sm text-black dark:bg-zinc-800 dark:text-white`}
-          {...props}
-        >
-          {children}
-        </code>
-      )
-    },
-    [isDark, mermaidOptions],
+  const CodeBlock = useMemo(
+    () =>
+      createCodeBlockRenderer({
+        ReactSyntaxHighlighter: SyntaxHighlighter,
+        isDark,
+        oneDark,
+        oneLight,
+        StreamdownComponent: Streamdown,
+        mermaidOptions,
+        copyToClipboard,
+      }),
+    [copyToClipboard, isDark, mermaidOptions],
   )
 
   const headingCounterRef = useRef(0)
 
   const getNextHeadingId = useCallback(() => {
-    const id = `heading-${messageIndex}-${headingCounterRef.current}`
+    const id = buildHeadingId(messageIndex, headingCounterRef.current)
     headingCounterRef.current += 1
     return id
   }, [messageIndex])
 
   const createHeadingComponent = useCallback(
-    (Tag, className, withAnchors) => {
-      const Heading = ({ children, ...props }) => {
-        const headingId = withAnchors ? getNextHeadingId() : undefined
-        return (
-          <Tag
-            className={className}
-            {...(headingId ? { id: headingId, 'data-heading-id': headingId } : {})}
-            {...props}
-          >
-            {parseChildrenWithEmojis(children)}
-          </Tag>
-        )
-      }
-      Heading.displayName = `Heading\${Tag}`
-      return Heading
-    },
-    [getNextHeadingId],
+    (Tag, className, withAnchors) =>
+      createHeadingRenderer({
+        Tag,
+        className,
+        withAnchors,
+        getNextHeadingId,
+        parseChildrenWithEmojis,
+      }),
+    [getNextHeadingId, parseChildrenWithEmojis],
   )
 
   // Handle interactive form submission
@@ -2330,624 +1748,116 @@ const MessageBubble = ({
     [onFormSubmit],
   )
 
-  const MarkdownLinkRenderer = useMemo(() => {
-    const LinkRenderer = ({ href, children, ...props }) => {
-      const isInTable = React.useContext(InTableContext)
-      const safeHref = sanitizeMarkdownUrl(href)
-      let citationIndices = null
-
-      if (safeHref?.startsWith('citation:')) {
-        citationIndices = safeHref
-          .replace('citation:', '')
-          .split(',')
-          .map(Number)
-          .filter(n => !isNaN(n))
-      } else if (safeHref?.startsWith('https://citation.local/')) {
-        const path = safeHref.replace('https://citation.local/', '')
-        citationIndices = path
-          .split(',')
-          .map(Number)
-          .filter(n => !isNaN(n))
-      }
-
-      if (citationIndices) {
-        return (
-          <CitationChip
-            indices={citationIndices}
-            sources={documentCitationSources}
-            isMobile={isMobile}
-            onMobileClick={sources =>
-              handleMobileSourceClick(sources, t('sources.citationSources'))
-            }
-            label={children}
-          />
-        )
-      }
-      if (!safeHref) {
-        return <span {...props}>{parseChildrenWithEmojis(children)}</span>
-      }
-
-      const embedUrl = getVideoEmbedUrl(safeHref)
-      if (embedUrl) {
-        const videoInfo = videoMetadataRef.current.find(v => v.url === safeHref)
-        if (isInTable) {
-          const platform = getVideoPlatform(safeHref)
-          const platformMeta =
-            platform === 'youtube'
-              ? {
-                  label: 'YouTube',
-                  logo: YoutubeLogo,
-                  className: 'bg-red-600 text-white',
-                }
-              : platform === 'bilibili'
-                ? {
-                    label: 'Bilibili',
-                    logo: BilibiliLogo,
-                    className: 'bg-sky-500 text-white',
-                  }
-                : {
-                    label: '视频',
-                    logo: null,
-                    className: 'bg-rose-500 text-white',
-                  }
-
-          return (
-            <a
-              href={safeHref}
-              target="_blank"
-              rel="noreferrer"
-              className={clsx(
-                'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium',
-                platformMeta.className,
-              )}
-              title={videoInfo?.title || platformMeta.label}
-            >
-              {platformMeta.logo ? (
-                <img
-                  src={platformMeta.logo}
-                  alt={platformMeta.label}
-                  className="h-3.5 w-3.5 shrink-0 rounded-sm bg-white/90 p-px"
-                  loading="lazy"
-                />
-              ) : null}
-              <span>{platformMeta.label}</span>
-            </a>
-          )
-        }
-        return <InlineVideoEmbed embedUrl={embedUrl} title={videoInfo?.title || 'Video'} />
-      }
-
-      return (
-        <a
-          href={safeHref}
-          {...props}
-          target="_blank"
-          rel="noreferrer"
-          className="hover:bg-primary-300/50 dark:hover:bg-primary-700/50 dark:bg-primary-900/50 bg-primary-200/50 text-primary-700 dark:text-primary-300 mx-0.5 rounded-lg px-1 py-0.5 text-[12px]"
-        >
-          {parseChildrenWithEmojis(children)}
-        </a>
-      )
-    }
-    LinkRenderer.displayName = 'MarkdownLinkRenderer'
-    return LinkRenderer
-  }, [
-    documentCitationSources,
-    isMobile,
-    handleMobileSourceClick,
-    t,
-    getVideoEmbedUrl,
-    getVideoPlatform,
-  ])
-
-  const markdownComponents = useMemo(
-    () => ({
-      code: ({ inline, className, children, ...props }) => {
-        return (
-          <CodeBlock inline={inline} className={className} {...props}>
-            {children}
-          </CodeBlock>
-        )
-      },
-      p: ({ children, ...props }) => (
-        <p className="mb-4" {...props}>
-          {parseChildrenWithEmojis(children)}
-        </p>
-      ),
-      h1: createHeadingComponent('h1', 'text-2xl font-bold mb-4', false),
-      h2: createHeadingComponent('h2', 'text-xl font-bold mb-4', false),
-      h3: createHeadingComponent('h3', 'text-lg font-bold mb-4', false),
-      ul: ({ ...props }) => <ul className="mb-4 list-disc space-y-1 pl-5" {...props} />,
-      ol: ({ ...props }) => <ol className="mb-4 list-decimal space-y-1 pl-5" {...props} />,
-      li: ({ children, ...props }) => (
-        <li className="mb-1" {...props}>
-          {parseChildrenWithEmojis(children)}
-        </li>
-      ),
-      blockquote: ({ children, ...props }) => (
-        <blockquote
-          className="mb-4 border-l-4 border-gray-300 pl-4 text-gray-600 italic dark:border-zinc-600 dark:text-gray-400 [&_p]:mb-0"
-          {...props}
-        >
-          {parseChildrenWithEmojis(children)}
-        </blockquote>
-      ),
-      table: ({ ...props }) => (
-        <div className="table-scrollbar code-scrollbar mb-4 w-fit max-w-full overflow-x-auto rounded-lg border border-gray-200 dark:border-zinc-700">
-          <table className="w-auto divide-y divide-gray-200 dark:divide-zinc-700" {...props} />
-        </div>
-      ),
-      thead: ({ ...props }) => <thead className="bg-user-bubble dark:bg-zinc-800" {...props} />,
-      tbody: ({ ...props }) => (
-        <tbody
-          className="bg-user-bubble/20 divide-y divide-gray-200 dark:divide-zinc-700 dark:bg-zinc-900"
-          {...props}
-        />
-      ),
-      tr: ({ ...props }) => <tr {...props} />,
-      th: ({ children, ...props }) => (
-        <th
-          className="px-4 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase dark:text-gray-400"
-          {...props}
-        >
-          <InTableContext.Provider value>
-            {parseChildrenWithEmojis(children)}
-          </InTableContext.Provider>
-        </th>
-      ),
-      td: ({ children, ...props }) => (
-        <td
-          className="px-4 py-3 text-sm whitespace-nowrap text-gray-700 dark:text-gray-300"
-          {...props}
-        >
-          <InTableContext.Provider value>
-            {parseChildrenWithEmojis(children)}
-          </InTableContext.Provider>
-        </td>
-      ),
-      a: MarkdownLinkRenderer,
-      img: ({ src, alt }) => {
-        const safeSrc = sanitizeMarkdownUrl(src, { allowDataImage: true })
-        if (!safeSrc) return null
-
-        return (
-          <MessageImage
-            src={safeSrc}
-            alt={alt}
-            openGallery={openGallery}
-            isFailed={failedImageUrls.has(safeSrc)}
-            imageMetadataRef={imageMetadataRef}
-            onImageError={handleImageError}
-          />
-        )
-      },
-      hr: () => (
-        <div className="relative my-4">
-          <div className="h-px bg-linear-to-r from-transparent via-gray-300 to-transparent dark:via-zinc-700" />
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-            <div className="h-2.5 w-2.5 rounded-full bg-gray-200 shadow-sm ring-2 ring-white dark:bg-zinc-700 dark:ring-zinc-900" />
-          </div>
-        </div>
-      ),
-    }),
+  const MarkdownLinkRenderer = useMemo(
+    () =>
+      createMarkdownLinkRenderer({
+        InTableContext,
+        sanitizeMarkdownUrl,
+        CitationChip,
+        documentCitationSources,
+        isMobile,
+        handleMobileSourceClick,
+        t,
+        parseChildrenWithEmojis,
+        getVideoEmbedUrl,
+        getVideoPlatform,
+        videoMetadataRef,
+        InlineVideoEmbed,
+        YoutubeLogo,
+        BilibiliLogo,
+        clsx,
+      }),
     [
-      isDark,
-      mergedMessage.sources,
-      isMobile,
-      handleMobileSourceClick,
-      CodeBlock,
-      t,
-      openGallery,
-      handleImageError,
-      failedImageUrls,
+      documentCitationSources,
       getVideoEmbedUrl,
       getVideoPlatform,
-      // Note: imageMetadataRef and videoMetadataRef are excluded as they're stable refs that don't trigger re-renders
-    ], // Dependencies for markdownComponents
+      handleMobileSourceClick,
+      isMobile,
+      parseChildrenWithEmojis,
+      t,
+    ],
   )
 
-  const markdownComponentsWithAnchors = useMemo(() => {
-    // Use a local counter captured in the closure of this memoized value
-    let localHeadingCounter = 0
+  const markdownComponents = useMemo(
+    () =>
+      createMarkdownComponents({
+        React,
+        CodeBlock,
+        parseChildrenWithEmojis,
+        createHeadingComponent,
+        MarkdownLinkRenderer,
+        sanitizeMarkdownUrl,
+        MessageImage,
+        openGallery,
+        failedImageUrls,
+        imageMetadataRef,
+        handleImageError,
+        InTableContext,
+      }),
+    [
+      CodeBlock,
+      MarkdownLinkRenderer,
+      createHeadingComponent,
+      failedImageUrls,
+      handleImageError,
+      openGallery,
+      parseChildrenWithEmojis,
+    ],
+  )
 
-    // Helper to generate IDs using the local counter
-    const createLocalHeading = (Tag, className) => {
-      const Heading = ({ children, ...props }) => {
-        const id = `heading-${messageIndex}-${localHeadingCounter++}`
-        return (
-          <Tag className={className} id={id} data-heading-id={id} {...props}>
-            {parseChildrenWithEmojis(children)}
-          </Tag>
-        )
-      }
-      Heading.displayName = `Heading${Tag}`
-      return Heading
-    }
-
-    return {
-      ...markdownComponents,
-      h1: createLocalHeading('h1', 'text-2xl font-bold mb-4 mt-4'),
-      h2: createLocalHeading('h2', 'text-xl font-bold mb-4'),
-      h3: createLocalHeading('h3', 'text-lg font-bold mb-4'),
-    }
-  }, [markdownComponents, messageIndex, parseChildrenWithEmojis])
+  const markdownComponentsWithAnchors = useMemo(
+    () =>
+      createMarkdownComponentsWithAnchors({
+        markdownComponents,
+        messageIndex,
+        parseChildrenWithEmojis,
+      }),
+    [markdownComponents, messageIndex, parseChildrenWithEmojis],
+  )
 
   const workflowThoughtParts = useMemo(
-    () => interleavedContent.filter(part => part.type === 'thought'),
+    () => getWorkflowThoughtParts(interleavedContent),
     [interleavedContent],
   )
   const isDeepThinkingStreaming = isStreaming && !hasMainText && workflowThoughtParts.length > 0
   const workflowTextParts = useMemo(
-    () => interleavedContent.filter(part => part.type === 'workflow_text'),
+    () => getWorkflowTextParts(interleavedContent),
     [interleavedContent],
   )
-  const contentPartsOutsideWorkflow = useMemo(() => {
-    const rawParts = []
-
-    for (let i = 0; i < interleavedContent.length; i++) {
-      const part = interleavedContent[i]
-
-      if (part.type === 'text') {
-        rawParts.push({ type: 'text', key: `text-${i}`, content: part.content })
-        continue
-      }
-
-      if (part.type === 'tools' && Array.isArray(part.items)) {
-        const formItems = part.items.filter(item => item?.name === 'interactive_form')
-        const htmlWidgetItems = part.items.filter(item => item?.name === 'render_html_widget')
-        const pptxItems = part.items.filter(
-          item => item?.name === 'ppt_generator' || item?.name === 'html_to_pptx',
-        )
-        const regularTools = part.items.filter(
-          item =>
-            item?.name !== 'interactive_form' &&
-            item?.name !== 'form_submission_status' &&
-            item?.name !== 'ppt_generator' &&
-            item?.name !== 'html_to_pptx',
-        )
-
-        if (regularTools.length > 0) {
-          let prevToolPart = null
-          for (let j = rawParts.length - 1; j >= 0; j--) {
-            const rp = rawParts[j]
-            // Skip over empty/whitespace text blocks when looking for a tool block to merge into
-            if (rp.type === 'text' && (!rp.content || !rp.content.trim())) continue
-            if (rp.type === 'tools') prevToolPart = rp
-            break
-          }
-
-          if (prevToolPart) {
-            // Merge into previous tools block
-            prevToolPart.items = [...prevToolPart.items, ...regularTools]
-          } else {
-            // Create new tools block
-            rawParts.push({
-              type: 'tools',
-              key: part.key || `tools-${i}`,
-              items: [...regularTools],
-            })
-          }
-        }
-
-        if (formItems.length > 0) {
-          rawParts.push({
-            type: 'interactive_form',
-            key: `${part.key || `interactive-form-${i}`}-form`,
-            items: formItems,
-          })
-        }
-
-        if (htmlWidgetItems.length > 0) {
-          rawParts.push({
-            type: 'html_widget',
-            key: `${part.key || `html-widget-${i}`}-widget`,
-            items: htmlWidgetItems,
-          })
-        }
-
-        if (pptxItems.length > 0) {
-          rawParts.push({
-            type: 'pptx_file',
-            key: `${part.key || `pptx-file-${i}`}-file`,
-            items: pptxItems,
-          })
-        }
-      }
-    }
-
-    // Some streaming paths (e.g. expert synthetic message) can produce many tiny
-    // adjacent text segments; merge them before rendering to avoid per-chunk line breaks.
-    const shouldMergeAdjacentText = isExpertMessage || compactStreamingTextBlocks
-    const mergedTextParts = []
-    const sourceParts = shouldMergeAdjacentText ? rawParts : rawParts
-    for (const part of sourceParts) {
-      const prev = mergedTextParts[mergedTextParts.length - 1]
-      if (part.type === 'text' && prev?.type === 'text') {
-        prev.content = `${prev.content || ''}${part.content || ''}`
-        continue
-      }
-      mergedTextParts.push({ ...part })
-    }
-
-    const pptPartIndexes = mergedTextParts
-      .map((part, index) => (part.type === 'pptx_file' ? index : -1))
-      .filter(index => index >= 0)
-
-    if (pptPartIndexes.length <= 1) return mergedTextParts
-
-    let winnerIndex = pptPartIndexes[pptPartIndexes.length - 1]
-    for (let i = pptPartIndexes.length - 1; i >= 0; i--) {
-      const index = pptPartIndexes[i]
-      const part = mergedTextParts[index]
-      const hasSuccessfulPayload = Array.isArray(part?.items)
-        ? part.items.some(item =>
-            Boolean(parsePptxPayload(item?.output) || parsePptxPayload(item?.result)),
-          )
-        : false
-      if (hasSuccessfulPayload) {
-        winnerIndex = index
-        break
-      }
-    }
-
-    const collapsed = []
-    const hiddenRetryCount = pptPartIndexes.length - 1
-    for (let i = 0; i < mergedTextParts.length; i++) {
-      const part = mergedTextParts[i]
-      if (part.type !== 'pptx_file') {
-        collapsed.push(part)
-        continue
-      }
-      if (i !== winnerIndex) continue
-      collapsed.push({
-        ...part,
-        retryCountHidden: hiddenRetryCount,
-      })
-    }
-
-    return collapsed
-  }, [compactStreamingTextBlocks, interleavedContent, isExpertMessage, parsePptxPayload])
-  const allSources = useMemo(
-    () => [
-      ...(Array.isArray(mergedMessage.sources)
-        ? mergedMessage.sources.map((source, index) => ({
-            ...source,
-            sourceKind: 'web',
-            originalIndex: source?.originalIndex !== undefined ? source.originalIndex : index,
-          }))
-        : []),
-      ...documentCitationSources.map((source, index) => ({
-        ...source,
-        sourceKind: 'document',
-        originalIndex: source?.originalIndex !== undefined ? source.originalIndex : index,
-      })),
+  const contentPartsOutsideWorkflow = useMemo(
+    () =>
+      buildContentPartsOutsideWorkflow({
+        interleavedContent,
+        isExpertMessage,
+        compactStreamingTextBlocks,
+        parsePptxPayload,
+        parseExcelPayload,
+      }),
+    [
+      compactStreamingTextBlocks,
+      interleavedContent,
+      isExpertMessage,
+      parseExcelPayload,
+      parsePptxPayload,
     ],
+  )
+  const allSources = useMemo(
+    () =>
+      buildAllSources({
+        webSources: mergedMessage.sources,
+        documentCitationSources,
+      }),
     [documentCitationSources, mergedMessage.sources],
   )
   const shouldShowSourcesDrawer = !isStreaming && allSources.length > 0
-  const SEARCH_STEP_TOOLS = useMemo(
-    () =>
-      new Set([
-        'Tavily_web_search',
-        'Tavily_academic_search',
-        'web_search_using_tavily',
-        'web_search_with_tavily',
-        'extract_url_content',
-        'web_search',
-        'search_news',
-        'search_arxiv_and_return_articles',
-        'search_wikipedia',
-      ]),
-    [],
-  )
   const processSteps = useMemo(() => {
-    if (isDeepResearch) return []
-    const toolById = new Map()
-    for (const tool of toolCallHistory) {
-      if (tool?.id) toolById.set(String(tool.id), tool)
-    }
-    const steps = []
-    const parseToolQuery = tool => {
-      if (!tool) return ''
-      const args = tool.arguments
-      if (args && typeof args === 'object' && typeof args.query === 'string') return args.query
-      if (typeof args === 'string') {
-        try {
-          const parsed = JSON.parse(args)
-          if (parsed && typeof parsed === 'object' && typeof parsed.query === 'string') {
-            return parsed.query
-          }
-        } catch {
-          return ''
-        }
-      }
-      return ''
-    }
-
-    const addToolToStep = (targetStep, tool) => {
-      const key = tool?.id
-        ? String(tool.id)
-        : `${tool?.name || 'tool'}:${String(tool?.arguments || '')}:${String(tool?.output || '')}`
-      if (!targetStep._toolKeys.has(key)) {
-        targetStep._toolKeys.add(key)
-        targetStep.items.push(tool)
-        if (typeof tool.durationMs === 'number') {
-          targetStep.durationMs = (targetStep.durationMs || 0) + tool.durationMs
-        }
-        const query = parseToolQuery(tool)
-        if (query && !targetStep._querySet.has(query)) {
-          targetStep._querySet.add(query)
-          targetStep.queries.push(query)
-        }
-      }
-    }
-
-    for (const block of normalizedStreamBlocks) {
-      if ((block.type === 'reasoning' || block.type === 'thought') && block.content) {
-        const lastStep = steps[steps.length - 1]
-        if (lastStep?.kind === 'thought') {
-          lastStep.content = `${lastStep.content || ''}${block.content || ''}`
-          const prevDuration = Number.isFinite(lastStep.durationMs)
-            ? Number(lastStep.durationMs)
-            : 0
-          const nextDuration = Number.isFinite(block.durationMs) ? Number(block.durationMs) : 0
-          lastStep.durationMs = prevDuration + nextDuration
-        } else {
-          steps.push({
-            kind: 'thought',
-            content: block.content,
-            durationMs: Number.isFinite(block.durationMs) ? Number(block.durationMs) : 0,
-          })
-        }
-        continue
-      }
-
-      if (block.type === 'tool_call' || block.type === 'tool_result' || block.type === 'tool') {
-        const fallbackTool = {
-          id: block.toolCallId || null,
-          name: block.name || 'tool',
-          status: block.status || 'done',
-          arguments: block.arguments ?? null,
-          output: block.output ?? null,
-          durationMs: Number.isFinite(block.durationMs) ? Number(block.durationMs) : null,
-        }
-        const tool = (block.toolCallId && toolById.get(String(block.toolCallId))) || fallbackTool
-        if (
-          !tool?.name ||
-          tool.name === 'interactive_form' ||
-          tool.name === 'form_submission_status'
-        ) {
-          continue
-        }
-
-        const isSearchTool = SEARCH_STEP_TOOLS.has(String(tool.name))
-        if (isSearchTool) {
-          const lastStep = steps[steps.length - 1]
-          if (lastStep?.kind === 'search') {
-            addToolToStep(lastStep, tool)
-          } else {
-            const newSearchStep = {
-              kind: 'search',
-              items: [],
-              queries: [],
-              sources: [],
-              durationMs: 0,
-              _toolKeys: new Set(),
-              _querySet: new Set(),
-            }
-            steps.push(newSearchStep)
-            addToolToStep(newSearchStep, tool)
-          }
-          continue
-        }
-
-        const lastStep = steps[steps.length - 1]
-        if (lastStep?.kind === 'tools') {
-          if (!lastStep._toolKeys.has(String(tool.id || `${tool.name}:${lastStep.items.length}`))) {
-            lastStep._toolKeys.add(String(tool.id || `${tool.name}:${lastStep.items.length}`))
-            lastStep.items.push(tool)
-          }
-        } else {
-          steps.push({
-            kind: 'tools',
-            items: [tool],
-            _toolKeys: new Set([String(tool.id || `${tool.name}:0`)]),
-          })
-        }
-        continue
-      }
-    }
-
-    const _allSourcesList = Array.isArray(mergedMessage.sources) ? [...mergedMessage.sources] : []
-    const unallocatedSources = new Set(_allSourcesList)
-
-    steps.forEach(step => {
-      if (step.kind === 'search') {
-        const matchedSources = []
-        // Process each tool execution to extract sources directly if possible
-        step.items.forEach(t => {
-          if (!t.output) return
-          let parsed = null
-          if (typeof t.output === 'string') {
-            try {
-              parsed = JSON.parse(t.output)
-            } catch (e) {
-              const match = t.output.match(/\{[\s\S]*\}|\[[\s\S]*\]/)
-              if (match) {
-                try {
-                  parsed = JSON.parse(match[0])
-                } catch (err) {}
-              }
-            }
-          } else if (typeof t.output === 'object') {
-            parsed = t.output
-          }
-
-          if (parsed) {
-            const results =
-              parsed.results || parsed.data || parsed.items || (Array.isArray(parsed) ? parsed : [])
-            if (Array.isArray(results)) {
-              results.forEach(result => {
-                const url = result?.url || result?.link || result?.href
-                if (url) {
-                  matchedSources.push({
-                    url,
-                    title: result.title || url,
-                    snippet: result.snippet || result.description || '',
-                    media: result.media || '',
-                    icon: result.icon || '',
-                  })
-                }
-              })
-            }
-          }
-        })
-
-        // Fallback: if we couldn't parse directly from output, match by text containment
-        if (matchedSources.length === 0) {
-          const stepOutputs = step.items
-            .map(t => {
-              let text = String(t.output || '')
-              if (typeof t.output === 'object') {
-                try {
-                  text = JSON.stringify(t.output)
-                } catch (e) {}
-              }
-              return text
-            })
-            .join('\n')
-
-          for (const src of unallocatedSources) {
-            if (
-              (src.url && stepOutputs.includes(src.url)) ||
-              (src.title && stepOutputs.includes(src.title)) ||
-              (src.id && stepOutputs.includes(`"${src.id}"`))
-            ) {
-              matchedSources.push(src)
-              unallocatedSources.delete(src)
-            }
-          }
-        }
-
-        // Deduplicate matched sources by URL
-        const seenUrls = new Set()
-        step.sources = matchedSources.filter(src => {
-          if (!src.url) return false
-          if (seenUrls.has(src.url)) return false
-          seenUrls.add(src.url)
-          return true
-        })
-      }
-    })
-
-    return steps.map(step => {
-      const nextStep = { ...step }
-      delete nextStep._toolKeys
-      delete nextStep._querySet
-      return nextStep
+    return buildMessageProcessSteps({
+      isDeepResearch,
+      normalizedStreamBlocks,
+      toolCallHistory,
+      mergedSources: mergedMessage.sources,
     })
   }, [
-    SEARCH_STEP_TOOLS,
     isDeepResearch,
     mergedMessage.sources,
     normalizedStreamBlocks,
@@ -2985,10 +1895,10 @@ const MessageBubble = ({
       return (
         <div
           key={`tools-inline-row-${idx}`}
-          className="group/toolrow mb-4 flex w-full items-start gap-3"
+          className="group/toolrow mb-4 flex w-full items-center gap-3"
         >
           {/* Label Section */}
-          <div className="mt-1.5 shrink-0 text-[11px] font-bold tracking-wider text-gray-400 uppercase select-none dark:text-zinc-500">
+          <div className="shrink-0 text-[11px] leading-none font-bold tracking-wider text-gray-400 uppercase select-none dark:text-zinc-500">
             {prefixLabel}
           </div>
 
@@ -3071,7 +1981,7 @@ const MessageBubble = ({
         <div
           className={clsx(
             'inline-flex max-w-full items-center rounded-full border shadow-[0_1px_2px_rgba(0,0,0,0.02)]',
-            compact ? 'gap-1.5 px-2.5 py-1.5 text-[11px]!' : 'gap-2 px-3 py-2 text-xs!',
+            compact ? 'gap-1.5 px-2.5 py-1.5 text-xs!' : 'x-2.5 gap-2 py-1.5 text-xs!',
             isError
               ? 'border-red-200/70 bg-red-50/70 text-red-600 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300'
               : 'border-primary-200/35 dark:border-primary-700/20 bg-white/65 text-gray-600 dark:bg-zinc-800/40 dark:text-gray-300',
@@ -3101,224 +2011,105 @@ const MessageBubble = ({
     [workflowTextParts],
   )
 
-  const renderToolLoadingCard = (key, { title, badge, kind = 'form' }) => {
-    const isForm = kind === 'form'
+  const renderToolLoadingCard = useMemo(
+    () =>
+      createToolLoadingCardRenderer({
+        React,
+        DotLoader,
+        t,
+      }),
+    [t],
+  )
 
-    return (
-      <div
-        key={key}
-        className="mb-4 overflow-hidden rounded-2xl border border-white/10 bg-black/10 opacity-100 transition-all duration-300 ease-[cubic-bezier(0.2,0.6,0.2,1)]"
-      >
-        <div className="flex items-center justify-between border-b border-white/8 px-3 py-2">
-          <div className="flex items-center gap-2">
-            <div className="bg-pr00/10 h-4 w-4 rounded-full border">
-              <div className="bg-primary-500/35 bg-primary-500/35 animate- h-full w-full" />
-            </div>
-            <div className="truncate text-sm font-semibold text-zinc-200">{title}</div>
-          </div>
-          <span className="rounded-full border border-white/10 bg-white/6 px-2 py-0.5 text-[11px] font-medium text-zinc-400">
-            {badge}
-          </span>
-        </div>
-        <div className="space-y-3 px-4 py-4">
-          <div className="flex items-center gap-2 text-xs font-medium text-zinc-400">
-            <DotLoader size="sm" />
-            <span>
-              {isForm
-                ? t('tools.interactiveForm', 'Interactive Form')
-                : t('tools.renderHtmlWidget', 'HTML Widget')}
-              {t('messageBubble.toolStatusCalling', '调用中')}
-            </span>
-          </div>
-          {isForm ? (
-            <div className="rounded-2xl border border-white/8 bg-white/4 p-4">
-              <div className="mb-4 h-4 w-30 animate-pulse rounded-full bg-white/8" />
-              <div className="space-y-3">
-                <div className="space-y-2">
-                  <div className="h-3 w-16 animate-pulse rounded-full bg-white/10" />
-                  <div className="h-11 w-full animate-pulse rounded-xl bg-white/7" />
-                </div>
-                <div className="space-y-2">
-                  <div className="h-3 w-20 animate-pulse rounded-full bg-white/10" />
-                  <div className="h-11 w-full animate-pulse rounded-xl bg-white/7" />
-                </div>
-                <div className="bg-primary-500/20 bg-primary-500/20 animat mt-4 h-10 w-28" />
-              </div>
-            </div>
-          ) : (
-            <div className="rounded-2xl border border-white/8 bg-linear-to-b from-zinc-900/80 to-black/35 p-4">
-              <div className="mb-4 flex items-center justify-between">
-                <div className="h-4 w-32 animate-pulse rounded-full bg-white/10" />
-                <div className="h-5 w-14 animate-pulse rounded-full bg-white/8" />
-              </div>
-              <div className="space-y-3">
-                <div className="h-22 animate-pulse rounded-2xl bg-white/6" />
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="h-16 animate-pulse rounded-xl bg-white/5" />
-                  <div className="h-16 animate-pulse rounded-xl bg-white/5" />
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    )
-  }
+  const renderInteractiveFormItem = useMemo(
+    () =>
+      createInteractiveFormItemRenderer({
+        React,
+        parseFormPayload,
+        messages,
+        messageIndex,
+        handleFormSubmit,
+        messageId: message.id,
+        developerMode,
+        setActiveToolDetail,
+        InteractiveForm,
+        isStreaming,
+        getToolDisplayName,
+        t,
+        renderToolLoadingCard,
+      }),
+    [
+      developerMode,
+      getToolDisplayName,
+      handleFormSubmit,
+      isStreaming,
+      message.id,
+      messageIndex,
+      messages,
+      parseFormPayload,
+      renderToolLoadingCard,
+      setActiveToolDetail,
+      t,
+    ],
+  )
 
-  const renderInteractiveFormItem = (item, formKey) => {
-    const formData = parseFormPayload(item.arguments) || parseFormPayload(item.output)
+  const renderHtmlWidgetItem = useMemo(
+    () =>
+      createHtmlWidgetItemRenderer({
+        React,
+        parseHtmlWidgetPayload,
+        isStreaming,
+        getToolDisplayName,
+        t,
+        renderToolLoadingCard,
+        HtmlWidgetCard,
+      }),
+    [getToolDisplayName, isStreaming, parseHtmlWidgetPayload, renderToolLoadingCard, t],
+  )
 
-    const nextMsg = messages[messageIndex + 1]
-    const isInterrupted = nextMsg && nextMsg.role === 'user' && !nextMsg.hitlRunId
+  const renderPptxFileItem = useMemo(
+    () =>
+      createPptxFileItemRenderer({
+        React,
+        parsePptxPayload,
+        isStreaming,
+        getToolDisplayName,
+        t,
+        renderToolLoadingCard,
+        PptxResultCard,
+        resolveBackendDownloadUrl,
+      }),
+    [
+      getToolDisplayName,
+      isStreaming,
+      parsePptxPayload,
+      renderToolLoadingCard,
+      resolveBackendDownloadUrl,
+      t,
+    ],
+  )
 
-    // If the tool status is 'done', it means the form was submitted.
-    // Also disable if the user interrupted the flow with a new message.
-    const isSubmitted = item.status === 'done'
-    const shouldDisableForm = isSubmitted || isInterrupted
-
-    if (formData) {
-      return (
-        <div
-          key={formKey}
-          className="opacity-100 transition-all duration-300 ease-[cubic-bezier(0.2,0.6,0.2,1)]"
-        >
-          <InteractiveForm
-            formData={formData}
-            onSubmit={handleFormSubmit}
-            messageId={message.id}
-            isSubmitted={shouldDisableForm}
-            submittedValues={parseFormPayload(item.result) || parseFormPayload(item.output) || {}}
-            developerMode={developerMode}
-            onShowDetails={() => setActiveToolDetail(item)}
-          />
-        </div>
-      )
-    }
-
-    const shouldShowSkeleton =
-      isStreaming ||
-      item.status === 'calling' ||
-      item.status === 'running' ||
-      item.status !== 'done'
-    if (shouldShowSkeleton) {
-      return renderToolLoadingCard(`form-skeleton-${formKey}`, {
-        title: getToolDisplayName(item) || t('tools.interactiveForm', 'Interactive Form'),
-        badge: 'FORM',
-        kind: 'form',
-      })
-    }
-
-    console.error('Failed to parse interactive form arguments:', item)
-    return (
-      <div
-        key={`form-error-${formKey}`}
-        className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300"
-      >
-        Error displaying form
-      </div>
-    )
-  }
-
-  const renderHtmlWidgetItem = (item, widgetKey) => {
-    const payload = parseHtmlWidgetPayload(item.output) || parseHtmlWidgetPayload(item.result)
-    const shouldShowSkeleton =
-      !payload &&
-      (isStreaming ||
-        item.status === 'calling' ||
-        item.status === 'running' ||
-        item.status !== 'done')
-
-    if (shouldShowSkeleton) {
-      return renderToolLoadingCard(`html-widget-skeleton-${widgetKey}`, {
-        title: getToolDisplayName(item) || t('tools.renderHtmlWidget', 'HTML Widget'),
-        badge: 'HTML',
-        kind: 'html',
-      })
-    }
-
-    const resolvedPayload = payload || {
-      type: 'html_widget_error',
-      code: 'missing_payload',
-      message: 'No widget payload found in tool result.',
-    }
-
-    if (resolvedPayload.type === 'html_widget_error') {
-      return (
-        <div
-          key={widgetKey}
-          className="mb-4 rounded-2xl border border-red-300/40 bg-red-500/8 p-3 text-sm text-red-200"
-        >
-          <div className="font-semibold">{t('tools.renderHtmlWidget', 'HTML Widget')}</div>
-          <div className="mt-1">
-            {t(
-              'messageBubble.htmlWidgetFallback',
-              'Unable to render HTML widget. Showing fallback info.',
-            )}
-          </div>
-          <div className="mt-1 opacity-80">
-            {resolvedPayload.code}: {resolvedPayload.message}
-          </div>
-        </div>
-      )
-    }
-
-    const displayTitle =
-      resolvedPayload.title ||
-      getToolDisplayName(item) ||
-      t('tools.renderHtmlWidget', 'HTML Widget')
-    return (
-      <HtmlWidgetCard
-        key={widgetKey}
-        widgetKey={widgetKey}
-        widget={resolvedPayload}
-        displayTitle={displayTitle}
-        t={t}
-      />
-    )
-  }
-
-  const renderPptxFileItem = (item, pptxKey) => {
-    const payload = parsePptxPayload(item.output) || parsePptxPayload(item.result)
-    const shouldShowSkeleton =
-      !payload &&
-      (isStreaming ||
-        item.status === 'calling' ||
-        item.status === 'running' ||
-        item.status !== 'done')
-
-    if (shouldShowSkeleton) {
-      return renderToolLoadingCard(`pptx-skeleton-${pptxKey}`, {
-        title: getToolDisplayName(item) || t('tools.pptGenerator', 'PPT Generator'),
-        badge: 'PPTX',
-        kind: 'html',
-      })
-    }
-
-    if (!payload) {
-      return (
-        <div
-          key={pptxKey}
-          className="mb-4 rounded-2xl border border-red-300/40 bg-red-500/8 p-3 text-sm text-red-200"
-        >
-          <div className="font-semibold">{t('tools.pptGenerator', 'PPT Generator')}</div>
-          <div className="mt-1">
-            {t('messageBubble.ppt.missingPayload', 'No PPTX payload found in the tool result.')}
-          </div>
-        </div>
-      )
-    }
-
-    return (
-      <PptxResultCard
-        key={pptxKey}
-        item={item}
-        payload={payload}
-        displayTitle={getToolDisplayName(item) || t('tools.pptGenerator', 'PPT Generator')}
-        resolveBackendDownloadUrl={resolveBackendDownloadUrl}
-        t={t}
-      />
-    )
-  }
+  const renderExcelFileItem = useMemo(
+    () =>
+      createExcelFileItemRenderer({
+        React,
+        parseExcelPayload,
+        isStreaming,
+        getToolDisplayName,
+        t,
+        renderToolLoadingCard,
+        ExcelResultCard,
+        resolveBackendDownloadUrl,
+      }),
+    [
+      getToolDisplayName,
+      isStreaming,
+      parseExcelPayload,
+      renderToolLoadingCard,
+      resolveBackendDownloadUrl,
+      t,
+    ],
+  )
 
   const firstTextPartDisplayIndex = contentPartsOutsideWorkflow.findIndex(
     part => part.type === 'text',
@@ -3388,15 +2179,80 @@ const MessageBubble = ({
     if (part.type === 'pptx_file') {
       return (
         <React.Fragment key={part.key || `pptx-file-outside-${idx}`}>
-          {Number(part.retryCountHidden) > 0 ? (
-            <div className="mb-3 text-xs text-zinc-400">
-              {t('messageBubble.pptRetriesHidden', {
-                defaultValue: 'Earlier PPT attempts were hidden. Showing the latest result.',
-              })}
-            </div>
+          {Number(part.hiddenEarlierCount) > 0 && Array.isArray(part.hiddenEarlierItems) ? (
+            <details className="group mb-3 overflow-hidden rounded-2xl border border-white/8 bg-white/[0.035] text-sm shadow-[0_10px_30px_-22px_rgba(0,0,0,0.45)] backdrop-blur-sm transition-colors dark:border-white/8 dark:bg-white/[0.04]">
+              <summary className="flex cursor-pointer list-none items-center gap-3 px-3 py-3 marker:hidden sm:px-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-amber-300/25 bg-amber-500/10 text-amber-200">
+                  <Presentation size={18} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-semibold text-zinc-100">
+                    {t('messageBubble.pptEarlierResults', {
+                      count: part.hiddenEarlierCount,
+                      defaultValue: 'Show {{count}} earlier PPT result(s)',
+                    })}
+                  </div>
+                </div>
+                <div className="flex shrink-0 items-center gap-2 self-start sm:self-center">
+                  <span className="rounded-full border border-white/10 bg-white/6 px-2 py-1 text-[11px] font-medium text-zinc-300">
+                    {part.hiddenEarlierCount}
+                  </span>
+                  <ChevronDown
+                    size={16}
+                    className="text-zinc-400 transition-transform duration-200 group-open:rotate-180"
+                  />
+                </div>
+              </summary>
+              <div className="border-t border-white/8 px-3 py-3 sm:px-4">
+                {part.hiddenEarlierItems.map((item, fileIdx) =>
+                  renderPptxFileItem(item, `pptx-file-hidden-${part.key || idx}-${item.id || fileIdx}`),
+                )}
+              </div>
+            </details>
           ) : null}
           {part.items.map((item, fileIdx) =>
             renderPptxFileItem(item, `pptx-file-${part.key || idx}-${item.id || fileIdx}`),
+          )}
+        </React.Fragment>
+      )
+    }
+
+    if (part.type === 'excel_file') {
+      return (
+        <React.Fragment key={part.key || `excel-file-outside-${idx}`}>
+          {Number(part.hiddenEarlierCount) > 0 && Array.isArray(part.hiddenEarlierItems) ? (
+            <details className="group mb-3 overflow-hidden rounded-2xl border border-white/8 bg-white/[0.035] text-sm shadow-[0_10px_30px_-22px_rgba(0,0,0,0.45)] backdrop-blur-sm transition-colors dark:border-white/8 dark:bg-white/[0.04]">
+              <summary className="flex cursor-pointer list-none items-center gap-3 px-3 py-3 marker:hidden sm:px-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-emerald-300/25 bg-emerald-500/10 text-emerald-200">
+                  <FileSpreadsheet size={18} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-semibold text-zinc-100">
+                    {t('messageBubble.excelEarlierResults', {
+                      count: part.hiddenEarlierCount,
+                      defaultValue: 'Show {{count}} earlier Excel result(s)',
+                    })}
+                  </div>
+                </div>
+                <div className="flex shrink-0 items-center gap-2 self-start sm:self-center">
+                  <span className="rounded-full border border-white/10 bg-white/6 px-2 py-1 text-[11px] font-medium text-zinc-300">
+                    {part.hiddenEarlierCount}
+                  </span>
+                  <ChevronDown
+                    size={16}
+                    className="text-zinc-400 transition-transform duration-200 group-open:rotate-180"
+                  />
+                </div>
+              </summary>
+              <div className="border-t border-white/8 px-3 py-3 sm:px-4">
+                {part.hiddenEarlierItems.map((item, fileIdx) =>
+                  renderExcelFileItem(item, `excel-file-hidden-${part.key || idx}-${item.id || fileIdx}`),
+                )}
+              </div>
+            </details>
+          ) : null}
+          {part.items.map((item, fileIdx) =>
+            renderExcelFileItem(item, `excel-file-${part.key || idx}-${item.id || fileIdx}`),
           )}
         </React.Fragment>
       )
@@ -3452,216 +2308,33 @@ const MessageBubble = ({
       !!onUserRegenerate && !isDeepResearchContext && !hasAssistantReplyForCurrentQuestion
 
     return (
-      <div
-        id={messageId}
-        ref={el => {
-          containerRef.current = el
-          if (typeof bubbleRef === 'function') bubbleRef(el)
-        }}
-        className={clsx('group mt-2.5 flex w-full flex-col gap-1 px-3 sm:px-0')}
-        onMouseUp={handleMouseUp}
-        onTouchEnd={handleTouchEnd}
-        onContextMenu={handleContextMenu}
-      >
-        {activeImageUrl &&
-          createPortal(
-            <div
-              className="fixed inset-0 z-10000 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
-              onClick={() => setActiveImageUrl(null)}
-            >
-              <button
-                onClick={() => setActiveImageUrl(null)}
-                className="absolute top-4 right-4 rounded-full bg-black/70 p-2 text-white transition-colors hover:bg-black/80"
-                aria-label="Close image preview"
-              >
-                <X size={18} />
-              </button>
-              <img
-                src={activeImageUrl}
-                alt="User uploaded preview"
-                className="max-h-[90vh] max-w-[90vw] rounded-2xl shadow-2xl"
-                onClick={event => event.stopPropagation()}
-              />
-            </div>,
-            document.body,
-          )}
-        {/* User Message Timestamp (Centered Above) */}
-        {message.created_at && (
-          <div className="my-1 flex w-full justify-center text-xs text-gray-400 select-none dark:text-gray-500">
-            {formatMessageDate(message.created_at, t, i18n.language)}
-          </div>
-        )}
-
-        {/* Scrapbook context banner removed as redundant in detailed view */}
-        {/* Message Row Wrapper */}
-        <div
-          className={clsx(
-            'mb-4 flex w-full items-center gap-2',
-            isDeepResearchContext ? 'justify-center' : 'justify-end',
-          )}
-        >
-          <div
-            className={clsx(
-              'flex flex-col gap-2',
-              // For Deep Research: centered and wide
-              // For Standard: right-aligned (user) or left-aligned (AI) but constrained width
-              isDeepResearchContext
-                ? 'w-full max-w-full items-center'
-                : 'max-w-[85%] items-end sm:max-w-2xl',
-            )}
-          >
-            {/* Message Content */}
-            {(() => {
-              if (isDeepResearchContext) {
-                return <DeepResearchGoalCard content={contentToRender} />
-              }
-              return (
-                <div
-                  className={clsx(
-                    'relative w-fit max-w-full rounded-[28px] border px-3.5 py-2.5 text-base shadow-[0_10px_24px_-20px_rgba(15,23,42,0.28)] backdrop-blur-xl sm:max-w-2xl',
-                    'border-primary-300/30 bg-primary-500/88 dark:border-primary-400/20 dark:bg-primary-900/58 text-white dark:text-gray-100',
-                  )}
-                >
-                  {quoteToRender && (
-                    <div className="mb-2 rounded-[22px] border border-white/18 bg-white/16 p-3 text-sm dark:border-white/10 dark:bg-black/18">
-                      <div className="mb-1 font-medium">{t('messageBubble.quoting')}</div>
-                      <div className="line-clamp-2 italic">{quoteToRender.text}</div>
-                    </div>
-                  )}
-                  {imagesToRender.length > 0 && (
-                    <div className="mb-2 flex flex-wrap gap-2">
-                      {imagesToRender.map((img, idx) => (
-                        <img
-                          key={idx}
-                          src={img?.url || img?.image_url?.url}
-                          alt="User uploaded"
-                          className="h-auto max-h-60 max-w-full cursor-zoom-in rounded-lg object-cover"
-                          onClick={event => {
-                            event.stopPropagation()
-                            setActiveImageUrl(img?.url || img?.image_url?.url)
-                          }}
-                        />
-                      ))}
-                    </div>
-                  )}
-                  <div
-                    className="message-content wrap-break-word whitespace-pre-wrap"
-                    // Prevent native selection menu on mobile
-                    style={{
-                      WebkitTouchCallout: isMobile ? 'none' : 'default',
-                      WebkitUserSelect: isMobile ? 'text' : 'auto',
-                      KhtmlUserSelect: isMobile ? 'text' : 'auto',
-                      MozUserSelect: isMobile ? 'text' : 'auto',
-                      MsUserSelect: isMobile ? 'text' : 'auto',
-                      userSelect: isMobile ? 'text' : 'auto',
-                    }}
-                  >
-                    {highlightedParts.map((part, index) =>
-                      part.type === 'url' ? (
-                        <span
-                          key={`url-${index}`}
-                          className="rounded-sm bg-white/18 px-1 text-white underline decoration-white/70"
-                        >
-                          {part.value}
-                        </span>
-                      ) : (
-                        <span key={`text-${index}`}>{part.value}</span>
-                      ),
-                    )}
-                  </div>
-                </div>
-              )
-            })()}
-
-            {/* Action Buttons */}
-            {!isDeepResearchContext && (
-              <div className="flex items-center gap-1 px-1">
-                <div className="flex items-center gap-1">
-                  {canResendThisQuestion && (
-                    <button
-                      disabled={isLoading}
-                      onClick={() => {
-                        if (isLoading) return
-                        showConfirmation({
-                          title: t('confirmation.resendTitle'),
-                          message: t('confirmation.resendMessage'),
-                          confirmText: t('common.confirm'),
-                          onConfirm: onUserRegenerate,
-                        })
-                      }}
-                      className="group/icon flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-gray-500 transition-all duration-200 hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-50 dark:text-white dark:hover:bg-zinc-800 dark:hover:text-gray-200"
-                      title={t('messageBubble.regenerate')}
-                    >
-                      <RotateCcw size={14} />
-                      <span className="hidden max-w-0 overflow-hidden text-xs font-medium whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover/icon:max-w-[70px] group-hover/icon:opacity-100 sm:block">
-                        {t('messageBubble.regenerate')}
-                      </span>
-                    </button>
-                  )}
-                  {onEdit && (
-                    <button
-                      disabled={isLoading}
-                      onClick={() => onEdit()}
-                      className="group/icon flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-gray-500 transition-all duration-200 hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-50 dark:text-white dark:hover:bg-zinc-800 dark:hover:text-gray-200"
-                      title={t('messageBubble.edit')}
-                    >
-                      <Pencil size={14} />
-                      <span className="hidden max-w-0 overflow-hidden text-xs font-medium whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover/icon:max-w-[50px] group-hover/icon:opacity-100 sm:block">
-                        {t('messageBubble.edit')}
-                      </span>
-                    </button>
-                  )}
-                  <button
-                    onClick={() => {
-                      copyToClipboard(contentToRender)
-                      setIsCopied(true)
-                    }}
-                    className="group/icon flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-gray-500 transition-all duration-200 hover:bg-gray-100 hover:text-gray-700 dark:text-white dark:hover:bg-zinc-800 dark:hover:text-gray-200"
-                    title={t('messageBubble.copy')}
-                  >
-                    {isCopied ? (
-                      <>
-                        <Check size={14} className="text-emerald-500" />
-                        <span className="hidden max-w-0 overflow-hidden text-xs font-medium whitespace-nowrap text-emerald-500 opacity-0 transition-all duration-300 ease-in-out group-hover/icon:max-w-[60px] group-hover/icon:opacity-100 sm:block">
-                          {t('message.copied')}
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy size={14} />
-                        <span className="hidden max-w-0 overflow-hidden text-xs font-medium whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover/icon:max-w-[50px] group-hover/icon:opacity-100 sm:block">
-                          {t('message.copy')}
-                        </span>
-                      </>
-                    )}
-                  </button>
-                  <button
-                    disabled={isLoading}
-                    onClick={() => {
-                      if (isLoading) return
-                      if (!onDelete) return
-                      showConfirmation({
-                        title: t('confirmation.deleteMessageTitle'),
-                        message: t('confirmation.deleteUserMessage'),
-                        confirmText: t('confirmation.delete'),
-                        isDangerous: true,
-                        onConfirm: onDelete,
-                      })
-                    }}
-                    className="group/icon flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-gray-500 transition-all duration-200 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-white dark:hover:bg-red-900/20 dark:hover:text-red-400"
-                    title={t('common.delete')}
-                  >
-                    <Trash2 size={14} />
-                    <span className="hidden max-w-0 overflow-hidden text-xs font-medium whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover/icon:max-w-[60px] group-hover/icon:opacity-100 sm:block">
-                      {t('common.delete')}
-                    </span>
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+      <UserMessageBubble
+        message={message}
+        messageId={messageId}
+        bubbleRef={bubbleRef}
+        containerRef={containerRef}
+        handleMouseUp={handleMouseUp}
+        handleTouchEnd={handleTouchEnd}
+        handleContextMenu={handleContextMenu}
+        activeImageUrl={activeImageUrl}
+        setActiveImageUrl={setActiveImageUrl}
+        t={t}
+        i18nLanguage={i18n.language}
+        isMobile={isMobile}
+        isDeepResearchContext={isDeepResearchContext}
+        contentToRender={contentToRender}
+        quoteToRender={quoteToRender}
+        imagesToRender={imagesToRender}
+        canResendThisQuestion={canResendThisQuestion}
+        isLoading={isLoading}
+        showConfirmation={showConfirmation}
+        onUserRegenerate={onUserRegenerate}
+        onEdit={onEdit}
+        copyToClipboard={copyToClipboard}
+        setIsCopied={setIsCopied}
+        isCopied={isCopied}
+        onDelete={onDelete}
+      />
     )
   }
 
@@ -3697,186 +2370,6 @@ const MessageBubble = ({
   const displayAgentShape = getAgentAvatarShape(displayAgent)
   const agentBannerImage = getAgentBannerImage(displayAgent)
   const hasAgentBanner = hasManualAgentBanner(displayAgent)
-
-  const renderExpertTabs = () => {
-    if (!isExpertMessage) return null
-
-    if (isMobile) {
-      return (
-        <div className="relative mb-4 w-full" ref={expertAgentSelectorRef}>
-          <button
-            type="button"
-            onMouseDown={e => {
-              e.preventDefault()
-              e.stopPropagation()
-              setIsExpertAgentSelectorOpen(prev => !prev)
-            }}
-            className="flex h-12 w-full items-center justify-between gap-2 rounded-full bg-white/90 py-2 pr-3 pl-3 text-sm font-medium text-gray-700 shadow-sm backdrop-blur-xl transition-all dark:bg-zinc-900/90 dark:text-gray-200"
-          >
-            <span className="flex min-w-0 items-center gap-2.5">
-              <AgentAvatar
-                agent={expertAgent || { emoji: activeExpertResponse?.agentEmoji }}
-                emoji={activeExpertResponse?.agentEmoji}
-                size="1.15rem"
-              />
-              <span className="truncate text-left text-sm font-semibold">
-                {activeExpertResponse?.agentName || activeExpertResponse?.agentId}
-              </span>
-            </span>
-            <ChevronDown
-              size={15}
-              className={clsx(
-                'shrink-0 text-gray-400 transition-transform duration-200',
-                isExpertAgentSelectorOpen && 'rotate-180',
-              )}
-            />
-          </button>
-
-          {isExpertAgentSelectorOpen && (
-            <div
-              className="absolute top-full left-0 z-50 mt-2 w-full overflow-hidden rounded-2xl border border-gray-200/60 bg-white/95 p-1.5 shadow-xl backdrop-blur-xl dark:border-zinc-700/60 dark:bg-zinc-900/95"
-              onMouseDown={e => e.stopPropagation()}
-            >
-              {expertResponses.map(item => {
-                const isActive = item.agentId === activeExpertResponse?.agentId
-                const { showAssignedMarker } = getExpertTabIndicators({
-                  response: item,
-                  isActive,
-                })
-                return (
-                  <button
-                    type="button"
-                    key={item.agentId}
-                    onClick={e => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      setActiveExpertAgentId(item.agentId)
-                      setIsExpertAgentSelectorOpen(false)
-                    }}
-                    className={clsx(
-                      'flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-left transition-colors',
-                      isActive
-                        ? 'bg-primary-50 dark:bg-primary-900/20 text-gray-900 dark:text-gray-100'
-                        : 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-zinc-800/80',
-                    )}
-                  >
-                    <span className="flex min-w-0 items-center gap-2.5">
-                      <AgentAvatar
-                        agent={
-                          agents.find(a => String(a.id) === String(item.agentId)) || {
-                            emoji: item.agentEmoji,
-                          }
-                        }
-                        emoji={item.agentEmoji}
-                        size="1.3rem"
-                      />
-                      <span className="text-base font-semibold">
-                        {item.agentName || item.agentId}
-                      </span>
-                    </span>
-                    <span className="ml-auto flex shrink-0 items-center gap-1.5">
-                      <span
-                        className={clsx(
-                          'rounded px-1.5 py-0.5 text-[11px] font-bold tracking-wider uppercase',
-                          item.agentRole === 'leader'
-                            ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400'
-                            : 'bg-gray-100 text-gray-500 dark:bg-zinc-800 dark:text-zinc-400',
-                        )}
-                      >
-                        {item.agentRole === 'leader'
-                          ? t('agents.role.leader')
-                          : t('agents.role.member')}
-                      </span>
-                      {item.status === 'error' && (
-                        <span className="h-2 w-2 rounded-full bg-red-500" />
-                      )}
-                      {item.status === 'active' && (
-                        <span className="bg-primary-500 h-2 w-2 animate-pulse rounded-full" />
-                      )}
-                      {item.status === 'waiting' && (
-                        <Clock size={12} className="animate-spin-slow text-amber-500" />
-                      )}
-                      {showAssignedMarker && (
-                        <span className="bg-primary-500 shadow-primary-500/40 inline-flex h-1.5 w-1.5 rounded-full shadow-sm" />
-                      )}
-                      {isActive && <Check size={14} className="text-primary-500" />}
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
-          )}
-        </div>
-      )
-    }
-
-    return (
-      <div className="md:code-scrollbar mb-4 flex w-full flex-wrap gap-1 rounded-xl border border-gray-200/70 bg-gray-100/85 p-1 md:w-fit md:max-w-full md:flex-nowrap md:gap-1.5 md:overflow-x-auto md:p-1.5 dark:border-zinc-700/60 dark:bg-zinc-800/55">
-        {expertResponses.map(item => {
-          const isActive = item.agentId === activeExpertResponse?.agentId
-          const { showAssignedMarker } = getExpertTabIndicators({
-            response: item,
-            isActive,
-          })
-          return (
-            <button
-              type="button"
-              key={item.agentId}
-              onClick={e => {
-                e.preventDefault()
-                e.stopPropagation()
-                setActiveExpertAgentId(item.agentId)
-              }}
-              className={clsx(
-                'relative flex min-w-0 flex-1 basis-[calc(50%-0.125rem)] items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition-all duration-200 sm:basis-auto sm:justify-start sm:gap-2 sm:px-4 sm:py-2 sm:text-[15px] md:min-h-11 md:flex-none md:px-5 md:py-2 md:text-base',
-                isActive
-                  ? 'bg-white text-gray-900 shadow-sm ring-1 ring-black/5 dark:bg-zinc-700 dark:text-gray-100 dark:ring-white/10'
-                  : 'text-gray-500 hover:bg-gray-200/70 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-zinc-700/60 dark:hover:text-gray-300',
-                item.status === 'active' && 'ring-primary-500/50 ring-2',
-              )}
-            >
-              <AgentAvatar
-                agent={
-                  agents.find(a => String(a.id) === String(item.agentId)) || {
-                    emoji: item.agentEmoji,
-                  }
-                }
-                emoji={item.agentEmoji}
-                size="1.35em"
-              />
-              <span className="min-w-0 truncate">{item.agentName || item.agentId}</span>
-              <span
-                className={clsx(
-                  'ml-1.5 shrink-0 rounded-[4px] px-1.5 py-[3px] text-[9px] font-bold tracking-wide uppercase sm:text-[10px] md:text-[11px]',
-                  item.agentRole === 'leader'
-                    ? 'bg-amber-100/80 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400'
-                    : 'bg-gray-200/50 text-gray-500 dark:bg-zinc-800/80 dark:text-zinc-500',
-                )}
-              >
-                {item.agentRole === 'leader' ? t('agents.role.leader') : t('agents.role.member')}
-              </span>
-
-              {/* Status Indicators */}
-              {item.status === 'active' && (
-                <div className="animate-status-halo ring-primary-500/50 pointer-events-none absolute -inset-px z-10 rounded-lg ring-1" />
-              )}
-              {item.status === 'error' && (
-                <span className="absolute top-0.5 right-0.5 flex h-2 w-2">
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500"></span>
-                </span>
-              )}
-              {item.status === 'waiting' && item.agentRole === 'leader' && (
-                <Clock size={12} className="animate-spin-slow ml-1 text-amber-500" />
-              )}
-              {showAssignedMarker && (
-                <span className="bg-primary-500 shadow-primary-500/40 absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full shadow-sm" />
-              )}
-            </button>
-          )
-        })}
-      </div>
-    )
-  }
 
   const researchPlanLoading = Boolean(message?.researchPlanLoading)
   const researchSteps = useMemo(() => {
@@ -4002,96 +2495,49 @@ const MessageBubble = ({
     return isLastRenderable
   }, [messages, messageIndex, isLastRenderable])
   const workflowContainerRef = useRef(null)
-  const workflowProcessSteps = useMemo(() => {
-    const base = Array.isArray(processSteps) ? [...processSteps] : []
-    const shouldShowAnswerStep = Boolean(
-      isStreaming || hasMainText || base.length > 0 || typeof wallClockFinalSec === 'number',
-    )
-
-    if (isDeepResearch) {
-      const mappedSteps = researchSteps.map(step => ({
-        kind: 'research_step',
-        ...step,
-      }))
-      if (!shouldShowAnswerStep) return mappedSteps
-
-      const finalMs = answerGenerationDurationMs > 0 ? answerGenerationDurationMs : 0
-
-      const stepMs = mappedSteps.reduce(
-        (sum, step) => sum + (typeof step.durationMs === 'number' ? step.durationMs : 0),
-        0,
-      )
-      mappedSteps.push({
-        kind: 'final_answer',
-        status: isStreaming ? 'running' : 'done',
-        durationMs: stepMs + finalMs > 0 ? stepMs + finalMs : null,
-      })
-
-      return mappedSteps
-    }
-
-    if (!shouldShowAnswerStep) return base
-
-    const finalMs = answerGenerationDurationMs > 0 ? answerGenerationDurationMs : 0
-
-    const sumOfBaseMs = base.reduce((sum, step) => {
-      if (typeof step.durationMs === 'number') return sum + step.durationMs
-      if (step.kind === 'tools' && Array.isArray(step.items)) {
-        return (
-          sum +
-          step.items.reduce(
-            (s, it) => s + (typeof it.durationMs === 'number' ? it.durationMs : 0),
-            0,
-          )
-        )
-      }
-      return sum
-    }, 0)
-
-    const cumulativeMs = sumOfBaseMs + finalMs
-
-    base.push({
-      kind: 'final_answer',
-      status: isStreaming ? 'running' : 'done',
-      durationMs: cumulativeMs > 0 ? cumulativeMs : null,
-    })
-    return base
-  }, [
-    processSteps,
-    wallClockFinalSec,
-    isStreaming,
-    hasMainText,
-    wallClockElapsedSec,
-    isDeepResearch,
-    researchSteps,
-    persistedFinalAnswerDurationMs,
-    answerGenerationDurationMs,
-  ])
-  const hasWorkflowFinalAnswerStep = useMemo(
-    () => workflowProcessSteps.some(step => step?.kind === 'final_answer'),
-    [workflowProcessSteps],
+  const workflowProcessSteps = useMemo(
+    () =>
+      buildWorkflowProcessSteps({
+        processSteps,
+        isDeepResearch,
+        researchSteps,
+        isStreaming,
+        hasMainText,
+        wallClockFinalSec,
+        answerGenerationDurationMs,
+      }),
+    [
+      answerGenerationDurationMs,
+      hasMainText,
+      isDeepResearch,
+      isStreaming,
+      processSteps,
+      researchSteps,
+      wallClockFinalSec,
+    ],
   )
-  const finalAnswerWorkflowStep = useMemo(() => {
-    for (let i = workflowProcessSteps.length - 1; i >= 0; i -= 1) {
-      if (workflowProcessSteps[i]?.kind === 'final_answer') return workflowProcessSteps[i]
-    }
-    return null
-  }, [workflowProcessSteps])
-  const workflowSearchStep = useMemo(
-    () => workflowProcessSteps.find(step => step.kind === 'search') || null,
-    [workflowProcessSteps],
+  const {
+    hasWorkflowFinalAnswerStep,
+    finalAnswerWorkflowStep,
+    workflowSearchStep,
+    workflowThoughtStep,
+    workflowToolItems,
+    workflowSearchDurationMs,
+    processDurationMs,
+    processDurationSec,
+    completedDurationSec,
+    finalAnswerDurationMsForDisplay,
+    shouldShowWorkflowFinalAnswer,
+  } = useMemo(
+    () =>
+      deriveWorkflowState({
+        workflowProcessSteps,
+        answerGenerationDurationMs,
+        hasMainText,
+        isStreaming,
+      }),
+    [answerGenerationDurationMs, hasMainText, isStreaming, workflowProcessSteps],
   )
-  const workflowThoughtStep = useMemo(() => {
-    const thoughtParts = workflowProcessSteps.filter(step => step.kind === 'thought')
-    if (thoughtParts.length === 0) return null
-    return {
-      content: thoughtParts.map(step => String(step.content || '')).join(''),
-      durationMs: thoughtParts.reduce(
-        (sum, step) => sum + (typeof step.durationMs === 'number' ? step.durationMs : 0),
-        0,
-      ),
-    }
-  }, [workflowProcessSteps])
   useEffect(() => {
     const thoughtMs = workflowThoughtStep?.durationMs
     if (typeof thoughtMs === 'number' && thoughtMs > 0) {
@@ -4104,58 +2550,16 @@ const MessageBubble = ({
     if (thoughtDurationMemoryRef.current > 0) return thoughtDurationMemoryRef.current
     return null
   }, [workflowThoughtStep?.durationMs])
-  const workflowToolItems = useMemo(
+  const activeStreamingStepKind = useMemo(
     () =>
-      workflowProcessSteps
-        .filter(step => step.kind === 'tools' && Array.isArray(step.items))
-        .flatMap(step => step.items || []),
-    [workflowProcessSteps],
+      getActiveStreamingStepKind({
+        isStreaming,
+        normalizedStreamBlocks,
+        hasStartedAnswerTextStream,
+        processSteps,
+      }),
+    [hasStartedAnswerTextStream, isStreaming, normalizedStreamBlocks, processSteps],
   )
-  const workflowSearchDurationMs = useMemo(
-    () =>
-      workflowProcessSteps
-        .filter(step => step.kind === 'search')
-        .reduce(
-          (sum, step) => sum + (typeof step.durationMs === 'number' ? step.durationMs : 0),
-          0,
-        ),
-    [workflowProcessSteps],
-  )
-  const processDurationMs = useMemo(() => {
-    const thoughtMs = workflowThoughtStep?.durationMs || 0
-    const searchMs = workflowSearchDurationMs || 0
-    const toolMs = workflowToolItems.reduce(
-      (sum, item) => sum + (typeof item.durationMs === 'number' ? item.durationMs : 0),
-      0,
-    )
-    return thoughtMs + searchMs + toolMs
-  }, [workflowThoughtStep?.durationMs, workflowSearchDurationMs, workflowToolItems])
-  const processDurationSec = Math.max(0, Math.round(processDurationMs / 1000))
-  const completedDurationSec = useMemo(() => {
-    const totalMs =
-      processDurationMs + (answerGenerationDurationMs > 0 ? answerGenerationDurationMs : 0)
-    return totalMs > 0 ? Math.max(0, Math.round(totalMs / 1000)) : null
-  }, [answerGenerationDurationMs, processDurationMs])
-  const finalAnswerDurationMsForDisplay = useMemo(() => {
-    return answerGenerationDurationMs > 0 ? answerGenerationDurationMs : null
-  }, [answerGenerationDurationMs])
-  const activeStreamingStepKind = useMemo(() => {
-    if (!isStreaming) return null
-
-    const lastStreamBlock = normalizedStreamBlocks[normalizedStreamBlocks.length - 1]
-    const lastStreamType = String(lastStreamBlock?.type || '')
-    if (lastStreamType === 'text' && hasStartedAnswerTextStream) {
-      return 'final_answer'
-    }
-
-    const lastProcessStep = processSteps[processSteps.length - 1]
-    if (lastProcessStep?.kind === 'search') return 'search'
-    if (lastProcessStep?.kind === 'tools') return 'tools'
-    if (lastProcessStep?.kind === 'thought') return 'thought'
-
-    if (hasStartedAnswerTextStream) return 'final_answer'
-    return null
-  }, [isStreaming, normalizedStreamBlocks, hasStartedAnswerTextStream, processSteps])
   const isSearchStreamingActive = isStreaming && activeStreamingStepKind === 'search'
   useEffect(() => {
     if (isSearchStreamingActive) {
@@ -4183,18 +2587,11 @@ const MessageBubble = ({
 
     return undefined
   }, [isSearchStreamingActive, isStreaming])
-  const shouldShowWorkflowFinalAnswer = hasMainText && !isStreaming
   const headerSourceLogos = useMemo(() => {
-    const logos = []
-    for (const source of allSources) {
-      const url = source?.url || source?.uri || source?.link || source?.href || ''
-      const host = getHostname(url)
-      const icon =
-        source?.icon || (host ? `https://www.google.com/s2/favicons?domain=${host}&sz=64` : '')
-      if (icon) logos.push(icon)
-      if (logos.length >= 3) break
-    }
-    return logos
+    return buildHeaderSourceLogos({
+      allSources,
+      getHostname,
+    })
   }, [allSources])
 
   // Auto-scroll effect for thinking process
@@ -4210,578 +2607,43 @@ const MessageBubble = ({
     }
   }, [isStreaming, isWorkflowExpanded, workflowProcessSteps, processDurationMs])
 
-  const workflowPanel =
-    workflowProcessSteps.length > 0 ? (
-      <details
-        className={clsx(
-          'group workflow-process-summary',
-          !isExpertMessage && 'mt-0 mb-4',
-          isExpertMessage && 'mt-4 mb-4',
-        )}
-        open={isWorkflowExpanded}
-        onToggle={event => setIsWorkflowExpanded(event.currentTarget.open)}
-      >
-        <summary
-          className={clsx(
-            'flex cursor-pointer list-none items-center justify-between gap-3 py-1.5 text-gray-700 select-none hover:text-gray-900 dark:text-gray-200 dark:hover:text-white',
-          )}
-        >
-          <div className="flex items-center gap-2.5">
-            <span className="flex items-center gap-2 text-sm font-semibold tracking-tight">
-              {isDeepResearch ? (
-                <>
-                  <span className="truncate">{deepResearchHeaderText}</span>
-                  {isStreaming && <DotLoader size="sm" />}
-                </>
-              ) : isStreaming ? (
-                <>
-                  <span>
-                    {(() => {
-                      if (
-                        isStreaming &&
-                        !hasStartedAnswerTextStream &&
-                        hasWorkflowFinalAnswerStep &&
-                        (activeStreamingStepKind === null ||
-                          activeStreamingStepKind === 'final_answer')
-                      ) {
-                        return isDeepResearch
-                          ? t('messageBubble.statusResearchGenerationWaiting', '研究生成等待中')
-                          : t('messageBubble.statusGenerationWaiting', '生成等待中')
-                      }
-                      if (activeStreamingStepKind === 'final_answer')
-                        return isDeepResearch
-                          ? t('messageBubble.statusGeneratingResearch', '研究生成中')
-                          : t('messageBubble.statusGeneratingAnswer', '正在生成正文')
-                      if (activeStreamingStepKind === 'search')
-                        return t('messageBubble.statusSearching', '正在搜索')
-                      if (activeStreamingStepKind === 'tools')
-                        return t('messageBubble.statusCallingTools', '正在调用工具')
-                      return t('messageBubble.statusThinking', '正在思考分析')
-                    })()}
-                  </span>
-                  <DotLoader size="sm" />
-                </>
-              ) : (
-                t('messageBubble.completedAnswer', { duration: completedDurationSec })
-              )}
-            </span>
-            {isWorkflowExpanded ? (
-              <ChevronDown size={16} className="opacity-60" />
-            ) : (
-              <ChevronRight size={16} className="opacity-60" />
-            )}
-          </div>
-          {shouldShowWorkflowSourceSummary && allSources.length > 0 && (
-            <button
-              type="button"
-              onClick={event => {
-                event.preventDefault()
-                event.stopPropagation()
-                if (isMobile) {
-                  handleMobileSourceClick(allSources, t('sources.allSources'))
-                  return
-                }
-                setIsSourcesOpen(prev => !prev)
-              }}
-              className={clsx(
-                'glass-elite-chip inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-[11px] font-semibold text-gray-700 dark:text-gray-200',
-              )}
-            >
-              <span className="flex -space-x-2">
-                {headerSourceLogos.map((icon, idx) => (
-                  <img
-                    key={`header-source-${idx}`}
-                    src={icon}
-                    alt=""
-                    className="h-5 w-5 rounded-full border border-white/80 bg-white object-cover dark:border-zinc-800"
-                  />
-                ))}
-              </span>
-              <span className="text-[10px]!">
-                {t('sources.allSources')} {allSources.length}
-              </span>
-              {/* <ChevronRight size={14} className="opacity-60" /> */}
-            </button>
-          )}
-        </summary>
-        <div className="glass-elite-soft mt-3 rounded-2xl px-3 py-4">
-          <div
-            ref={workflowContainerRef}
-            className={clsx(
-              'max-h-[350px] overflow-y-auto pr-3 sm:max-h-[420px] sm:pr-4',
-              'no-scrollbar',
-            )}
-            style={{ scrollbarGutter: 'stable' }}
-          >
-            <div className="relative pl-7">
-              {(() => {
-                const thoughtStepCount = workflowProcessSteps.filter(
-                  step => step.kind === 'thought',
-                ).length
-                return workflowProcessSteps.map((step, idx) => {
-                  const isNotLast =
-                    idx < workflowProcessSteps.length - 1 ||
-                    allSources.length > 0 ||
-                    shouldShowWorkflowFinalAnswer
-
-                  if (step.kind === 'thought') {
-                    if (!step.content) return null
-                    const thoughtDurationMs =
-                      typeof step.durationMs === 'number' && step.durationMs > 0
-                        ? step.durationMs
-                        : thoughtStepCount === 1
-                          ? displayWorkflowThoughtDurationMs
-                          : null
-                    return (
-                      <div key={`thought-${idx}`} className="relative mb-4">
-                        {isNotLast && (
-                          <span className="pointer-events-none absolute top-6 bottom-[-16px] -left-5 border-l border-dashed border-gray-300/90 dark:border-zinc-700/90" />
-                        )}
-                        <div className="absolute top-0.5 -left-7 flex h-4 w-4 items-center justify-center text-gray-400 dark:text-gray-500">
-                          <BrainCircuit size={16} />
-                        </div>
-                        <div className="mb-2 flex min-h-5 items-center justify-between gap-3">
-                          <span className="text-xs leading-5 font-medium text-gray-400 dark:text-zinc-500">
-                            {t('messageBubble.reasoningLabel', '思考过程')}
-                          </span>
-                          {typeof thoughtDurationMs === 'number' && thoughtDurationMs > 0 && (
-                            <span className="text-xs! leading-5 text-gray-500 dark:text-gray-400">
-                              {t('messageBubble.toolDuration', {
-                                duration: (thoughtDurationMs / 1000).toFixed(2),
-                              })}
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
-                          <Streamdown
-                            mermaid={mermaidOptions}
-                            remarkPlugins={[remarkGfm]}
-                            components={markdownComponents}
-                          >
-                            {formatThoughtContentForDisplay(step.content)}
-                          </Streamdown>
-                        </div>
-                      </div>
-                    )
-                  }
-
-                  if (step.kind === 'research_step') {
-                    const isRunning = step.status === 'running'
-                    const isPending = step.status === 'pending'
-                    const isActive = isRunning || isPending
-                    const isDone = step.status === 'done'
-                    const isError = step.status === 'error'
-                    const stepToolCalls = getToolCallsForStep(step.step)
-                    const durationLabel =
-                      typeof step.durationMs === 'number'
-                        ? t('messageBubble.researchStepDuration', {
-                            duration: (step.durationMs / 1000).toFixed(2),
-                          })
-                        : null
-                    const statusLabel = isError
-                      ? t('messageBubble.researchStepStatusError')
-                      : isDone
-                        ? t('messageBubble.researchStepStatusDone')
-                        : isRunning
-                          ? t('messageBubble.researchStepStatusRunning')
-                          : t('messageBubble.researchStepStatusPending')
-
-                    return (
-                      <div
-                        key={
-                          step.stepKey ||
-                          (Number.isFinite(Number(step.step))
-                            ? `research-step-${Number(step.step)}`
-                            : `research-step-${step.streamOrder ?? step.title ?? 'unknown'}`)
-                        }
-                        className="relative mb-4"
-                      >
-                        {isNotLast && (
-                          <span className="pointer-events-none absolute top-6 bottom-[-16px] -left-5 border-l border-dashed border-gray-300/90 dark:border-zinc-700/90" />
-                        )}
-                        <div className="absolute top-0.75 -left-7 flex h-4 w-4 items-center justify-center text-gray-400 dark:text-gray-500">
-                          <ScanText size={16} />
-                        </div>
-
-                        <div className="space-y-2">
-                          <div className="flex flex-wrap items-center gap-2 text-[11px]">
-                            <span className="rounded-full border border-gray-200/80 bg-white/85 px-2 py-0.5 font-semibold text-gray-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-gray-300">
-                              {t('messageBubble.researchStepLabel', {
-                                step: step.step,
-                                total: step.total || researchSteps.length,
-                              })}
-                            </span>
-                            <span
-                              className={clsx(
-                                'rounded-full px-2 py-0.5 text-[10px]',
-                                isError
-                                  ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
-                                  : isDone
-                                    ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
-                                    : 'bg-gray-200/70 text-gray-600 dark:bg-zinc-700/70 dark:text-gray-400',
-                              )}
-                            >
-                              {statusLabel}
-                            </span>
-                            {isActive && <DotLoader />}
-                            {durationLabel && (
-                              <span className="text-[10px] text-gray-500 dark:text-gray-400">
-                                {durationLabel}
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-sm text-gray-700 dark:text-gray-200">
-                            {step.title}
-                            {isActive ? '...' : ''}
-                          </div>
-                          {step.error && (
-                            <div className="rounded-xl border border-red-500/20 bg-red-500/8 px-3 py-2 text-[10px] text-red-500 dark:text-red-400">
-                              {step.error}
-                            </div>
-                          )}
-                          {stepToolCalls.length > 0 && (
-                            <div className="space-y-2">
-                              {stepToolCalls.map(item => {
-                                const hasDuration = typeof item.durationMs === 'number'
-                                const queryPreview = renderToolQueryPreview(
-                                  item,
-                                  'max-w-[280px] truncate text-xs text-gray-600 dark:text-gray-300',
-                                )
-                                const isSearchLike = Boolean(queryPreview)
-
-                                return (
-                                  <div
-                                    key={item.id || `${item.name}-${item.arguments}`}
-                                    className="flex items-center gap-3"
-                                  >
-                                    <div className="min-w-0">
-                                      {isSearchLike ? (
-                                        <div
-                                          className={clsx(
-                                            'inline-flex max-w-full items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] shadow-[0_1px_2px_rgba(0,0,0,0.02)]',
-                                            item.status === 'error'
-                                              ? 'border-red-200/70 bg-red-50/70 text-red-600 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300'
-                                              : 'border-primary-200/35 dark:border-primary-700/30 bg-white/70 text-gray-700 dark:bg-zinc-800/55 dark:text-gray-200',
-                                          )}
-                                        >
-                                          <Search size={13} className="shrink-0 opacity-75" />
-                                          <span className="truncate">
-                                            {getToolDisplayName(item) ||
-                                              t('messageBubble.searchToolLabel')}
-                                          </span>
-                                          <span className="min-w-0 truncate">{queryPreview}</span>
-                                        </div>
-                                      ) : (
-                                        renderWorkflowToolCapsule(item, true)
-                                      )}
-                                    </div>
-                                    {hasDuration && (
-                                      <span className="ml-auto shrink-0 text-xs! whitespace-nowrap text-gray-500 dark:text-gray-400">
-                                        {t('messageBubble.toolDuration', {
-                                          duration: (item.durationMs / 1000).toFixed(2),
-                                        })}
-                                      </span>
-                                    )}
-                                  </div>
-                                )
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  }
-
-                  if (step.kind === 'search') {
-                    const hasQueries = step.queries && step.queries.length > 0
-                    if (!hasQueries) return null
-                    const isActiveSearch =
-                      isStreaming &&
-                      (activeStreamingStepKind === 'search' ||
-                        step?.status === 'running' ||
-                        step.items?.some(
-                          item => item?.status === 'calling' || item?.status === 'running',
-                        ))
-                    const displaySearchDurationMs =
-                      isActiveSearch && searchLiveElapsedSec > 0
-                        ? searchLiveElapsedSec * 1000
-                        : typeof step.durationMs === 'number'
-                          ? step.durationMs
-                          : null
-
-                    return (
-                      <div key={`search-${idx}`} className="relative mb-4">
-                        {isNotLast && (
-                          <span className="pointer-events-none absolute top-6 bottom-[-16px] -left-5 border-l border-dashed border-gray-300/90 dark:border-zinc-700/90" />
-                        )}
-
-                        <div className="absolute top-0.75 -left-7 flex h-4 w-4 items-center justify-center text-gray-400 dark:text-gray-500">
-                          <Search size={16} />
-                        </div>
-
-                        <div className="mb-2 flex items-center justify-between text-base font-semibold text-gray-700 dark:text-gray-200">
-                          <div className="flex items-center gap-2">
-                            {(() => {
-                              if (isActiveSearch) {
-                                return (
-                                  <>
-                                    <span>{t('messageBubble.statusSearching', '正在搜索...')}</span>
-                                    <DotLoader size="sm" />
-                                  </>
-                                )
-                              }
-                              const count = step.sources?.length || 0
-                              return t('messageBubble.searchFound', { count })
-                            })()}
-                          </div>
-                          {(() => {
-                            if (typeof displaySearchDurationMs === 'number') {
-                              return (
-                                <span className="shrink-0 text-xs! font-normal text-gray-500 dark:text-gray-400">
-                                  {t('messageBubble.toolDuration', {
-                                    duration: (displaySearchDurationMs / 1000).toFixed(1),
-                                  })}
-                                </span>
-                              )
-                            }
-                            return null
-                          })()}
-                        </div>
-
-                        <div className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
-                          {/* Search Queries row */}
-                          <div className="mb-2 flex flex-wrap gap-1.5">
-                            {step.queries.map(query => (
-                              <span
-                                key={`query-${query}`}
-                                className="inline-flex items-center rounded-lg border border-gray-200/80 bg-white px-2.5 py-1 text-[10px]! text-gray-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-gray-300"
-                              >
-                                <Search size={12} className="mr-1.5 opacity-70" />
-                                {query}
-                              </span>
-                            ))}
-                          </div>
-
-                          {/* Sources row */}
-                          {Array.isArray(step.sources) &&
-                            step.sources.length > 0 &&
-                            step.sources.some(hasNavigableSourceLink) && (
-                              <div className="mb-2">
-                                <SearchSourcesList sources={step.sources} />
-                              </div>
-                            )}
-                        </div>
-                      </div>
-                    )
-                  }
-
-                  if (step.kind === 'tools') {
-                    if (!step.items || step.items.length === 0) return null
-                    const isExpanded = expandedToolsSteps.has(idx)
-                    const displayItems = isExpanded ? step.items : step.items.slice(0, 2)
-                    const hasMoreItems = step.items.length > 2
-
-                    return (
-                      <div key={`tools-${idx}`} className="relative mb-4">
-                        {isNotLast && (
-                          <span className="pointer-events-none absolute top-6 bottom-[-16px] -left-5 border-l border-dashed border-gray-300/90 dark:border-zinc-700/90" />
-                        )}
-                        <div className="absolute top-0 -left-7 flex h-8 w-4 items-center justify-center text-gray-400 dark:text-gray-500">
-                          <Wrench size={16} />
-                        </div>
-
-                        <div className="flex w-full flex-col gap-3 md:flex-row md:items-start md:gap-4">
-                          {/* Label Section */}
-                          <div className="flex h-8 shrink-0 items-center text-[9px] leading-none font-bold tracking-wider text-gray-400 uppercase select-none dark:text-zinc-500">
-                            {t('messageBubble.workflowToolCalledPrefix', '已调用')}
-                          </div>
-
-                          {/* Vertical Tools List Section */}
-                          <div className="flex min-w-0 flex-1 flex-col gap-2">
-                            <div className="space-y-2">
-                              {displayItems.map((item, itemIdx) => {
-                                const hasDuration = typeof item.durationMs === 'number'
-                                const isLastItem = itemIdx === displayItems.length - 1
-                                return (
-                                  <div
-                                    key={item.id || `${item.name}-${item.arguments}`}
-                                    className="group/workflowitem space-y-1.5"
-                                  >
-                                    <div className="flex items-center gap-3 overflow-x-hidden">
-                                      <div className="min-w-0">
-                                        {renderWorkflowToolCapsule(item, true)}
-                                      </div>
-
-                                      {/* PC Desktop: Action items inline with the last item */}
-                                      {isLastItem && hasMoreItems && (
-                                        <div className="hidden items-center gap-2 md:flex">
-                                          {!isExpanded && (
-                                            <span className="ml-1 text-xs tracking-widest text-gray-300 dark:text-zinc-700">
-                                              ...
-                                            </span>
-                                          )}
-                                          <div
-                                            onClick={() => toggleToolsStep(idx)}
-                                            className="group/tooltoggle flex h-6 w-6 cursor-pointer items-center justify-center rounded-full text-gray-400 transition-all hover:bg-gray-100 dark:text-zinc-500 dark:hover:bg-zinc-800"
-                                            title={
-                                              isExpanded
-                                                ? t('common.collapse', '收起')
-                                                : t(
-                                                    'common.expand',
-                                                    `展开剩余 ${step.items.length - 2} 项`,
-                                                  )
-                                            }
-                                          >
-                                            <div
-                                              className={clsx(
-                                                'transition-transform duration-300',
-                                                isExpanded ? 'rotate-180' : 'rotate-0',
-                                                'group-hover/tooltoggle:text-primary-600 dark:group-hover/tooltoggle:text-primary-400',
-                                              )}
-                                            >
-                                              <ChevronDown size={14} />
-                                            </div>
-                                          </div>
-                                        </div>
-                                      )}
-
-                                      {hasDuration && (
-                                        <span className="ml-auto shrink-0 text-xs! whitespace-nowrap text-gray-500 dark:text-gray-400">
-                                          {t('messageBubble.toolDuration', {
-                                            duration: (item.durationMs / 1000).toFixed(2),
-                                          })}
-                                        </span>
-                                      )}
-                                    </div>
-                                    <div className="pl-1 text-sm text-gray-600 transition-colors group-hover/workflowitem:text-gray-900 dark:text-gray-300 dark:group-hover/workflowitem:text-zinc-200">
-                                      {renderToolQueryPreview(item, 'truncate opacity-80')}
-                                    </div>
-                                  </div>
-                                )
-                              })}
-                            </div>
-
-                            {/* Mobile Only: Action items at the bottom inline */}
-                            {hasMoreItems && (
-                              <div className="flex items-center gap-2 pt-1 md:hidden">
-                                {!isExpanded && (
-                                  <span className="text-xs tracking-widest text-gray-300 dark:text-zinc-700">
-                                    ...
-                                  </span>
-                                )}
-                                <div
-                                  onClick={() => toggleToolsStep(idx)}
-                                  className="group/tooltoggle flex h-6 w-6 cursor-pointer items-center justify-center rounded-full text-gray-400 transition-all hover:bg-gray-100 dark:text-zinc-500 dark:hover:bg-zinc-800"
-                                >
-                                  <div
-                                    className={clsx(
-                                      'transition-transform duration-300',
-                                      isExpanded ? 'rotate-180' : 'rotate-0',
-                                      'group-hover/tooltoggle:text-primary-600 dark:group-hover/tooltoggle:text-primary-400',
-                                    )}
-                                  >
-                                    <ChevronDown size={14} />
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  }
-
-                  if (step.kind === 'final_answer') return null
-
-                  return null
-                })
-              })()}
-
-              {shouldShowWorkflowSourceSummary && allSources.length > 0 && (
-                <div className="relative mb-4 pt-2">
-                  {(shouldShowWorkflowFinalAnswer || hasWorkflowFinalAnswerStep) && (
-                    <span className="pointer-events-none absolute top-6 bottom-[-16px] -left-5 border-l border-dashed border-gray-300/90 dark:border-zinc-700/90" />
-                  )}
-                  <div className="absolute top-2.5 -left-7 flex h-4 w-4 items-center justify-center text-gray-400 dark:text-gray-500">
-                    <Link size={16} />
-                  </div>
-                  <div className="mb-3 text-base font-semibold text-gray-700 dark:text-gray-200">
-                    {isDeepResearch
-                      ? t('messageBubble.organizeResearchSources', '整理研究来源')
-                      : t('messageBubble.organizedSources', '整理参考资料')}
-                  </div>
-                  <DesktopSourcesSection sources={allSources} isOpen variant="legacy" />
-                </div>
-              )}
-              {hasWorkflowFinalAnswerStep && (
-                <div className="relative">
-                  <div className="absolute top-0.5 -left-7 flex h-4 w-4 items-center justify-center text-gray-400 dark:text-gray-500">
-                    {isStreaming ? <DotLoader size="6px" gap="3px" /> : <Check size={16} />}
-                  </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 text-base font-medium text-gray-600 dark:text-gray-300">
-                      <span>
-                        {isStreaming
-                          ? activeStreamingStepKind === 'final_answer'
-                            ? isDeepResearch
-                              ? t('messageBubble.statusGeneratingResearch', '研究生成中')
-                              : t('messageBubble.statusGeneratingAnswer', '正文生成中')
-                            : isDeepResearch
-                              ? t('messageBubble.statusResearchGenerationWaiting', '研究生成等待中')
-                              : t('messageBubble.statusGenerationWaiting', '生成等待中')
-                          : isDeepResearch
-                            ? t('messageBubble.finalResearchStep', '生成最终研究')
-                            : t('messageBubble.finalAnswerStep', '生成最终回答')}
-                      </span>
-                    </div>
-                    {typeof finalAnswerDurationMsForDisplay === 'number' && (
-                      <span className="shrink-0 text-xs! text-gray-500 dark:text-gray-400">
-                        {t('messageBubble.toolDuration', {
-                          duration: (finalAnswerDurationMsForDisplay / 1000).toFixed(1),
-                        })}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              )}
-              {shouldShowWorkflowFinalAnswer && !hasWorkflowFinalAnswerStep && (
-                <div className="relative">
-                  <div className="absolute top-0.5 -left-7 flex h-4 w-4 items-center justify-center text-gray-400 dark:text-gray-500">
-                    <DotLoader size="6px" gap="3px" />
-                  </div>
-                  <div className="text-base font-medium text-gray-600 dark:text-gray-300">
-                    {isDeepResearch
-                      ? t('messageBubble.finalResearchStep', '生成最终研究')
-                      : t('messageBubble.finalAnswerStep')}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </details>
-    ) : null
-  const expertPlanPanel =
-    isExpertMessage && expertPlanBlock ? (
-      <div className="mb-4">
-        <div className="mb-2 flex items-center gap-2 text-gray-600 dark:text-gray-300">
-          <BrainCircuit size={15} className="text-primary-500/80 dark:text-primary-300/75" />
-          <span className="text-sm font-medium tracking-tight">
-            {t('messageBubble.expertPlan')}
-          </span>
-        </div>
-        <div className="border-primary-200/45 bg-primary-50/30 dark:border-primary-700/25 dark:bg-primary-900/12 rounded-xl border px-3.5 py-3 text-sm leading-relaxed text-gray-700 dark:text-gray-300">
-          <Streamdown
-            mermaid={mermaidOptions}
-            remarkPlugins={[remarkGfm]}
-            components={markdownComponents}
-          >
-            {sanitizeDisplayText(expertPlanBlock.content)}
-          </Streamdown>
-        </div>
-      </div>
-    ) : null
-
+  const workflowPanel = (
+    <WorkflowPanel
+      workflowProcessSteps={workflowProcessSteps}
+      isExpertMessage={isExpertMessage}
+      isWorkflowExpanded={isWorkflowExpanded}
+      setIsWorkflowExpanded={setIsWorkflowExpanded}
+      isDeepResearch={isDeepResearch}
+      deepResearchHeaderText={deepResearchHeaderText}
+      isStreaming={isStreaming}
+      hasStartedAnswerTextStream={hasStartedAnswerTextStream}
+      hasWorkflowFinalAnswerStep={hasWorkflowFinalAnswerStep}
+      activeStreamingStepKind={activeStreamingStepKind}
+      t={t}
+      completedDurationSec={completedDurationSec}
+      shouldShowWorkflowSourceSummary={shouldShowWorkflowSourceSummary}
+      allSources={allSources}
+      isMobile={isMobile}
+      handleMobileSourceClick={handleMobileSourceClick}
+      setIsSourcesOpen={setIsSourcesOpen}
+      headerSourceLogos={headerSourceLogos}
+      workflowContainerRef={workflowContainerRef}
+      displayWorkflowThoughtDurationMs={displayWorkflowThoughtDurationMs}
+      formatThoughtContentForDisplay={formatThoughtContentForDisplay}
+      mermaidOptions={mermaidOptions}
+      markdownComponents={markdownComponents}
+      researchStepsCount={researchSteps.length}
+      getToolCallsForStep={getToolCallsForStep}
+      renderToolQueryPreview={renderToolQueryPreview}
+      getToolDisplayName={getToolDisplayName}
+      renderWorkflowToolCapsule={renderWorkflowToolCapsule}
+      searchLiveElapsedSec={searchLiveElapsedSec}
+      expandedToolsSteps={expandedToolsSteps}
+      toggleToolsStep={toggleToolsStep}
+      shouldShowWorkflowFinalAnswer={shouldShowWorkflowFinalAnswer}
+      finalAnswerDurationMsForDisplay={finalAnswerDurationMsForDisplay}
+    />
+  )
   // Debug logging for related questions
   // if (mergedMessage._formSubmitted) {
   //   console.log('[MessageBubble] Related questions check:', {
@@ -4868,172 +2730,42 @@ const MessageBubble = ({
           document.body,
         )}
 
-      {expertPlanPanel}
+      <ExpertPlanPanel
+        isExpertMessage={isExpertMessage}
+        expertPlanBlock={expertPlanBlock}
+        t={t}
+        mermaidOptions={mermaidOptions}
+        markdownComponents={markdownComponents}
+        sanitizeDisplayText={sanitizeDisplayText}
+      />
 
-      {/* Provider/Model Header Container */}
-      <div className="mb-4 flex flex-col gap-1">
-        {/* Expert Tabs (Moved Top) */}
-        {renderExpertTabs()}
-
-        {/* Avatar and Info Row */}
-        <div className="text-gray-900 dark:text-gray-100">
-          {hasAgentBanner ? (
-            <AgentBannerSurface
-              imageSrc={agentBannerImage}
-              imageAlt={displayAgentName || 'Agent banner'}
-              agent={displayAgent || { emoji: agentEmoji, name: displayAgentName }}
-              displayName={displayAgentName}
-              providerId={providerMeta.id}
-              providerLabel={providerMeta.label}
-              providerFallback={providerMeta.fallback}
-              model={resolvedModel}
-              onAvatarClick={handleAgentClick}
-              isAvatarClickable={Boolean(targetAgent)}
-            />
-          ) : (
-            <div className="relative flex items-center gap-3">
-              {agentName ? (
-                <>
-                  <div
-                    className={clsx(
-                      'inline-flex max-w-[min(88%,34rem)] items-center gap-3',
-                      hasAgentBanner &&
-                        'self-end rounded-[28px] border border-black/8 bg-white/32 px-3 py-2 shadow-[0_14px_30px_-18px_rgba(0,0,0,0.35)] backdrop-blur-md dark:border-white/12 dark:bg-black/22 dark:shadow-[0_14px_30px_-18px_rgba(0,0,0,0.9)]',
-                    )}
-                  >
-                    <div
-                      onClick={handleAgentClick}
-                      className={clsx(
-                        targetAgent && 'cursor-pointer transition-opacity hover:opacity-80',
-                      )}
-                    >
-                      <AgentAvatar
-                        agent={displayAgent || { emoji: agentEmoji, name: displayAgentName }}
-                        emoji={agentEmoji}
-                        size="2.5rem"
-                        className={clsx(
-                          'shadow-inner transition hover:scale-105',
-                          hasAgentBanner
-                            ? 'border-black/10 bg-white/24 dark:border-white/20 dark:bg-white/10'
-                            : 'border-gray-300 bg-white dark:border-gray-600 dark:bg-zinc-800',
-                          displayAgentShape === AGENT_AVATAR_SHAPE_CIRCLE
-                            ? 'rounded-full'
-                            : 'rounded-[22%]',
-                        )}
-                      />
-                    </div>
-                    <div className="flex min-w-0 flex-col leading-tight">
-                      <div className="flex w-full items-center justify-between">
-                        <div className="flex items-center gap-1.5">
-                          <span
-                            className={clsx(
-                              'text-sm font-semibold',
-                              hasAgentBanner &&
-                                'text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.3)] dark:drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)]',
-                            )}
-                          >
-                            {displayAgentName}
-                          </span>
-                        </div>
-                      </div>
-                      <div
-                        className={clsx(
-                          'flex w-fit max-w-full items-center gap-1.5 rounded-full text-xs',
-                          hasAgentBanner
-                            ? 'bg-black/18 px-2.5 py-1 text-white/96 ring-1 ring-white/22 dark:bg-black/30 dark:text-white/92 dark:ring-white/10'
-                            : 'text-gray-500 dark:text-gray-400',
-                        )}
-                      >
-                        {renderProviderIcon(providerMeta.id, {
-                          size: 12,
-                          alt: providerMeta.label,
-                          compact: true,
-                          wrapperClassName: 'w-3 h-3',
-                          imgClassName: 'w-full h-full object-contain',
-                        }) || (
-                          <span className="text-[10px] font-semibold">
-                            {providerMeta.fallback?.slice(0, 2).toUpperCase()}
-                          </span>
-                        )}
-                        <span className="truncate">{providerMeta.label}</span>
-                        {getModelIcon(resolvedModel) && (
-                          <img
-                            src={getModelIcon(resolvedModel)}
-                            alt=""
-                            width={12}
-                            height={12}
-                            className={clsx(
-                              'h-3 w-3 object-contain',
-                              getModelIconClassName(resolvedModel),
-                            )}
-                            loading="lazy"
-                          />
-                        )}
-                        <span className="truncate">{resolvedModel}</span>
-                      </div>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div
-                    onClick={handleAgentClick}
-                    className={clsx(
-                      'flex items-center justify-center overflow-hidden rounded-full shadow-inner',
-                      hasAgentBanner ? 'bg-white/14' : '',
-                      targetAgent && 'cursor-pointer transition-opacity hover:opacity-80',
-                    )}
-                  >
-                    {renderProviderIcon(providerMeta.id, {
-                      size: 30,
-                      alt: providerMeta.label,
-                      wrapperClassName: 'p-0 w-10 h-10',
-                      imgClassName: 'w-full h-full object-contain',
-                    }) || (
-                      <span
-                        className={clsx(
-                          'text-sm font-semibold',
-                          hasAgentBanner ? 'text-white' : 'text-gray-700 dark:text-gray-200',
-                        )}
-                      >
-                        {providerMeta.fallback?.slice(0, 2).toUpperCase()}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex grow flex-col leading-tight">
-                    <div className="flex w-full items-center justify-between">
-                      <span className="text-sm font-semibold">{providerMeta.label}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      {getModelIcon(resolvedModel) && (
-                        <img
-                          src={getModelIcon(resolvedModel)}
-                          alt=""
-                          width={14}
-                          height={14}
-                          className={clsx(
-                            'h-3.5 w-3.5 object-contain',
-                            getModelIconClassName(resolvedModel),
-                          )}
-                          loading="lazy"
-                        />
-                      )}
-                      <span
-                        className={clsx(
-                          'text-xs',
-                          hasAgentBanner ? 'text-white/82' : 'text-gray-500 dark:text-gray-400',
-                        )}
-                      >
-                        {resolvedModel}
-                      </span>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
+      <MessageBubbleHeader
+        isExpertMessage={isExpertMessage}
+        isMobile={isMobile}
+        expertAgentSelectorRef={expertAgentSelectorRef}
+        isExpertAgentSelectorOpen={isExpertAgentSelectorOpen}
+        setIsExpertAgentSelectorOpen={setIsExpertAgentSelectorOpen}
+        activeExpertResponse={activeExpertResponse}
+        expertAgent={expertAgent}
+        expertResponses={expertResponses}
+        agents={agents}
+        setActiveExpertAgentId={setActiveExpertAgentId}
+        t={t}
+        hasAgentBanner={hasAgentBanner}
+        agentBannerImage={agentBannerImage}
+        displayAgent={displayAgent}
+        agentEmoji={agentEmoji}
+        displayAgentName={displayAgentName}
+        providerMeta={providerMeta}
+        resolvedModel={resolvedModel}
+        handleAgentClick={handleAgentClick}
+        targetAgent={targetAgent}
+        agentName={agentName}
+        displayAgentShape={displayAgentShape}
+        renderProviderIcon={renderProviderIcon}
+        getModelIcon={getModelIcon}
+        getModelIconClassName={getModelIconClassName}
+      />
       {headerExtraContent}
 
       {/* Sources Section - REMOVED (Moved to toolbar) */}
@@ -5053,36 +2785,12 @@ const MessageBubble = ({
         }}
       >
         <>
-          {isExpertMessage && activeExpertTaskCard?.kind === 'task' && (
-            <div className="border-primary-200/50 bg-primary-50/26 dark:border-primary-700/30 dark:bg-primary-900/12 mb-4 rounded-2xl border px-3.5 py-3 text-sm leading-relaxed text-gray-700 dark:text-gray-200">
-              <div className="mb-2.5 flex items-center gap-2">
-                <span className="bg-primary-500/12 text-primary-700 dark:bg-primary-500/18 dark:text-primary-300 inline-flex rounded-full border border-white/10 px-2.5 py-1 text-[11px] font-semibold tracking-wide">
-                  {t(activeExpertTaskCard.labelKey)}
-                </span>
-              </div>
-              <div className="flex items-start gap-2.5">
-                <span className="bg-primary-500 mt-2 h-1.5 w-1.5 shrink-0 rounded-full" />
-                <span>{activeExpertTaskCard.task}</span>
-              </div>
-            </div>
-          )}
-          {isExpertMessage && activeExpertTaskCard?.kind === 'empty' && (
-            <div className="mb-4 rounded-2xl border border-gray-200/70 bg-white/62 px-3.5 py-3 text-sm text-gray-600 shadow-[0_6px_24px_rgba(15,23,42,0.04)] backdrop-blur-xl dark:border-zinc-700/55 dark:bg-zinc-900/38 dark:text-gray-300">
-              <div className="flex items-start gap-3">
-                <div className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-gray-200/70 bg-white/80 text-gray-500 dark:border-zinc-700/60 dark:bg-zinc-800/70 dark:text-zinc-400">
-                  {expertTeamMode === 'route' ? <User size={15} /> : <Clock size={15} />}
-                </div>
-                <div className="min-w-0">
-                  <div className="text-[13px] font-semibold text-gray-800 dark:text-gray-100">
-                    {t(activeExpertTaskCard.titleKey)}
-                  </div>
-                  <div className="mt-1 text-sm leading-relaxed text-gray-500 dark:text-gray-400">
-                    {t(activeExpertTaskCard.bodyKey)}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+          <ExpertTaskCard
+            isExpertMessage={isExpertMessage}
+            activeExpertTaskCard={activeExpertTaskCard}
+            expertTeamMode={expertTeamMode}
+            t={t}
+          />
           {workflowPanel}
           {renderedMainContent}
           {renderInitialSkeleton && (
@@ -5412,315 +3120,6 @@ const MessageBubble = ({
           document.body,
         )}
     </div>
-  )
-}
-
-const CitationChip = ({ indices, sources, isMobile, onMobileClick, label }) => {
-  const { t } = useTranslation()
-  const [isOpen, setIsOpen] = useState(false)
-  const [expandedItemKey, setExpandedItemKey] = useState(null)
-  const [position, setPosition] = useState({ top: 0, left: 0 })
-  const containerRef = useRef(null)
-  const timeoutRef = useRef(null)
-  const normalizedIndices = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          (Array.isArray(indices) ? indices : [])
-            .map(value => Number(value))
-            .filter(value => Number.isInteger(value) && value >= 0),
-        ),
-      ).sort((left, right) => left - right),
-    [indices],
-  )
-
-  // Memoize the filtered sources for the drawer
-  const drawerSources = useMemo(() => {
-    if (!sources || !Array.isArray(sources)) return []
-    const seen = new Set()
-    return normalizedIndices
-      .map(idx => ({ source: sources[idx], originalIndex: idx }))
-      .filter(item => {
-        if (!item.source) return false
-        const dedupeKey =
-          item.source.id ||
-          item.source.nodeId ||
-          item.source.url ||
-          item.source.uri ||
-          item.source.link ||
-          item.source.href ||
-          `${item.originalIndex}:${item.source.title || ''}`
-        if (seen.has(dedupeKey)) return false
-        seen.add(dedupeKey)
-        return true
-      })
-      .map(item => ({ ...item.source, originalIndex: item.originalIndex }))
-  }, [normalizedIndices, sources])
-
-  const getSourceKey = useCallback(source => {
-    const path = buildDocumentCitationPath(source)
-    return (
-      source?.id ||
-      source?.nodeId ||
-      source?.url ||
-      source?.uri ||
-      source?.link ||
-      source?.href ||
-      `${source?.citationIndex ?? source?.originalIndex ?? 'source'}:${source?.title || ''}:${path}`
-    )
-  }, [])
-
-  const updatePosition = useCallback(() => {
-    if (containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect()
-      const dropdownWidth = 256
-      const viewportWidth = window.innerWidth
-      const viewportHeight = window.innerHeight
-      const padding = 12
-      const inputEl = isMobile ? document.getElementById('chat-input-textarea') : null
-      const inputRect = inputEl?.getBoundingClientRect()
-      const inputSafeSpace = inputRect ? Math.max(0, viewportHeight - inputRect.top + 8) : 0
-      // Keep dropdown clear of the input area and safe area on mobile.
-      const bottomSafeSpace = isMobile ? Math.max(140, inputSafeSpace) : padding
-
-      // Horizontal Clamping
-      let left = rect.left + rect.width / 2
-      const minCenter = dropdownWidth / 2 + padding
-      const maxCenter = viewportWidth - dropdownWidth / 2 - padding
-      left = Math.max(minCenter, Math.min(left, maxCenter))
-
-      // Vertical Flipping
-      // Available space below the chip, EXCLUDING the bottom safe area/input bar
-      const spaceBelow = viewportHeight - rect.bottom - bottomSafeSpace
-      const spaceAbove = rect.top
-
-      // If we don't have enough space below for a full dropdown (approx 240px), flip up
-      // Default to flipping up on mobile if space allows, as it's cleaner above the finger/input
-      // But only if there is actually reasonable space above (e.g. >200px)
-      const preferUp = isMobile
-
-      let showAbove = false
-      if (preferUp && spaceAbove > 200) {
-        showAbove = true
-      } else if (spaceBelow < 250 && spaceAbove > spaceBelow) {
-        showAbove = true
-      }
-
-      const top = showAbove ? rect.top - 8 : rect.bottom + 8
-
-      const maxHeight = showAbove
-        ? Math.min(240, spaceAbove - padding - 8)
-        : Math.min(240, spaceBelow + (isMobile ? 0 : 0))
-
-      setPosition({ top, left, showAbove, maxHeight })
-    }
-  }, [isMobile])
-
-  const handleMouseEnter = () => {
-    // Double check mobile state to prevent hover on touch devices showing the desktop popover
-    if (isMobile || window.innerWidth < 768) return
-    if (timeoutRef.current) clearTimeout(timeoutRef.current)
-    updatePosition()
-    setIsOpen(true)
-  }
-
-  const handleMouseLeave = () => {
-    if (isMobile) return
-    timeoutRef.current = setTimeout(() => {
-      setIsOpen(false)
-    }, 200)
-  }
-
-  const handleClick = e => {
-    e.preventDefault()
-    e.stopPropagation()
-    // Robust check: prop OR direct width check
-    if (isMobile || window.innerWidth < 768) {
-      if (onMobileClick) {
-        onMobileClick(drawerSources)
-      }
-      return
-    }
-    if (timeoutRef.current) clearTimeout(timeoutRef.current)
-    updatePosition()
-    setIsOpen(prev => !prev)
-  }
-
-  // Update position on scroll/resize while open
-  useEffect(() => {
-    if (!isOpen) return
-    window.addEventListener('scroll', updatePosition, true)
-    window.addEventListener('resize', updatePosition)
-    return () => {
-      window.removeEventListener('scroll', updatePosition, true)
-      window.removeEventListener('resize', updatePosition)
-    }
-  }, [isOpen, updatePosition])
-
-  // Close on outside click/interaction
-  useEffect(() => {
-    if (!isOpen) return
-    const handleOutside = e => {
-      // If clicking inside the dropdown (portal) or the chip, do nothing
-      if (
-        e.target.closest('.citation-dropdown') ||
-        (containerRef.current && containerRef.current.contains(e.target))
-      ) {
-        return
-      }
-      setIsOpen(false)
-    }
-
-    document.addEventListener('touchstart', handleOutside)
-    document.addEventListener('mousedown', handleOutside)
-    return () => {
-      document.removeEventListener('touchstart', handleOutside)
-      document.removeEventListener('mousedown', handleOutside)
-    }
-  }, [isOpen])
-
-  useEffect(() => {
-    if (isOpen) return
-    setExpandedItemKey(null)
-  }, [isOpen])
-
-  return (
-    <>
-      <span
-        ref={containerRef}
-        className="relative inline-block"
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
-      >
-        <span
-          onClick={handleClick}
-          onFocus={handleMouseEnter}
-          className="bg-primary-200/50 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300 hover:bg-primary-300/50 dark:hover:bg-primary-700/50 mx-0.5 cursor-pointer rounded-lg px-1 py-0.5 text-[12px] transition-colors"
-        >
-          {parseChildrenWithEmojis(label)}
-        </span>
-      </span>
-
-      {isOpen &&
-        !isMobile &&
-        createPortal(
-          <div
-            className="citation-dropdown fixed z-9999 flex w-64 flex-col overflow-y-auto rounded-xl border border-gray-200 bg-white p-1 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
-            style={{
-              top: position.showAbove ? 'auto' : position.top,
-              bottom: position.showAbove ? window.innerHeight - position.top : 'auto',
-              left: position.left,
-              transform: 'translateX(-50%)',
-              maxHeight: position.maxHeight,
-            }}
-            onMouseEnter={() => {
-              if (timeoutRef.current) clearTimeout(timeoutRef.current)
-            }}
-            onMouseLeave={handleMouseLeave}
-          >
-            {drawerSources.map((source, listIndex) => {
-              if (!source) return null
-              const url = source.url || source.uri || source.link || source.href || ''
-              const previewSnippet = source.previewSnippet || source.snippet || source.content || ''
-              const fullSnippet = source.fullSnippet || source.snippet || source.content || ''
-              const hostname = getHostname(url)
-              const faviconUrl = (() => {
-                if (source.icon) return source.icon
-                if (!url) return ''
-                try {
-                  const parsed = new URL(url)
-                  const validHost = parsed.hostname.replace(/^www\./, '')
-                  return validHost
-                    ? `https://www.google.com/s2/favicons?domain=${validHost}&sz=32`
-                    : ''
-                } catch {
-                  return ''
-                }
-              })()
-              const titlePath = buildDocumentCitationPath(source)
-              const metaLabel = url
-                ? hostname
-                : titlePath || source.fileType || t('sources.documentSources')
-              const itemKey = getSourceKey(source)
-              const canExpand = !url && canExpandDocumentCitation(source)
-              const isExpanded = expandedItemKey === itemKey
-              const displayIndex = source.originalIndex ?? listIndex
-              const body = (
-                <>
-                  <span className="mt-0.5 flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border border-gray-200 bg-gray-100 text-[9px] font-medium text-gray-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-gray-400">
-                    {displayIndex + 1}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="line-clamp-1 block text-xs font-medium text-gray-800 dark:text-gray-200">
-                      {source.title}
-                    </span>
-                    <span className="block truncate text-[10px]! text-gray-400 dark:text-gray-500">
-                      <span className="inline-flex items-center gap-1.5">
-                        {faviconUrl ? (
-                          <img src={faviconUrl} alt="" className="h-3 w-3 rounded-sm" />
-                        ) : (
-                          <FileText size={12} className="opacity-70" />
-                        )}
-                        <span className="truncate">{metaLabel}</span>
-                      </span>
-                    </span>
-                    {previewSnippet && (
-                      <span
-                        className={clsx(
-                          'mt-1 block text-[10px] text-gray-500 dark:text-gray-400',
-                          isExpanded ? 'whitespace-pre-wrap' : 'line-clamp-2',
-                        )}
-                      >
-                        {isExpanded ? fullSnippet : previewSnippet}
-                      </span>
-                    )}
-                    {canExpand && (
-                      <button
-                        type="button"
-                        onClick={event => {
-                          event.preventDefault()
-                          event.stopPropagation()
-                          setExpandedItemKey(prev => (prev === itemKey ? null : itemKey))
-                        }}
-                        className="text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 mt-1 text-[10px] font-medium transition-colors"
-                      >
-                        {isExpanded
-                          ? t('sources.hideFullExcerpt', 'Hide full quote')
-                          : t('sources.showFullExcerpt', 'Show full quote')}
-                      </button>
-                    )}
-                  </span>
-                </>
-              )
-              return url ? (
-                <a
-                  key={itemKey}
-                  href={url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={e => e.stopPropagation()}
-                  className="flex items-start gap-2 rounded-lg p-2 text-left transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800"
-                >
-                  {body}
-                </a>
-              ) : (
-                <div key={itemKey} className="flex items-start gap-2 rounded-lg p-2 text-left">
-                  {body}
-                </div>
-              )
-            })}
-          </div>,
-          document.body,
-        )}
-
-      {/* Mobile Drawer */}
-      <MobileSourcesDrawer
-        isOpen={isOpen && isMobile}
-        onClose={() => setIsOpen(false)}
-        sources={drawerSources}
-        title={t('sources.citationSources')}
-      />
-    </>
   )
 }
 

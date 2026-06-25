@@ -13,6 +13,9 @@ def main() -> int:
     parser.add_argument("--content", required=True)
     parser.add_argument("--title", default="")
     parser.add_argument("--status", default="")
+    parser.add_argument("--priority", default="")
+    parser.add_argument("--applicable-when", dest="applicable_when", default="")
+    parser.add_argument("--not-applicable-when", dest="not_applicable_when", default="")
     parser.add_argument("--tags", default="")
     parser.add_argument("--related", default="")
     parser.add_argument("--overwrite", action="store_true")
@@ -26,6 +29,9 @@ def main() -> int:
         content=args.content,
         title=args.title,
         status=args.status,
+        priority=args.priority,
+        applicable_when=args.applicable_when,
+        not_applicable_when=args.not_applicable_when,
         tags_csv=args.tags,
         related_csv=args.related,
         overwrite=args.overwrite,

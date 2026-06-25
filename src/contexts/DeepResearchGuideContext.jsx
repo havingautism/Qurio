@@ -32,7 +32,13 @@ export const DeepResearchGuideProvider = ({
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const isMobile = useIsMobile()
+
+  // The provider only exposes open/close state. The detailed form state stays local
+  // because it is used only by this guide UI.
   const [isOpen, setIsOpen] = useState(false)
+
+  // Step 1 collects the question/type/language, step 2 scopes the search,
+  // and step 3 describes the desired output.
   const [deepResearchStep, setDeepResearchStep] = useState(1)
   const [deepResearchQuestion, setDeepResearchQuestion] = useState('')
   const [deepResearchScope, setDeepResearchScope] = useState('')
@@ -41,6 +47,8 @@ export const DeepResearchGuideProvider = ({
   const [deepResearchOutputAuto, setDeepResearchOutputAuto] = useState(true)
   const [deepResearchType, setDeepResearchType] = useState('general')
   const [deepResearchConcurrency, setDeepResearchConcurrency] = useState(3)
+
+  // Default the report language from i18n so Chinese users start with Chinese reports.
   const getDefaultResponseLanguage = useCallback(() => {
     const normalized = String(i18n.language || '').toLowerCase()
     return normalized.startsWith('zh') ? 'zh-CN' : 'en'
@@ -72,6 +80,8 @@ export const DeepResearchGuideProvider = ({
   }, [resetDeepResearchForm])
 
   const buildDeepResearchPrompt = useCallback(() => {
+    // The downstream Deep Research page receives one initial user message, so
+    // the guide converts structured fields into a compact prompt block here.
     const autoLabel = t('homeView.auto')
     const scopeValue =
       deepResearchScopeAuto || !deepResearchScope.trim() ? autoLabel : deepResearchScope.trim()
@@ -109,6 +119,8 @@ export const DeepResearchGuideProvider = ({
     }
 
     try {
+      // Deep Research conversations live in the dedicated system space and use
+      // the dedicated research agent, falling back only for provider metadata.
       const { data: conversation, error } = await createConversation({
         space_id: deepResearchSpace.id,
         title: 'Deep Research',
@@ -120,11 +132,15 @@ export const DeepResearchGuideProvider = ({
         return
       }
 
+      // This event is how list views and route detection know this conversation
+      // belongs to the Deep Research workflow instead of normal chat.
       addConversationEvent(conversation.id, 'deep_research', { enabled: true }).catch(err =>
         console.error('Failed to record deep research event:', err),
       )
       notifyConversationsChanged({ scopes: ['deepResearch'] })
 
+      // Router state bootstraps DeepResearchConversationView with the first
+      // message and fixed toggles, so no extra setup screen is needed there.
       const chatState = {
         initialMessage: buildDeepResearchPrompt(),
         initialAttachments: [],
@@ -168,6 +184,7 @@ export const DeepResearchGuideProvider = ({
     navigate,
   ])
 
+  // keydown event listener for Escape key to close the guide
   useEffect(() => {
     if (!isOpen) return
     const handleKeyDown = event => {
@@ -179,9 +196,10 @@ export const DeepResearchGuideProvider = ({
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [isOpen, closeDeepResearchGuide])
 
+  // Prevent background page scroll while the guide is open.
   useScrollLock(isOpen)
 
-  const contextValue = useMemo(
+  const contextValue = useMemo(  
     () => ({
       isOpen,
       openDeepResearchGuide,
@@ -190,7 +208,8 @@ export const DeepResearchGuideProvider = ({
     [isOpen, openDeepResearchGuide, closeDeepResearchGuide],
   )
 
-  // Extract the main content of the guide
+  // Shared by both desktop portal and mobile drawer so the actual form logic
+  // stays in one JSX tree.
   const guideContent = (
     <div
       className={clsx(
@@ -228,6 +247,7 @@ export const DeepResearchGuideProvider = ({
 
       <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:py-6">
         <div className="mb-10 flex items-center gap-2">
+          {/* Visual progress indicator for the three-step guide. */}
           {[1, 2, 3].map(step => (
             <div key={step} className="flex-1">
               <div
@@ -243,6 +263,7 @@ export const DeepResearchGuideProvider = ({
         </div>
 
         <div className="space-y-6">
+          {/* Step 1 decides the research task type and report language. */}
           {deepResearchStep === 1 && (
             <div className="animate-in fade-in slide-in-from-bottom-2 space-y-4 duration-300">
               <div className="space-y-1">
@@ -442,6 +463,7 @@ export const DeepResearchGuideProvider = ({
             </div>
           )}
 
+          {/* Step 2 lets the user constrain the research scope, or delegate it to the model. */}
           {deepResearchStep === 2 && (
             <div className="animate-in fade-in slide-in-from-right-4 space-y-3 duration-300">
               <div className="flex items-center justify-between">
@@ -475,6 +497,7 @@ export const DeepResearchGuideProvider = ({
             </div>
           )}
 
+          {/* Step 3 describes the desired output shape, again supporting auto mode. */}
           {deepResearchStep === 3 && (
             <div className="animate-in fade-in slide-in-from-right-4 space-y-3 duration-300">
               <div className="flex items-center justify-between">
@@ -530,14 +553,17 @@ export const DeepResearchGuideProvider = ({
               </button>
             )}
             {deepResearchStep < 3 ? (
-              <button
-                type="button"
-                disabled={!deepResearchQuestion.trim()}
-                onClick={() => setDeepResearchStep(step => Math.min(3, step + 1))}
-                className="bg-primary-500 hover:bg-primary-600 shadow-primary-500/25 rounded-2xl px-5 py-2.5 text-sm font-bold text-white shadow-xl transition-all active:scale-95 disabled:opacity-50 disabled:shadow-none sm:px-8"
-              >
-                {t('homeView.deepResearchNext')}
-              </button>
+              <>
+                {/* The question is required because it is the only field that cannot be auto-filled. */}
+                <button
+                  type="button"
+                  disabled={!deepResearchQuestion.trim()}
+                  onClick={() => setDeepResearchStep(step => Math.min(3, step + 1))}
+                  className="bg-primary-500 hover:bg-primary-600 shadow-primary-500/25 rounded-2xl px-5 py-2.5 text-sm font-bold text-white shadow-xl transition-all active:scale-95 disabled:opacity-50 disabled:shadow-none sm:px-8"
+                >
+                  {t('homeView.deepResearchNext')}
+                </button>
+              </>
             ) : (
               <button
                 type="button"
@@ -555,6 +581,8 @@ export const DeepResearchGuideProvider = ({
     </div>
   )
 
+  // Desktop uses a portal so the modal escapes parent stacking contexts.
+  // Mobile uses a drawer for better touch ergonomics and safe-area handling.
   const portalContent = (
     <div className="fixed inset-0 z-9999 flex items-center justify-center">
       <div

@@ -27,6 +27,8 @@ from ..models.stream_chat import (
     DoneEvent,
     ErrorEvent,
     FormRequestEvent,  # New: HITL form request event
+    SearchPreviewEvent,
+    SearchFilterEvent,
     SourceEvent,
     StreamChatRequest,
     TextEvent,
@@ -37,6 +39,7 @@ from ..models.stream_chat import (
 from .agent_registry import build_team, get_agent_for_provider, resolve_agent_config
 from .hitl_storage import get_hitl_storage
 from .summary_service import update_session_summary
+from .memory_context import inject_memory_context
 from .tool_registry import resolve_tool_name
 
 MEMORY_OPTIMIZE_THRESHOLD = 50
@@ -61,6 +64,83 @@ TOOL_TRACE_END_TAGS = {
     "tool_calls_end",
     "tool_calls_section_end",
 }
+SEARCH_FILTER_SOURCE_TOOLS = {"web_search", "search_news"}
+
+
+def _iter_search_progress_toolkits(agent: Any) -> list[Any]:
+    toolkits: list[Any] = []
+    for tool in getattr(agent, "tools", None) or []:
+        if hasattr(tool, "set_search_progress_callback"):
+            toolkits.append(tool)
+    return toolkits
+
+
+async def _iterate_run_stream(stream: Any):
+    """Normalize both async and sync Agno run streams into an async iterator."""
+    if hasattr(stream, "__aiter__"):
+        async for item in stream:
+            yield item
+        return
+
+    iterator = iter(stream)
+    sentinel = object()
+    while True:
+        item = await asyncio.to_thread(lambda: next(iterator, sentinel))
+        if item is sentinel:
+            break
+        yield item
+
+
+async def _iterate_run_stream_with_progress(
+    stream: Any,
+    progress_queue: "asyncio.Queue[dict[str, Any]]",
+):
+    """Yield Agno run events and side-channel search-progress events in arrival order."""
+    iterator = _iterate_run_stream(stream).__aiter__()
+    stream_task: asyncio.Task[Any] | None = asyncio.create_task(anext(iterator))
+    queue_task: asyncio.Task[Any] | None = asyncio.create_task(progress_queue.get())
+
+    try:
+        while stream_task is not None or queue_task is not None:
+            wait_targets = [task for task in (stream_task, queue_task) if task is not None]
+            if not wait_targets:
+                break
+
+            done, _pending = await asyncio.wait(wait_targets, return_when=asyncio.FIRST_COMPLETED)
+
+            if queue_task in done:
+                progress_payload = queue_task.result()
+                yield ("search_progress", progress_payload)
+                queue_task = (
+                    asyncio.create_task(progress_queue.get()) if stream_task is not None else None
+                )
+
+            if stream_task in done:
+                try:
+                    run_event = stream_task.result()
+                except StopAsyncIteration:
+                    stream_task = None
+                    while not progress_queue.empty():
+                        yield ("search_progress", progress_queue.get_nowait())
+                    if queue_task is not None:
+                        queue_task.cancel()
+                        try:
+                            await queue_task
+                        except BaseException:
+                            pass
+                        queue_task = None
+                    break
+                else:
+                    yield ("run_event", run_event)
+                    stream_task = asyncio.create_task(anext(iterator))
+    finally:
+        for task in (stream_task, queue_task):
+            if task is not None and not task.done():
+                task.cancel()
+                try:
+                    await task
+                except BaseException:
+                    pass
 
 
 def _strip_internal_tool_trace(text: str) -> str:
@@ -141,6 +221,82 @@ def _strip_inline_tool_protocol(
 
     cleaned = PROTOCOL_TAG_REGEX.sub("", combined)
     return cleaned, 0, tail, True
+
+
+def _extract_tool_query(tool: Any) -> str:
+    raw_args = getattr(tool, "tool_args", None)
+    parsed = raw_args
+    if isinstance(parsed, str):
+        text = parsed.strip()
+        if not text:
+            return ""
+        try:
+            parsed = json.loads(text)
+        except Exception:
+            try:
+                parsed = ast.literal_eval(text)
+            except Exception:
+                return ""
+    if isinstance(parsed, dict):
+        query = parsed.get("query") or parsed.get("q") or parsed.get("search_query")
+        return str(query or "").strip()
+    return ""
+
+
+def _extract_search_filter_meta(output: Any) -> dict[str, Any] | None:
+    payload = _coerce_tool_result_payload(output)
+    if not isinstance(payload, dict):
+        return None
+    meta = payload.get("search_filter") or payload.get("searchFilter")
+    if not isinstance(meta, dict):
+        return None
+    return meta
+
+
+def _build_search_filter_event(
+    tool: Any,
+    *,
+    status: str,
+    duration_ms: int | None = None,
+    text_index: int | None = None,
+    output: Any = None,
+    agent_info: dict[str, str | None] | None = None,
+) -> dict[str, Any] | None:
+    tool_name = str(getattr(tool, "tool_name", "") or "").strip()
+    if tool_name not in SEARCH_FILTER_SOURCE_TOOLS:
+        return None
+
+    tool_call_id = getattr(tool, "tool_call_id", None)
+    query = _extract_tool_query(tool)
+    meta = _extract_search_filter_meta(output)
+    payload: dict[str, Any] = {
+        "type": "search_filter",
+        "id": tool_call_id,
+        "name": tool_name,
+        "status": status,
+        "query": query or (str(meta.get("query", "")).strip() if meta else ""),
+        "durationMs": duration_ms,
+        "textIndex": text_index,
+        "agentId": agent_info.get("agent_id") if agent_info else None,
+        "agentName": agent_info.get("agent_name") if agent_info else None,
+        "agentRole": agent_info.get("agent_role") if agent_info else None,
+        "agentEmoji": agent_info.get("agent_emoji") if agent_info else None,
+    }
+
+    if meta:
+        payload.update(
+            {
+                "applied": meta.get("applied"),
+                "originalCount": meta.get("original_count", meta.get("originalCount")),
+                "filteredCount": meta.get("filtered_count", meta.get("filteredCount")),
+                "fallbackReason": meta.get("fallback_reason", meta.get("fallbackReason")),
+                "originalResults": meta.get("original_results", meta.get("originalResults")),
+                "filteredResults": meta.get("filtered_results", meta.get("filteredResults")),
+                "status": str(meta.get("status") or status),
+            }
+        )
+
+    return SearchFilterEvent(**payload).model_dump(by_alias=True, exclude_none=True)
 
 
 def _squash_whitespace(text: Any) -> str:
@@ -726,6 +882,7 @@ def _coerce_tool_result_payload(output: Any) -> Any:
 def _build_tool_result_event(
     tool: Any,
     duration_ms: int | None,
+    text_index: int | None,
     normalize_tool_output_fn: Any,
     agent_info: dict[str, str | None] | None = None,
 ) -> tuple[dict[str, Any], Any]:
@@ -739,6 +896,7 @@ def _build_tool_result_event(
         status="done" if not getattr(tool, "tool_call_error", None) else "error",
         output=output,
         durationMs=duration_ms,
+        textIndex=text_index,
         agent_id=agent_info.get("agent_id") if agent_info else None,
         agent_name=agent_info.get("agent_name") if agent_info else None,
         agent_role=agent_info.get("agent_role") if agent_info else None,
@@ -974,6 +1132,15 @@ class StreamChatService:
             # attribute content that flows through the leader stream (e.g. Route mode).
             # Cleared on member run_completed. None in non-team mode.
             active_member_agent_info: dict[str, Any] | None = None
+            search_progress_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+            active_search_progress_context: dict[str, Any] | None = None
+
+            async def _emit_search_progress(payload: dict[str, Any]) -> None:
+                await search_progress_queue.put(dict(payload or {}))
+
+            search_progress_toolkits = _iter_search_progress_toolkits(agent)
+            for toolkit in search_progress_toolkits:
+                toolkit.set_search_progress_callback(_emit_search_progress)
 
             def trace_stream(stage: str, **kwargs: Any) -> None:
                 if not stream_trace:
@@ -1050,6 +1217,7 @@ class StreamChatService:
             pre_events: list[dict[str, Any]] = []
 
             messages = self._inject_local_time_context(messages, request, pre_events)
+            messages = inject_memory_context(messages, request)
             enabled_tool_names = self._collect_enabled_tool_names(request)
             messages = self._inject_tool_guidance(messages, enabled_tool_names, request)
 
@@ -1177,7 +1345,57 @@ class StreamChatService:
             # ================================================================
             # Stream processing with HITL support
             # ================================================================
-            async for run_event in stream:
+            async for stream_item_type, stream_payload in _iterate_run_stream_with_progress(
+                stream,
+                search_progress_queue,
+            ):
+                if stream_item_type == "search_progress":
+                    if not active_search_progress_context:
+                        continue
+                    progress_payload = dict(stream_payload or {})
+                    progress_type = str(progress_payload.get("type") or "search_filter")
+                    if progress_type == "search_preview":
+                        yield SearchPreviewEvent(
+                            id=active_search_progress_context.get("tool_call_id"),
+                            name=str(
+                                progress_payload.get("name")
+                                or active_search_progress_context.get("tool_name")
+                                or "search_preview"
+                            ),
+                            query=str(progress_payload.get("query") or "") or None,
+                            resultCount=progress_payload.get("resultCount"),
+                            results=progress_payload.get("results"),
+                            textIndex=len(full_content),
+                            agentId=active_search_progress_context.get("agent_id"),
+                            agentName=active_search_progress_context.get("agent_name"),
+                            agentRole=active_search_progress_context.get("agent_role"),
+                            agentEmoji=active_search_progress_context.get("agent_emoji"),
+                        ).model_dump(by_alias=True, exclude_none=True)
+                    else:
+                        yield SearchFilterEvent(
+                            id=active_search_progress_context.get("tool_call_id"),
+                            name=str(
+                                progress_payload.get("name")
+                                or active_search_progress_context.get("tool_name")
+                                or "search_filter"
+                            ),
+                            status=str(progress_payload.get("status") or "running"),
+                            query=str(progress_payload.get("query") or "") or None,
+                            applied=progress_payload.get("applied"),
+                            originalCount=progress_payload.get("originalCount"),
+                            filteredCount=progress_payload.get("filteredCount"),
+                            fallbackReason=progress_payload.get("fallbackReason"),
+                            originalResults=progress_payload.get("originalResults"),
+                            filteredResults=progress_payload.get("filteredResults"),
+                            textIndex=len(full_content),
+                            agentId=active_search_progress_context.get("agent_id"),
+                            agentName=active_search_progress_context.get("agent_name"),
+                            agentRole=active_search_progress_context.get("agent_role"),
+                            agentEmoji=active_search_progress_context.get("agent_emoji"),
+                        ).model_dump(by_alias=True, exclude_none=True)
+                    continue
+
+                run_event = stream_payload
                 _append_raw_event_log(
                     phase="main",
                     request=request,
@@ -1541,6 +1759,16 @@ class StreamChatService:
                                     tool_name=getattr(tool, "tool_name", ""),
                                     tool_call_id=getattr(tool, "tool_call_id", None),
                                 )
+                                tool_name = str(getattr(tool, "tool_name", "") or "").strip()
+                                if tool_name in SEARCH_FILTER_SOURCE_TOOLS:
+                                    active_search_progress_context = {
+                                        "tool_call_id": getattr(tool, "tool_call_id", None),
+                                        "tool_name": tool_name,
+                                        "agent_id": current_agent_info.get("agent_id"),
+                                        "agent_name": current_agent_info.get("agent_name"),
+                                        "agent_role": current_agent_info.get("agent_role"),
+                                        "agent_emoji": current_agent_info.get("agent_emoji"),
+                                    }
                                 current_text_index = len(full_content)
                                 yield _build_tool_call_event(
                                     tool,
@@ -1570,11 +1798,29 @@ class StreamChatService:
                                 tool_result_event, output = _build_tool_result_event(
                                     tool,
                                     duration_ms,
+                                    len(full_content),
                                     self._normalize_tool_output,
                                     agent_info=current_agent_info,
                                 )
                                 yield tool_result_event
+                                search_meta = _extract_search_filter_meta(output)
+                                search_filter_event = _build_search_filter_event(
+                                    tool,
+                                    status=(
+                                        str(search_meta.get("status") or "unavailable")
+                                        if search_meta
+                                        else "unavailable"
+                                    ),
+                                    duration_ms=duration_ms,
+                                    text_index=len(full_content),
+                                    output=output,
+                                    agent_info=current_agent_info,
+                                )
+                                if search_filter_event:
+                                    yield search_filter_event
                                 self._collect_search_sources(output, sources_map)
+                                if str(getattr(tool, "tool_name", "") or "").strip() in SEARCH_FILTER_SOURCE_TOOLS:
+                                    active_search_progress_context = None
 
                         case RunEvent.run_completed.value | TeamRunEvent.run_completed:
                             # Extract agent info to check if this is a member or leader
@@ -1705,7 +1951,11 @@ class StreamChatService:
                         for e in process_text(content_chunk):
                             yield e
 
+            for toolkit in search_progress_toolkits:
+                toolkit.set_search_progress_callback(None)
         except Exception as exc:
+            for toolkit in locals().get("search_progress_toolkits", []):
+                toolkit.set_search_progress_callback(None)
             logger.error(f"Stream chat error: {exc}")
             yield ErrorEvent(error=_extract_best_error_message(exc)).model_dump()
 
@@ -1722,6 +1972,7 @@ class StreamChatService:
         3. Runs agent.arun() and streams completion
         4. Cleans up storage record
         """
+        search_progress_toolkits: list[Any] = []
         try:
             run_id = request.run_id
             field_values = request.field_values or {}
@@ -1806,6 +2057,15 @@ class StreamChatService:
             # Get agent (same provider as original request)
             agent = get_agent_for_provider(request)
             _log_verbose_info(f"[HITL Continue] Agent instructions: {getattr(agent, 'instructions', None)}")
+            search_progress_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+            active_search_progress_context: dict[str, Any] | None = None
+
+            async def _emit_search_progress(payload: dict[str, Any]) -> None:
+                await search_progress_queue.put(dict(payload or {}))
+
+            search_progress_toolkits = _iter_search_progress_toolkits(agent)
+            for toolkit in search_progress_toolkits:
+                toolkit.set_search_progress_callback(_emit_search_progress)
 
             full_content = ""
             full_thought = ""
@@ -1867,30 +2127,65 @@ class StreamChatService:
                         agent_id=current_agent_info.get("agent_id"),
                         agent_name=current_agent_info.get("agent_name"),
                     ).model_dump(by_alias=True, exclude_none=True)
-            async def _iterate_run_stream(stream: Any):
-                """
-                Normalize both async and sync Agno run streams into an async iterator.
-                """
-                if hasattr(stream, "__aiter__"):
-                    async for item in stream:
-                        yield item
-                    return
-
-                iterator = iter(stream)
-                sentinel = object()
-                while True:
-                    item = await asyncio.to_thread(lambda: next(iterator, sentinel))
-                    if item is sentinel:
-                        break
-                    yield item
-
             async def _stream_events(stream):
                 nonlocal full_content, full_thought, sources_map, tool_start_times, paused_again, stream_had_error
                 nonlocal in_reasoning_phase, should_break_next_thought, reasoning_closed_for_current_cycle
                 nonlocal in_content_think_block, inline_tool_trace_depth, inline_protocol_tail
                 nonlocal completed_content_fallback, saw_terminal_completion
                 nonlocal continuation_event_count, last_event_name, last_event_type, last_event_run_id
-                async for run_event in _iterate_run_stream(stream):
+                nonlocal active_search_progress_context
+                async for stream_item_type, stream_payload in _iterate_run_stream_with_progress(
+                    stream,
+                    search_progress_queue,
+                ):
+                    if stream_item_type == "search_progress":
+                        if not active_search_progress_context:
+                            continue
+                        progress_payload = dict(stream_payload or {})
+                        progress_type = str(progress_payload.get("type") or "search_filter")
+                        if progress_type == "search_preview":
+                            yield SearchPreviewEvent(
+                                id=active_search_progress_context.get("tool_call_id"),
+                                name=(
+                                    progress_payload.get("name")
+                                    or active_search_progress_context.get("tool_name")
+                                    or "search_preview"
+                                ),
+                                query=progress_payload.get("query") or "",
+                                resultCount=progress_payload.get("resultCount"),
+                                results=progress_payload.get("results"),
+                                textIndex=len(full_content),
+                                agentId=active_search_progress_context.get("agent_id"),
+                                agentName=active_search_progress_context.get("agent_name"),
+                                agentRole=active_search_progress_context.get("agent_role"),
+                                agentEmoji=active_search_progress_context.get("agent_emoji"),
+                            ).model_dump(by_alias=True, exclude_none=True)
+                        else:
+                            yield SearchFilterEvent(
+                                id=active_search_progress_context.get("tool_call_id"),
+                                name=(
+                                    progress_payload.get("name")
+                                    or active_search_progress_context.get("tool_name")
+                                    or "search_filter"
+                                ),
+                                status=progress_payload.get("status") or "running",
+                                query=progress_payload.get("query") or "",
+                                applied=progress_payload.get("applied"),
+                                originalCount=progress_payload.get("originalCount"),
+                                filteredCount=progress_payload.get("filteredCount"),
+                                fallbackReason=progress_payload.get("fallbackReason"),
+                                originalResults=progress_payload.get("originalResults"),
+                                filteredResults=progress_payload.get("filteredResults"),
+                                durationMs=progress_payload.get("durationMs"),
+                                textIndex=len(full_content),
+                                agentId=active_search_progress_context.get("agent_id"),
+                                agentName=active_search_progress_context.get("agent_name"),
+                                agentRole=active_search_progress_context.get("agent_role"),
+                                agentEmoji=active_search_progress_context.get("agent_emoji"),
+                            ).model_dump(by_alias=True, exclude_none=True)
+                        continue
+
+                    run_event = stream_payload
                     _append_raw_event_log(
                         phase="hitl_continuation",
                         request=request,
@@ -2170,8 +2465,17 @@ class StreamChatService:
                                         tool_name=tool.tool_name or "",
                                         tool_call_id=tool.tool_call_id,
                                     )
-                                    current_text_index = len(full_content)
-                                    yield _build_tool_call_event(tool, current_text_index)
+                                    if (tool.tool_name or "") in SEARCH_FILTER_SOURCE_TOOLS:
+                                        active_search_progress_context = {
+                                            "tool_call_id": tool.tool_call_id,
+                                            "tool_name": tool.tool_name,
+                                            "agent_id": current_agent_info.get("agent_id"),
+                                            "agent_name": current_agent_info.get("agent_name"),
+                                            "agent_role": current_agent_info.get("agent_role"),
+                                            "agent_emoji": current_agent_info.get("agent_emoji"),
+                                        }
+                                current_text_index = len(full_content)
+                                yield _build_tool_call_event(tool, current_text_index)
 
                             case RunEvent.tool_call_completed.value:
                                 tool_event: ToolCallCompletedEvent = run_event  # type: ignore[assignment]
@@ -2195,10 +2499,27 @@ class StreamChatService:
                                     tool_result_event, output = _build_tool_result_event(
                                         tool,
                                         duration_ms,
+                                        len(full_content),
                                         self._normalize_tool_output,
                                     )
                                     yield tool_result_event
+                                    search_meta = _extract_search_filter_meta(output)
+                                    search_filter_event = _build_search_filter_event(
+                                        tool,
+                                        status=(
+                                            str(search_meta.get("status") or "unavailable")
+                                            if search_meta
+                                            else "unavailable"
+                                        ),
+                                        duration_ms=duration_ms,
+                                        text_index=len(full_content),
+                                        output=output,
+                                    )
+                                    if search_filter_event:
+                                        yield search_filter_event
                                     self._collect_search_sources(output, sources_map)
+                                    if (tool.tool_name or "") in SEARCH_FILTER_SOURCE_TOOLS:
+                                        active_search_progress_context = None
 
                             case RunEvent.run_completed.value:
                                 saw_terminal_completion = True
@@ -2301,6 +2622,7 @@ class StreamChatService:
 
             def _build_continuation_agent_input(base_messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 messages = self._inject_local_time_context(list(base_messages), request, [])
+                messages = inject_memory_context(messages, request)
                 system_messages = [m for m in messages if m.get("role") == "system"]
                 chat_messages = [m for m in messages if m.get("role") != "system"]
 
@@ -2549,6 +2871,9 @@ class StreamChatService:
             error_details = traceback.format_exc()
             logger.error(f"HITL continuation error: {exc}\n{error_details}")
             yield ErrorEvent(error=_extract_best_error_message(exc)).model_dump()
+        finally:
+            for toolkit in search_progress_toolkits:
+                toolkit.set_search_progress_callback(None)
 
 
 

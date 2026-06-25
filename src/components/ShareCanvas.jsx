@@ -21,11 +21,6 @@ const PROVIDER_META = {
     logo: PROVIDER_ICONS.openrouter,
     fallback: 'R',
   },
-  litellm_openai: {
-    label: 'LiteLLM OpenAI',
-    logo: PROVIDER_ICONS.litellm_openai,
-    fallback: 'L',
-  },
   huggingface: {
     label: 'Hugging Face',
     logo: PROVIDER_ICONS.huggingface,

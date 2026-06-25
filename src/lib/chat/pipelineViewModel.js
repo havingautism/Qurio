@@ -1,4 +1,4 @@
-const PIPELINE_SCHEMA_VERSION = 7
+const PIPELINE_SCHEMA_VERSION = 9
 const MAX_SUMMARY_LENGTH = 92
 
 const stripMarkdownLikeSyntax = value =>
@@ -129,6 +129,9 @@ const createNode = ({
 })
 
 const shouldKeepInlineSummary = (type, meta) => {
+  if (type === 'memory_tool') {
+    return true
+  }
   if (type === 'tool_call' || type === 'tool_result') {
     return String(meta?.toolName || '') === 'delegate_task_to_member'
   }
@@ -221,6 +224,310 @@ const resolveDelegateDisplay = (delegateInfo, actorNameById) => {
   }
 }
 
+const SEARCH_FILTER_SOURCE_TOOLS = new Set(['web_search', 'search_news'])
+const MEMORY_SKILL_SCRIPT_NAMES = new Set([
+  'memory_store.py',
+  'scripts/memory_store.py',
+  'list_memories.py',
+  'scripts/list_memories.py',
+  'list_categories.py',
+  'scripts/list_categories.py',
+  'search_memories.py',
+  'scripts/search_memories.py',
+  'save_memory.py',
+  'scripts/save_memory.py',
+  'delete_memory.py',
+  'scripts/delete_memory.py',
+])
+const MEMORY_TOOL_NAMES = new Set(['memory_check'])
+
+const formatMemoryPriority = value => {
+  const num = Number(value)
+  if (!Number.isFinite(num)) return ''
+  return num
+    .toFixed(num >= 1 ? 0 : 2)
+    .replace(/\.00$/, '')
+    .replace(/(\.\d)0$/, '$1')
+}
+
+const parseToolArguments = argumentsValue => {
+  if (argumentsValue && typeof argumentsValue === 'object') return argumentsValue
+  if (typeof argumentsValue !== 'string') return null
+  const parsed = safeParseJson(argumentsValue)
+  return parsed && typeof parsed === 'object' ? parsed : null
+}
+
+const normalizeToolCallsToHistory = toolCalls => {
+  if (!Array.isArray(toolCalls) || toolCalls.length === 0) return []
+  return toolCalls
+    .map((tool, index) => {
+      if (!tool || typeof tool !== 'object') return null
+      const fn = tool?.function && typeof tool.function === 'object' ? tool.function : {}
+      return {
+        id: tool?.id || tool?.tool_call_id || tool?.toolCallId || `tool-${index + 1}`,
+        name: tool?.name || fn.name || tool?.tool_name || tool?.toolName || 'tool',
+        arguments: tool?.arguments ?? fn.arguments ?? tool?.input ?? null,
+        output: tool?.output ?? tool?.result ?? null,
+        durationMs: Number.isFinite(tool?.durationMs)
+          ? Number(tool.durationMs)
+          : Number.isFinite(tool?.duration_ms)
+            ? Number(tool.duration_ms)
+            : null,
+        streamOrder: Number.isFinite(tool?.streamOrder)
+          ? Number(tool.streamOrder)
+          : Number.isFinite(tool?.stream_order)
+            ? Number(tool.stream_order)
+            : index + 1,
+      }
+    })
+    .filter(Boolean)
+}
+
+const extractMemoryToolMeta = (toolName, argumentsValue) => {
+  const normalizedToolName = String(toolName || '').trim()
+  const parsed = parseToolArguments(argumentsValue)
+
+  if (MEMORY_TOOL_NAMES.has(normalizedToolName)) {
+    return {
+      kind: 'memory_check',
+      label: 'Memory Check',
+      badge: 'Memory',
+      skillId: '',
+      scriptPath: '',
+      scriptName: '',
+      category: '',
+      keyword: '',
+      slug: '',
+      priority: null,
+      applicableWhen: '',
+      notApplicableWhen: '',
+    }
+  }
+
+  if (normalizedToolName !== 'execute_skill_script') return null
+  const skillId = String(parsed?.skill_id || parsed?.skillId || '').trim()
+  const scriptPath = String(parsed?.script_path || parsed?.scriptPath || '').trim()
+  if (skillId !== 'agent-memory' || !MEMORY_SKILL_SCRIPT_NAMES.has(scriptPath)) return null
+  const scriptName = scriptPath.split('/').pop() || scriptPath
+  const labelByScript = {
+    'list_categories.py': 'Memory Categories',
+    'memory_store.py': 'Memory Store',
+    'list_memories.py': 'Memory List',
+    'search_memories.py': 'Memory Search',
+    'save_memory.py': 'Memory Save',
+    'delete_memory.py': 'Memory Delete',
+  }
+  return {
+    kind: 'agent_memory',
+    label: labelByScript[scriptName] || 'Memory Tool',
+    badge: 'Memory',
+    skillId,
+    scriptPath,
+    scriptName,
+    category: String(parsed?.category || '').trim(),
+    keyword: String(parsed?.keyword || parsed?.query || '').trim(),
+    slug: String(parsed?.slug || '').trim(),
+    priority: parsed?.priority,
+    applicableWhen: String(parsed?.applicable_when || parsed?.applicableWhen || '').trim(),
+    notApplicableWhen: String(
+      parsed?.not_applicable_when || parsed?.notApplicableWhen || '',
+    ).trim(),
+  }
+}
+
+const formatMemoryEntryText = (item, index = 0) => {
+  if (!item || typeof item !== 'object') return ''
+  const title = String(item.title || item.slug || `Memory ${index + 1}`).trim()
+  const summary = String(item.summary || '').trim()
+  const priority = formatMemoryPriority(item.priority)
+  const applicableWhen = String(item.applicable_when || '').trim()
+  const notApplicableWhen = String(item.not_applicable_when || '').trim()
+  const tags = Array.isArray(item.tags)
+    ? item.tags.map(tag => String(tag || '').trim()).filter(Boolean)
+    : []
+  const category = String(item.category || '').trim()
+  const path = String(item.path || '').trim()
+  const lines = [title]
+  if (summary) lines.push(`Summary: ${summary}`)
+  if (priority) lines.push(`Priority: ${priority}`)
+  if (applicableWhen) lines.push(`Applicable When: ${applicableWhen}`)
+  if (notApplicableWhen) lines.push(`Not Applicable When: ${notApplicableWhen}`)
+  if (tags.length > 0) lines.push(`Tags: ${tags.join(', ')}`)
+  if (category) lines.push(`Category: ${category}`)
+  if (path) lines.push(`Path: ${path}`)
+  return lines.join('\n')
+}
+
+const buildMemoryEntrySections = items => {
+  if (!Array.isArray(items) || items.length === 0) return []
+  return items.slice(0, 5).map((item, index) =>
+    textSection(
+      `Memory ${index + 1}`,
+      formatMemoryEntryText(item, index) || `Summary: ${String(item?.summary || item?.title || '').trim()}`,
+    ),
+  )
+}
+
+const buildMemoryResultSections = outputValue => {
+  const parsed = safeParseJson(outputValue)
+  const objectLike = parsed && typeof parsed === 'object' ? parsed : null
+  if (!objectLike) return []
+
+  const items = Array.isArray(objectLike.items) ? objectLike.items : []
+  const sections = []
+  if (objectLike.action) sections.push(textSection('Action', String(objectLike.action)))
+  if (objectLike.keyword) sections.push(textSection('Keyword', String(objectLike.keyword)))
+  if (objectLike.category) sections.push(textSection('Category', String(objectLike.category)))
+  if (objectLike.scope) sections.push(textSection('Scope', String(objectLike.scope)))
+  if (items.length > 0) {
+    sections.push(textSection('Matches', `${items.length} memory item(s)`))
+    sections.push(...buildMemoryEntrySections(items))
+  } else if (objectLike.path) {
+    sections.push(textSection('Path', String(objectLike.path)))
+  }
+  return sections.filter(Boolean)
+}
+
+const extractSearchFilterMeta = outputValue => {
+  const parsed = safeParseJson(outputValue)
+  if (!parsed || typeof parsed !== 'object') return null
+  const meta =
+    parsed.search_filter && typeof parsed.search_filter === 'object'
+      ? parsed.search_filter
+      : parsed.searchFilter && typeof parsed.searchFilter === 'object'
+        ? parsed.searchFilter
+        : null
+  if (!meta) return null
+
+  const originalResults = Array.isArray(meta.original_results)
+    ? meta.original_results
+    : Array.isArray(meta.originalResults)
+      ? meta.originalResults
+      : []
+  const filteredResults = Array.isArray(meta.filtered_results)
+    ? meta.filtered_results
+    : Array.isArray(meta.filteredResults)
+      ? meta.filteredResults
+      : []
+
+  return {
+    query: typeof meta.query === 'string' ? meta.query : '',
+    status: String(meta.status || 'done'),
+    applied: Boolean(meta.applied),
+    originalCount: Number(meta.original_count || meta.originalCount || originalResults.length || 0),
+    filteredCount: Number(meta.filtered_count || meta.filteredCount || filteredResults.length || 0),
+    fallbackReason:
+      typeof meta.fallback_reason === 'string'
+        ? meta.fallback_reason
+        : typeof meta.fallbackReason === 'string'
+          ? meta.fallbackReason
+          : null,
+    originalResults,
+    filteredResults,
+  }
+}
+
+const normalizeSearchFilterMeta = meta => {
+  if (!meta || typeof meta !== 'object') return null
+  const originalResults = Array.isArray(meta.originalResults)
+    ? meta.originalResults
+    : Array.isArray(meta.original_results)
+      ? meta.original_results
+      : []
+  const filteredResults = Array.isArray(meta.filteredResults)
+    ? meta.filteredResults
+    : Array.isArray(meta.filtered_results)
+      ? meta.filtered_results
+      : []
+  return {
+    query: typeof meta.query === 'string' ? meta.query : '',
+    status: String(meta.status || 'done'),
+    applied: Boolean(meta.applied),
+    originalCount: Number(meta.originalCount || meta.original_count || originalResults.length || 0),
+    filteredCount: Number(meta.filteredCount || meta.filtered_count || filteredResults.length || 0),
+    fallbackReason:
+      typeof meta.fallbackReason === 'string'
+        ? meta.fallbackReason
+        : typeof meta.fallback_reason === 'string'
+          ? meta.fallback_reason
+          : null,
+    originalResults,
+    filteredResults,
+  }
+}
+
+const buildSearchFilterNode = ({
+  id,
+  toolName,
+  outputValue,
+  durationMs,
+  actor,
+  searchFilterMeta = null,
+}) => {
+  if (!SEARCH_FILTER_SOURCE_TOOLS.has(String(toolName || ''))) return null
+  const meta = normalizeSearchFilterMeta(searchFilterMeta) || extractSearchFilterMeta(outputValue)
+  if (!meta) return null
+  const normalizedStatus = String(meta.status || 'done').toLowerCase()
+
+  const node = createNode({
+    id: `search-filter-${id}`,
+    type: 'search_filter',
+    title: 'Filter Results',
+    badge: 'Filter',
+    summary:
+      normalizedStatus === 'running'
+        ? ''
+        : meta.originalCount > 0
+          ? `${meta.filteredCount || 0} / ${meta.originalCount} relevant results`
+          : '',
+    status:
+      normalizedStatus === 'running'
+        ? 'running'
+        : normalizedStatus === 'filtered' ||
+            normalizedStatus === 'fallback' ||
+            normalizedStatus === 'unavailable'
+          ? 'done'
+          : normalizedStatus,
+    actor,
+    durationMs,
+    detailSections: [
+      textSection('Tool', String(toolName || '')),
+      meta.query ? textSection('Query', meta.query) : null,
+      normalizedStatus === 'running'
+        ? textSection('Summary', 'Filtering in progress')
+        : textSection(
+            'Summary',
+            `${meta.filteredCount || 0} / ${meta.originalCount || 0} relevant results`,
+          ),
+      meta.fallbackReason ? textSection('Fallback', meta.fallbackReason) : null,
+      sourceSection(meta.filteredResults),
+    ],
+    meta: {
+      toolName,
+      originalCount: meta.originalCount,
+      filteredCount: meta.filteredCount,
+      fallbackReason: meta.fallbackReason,
+    },
+  })
+  return {
+    ...node,
+    query: meta.query,
+    applied: meta.applied,
+    originalCount: meta.originalCount,
+    filteredCount: meta.filteredCount,
+    fallbackReason: meta.fallbackReason,
+    originalResults: meta.originalResults,
+    filteredResults: meta.filteredResults,
+    sourceToolId: id,
+  }
+}
+
+const getSearchToolBlockId = block => {
+  const toolName = String(block?.name || '').trim()
+  if (!SEARCH_FILTER_SOURCE_TOOLS.has(toolName)) return ''
+  return String(block?.tool_call_id || block?.id || '').trim()
+}
+
 const buildToolCallNode = ({
   id,
   toolName,
@@ -232,18 +539,37 @@ const buildToolCallNode = ({
 }) => {
   const normalizedToolName = String(toolName || 'Tool')
   const toolId = String(id || '')
+  const memoryMeta = extractMemoryToolMeta(normalizedToolName, argumentsValue)
   const delegateInfo =
     normalizedToolName === 'delegate_task_to_member' ? parseDelegateInfo(argumentsValue) : null
   const delegateDisplay = resolveDelegateDisplay(delegateInfo, actorNameById)
   const delegateSummary =
     delegateDisplay?.targetName && `${actor || 'Leader'} -> ${delegateDisplay.targetName}`
+  const memorySummary = memoryMeta
+    ? memoryMeta.kind === 'memory_check'
+      ? 'Checking memory relevance'
+      : [
+          memoryMeta.label,
+          memoryMeta.keyword ? `Query: ${memoryMeta.keyword}` : '',
+          memoryMeta.category ? `Category: ${memoryMeta.category}` : '',
+        ]
+          .filter(Boolean)
+          .join(' • ')
+    : ''
 
   return createNode({
     id: `tool-call-${toolId || normalizedToolName}`,
-    type: 'tool_call',
-    title: normalizedToolName === 'delegate_task_to_member' ? 'Delegate Task' : normalizedToolName,
-    badge: normalizedToolName === 'delegate_task_to_member' ? 'Delegate' : 'Tool',
+    type: memoryMeta ? 'memory_tool' : 'tool_call',
+    title:
+      normalizedToolName === 'delegate_task_to_member'
+        ? 'Delegate Task'
+        : memoryMeta?.label || normalizedToolName,
+    badge:
+      normalizedToolName === 'delegate_task_to_member'
+        ? 'Delegate'
+        : memoryMeta?.badge || 'Tool',
     summary:
+      memorySummary ||
       delegateSummary ||
       summarizeText(
         typeof argumentsValue === 'string'
@@ -251,12 +577,20 @@ const buildToolCallNode = ({
           : argumentsValue && typeof argumentsValue === 'object'
             ? toPrettyJson(argumentsValue)
             : `${normalizedToolName} called`,
-      ),
+    ),
     status: toolStatus === 'error' ? 'error' : 'done',
     actor,
     durationMs,
     detailSections: [
-      textSection('Tool', normalizedToolName),
+      memoryMeta?.skillId ? textSection('Skill', memoryMeta.skillId) : textSection('Tool', normalizedToolName),
+      memoryMeta?.scriptPath ? textSection('Script', memoryMeta.scriptPath) : null,
+      memoryMeta?.keyword ? textSection('Keyword', memoryMeta.keyword) : null,
+      memoryMeta?.category ? textSection('Category', memoryMeta.category) : null,
+      memoryMeta?.priority != null ? textSection('Priority', formatMemoryPriority(memoryMeta.priority)) : null,
+      memoryMeta?.applicableWhen ? textSection('Applicable When', memoryMeta.applicableWhen) : null,
+      memoryMeta?.notApplicableWhen
+        ? textSection('Not Applicable When', memoryMeta.notApplicableWhen)
+        : null,
       delegateDisplay?.targetName ? textSection('Agent', delegateDisplay.targetName) : null,
       delegateDisplay?.task ? textSection('Assigned Task', delegateDisplay.task) : null,
       jsonSection('Input', argumentsValue),
@@ -264,6 +598,7 @@ const buildToolCallNode = ({
     meta: {
       toolId,
       toolName: normalizedToolName,
+      memoryMeta,
       delegateTargetName: delegateDisplay?.targetName || null,
       delegateTask: delegateDisplay?.task || null,
       delegateKey:
@@ -282,43 +617,73 @@ const buildToolResultNode = ({
   durationMs,
   actor,
   delegateTargetName = null,
+  argumentsValue = null,
 }) => {
   const normalizedToolName = String(toolName || 'Tool')
   const toolId = String(id || '')
+  const memoryMeta = extractMemoryToolMeta(normalizedToolName, argumentsValue)
   const summary =
-    normalizedToolName === 'delegate_task_to_member'
-      ? `${delegateTargetName || 'Delegated member'} -> ${actor || 'Leader'}`
-      : summarizeText(
-          typeof outputValue === 'string'
-            ? outputValue
-            : outputValue != null
-              ? toPrettyJson(outputValue)
-              : toolStatus === 'error'
-                ? `${normalizedToolName} failed`
-                : `${normalizedToolName} completed`,
-        )
+    memoryMeta
+      ? summarizeText(
+          buildMemoryResultSections(outputValue)
+            .map(section => String(section?.value || '').trim())
+            .join('\n\n'),
+        ) || memoryMeta.label
+      : normalizedToolName === 'delegate_task_to_member'
+        ? `${delegateTargetName || 'Delegated member'} -> ${actor || 'Leader'}`
+        : summarizeText(
+            typeof outputValue === 'string'
+              ? outputValue
+              : outputValue != null
+                ? toPrettyJson(outputValue)
+                : toolStatus === 'error'
+                  ? `${normalizedToolName} failed`
+                  : `${normalizedToolName} completed`,
+          )
 
   return createNode({
     id: `tool-result-${toolId || normalizedToolName}`,
-    type: 'tool_result',
+    type: memoryMeta ? 'memory_tool' : 'tool_result',
     title:
-      normalizedToolName === 'delegate_task_to_member'
+      memoryMeta?.label ||
+      (normalizedToolName === 'delegate_task_to_member'
         ? 'Delegate Result'
-        : `${normalizedToolName} Result`,
+        : `${normalizedToolName} Result`),
     badge:
-      normalizedToolName === 'delegate_task_to_member'
+      memoryMeta?.badge ||
+      (normalizedToolName === 'delegate_task_to_member'
         ? 'Delegate'
         : toolStatus === 'error'
           ? 'Error'
-          : 'Result',
+          : 'Result'),
     summary,
     status: toolStatus,
     actor,
     durationMs,
-    detailSections: [textSection('Tool', normalizedToolName), jsonSection('Output', outputValue)],
+    detailSections:
+      memoryMeta
+        ? [
+            memoryMeta.skillId ? textSection('Skill', memoryMeta.skillId) : null,
+            memoryMeta.scriptPath ? textSection('Script', memoryMeta.scriptPath) : null,
+            memoryMeta.keyword ? textSection('Keyword', memoryMeta.keyword) : null,
+            memoryMeta.category ? textSection('Category', memoryMeta.category) : null,
+            memoryMeta.priority != null
+              ? textSection('Priority', formatMemoryPriority(memoryMeta.priority))
+              : null,
+            memoryMeta.applicableWhen
+              ? textSection('Applicable When', memoryMeta.applicableWhen)
+              : null,
+            memoryMeta.notApplicableWhen
+              ? textSection('Not Applicable When', memoryMeta.notApplicableWhen)
+              : null,
+            ...buildMemoryResultSections(outputValue),
+            jsonSection('Output', outputValue),
+          ].filter(Boolean)
+        : [textSection('Tool', normalizedToolName), jsonSection('Output', outputValue)],
     meta: {
       toolId,
       toolName: normalizedToolName,
+      memoryMeta,
       delegateTargetName,
     },
   })
@@ -369,6 +734,72 @@ const extractOrderedNodesFromBlocks = ({
   actorNameById = new Map(),
 }) => {
   const nodes = []
+  const explicitSearchFilterByToolId = new Map()
+  const searchToolBlockIds = new Set()
+  const searchToolResultIds = new Set()
+
+  blocks.forEach(block => {
+    if (block._type === 'search_filter') {
+      const toolId = String(block?.id || block?.tool_call_id || '').trim()
+      if (toolId) explicitSearchFilterByToolId.set(toolId, block)
+      return
+    }
+    const toolId = getSearchToolBlockId(block)
+    if (!toolId) return
+    searchToolBlockIds.add(toolId)
+    const normalizedStatus = normalizeStatus(block?.status || 'done')
+    if (
+      block._type === 'tool_result' ||
+      block?.output != null ||
+      normalizedStatus === 'done' ||
+      normalizedStatus === 'error'
+    ) {
+      searchToolResultIds.add(toolId)
+    }
+  })
+
+  const emitExplicitSearchFilterNode = ({ toolId, toolName, durationMs, actor, afterResult }) => {
+    const filterBlock = explicitSearchFilterByToolId.get(String(toolId || '').trim())
+    if (!filterBlock) return
+    const normalizedStatus = String(filterBlock?.status || 'running').toLowerCase()
+    if (afterResult) {
+      if (!(normalizedStatus === 'filtered' || normalizedStatus === 'fallback' || normalizedStatus === 'unavailable')) {
+        return
+      }
+    } else if (searchToolResultIds.has(String(toolId || '').trim())) {
+      return
+    }
+
+    const searchFilterNode = buildSearchFilterNode({
+      id: toolId,
+      toolName,
+      outputValue: null,
+      durationMs: filterBlock?.duration_ms ?? durationMs,
+      actor,
+      searchFilterMeta: {
+        query: filterBlock?.query || '',
+        status: String(filterBlock?.status || 'running'),
+        applied: filterBlock?.applied,
+        originalCount:
+          filterBlock?.originalCount != null ? filterBlock.originalCount : filterBlock?.original_count,
+        filteredCount:
+          filterBlock?.filteredCount != null ? filterBlock.filteredCount : filterBlock?.filtered_count,
+        fallbackReason: filterBlock?.fallbackReason || filterBlock?.fallback_reason || null,
+        originalResults: Array.isArray(filterBlock?.originalResults)
+          ? filterBlock.originalResults
+          : Array.isArray(filterBlock?.original_results)
+            ? filterBlock.original_results
+            : [],
+        filteredResults: Array.isArray(filterBlock?.filteredResults)
+          ? filterBlock.filteredResults
+          : Array.isArray(filterBlock?.filtered_results)
+            ? filterBlock.filtered_results
+            : [],
+      },
+    })
+    if (searchFilterNode) nodes.push(searchFilterNode)
+  }
+
   let index = 0
   while (index < blocks.length) {
     const block = blocks[index]
@@ -389,6 +820,42 @@ const extractOrderedNodesFromBlocks = ({
       continue
     }
 
+    if (type === 'search_filter') {
+      const toolId = String(block?.id || block?.tool_call_id || '').trim()
+      if (!toolId || !searchToolBlockIds.has(toolId)) {
+        const searchFilterNode = buildSearchFilterNode({
+          id: block?.id || block?.tool_call_id || `${idPrefix}-${index}`,
+          toolName: block?.name || 'web_search',
+          outputValue: null,
+          durationMs: block?.duration_ms,
+          actor,
+          searchFilterMeta: {
+            query: block?.query || '',
+            status: String(block?.status || 'running'),
+            applied: block?.applied,
+            originalCount:
+              block?.originalCount != null ? block.originalCount : block?.original_count,
+            filteredCount:
+              block?.filteredCount != null ? block.filteredCount : block?.filtered_count,
+            fallbackReason: block?.fallbackReason || block?.fallback_reason || null,
+            originalResults: Array.isArray(block?.originalResults)
+              ? block.originalResults
+              : Array.isArray(block?.original_results)
+                ? block.original_results
+                : [],
+            filteredResults: Array.isArray(block?.filteredResults)
+              ? block.filteredResults
+              : Array.isArray(block?.filtered_results)
+                ? block.filtered_results
+                : [],
+          },
+        })
+        if (searchFilterNode) nodes.push(searchFilterNode)
+      }
+      index += 1
+      continue
+    }
+
     if (includeText && type === 'text') {
       const { node, nextIndex } = extractMergedContentNode({
         blocks,
@@ -405,10 +872,14 @@ const extractOrderedNodesFromBlocks = ({
     }
 
     if (type === 'tool' || type === 'tool_call') {
-      const toolName = String(block?.name || 'Tool')
-      const toolStatus = normalizeStatus(
-        block?.status || (type === 'tool_call' ? 'calling' : 'done'),
-      )
+    const toolName = String(block?.name || 'Tool')
+    if (toolName === 'search_result_filter') {
+      index += 1
+      continue
+    }
+    const toolStatus = normalizeStatus(
+      block?.status || (type === 'tool_call' ? 'calling' : 'done'),
+    )
       const toolId = block?.tool_call_id || `${idPrefix}-${index}`
       const argumentsValue = safeParseJson(block?.arguments)
       const outputValue = safeParseJson(block?.output)
@@ -423,20 +894,47 @@ const extractOrderedNodesFromBlocks = ({
           actorNameById,
         }),
       )
+      if (SEARCH_FILTER_SOURCE_TOOLS.has(toolName)) {
+        emitExplicitSearchFilterNode({
+          toolId,
+          toolName,
+          durationMs: block?.duration_ms,
+          actor,
+          afterResult: false,
+        })
+      }
       if (
         type === 'tool' &&
         (block?.output != null || toolStatus === 'done' || toolStatus === 'error')
       ) {
-        nodes.push(
-          buildToolResultNode({
+        const resultNode = buildToolResultNode({
+          id: toolId,
+          toolName,
+          toolStatus,
+          outputValue: outputValue ?? block?.output,
+          durationMs: block?.duration_ms,
+          actor,
+          argumentsValue: argumentsValue ?? block?.arguments,
+        })
+        nodes.push(resultNode)
+        if (SEARCH_FILTER_SOURCE_TOOLS.has(toolName)) {
+          emitExplicitSearchFilterNode({
+            toolId,
+            toolName,
+            durationMs: block?.duration_ms,
+            actor,
+            afterResult: true,
+          })
+        } else {
+          const searchFilterNode = buildSearchFilterNode({
             id: toolId,
             toolName,
-            toolStatus,
             outputValue: outputValue ?? block?.output,
             durationMs: block?.duration_ms,
             actor,
-          }),
-        )
+          })
+          if (searchFilterNode) nodes.push(searchFilterNode)
+        }
       }
       index += 1
       continue
@@ -444,19 +942,41 @@ const extractOrderedNodesFromBlocks = ({
 
     if (type === 'tool_result') {
       const toolName = String(block?.name || 'Tool')
+      if (toolName === 'search_result_filter') {
+        index += 1
+        continue
+      }
       const toolStatus = normalizeStatus(block?.status || 'done')
       const toolId = block?.tool_call_id || `${idPrefix}-${index}`
       const outputValue = safeParseJson(block?.output)
-      nodes.push(
-        buildToolResultNode({
+      const resultNode = buildToolResultNode({
+        id: toolId,
+        toolName,
+        toolStatus,
+        outputValue: outputValue ?? block?.output,
+        durationMs: block?.duration_ms,
+        actor,
+        argumentsValue: safeParseJson(block?.arguments) ?? block?.arguments,
+      })
+      nodes.push(resultNode)
+      if (SEARCH_FILTER_SOURCE_TOOLS.has(toolName)) {
+        emitExplicitSearchFilterNode({
+          toolId,
+          toolName,
+          durationMs: block?.duration_ms,
+          actor,
+          afterResult: true,
+        })
+      } else {
+        const searchFilterNode = buildSearchFilterNode({
           id: toolId,
           toolName,
-          toolStatus,
           outputValue: outputValue ?? block?.output,
           durationMs: block?.duration_ms,
           actor,
-        }),
-      )
+        })
+        if (searchFilterNode) nodes.push(searchFilterNode)
+      }
       index += 1
       continue
     }
@@ -480,6 +1000,7 @@ const buildToolNodesFromHistory = ({
   for (let index = 0; index < sortedHistory.length; index += 1) {
     const item = sortedHistory[index]
     const toolName = String(item?.name || 'Tool')
+    if (toolName === 'search_result_filter') continue
     const toolStatus = normalizeStatus(item?.status || 'done')
     const toolId = item?.id || `${prefix}-${index}`
     const argumentsValue = safeParseJson(item?.arguments)
@@ -496,16 +1017,24 @@ const buildToolNodesFromHistory = ({
       }),
     )
     if (outputValue != null || toolStatus === 'done' || toolStatus === 'error') {
-      nodes.push(
-        buildToolResultNode({
-          id: `${prefix}-${toolId}`,
-          toolName,
-          toolStatus,
-          outputValue: outputValue ?? item?.output,
-          durationMs: item?.durationMs,
-          actor,
-        }),
-      )
+      const resultNode = buildToolResultNode({
+        id: `${prefix}-${toolId}`,
+        toolName,
+        toolStatus,
+        outputValue: outputValue ?? item?.output,
+        durationMs: item?.durationMs,
+        actor,
+        argumentsValue: argumentsValue ?? item?.arguments,
+      })
+      nodes.push(resultNode)
+      const searchFilterNode = buildSearchFilterNode({
+        id: `${prefix}-${toolId}`,
+        toolName,
+        outputValue: outputValue ?? item?.output,
+        durationMs: item?.durationMs,
+        actor,
+      })
+      if (searchFilterNode) nodes.push(searchFilterNode)
     }
   }
   return nodes
@@ -514,10 +1043,14 @@ const buildToolNodesFromHistory = ({
 const buildStandardPipeline = message => {
   const blocks = toSortedBlocks(message?.streamBlocks)
   const nodes = extractOrderedNodesFromBlocks({ blocks, idPrefix: 'chat' })
-  if (nodes.filter(node => node.type === 'tool_call').length === 0) {
+  const toolCallHistory =
+    Array.isArray(message?.toolCallHistory) && message.toolCallHistory.length > 0
+      ? message.toolCallHistory
+      : normalizeToolCallsToHistory(message?.tool_calls)
+  if (nodes.filter(node => node.type === 'tool_call' || node.type === 'memory_tool').length === 0) {
     nodes.push(
       ...buildToolNodesFromHistory({
-        toolCallHistory: message?.toolCallHistory,
+        toolCallHistory,
         prefix: 'chat-history',
       }),
     )
@@ -555,7 +1088,10 @@ const buildExpertPipeline = message => {
     task: String(response?.task || '').trim(),
     status: response?.status || 'done',
     streamBlocks: toSortedBlocks(response?.streamBlocks),
-    toolCallHistory: Array.isArray(response?.toolCallHistory) ? response.toolCallHistory : [],
+    toolCallHistory:
+      Array.isArray(response?.toolCallHistory) && response.toolCallHistory.length > 0
+        ? response.toolCallHistory
+        : normalizeToolCallsToHistory(response?.tool_calls),
   }))
   const actorNameById = new Map(actors.map(actor => [actor.key, actor.name]))
 
@@ -722,6 +1258,7 @@ const buildExpertPipeline = message => {
           durationMs: item.block?.duration_ms,
           actor: actor.name,
           delegateTargetName: callNode.meta?.delegateTargetName || null,
+          argumentsValue: argumentsValue ?? item.block?.arguments,
         })
         const resultKey = `result:${actor.key}:${resultNode.meta?.toolName || ''}:${resultNode.meta?.toolId || ''}:${resultNode.meta?.delegateTargetName || ''}`
         if (!seenToolKeys.has(resultKey)) {
@@ -751,6 +1288,7 @@ const buildExpertPipeline = message => {
         durationMs: item.block?.duration_ms,
         actor: actor.name,
         delegateTargetName,
+        argumentsValue: safeParseJson(item.block?.arguments) ?? item.block?.arguments,
       })
       const resultKey = `result:${actor.key}:${resultNode.meta?.toolName || ''}:${resultNode.meta?.toolId || ''}:${resultNode.meta?.delegateTargetName || ''}`
       if (!seenToolKeys.has(resultKey)) {

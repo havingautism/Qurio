@@ -44,6 +44,7 @@ export const TOOL_TRANSLATION_KEYS = {
   duckduckgo_video_search: 'tools.videoSearchDuckDuckGo',
   search_youtube: 'tools.videoSearchYouTube',
   ppt_generator: 'tools.pptGenerator',
+  excel_generator: 'tools.excelGenerator',
   render_html_widget: 'tools.renderHtmlWidget',
   html_to_pptx: 'tools.pptGenerator',
 }
@@ -95,6 +96,7 @@ export const TOOL_ICONS = {
   duckduckgo_video_search: 'Video',
   search_youtube: 'Youtube',
   ppt_generator: 'Presentation',
+  excel_generator: 'Sheet',
   render_html_widget: 'ScanText',
   html_to_pptx: 'Presentation',
 }
@@ -146,6 +148,7 @@ export const TOOL_INFO_KEYS = {
   duckduckgo_video_search: 'tools.videoSearchDuckDuckGoInfo',
   search_youtube: 'tools.videoSearchYouTubeInfo',
   ppt_generator: 'tools.pptGeneratorInfo',
+  excel_generator: 'tools.excelGeneratorInfo',
   render_html_widget: 'tools.renderHtmlWidgetInfo',
   html_to_pptx: 'tools.pptGeneratorInfo',
 }

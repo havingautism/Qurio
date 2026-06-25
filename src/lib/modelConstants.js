@@ -15,10 +15,6 @@ export const FALLBACK_MODEL_OPTIONS = {
     { value: 'openai/gpt-4o-mini', label: 'openai/gpt-4o-mini' },
     { value: 'openai/gpt-4o', label: 'openai/gpt-4o' },
   ],
-  litellm_openai: [
-    { value: 'gpt-5-mini', label: 'gpt-5-mini' },
-    { value: 'gpt-4o-mini', label: 'gpt-4o-mini' },
-  ],
   huggingface: [
     {
       value: 'meta-llama/Meta-Llama-3.1-8B-Instruct',
@@ -74,7 +70,6 @@ export const PROVIDER_KEYS = [
   'gemini',
   'openai_compatibility',
   'openrouter',
-  'litellm_openai',
   'huggingface',
   'siliconflow',
   'nvidia',

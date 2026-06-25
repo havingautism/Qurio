@@ -12,7 +12,6 @@ from .other_providers import (
     GLMAdapter,
     HuggingFaceAdapter,
     KimiAdapter,
-    LiteLLMOpenAIAdapter,
     MinimaxAdapter,
     ModelScopeAdapter,
     NvidiaAdapter,
@@ -50,8 +49,6 @@ def get_provider_adapter(
             adapter = SiliconFlowAdapter()
         case "openrouter":
             adapter = OpenRouterAdapter()
-        case "litellm_openai":
-            adapter = LiteLLMOpenAIAdapter()
         case "huggingface":
             adapter = HuggingFaceAdapter()
         case "kimi":
@@ -89,7 +86,6 @@ def is_provider_supported(provider: str) -> bool:
         "openai_compatibility",
         "siliconflow",
         "openrouter",
-        "litellm_openai",
         "huggingface",
         "kimi",
         "glm",
@@ -108,7 +104,6 @@ SUPPORTED_PROVIDERS: list[str] = [
     "openai_compatibility",
     "siliconflow",
     "openrouter",
-    "litellm_openai",
     "huggingface",
     "kimi",
     "glm",

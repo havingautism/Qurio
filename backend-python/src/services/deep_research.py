@@ -46,6 +46,12 @@ SERPAPI_KEY_REQUIRED_TOOLS = {
     "bing_image_search",
     "serpapi_image_search",
 }
+DEFAULT_RESEARCH_STEP_TOOL_CALL_LIMIT = max(
+    1, int(os.getenv("QURIO_RESEARCH_STEP_TOOL_CALL_LIMIT", "4"))
+)
+DEFAULT_RESEARCH_STEP_SEARCH_QUERY_LIMIT = max(
+    1, int(os.getenv("QURIO_RESEARCH_STEP_SEARCH_QUERY_LIMIT", "3"))
+)
 
 
 def parse_plan(plan_text: str | None) -> dict[str, Any]:
@@ -122,6 +128,61 @@ def build_research_step_event(
     return event
 
 
+def build_open_research_step_fallback_events(
+    *,
+    active_steps_info: dict[str, dict[str, Any]],
+    total_steps: int,
+) -> list[dict[str, Any]]:
+    """
+    Convert any still-open workflow steps into terminal events.
+
+    This is a defensive fallback for workflow engines that omit StepCompleted
+    under timeout or interruption conditions even though the overall workflow
+    has moved on to final report generation.
+    """
+    fallback_events: list[dict[str, Any]] = []
+    if not active_steps_info:
+        return fallback_events
+
+    import re
+    import time
+
+    for step_name, step_info in active_steps_info.items():
+        step_num = step_info.get("number", 1)
+        step_title = step_info.get("title") or step_name
+        step_start = step_info.get("start_time")
+        step_content_buffer = step_info.get("content", [])
+
+        duration_ms = None
+        if step_start is not None:
+            duration_ms = int((time.time() - step_start) * 1000)
+
+        clean_title = re.sub(r"^Step\s+\d+:\s*", "", step_title)
+
+        for content_chunk in step_content_buffer:
+            fallback_events.append(
+                {
+                    "type": "step_content",
+                    "step": step_num,
+                    "content": content_chunk,
+                }
+            )
+
+        fallback_event = {
+            "type": "research_step",
+            "step": step_num,
+            "total": total_steps,
+            "title": clean_title,
+            "status": "done",
+        }
+        if duration_ms is not None:
+            fallback_event["duration_ms"] = duration_ms
+
+        fallback_events.append(fallback_event)
+
+    return fallback_events
+
+
 def _create_step_agent(
     *,
     plan_meta: dict[str, Any],
@@ -168,6 +229,8 @@ Step {step_index + 1}: {action}
 Expected Output: {expected_output}
 Deliverable Format: {deliverable_format}
 Depth: {depth}
+Tool Budget: at most {DEFAULT_RESEARCH_STEP_TOOL_CALL_LIMIT} tool calls for this step
+Search Budget: prefer 1-3 concise search queries, each focused on a distinct sub-question
 
 Acceptance Criteria:
 {chr(10).join([f"- {a}" for a in acceptance]) if acceptance else "- None"}
@@ -185,6 +248,8 @@ Step {step_index + 1}: {action}
 Expected Output: {expected_output}
 Deliverable Format: {deliverable_format}
 Depth: {depth}
+Tool Budget: at most {DEFAULT_RESEARCH_STEP_TOOL_CALL_LIMIT} tool calls for this step
+Search Budget: prefer 1-3 concise search queries, each focused on a distinct sub-question
 
 Acceptance Criteria:
 {chr(10).join([f"- {a}" for a in acceptance]) if acceptance else "- None"}
@@ -213,6 +278,7 @@ Assumptions:
         tools=tools,
         user_tools=None,
         tool_choice="auto" if (tool_ids or tools) else None,
+        tool_call_limit=DEFAULT_RESEARCH_STEP_TOOL_CALL_LIMIT,
         enable_skills=False,  # Step agents focus purely on tool usage, avoiding overarching analysis directives
         skill_ids=None,
     )
@@ -766,6 +832,15 @@ async def stream_research_workflow(
                 "step": step_num_for_report,
                 "total": total_steps,
             }
+
+    # If the workflow finished without emitting StepCompleted for some active steps,
+    # emit terminal events so the UI does not stay stuck in "running" while the
+    # final answer is already being generated.
+    for fallback_event in build_open_research_step_fallback_events(
+        active_steps_info=active_steps_info,
+        total_steps=total_steps,
+    ):
+        yield fallback_event
 
     # After workflow completes, return the final output
     yield {"type": "workflow_completed"}

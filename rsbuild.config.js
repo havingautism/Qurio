@@ -2,6 +2,7 @@ import { defineConfig, loadEnv } from '@rsbuild/core'
 import { pluginReact } from '@rsbuild/plugin-react'
 import { pluginNodePolyfill } from '@rsbuild/plugin-node-polyfill'
 
+// RSBuild config: build pipeline, dev server, env injection, proxy
 export default defineConfig(({ env }) => {
   const envVars = loadEnv({
     mode: env.envMode,

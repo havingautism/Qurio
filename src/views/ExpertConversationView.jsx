@@ -1,3 +1,6 @@
+// Expert conversation detail page — loads conversation data, renders ChatInterface with Expert config locked
+// Differences from ConversationView: no type dispatch (always ChatInterface), expertMode forced true,
+// space selection locked, ExpertMessageList replaces default MessageList
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation } from '@tanstack/react-router'
 import { useShallow } from 'zustand/react/shallow'
@@ -14,6 +17,7 @@ const ExpertConversationView = () => {
   const { conversationId } = expertConversationRoute.useParams()
   const location = useLocation()
   const { spaces, isSidebarPinned, spacesLoading } = useAppContext()
+  // optimisticSelection: temporary space/agent selection from chatStore (set when navigating from sidebar)
   const { optimisticSelection, clearOptimisticSelection } = useChatStore(
     useShallow(state => ({
       optimisticSelection: state.optimisticSelection,
@@ -23,8 +27,10 @@ const ExpertConversationView = () => {
   const [conversation, setConversation] = useState(null)
   const [fetchError, setFetchError] = useState(null)
   const [reloadToken, setReloadToken] = useState(0)
+  // Initial state from HomeView/expert navigation (via navigate({ state }))
   const initialChatState = location.state
 
+  // Fetch conversation data with retry (3 attempts, 220ms*attempt backoff, retriable errors only)
   useEffect(() => {
     let cancelled = false
 
@@ -55,6 +61,7 @@ const ExpertConversationView = () => {
           if (error) throw error
           if (!data) throw new Error('Conversation not found')
           setConversation(data)
+          // Clear optimistic selection once real data is loaded
           if (optimisticSelection?.conversationId === conversationId) {
             clearOptimisticSelection()
           }
@@ -78,6 +85,7 @@ const ExpertConversationView = () => {
     }
   }, [conversationId, reloadToken, optimisticSelection?.conversationId, clearOptimisticSelection])
 
+  // Listen for partial conversation updates (title, emoji, etc.) without full refetch
   useEffect(() => {
     const handleConversationPatched = event => {
       const patch = event?.detail || {}
@@ -103,6 +111,7 @@ const ExpertConversationView = () => {
   const optimisticMatch =
     optimisticSelection?.conversationId === conversationId ? optimisticSelection : null
 
+  // Initial state priority: location.state (from navigation) > optimisticSelection (from chatStore) > default
   const initialSpaceSelection = useMemo(() => {
     if (initialChatState?.initialSpaceSelection) return initialChatState.initialSpaceSelection
     if (optimisticMatch?.space) {
@@ -133,9 +142,10 @@ const ExpertConversationView = () => {
   const initialDocumentIds = initialChatState?.initialDocumentIds || []
   const initialToggles = {
     ...(initialChatState?.initialToggles || {}),
-    expertMode: true,
+    expertMode: true, // Always force expertMode for this view
   }
 
+  // Show loading overlay while waiting for data (only when no initialChatState to render immediately)
   const shouldDelayRender =
     !initialChatState &&
     !fetchError &&
@@ -161,7 +171,7 @@ const ExpertConversationView = () => {
         activeConversation={conversation}
         conversationId={conversationId}
         isSidebarPinned={isSidebarPinned}
-        isSpaceSelectionLocked={true}
+        isSpaceSelectionLocked={true} // Expert conversations lock space, cannot switch
         initialMessage={initialMessage}
         initialAttachments={initialAttachments}
         initialDocumentIds={initialDocumentIds}
@@ -169,7 +179,7 @@ const ExpertConversationView = () => {
         initialSpaceSelection={initialSpaceSelection}
         initialAgentSelection={initialAgentSelection}
         initialIsAgentAutoMode={initialIsAgentAutoMode}
-        MessageListComponent={ExpertMessageList}
+        MessageListComponent={ExpertMessageList} // Uses Expert-specific message list
       />
       {shouldDelayRender && <ConversationLoadingOverlay text="Loading expert conversation..." />}
     </div>

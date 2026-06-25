@@ -1,5 +1,5 @@
 """
-AgentOS app bootstrap using Agno SDK.
+Backend bootstrap: builds FastAPI app with routes/CORS, wraps with Agno AgentOS.
 """
 
 from __future__ import annotations
@@ -32,6 +32,7 @@ from ..routes import (
     thinking_mode,
     title_and_space,
     title_space_agent,
+    turn_summary,
 )
 from ..routes import (
     daily_tip as daily_tip_route,
@@ -75,6 +76,7 @@ from .email_monitor import start_email_monitor, stop_email_monitor
 _agent_os: AgentOS | None = None
 
 
+# Build FastAPI app with CORS middleware, lifespan hooks, and all API routes
 def _build_base_app() -> FastAPI:
     settings = get_settings()
 
@@ -103,6 +105,7 @@ def _build_base_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    # Fallback CORS middleware for routes that bypass the standard middleware
     @app.middleware("http")
     async def _cors_fallback(request, call_next):
         try:
@@ -118,6 +121,7 @@ def _build_base_app() -> FastAPI:
             response.headers.setdefault("Access-Control-Allow-Methods", "*")
         return response
 
+    # Register all API route modules under /api prefix
     app.include_router(stream_chat_route.router, prefix="/api")
     app.include_router(daily_tip_route.router, prefix="/api")
     app.include_router(title_route.router, prefix="/api")
@@ -127,6 +131,7 @@ def _build_base_app() -> FastAPI:
     app.include_router(space_agent.router, prefix="/api")
     app.include_router(agent_for_auto.router, prefix="/api")
     app.include_router(related_questions.router, prefix="/api")
+    app.include_router(turn_summary.router, prefix="/api")
     app.include_router(thinking_mode.router, prefix="/api")
     app.include_router(research_plan.router, prefix="/api")
     app.include_router(deep_research.router, prefix="/api")
@@ -142,13 +147,14 @@ def _build_base_app() -> FastAPI:
     return app
 
 
+# Create AgentOS singleton: wraps FastAPI app with Agno agent orchestration
 def get_agent_os() -> AgentOS:
     global _agent_os
     if _agent_os is not None:
         return _agent_os
 
     base_app = _build_base_app()
-    # init_memory_db() # Removed legacy DB init
+    # Build default agent from env vars as fallback config
     default_request = SimpleNamespace(
         provider="openai",
         api_key=os.getenv("OPENAI_API_KEY"),
@@ -170,6 +176,7 @@ def get_agent_os() -> AgentOS:
     )
     default_agent = build_agent(default_request)
 
+    # AgentOS wraps FastAPI: adds agent management, auto-routes, preserves base_app on conflict
     _agent_os = AgentOS(
         name="Qurio AgentOS",
         description="Qurio backend powered by Agno AgentOS",

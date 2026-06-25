@@ -3,9 +3,11 @@ Data models for stream chat API.
 Defines request/response schemas compatible with the Node.js backend.
 """
 
-from typing import Any, Literal, Union
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from ..providers.factory import SUPPORTED_PROVIDERS
 
 # ================================================================================
 # Request Models
@@ -53,10 +55,11 @@ class UserTool(BaseModel):
 class StreamChatRequest(BaseModel):
     """Request model for stream chat endpoint."""
     # Provider configuration
-    provider: Literal[
-        "gemini", "openai", "openai_compatibility", "siliconflow",
-        "glm", "deepseek", "volcengine", "modelscope", "kimi", "nvidia", "minimax"
-    ]
+    provider: str = Field(
+        ...,
+        json_schema_extra={"enum": SUPPORTED_PROVIDERS},
+        description="Provider name. Must be one of the supported Qurio providers.",
+    )
     api_key: str = Field(..., alias="apiKey")
     base_url: str | None = Field(default=None, alias="baseUrl")
     model: str | None = None
@@ -131,6 +134,24 @@ class StreamChatRequest(BaseModel):
     enable_session_summary: bool = Field(default=True, alias="enableSessionSummary")
     is_editing: bool = Field(default=False, alias="isEditing", description="Forced summary rebuild flag (for edits/regenerates)")
 
+# Search result filtering configuration (defaults to the summary-lite model, but can be set independently)
+    search_result_filter_provider: str | None = Field(
+        default=None,
+        alias="searchResultFilterProvider",
+    )
+    search_result_filter_model: str | None = Field(
+        default=None,
+        alias="searchResultFilterModel",
+    )
+    search_result_filter_base_url: str | None = Field(
+        default=None,
+        alias="searchResultFilterBaseUrl",
+    )
+    search_result_filter_api_key: str | None = Field(
+        default=None,
+        alias="searchResultFilterApiKey",
+    )
+
     # Stream flag (default true for streaming)
     stream: bool = True
 
@@ -154,6 +175,15 @@ class StreamChatRequest(BaseModel):
     # Context and Session
     conversation_id: str | None = Field(default=None, alias="conversationId", description="Unique identifier for the conversation")
     model_config = {"populate_by_name": True}
+
+    @field_validator("provider")
+    @classmethod
+    def _validate_provider(cls, value: str) -> str:
+        provider = str(value).strip()
+        if provider not in SUPPORTED_PROVIDERS:
+            supported = ", ".join(SUPPORTED_PROVIDERS)
+            raise ValueError(f"Unsupported provider: {provider}. Supported providers: {supported}")
+        return provider
 
 
     # ========================================================================
@@ -225,6 +255,51 @@ class ToolResultEvent(BaseModel):
     output: Any = None
     error: str | None = None
     duration_ms: int | None = Field(default=None, alias="durationMs")
+    text_index: int | None = Field(default=None, alias="textIndex")
+    # Agent identification for Team mode
+    agent_id: str | None = Field(default=None, alias="agentId")
+    agent_name: str | None = Field(default=None, alias="agentName")
+    agent_role: str | None = Field(default=None, alias="agentRole")
+    agent_emoji: str | None = Field(default=None, alias="agentEmoji")
+    agent_status: AgentStatus | None = Field(default=None, alias="agentStatus")
+
+
+class SearchFilterEvent(BaseModel):
+    """Search filtering progress/result event."""
+    model_config = {"populate_by_name": True}
+
+    type: Literal["search_filter"] = Field(default="search_filter", alias="type")
+    id: str | None = None
+    name: str
+    status: Literal["running", "filtered", "fallback", "unavailable"]
+    query: str | None = None
+    applied: bool | None = None
+    original_count: int | None = Field(default=None, alias="originalCount")
+    filtered_count: int | None = Field(default=None, alias="filteredCount")
+    fallback_reason: str | None = Field(default=None, alias="fallbackReason")
+    original_results: list[dict[str, Any]] | None = Field(default=None, alias="originalResults")
+    filtered_results: list[dict[str, Any]] | None = Field(default=None, alias="filteredResults")
+    duration_ms: int | None = Field(default=None, alias="durationMs")
+    text_index: int | None = Field(default=None, alias="textIndex")
+    # Agent identification for Team mode
+    agent_id: str | None = Field(default=None, alias="agentId")
+    agent_name: str | None = Field(default=None, alias="agentName")
+    agent_role: str | None = Field(default=None, alias="agentRole")
+    agent_emoji: str | None = Field(default=None, alias="agentEmoji")
+    agent_status: AgentStatus | None = Field(default=None, alias="agentStatus")
+
+
+class SearchPreviewEvent(BaseModel):
+    """Search preview event carrying original candidate results."""
+    model_config = {"populate_by_name": True}
+
+    type: Literal["search_preview"] = Field(default="search_preview", alias="type")
+    id: str | None = None
+    name: str
+    query: str | None = None
+    result_count: int | None = Field(default=None, alias="resultCount")
+    results: list[dict[str, Any]] | None = None
+    text_index: int | None = Field(default=None, alias="textIndex")
     # Agent identification for Team mode
     agent_id: str | None = Field(default=None, alias="agentId")
     agent_name: str | None = Field(default=None, alias="agentName")
@@ -274,16 +349,18 @@ class AgentStatusEvent(BaseModel):
 
 
 # Union type for all SSE events
-StreamEvent = Union[
-    TextEvent,
-    ThoughtEvent,
-    ToolCallEvent,
-    ToolResultEvent,
-    DoneEvent,
-    ErrorEvent,
-    FormRequestEvent,
-    AgentStatusEvent,
-]
+StreamEvent = (
+    TextEvent
+    | ThoughtEvent
+    | ToolCallEvent
+    | ToolResultEvent
+    | SearchPreviewEvent
+    | SearchFilterEvent
+    | DoneEvent
+    | ErrorEvent
+    | FormRequestEvent
+    | AgentStatusEvent
+)
 
 
 # ================================================================================

@@ -638,7 +638,7 @@ async def generate_skill(request: Request, req: SkillGenerate):
     os.makedirs(skill_path, exist_ok=True)
 
     # ── 3. Build the Skill Builder Agent ─────────────────────────────────────
-    api_key = get_llm_api_key(request, {})
+    api_key = get_llm_api_key(request)
     if not api_key:
         raise HTTPException(status_code=400, detail="Missing required header: x-llm-api-key")
     model = _build_model(req.provider, api_key, req.base_url, req.model)

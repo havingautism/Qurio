@@ -1,3 +1,6 @@
+// Deep Research conversation detail page — loads conversation data, renders DeepResearchChatInterface
+// No retry on fetch failure (unlike ConversationView/ExpertConversationView)
+// Extra props: researchType, responseLanguage (Deep Research specific config)
 import { useLocation } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'

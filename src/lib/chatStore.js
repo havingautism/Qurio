@@ -5,7 +5,7 @@ import {
   updateConversation,
   updateMessageById,
 } from './conversationsService'
-import { getProvider, resolveThinkingToggleRule } from './providers'
+import { getProvider, getThinkingParams, resolveThinkingToggleRule } from './providers'
 import { getUserTools } from './userToolsService'
 
 import {
@@ -39,6 +39,11 @@ import {
 } from './chat/prompts'
 import { normalizeExpertBrokenTokenLines } from './chat/expertTextUtils'
 import { buildInitialExpertTasks, parseDelegatedExpertTask } from './chat/expertTaskUtils'
+import {
+  resolveTurnSummaryAnswer,
+  resolveTurnSummaryQuestion,
+} from './chat/turnSummary'
+import { generateTurnSummaryViaBackend } from './backendClient'
 
 const sanitizeExpertStreamChunk = value => {
   if (typeof value !== 'string') return ''
@@ -591,7 +596,11 @@ const useChatStore = create((set, get) => ({
           memoryModel: modelConfig.model,
           memoryApiKey: credentials.apiKey,
           memoryBaseUrl: credentials.baseUrl,
-          thinking: provider.getThinking(Boolean(toggles?.thinking), modelConfig.model),
+          thinking: getThinkingParams(
+            modelConfig.provider,
+            Boolean(toggles?.thinking),
+            modelConfig.model,
+          ),
           runId: expertRunId,
           fieldValues: formData.values,
           signal: controller.signal,
@@ -772,6 +781,160 @@ const useChatStore = create((set, get) => ({
               return
             }
 
+            if (chunk && typeof chunk === 'object' && chunk.type === 'search_filter') {
+              updateTargetResponse(item => {
+                const history = Array.isArray(item.searchFilterHistory)
+                  ? [...item.searchFilterHistory]
+                  : []
+                const toolId = chunk.id || chunk.toolCallId || chunk.name || 'search_filter'
+                const targetIndex = history.findIndex(entry =>
+                  String(entry?.id || entry?.toolCallId || '') === String(toolId),
+                )
+                const nextEntry = {
+                  id: toolId,
+                  toolCallId: toolId,
+                  name: chunk.name || 'search_filter',
+                  status: chunk.status || 'running',
+                  query: chunk.query || '',
+                  applied: typeof chunk.applied === 'boolean' ? chunk.applied : null,
+                  originalCount:
+                    typeof chunk.originalCount === 'number'
+                      ? chunk.originalCount
+                      : typeof chunk.original_count === 'number'
+                        ? chunk.original_count
+                        : null,
+                  filteredCount:
+                    typeof chunk.filteredCount === 'number'
+                      ? chunk.filteredCount
+                      : typeof chunk.filtered_count === 'number'
+                        ? chunk.filtered_count
+                        : null,
+                  fallbackReason: chunk.fallbackReason || chunk.fallback_reason || null,
+                  originalResults: Array.isArray(chunk.originalResults)
+                    ? chunk.originalResults
+                    : Array.isArray(chunk.original_results)
+                      ? chunk.original_results
+                      : null,
+                  filteredResults: Array.isArray(chunk.filteredResults)
+                    ? chunk.filteredResults
+                    : Array.isArray(chunk.filtered_results)
+                      ? chunk.filtered_results
+                      : null,
+                  durationMs:
+                    typeof chunk.durationMs === 'number'
+                      ? chunk.durationMs
+                      : typeof chunk.duration_ms === 'number'
+                        ? chunk.duration_ms
+                        : null,
+                  textIndex:
+                    typeof chunk.textIndex === 'number'
+                      ? chunk.textIndex
+                      : (() => {
+                          const matchedTool = Array.isArray(item.toolCallHistory)
+                            ? item.toolCallHistory.find(
+                                entry => String(entry?.id || '') === String(toolId),
+                              )
+                            : null
+                          if (typeof matchedTool?.textIndex === 'number') return matchedTool.textIndex
+                          return (item.content || '').length
+                        })(),
+                  streamOrder: ++toolStreamOrder,
+                }
+                if (targetIndex >= 0) {
+                  history[targetIndex] = {
+                    ...history[targetIndex],
+                    ...nextEntry,
+                  }
+                } else {
+                  history.push(nextEntry)
+                }
+
+                const streamBlocks = Array.isArray(item.streamBlocks) ? [...item.streamBlocks] : []
+                const nextStreamBlock = {
+                  seq: ++streamSeq,
+                  type: 'search_filter',
+                  id: toolId,
+                  name: chunk.name || 'search_filter',
+                  status: chunk.status || 'running',
+                  query: chunk.query || '',
+                  applied: typeof chunk.applied === 'boolean' ? chunk.applied : null,
+                  originalCount: nextEntry.originalCount,
+                  filteredCount: nextEntry.filteredCount,
+                  fallbackReason: nextEntry.fallbackReason,
+                  originalResults: nextEntry.originalResults,
+                  filteredResults: nextEntry.filteredResults,
+                  durationMs: nextEntry.durationMs,
+                }
+                const existingBlockIndex = streamBlocks.findIndex(
+                  block =>
+                    block?.type === 'search_filter' &&
+                    String(block?.id || block?.tool_call_id || block?.toolCallId || '') ===
+                      String(toolId),
+                )
+                if (existingBlockIndex >= 0) {
+                  streamBlocks[existingBlockIndex] = {
+                    ...streamBlocks[existingBlockIndex],
+                    ...nextStreamBlock,
+                  }
+                } else {
+                  streamBlocks.push(nextStreamBlock)
+                }
+                return { ...item, searchFilterHistory: history, streamBlocks, status: 'running' }
+              })
+              return
+            }
+
+            if (chunk && typeof chunk === 'object' && chunk.type === 'search_preview') {
+              updateTargetResponse(item => {
+                const history = Array.isArray(item.searchPreviewHistory)
+                  ? [...item.searchPreviewHistory]
+                  : []
+                const toolId = chunk.id || chunk.toolCallId || chunk.name || 'search_preview'
+                const nextEntry = {
+                  id: toolId,
+                  toolCallId: toolId,
+                  name: chunk.name || 'search_preview',
+                  query: chunk.query || '',
+                  resultCount:
+                    typeof chunk.resultCount === 'number'
+                      ? chunk.resultCount
+                      : typeof chunk.result_count === 'number'
+                        ? chunk.result_count
+                        : Array.isArray(chunk.results)
+                          ? chunk.results.length
+                          : null,
+                  results: Array.isArray(chunk.results) ? chunk.results : [],
+                  textIndex:
+                    typeof chunk.textIndex === 'number'
+                      ? chunk.textIndex
+                      : (() => {
+                          const matchedTool = Array.isArray(item.toolCallHistory)
+                            ? item.toolCallHistory.find(
+                                entry => String(entry?.id || '') === String(toolId),
+                              )
+                            : null
+                          if (typeof matchedTool?.textIndex === 'number') return matchedTool.textIndex
+                          return (item.content || '').length
+                        })(),
+                  streamOrder: ++toolStreamOrder,
+                }
+                history.push(nextEntry)
+
+                const streamBlocks = Array.isArray(item.streamBlocks) ? [...item.streamBlocks] : []
+                streamBlocks.push({
+                  seq: ++streamSeq,
+                  type: 'search_preview',
+                  id: toolId,
+                  name: chunk.name || 'search_preview',
+                  query: chunk.query || '',
+                  resultCount: nextEntry.resultCount,
+                  results: nextEntry.results,
+                })
+                return { ...item, searchPreviewHistory: history, streamBlocks, status: 'running' }
+              })
+              return
+            }
+
             const chunkText = extractChunkText(chunk)
             if (!chunkText) return
             const cleanText = sanitizeExpertStreamChunk(chunkText)
@@ -896,6 +1059,64 @@ const useChatStore = create((set, get) => ({
                 stream_schema_version: 1,
               }),
             })
+
+            if (
+              summaryModelConfig?.provider &&
+              summaryModelConfig?.model &&
+              resolveTurnSummaryAnswer(currentLast) &&
+              !currentLast?.deepResearch &&
+              !currentLast?.researchPlan &&
+              !(Array.isArray(currentLast?.researchSteps) && currentLast.researchSteps.length > 0)
+            ) {
+              void (async () => {
+                try {
+                  const questionText = resolveTurnSummaryQuestion({ messages })
+                  const answerText = resolveTurnSummaryAnswer(currentLast)
+                  if (!answerText) return
+                  const languageInstruction = getLanguageInstruction(selectedAgent, settings)
+
+                  const credentials = getProvider(summaryModelConfig.provider).getCredentials(
+                    settings,
+                  )
+                  if (!credentials?.apiKey) return
+
+                  const summaryResult = await generateTurnSummaryViaBackend(
+                    summaryModelConfig.provider,
+                    questionText,
+                    answerText,
+                    credentials.apiKey,
+                    credentials.baseUrl,
+                    summaryModelConfig.model,
+                    Intl.DateTimeFormat().resolvedOptions().timeZone,
+                    navigator.language || 'en-US',
+                    languageInstruction || undefined,
+                  )
+                  const turnSummary = String(summaryResult?.summary || '').trim()
+                  if (!turnSummary) return
+
+                  await updateMessageById(currentLast.id, {
+                    turn_summary: turnSummary,
+                  })
+
+                  set(state => {
+                    const updated = [...state.messages]
+                    for (let i = updated.length - 1; i >= 0; i -= 1) {
+                      if (updated[i].role === 'ai' && updated[i].id === currentLast.id) {
+                        updated[i] = {
+                          ...updated[i],
+                          turnSummary,
+                          turn_summary: turnSummary,
+                        }
+                        break
+                      }
+                    }
+                    return { messages: updated }
+                  })
+                } catch (summaryError) {
+                  console.warn('[chatStore] HITL turn summary generation failed:', summaryError)
+                }
+              })()
+            }
           }
         } catch (persistError) {
           console.error('Failed to persist expert HITL continuation:', persistError)
@@ -1667,7 +1888,8 @@ const useChatStore = create((set, get) => ({
                   memoryModel: modelConfig.model,
                   memoryApiKey: credentials.apiKey,
                   memoryBaseUrl: credentials.baseUrl,
-                  thinking: provider.getThinking(
+                  thinking: getThinkingParams(
+                    modelConfig.provider,
                     Boolean(resolvedToggles?.thinking),
                     modelConfig.model,
                   ),

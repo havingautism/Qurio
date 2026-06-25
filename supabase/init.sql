@@ -151,6 +151,7 @@ CREATE TABLE IF NOT EXISTS public.conversation_messages (
   sources JSONB,
   document_sources JSONB DEFAULT '[]'::jsonb,
   grounding_supports JSONB,
+  turn_summary TEXT,
   stream_blocks JSONB NOT NULL DEFAULT '[]'::jsonb,
   stream_schema_version SMALLINT NOT NULL DEFAULT 1,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

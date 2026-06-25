@@ -1,3 +1,7 @@
+// Bookmarked conversations list page — shows all favorited conversations across types
+// Route: /bookmarks — sidebar Bookmarks tab entry
+// Differs from other list pages: uses infinite scroll (useInfiniteScroll) instead of pagination
+// Search is client-side filtering only (no backend search)
 import { useNavigate } from '@tanstack/react-router'
 import clsx from 'clsx'
 import { Check, ChevronDown, Coffee, Search, X, Menu } from 'lucide-react'

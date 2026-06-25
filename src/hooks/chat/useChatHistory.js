@@ -18,6 +18,39 @@ const asArrayField = raw => {
   return Array.isArray(parsed) ? parsed : undefined
 }
 
+const normalizeToolCallsToHistory = rawToolCalls => {
+  const parsed = parseJsonIfString(rawToolCalls)
+  const entries = Array.isArray(parsed) ? parsed : []
+  return entries
+    .map((tool, index) => {
+      if (!tool || typeof tool !== 'object') return null
+      const fn = tool?.function && typeof tool.function === 'object' ? tool.function : {}
+      return {
+        ...tool,
+        id: tool?.id || tool?.tool_call_id || tool?.toolCallId || `tool-${index + 1}`,
+        name: tool?.name || fn.name || tool?.tool_name || tool?.toolName || 'tool',
+        arguments: tool?.arguments ?? fn.arguments ?? tool?.input ?? null,
+        output: tool?.output ?? tool?.result ?? null,
+        durationMs: Number.isFinite(tool?.durationMs)
+          ? Number(tool.durationMs)
+          : Number.isFinite(tool?.duration_ms)
+            ? Number(tool.duration_ms)
+            : null,
+        streamOrder: Number.isFinite(tool?.streamOrder)
+          ? Number(tool.streamOrder)
+          : Number.isFinite(tool?.stream_order)
+            ? Number(tool.stream_order)
+            : index + 1,
+        globalSeq: Number.isFinite(tool?.globalSeq)
+          ? Number(tool.globalSeq)
+          : Number.isFinite(tool?.global_seq)
+            ? Number(tool.global_seq)
+            : null,
+      }
+    })
+    .filter(Boolean)
+}
+
 const extractResearchPlan = message => {
   const direct = typeof message?.research_plan === 'string' ? message.research_plan.trim() : ''
   if (direct) return direct
@@ -101,6 +134,41 @@ const extractExpertState = message => {
                   : Number.isFinite(block?.durationMs)
                     ? Number(block.durationMs)
                     : null,
+                id: block?.id || null,
+                query: typeof block?.query === 'string' ? block.query : '',
+                applied:
+                  typeof block?.applied === 'boolean'
+                    ? block.applied
+                    : block?.applied == null
+                      ? null
+                      : Boolean(block.applied),
+                original_count: Number.isFinite(block?.original_count)
+                  ? Number(block.original_count)
+                  : Number.isFinite(block?.originalCount)
+                    ? Number(block.originalCount)
+                    : null,
+                filtered_count: Number.isFinite(block?.filtered_count)
+                  ? Number(block.filtered_count)
+                  : Number.isFinite(block?.filteredCount)
+                    ? Number(block.filteredCount)
+                    : null,
+                fallback_reason: block?.fallback_reason || block?.fallbackReason || null,
+                original_results: Array.isArray(block?.original_results)
+                  ? block.original_results
+                  : Array.isArray(block?.originalResults)
+                    ? block.originalResults
+                    : null,
+                filtered_results: Array.isArray(block?.filtered_results)
+                  ? block.filtered_results
+                  : Array.isArray(block?.filteredResults)
+                    ? block.filteredResults
+                    : null,
+                result_count: Number.isFinite(block?.result_count)
+                  ? Number(block.result_count)
+                  : Number.isFinite(block?.resultCount)
+                    ? Number(block.resultCount)
+                    : null,
+                results: Array.isArray(block?.results) ? block.results : null,
               }))
               .filter(block => block.type)
               .sort((a, b) => {
@@ -219,6 +287,41 @@ const normalizeStreamBlocks = raw => {
       arguments: item?.arguments ?? null,
       output: item?.output ?? null,
       duration_ms: Number.isFinite(item?.duration_ms) ? Number(item.duration_ms) : null,
+      id: item?.id || null,
+      query: typeof item?.query === 'string' ? item.query : '',
+      applied:
+        typeof item?.applied === 'boolean'
+          ? item.applied
+          : item?.applied == null
+            ? null
+            : Boolean(item.applied),
+      original_count: Number.isFinite(item?.original_count)
+        ? Number(item.original_count)
+        : Number.isFinite(item?.originalCount)
+          ? Number(item.originalCount)
+          : null,
+      filtered_count: Number.isFinite(item?.filtered_count)
+        ? Number(item.filtered_count)
+        : Number.isFinite(item?.filteredCount)
+          ? Number(item.filteredCount)
+          : null,
+      fallback_reason: item?.fallback_reason || item?.fallbackReason || null,
+      original_results: Array.isArray(item?.original_results)
+        ? item.original_results
+        : Array.isArray(item?.originalResults)
+          ? item.originalResults
+          : null,
+      filtered_results: Array.isArray(item?.filtered_results)
+        ? item.filtered_results
+        : Array.isArray(item?.filteredResults)
+          ? item.filteredResults
+          : null,
+      result_count: Number.isFinite(item?.result_count)
+        ? Number(item.result_count)
+        : Number.isFinite(item?.resultCount)
+          ? Number(item.resultCount)
+          : null,
+      results: Array.isArray(item?.results) ? item.results : null,
     }))
     .filter(item => item.type)
     .sort((a, b) => a.seq - b.seq)
@@ -227,7 +330,12 @@ const normalizeStreamBlocks = raw => {
 // Internal helper function
 const mapMessageFromApi = (m, effectiveDefaultModel, activeConversation) => {
   const streamBlocks = normalizeStreamBlocks(m.stream_blocks)
-  const toolCallHistory = asArrayField(m.tool_call_history)
+  const toolCallHistory = (() => {
+    const direct = asArrayField(m.tool_call_history)
+    if (Array.isArray(direct) && direct.length > 0) return direct
+    const fromToolCalls = normalizeToolCallsToHistory(m.tool_calls)
+    return fromToolCalls.length > 0 ? fromToolCalls : direct
+  })()
   const researchStepHistory = asArrayField(m.research_step_history)
   const relatedQuestions = asArrayField(m.related_questions)
   const sources = asArrayField(m.sources)
@@ -238,6 +346,7 @@ const mapMessageFromApi = (m, effectiveDefaultModel, activeConversation) => {
   const researchPlan = extractResearchPlan(m)
   const finalAnswerDurationMs = extractFinalAnswerDurationMs(m)
   const expertState = extractExpertState(m)
+  const turnSummary = typeof m.turn_summary === 'string' ? m.turn_summary : typeof m.turnSummary === 'string' ? m.turnSummary : ''
 
   const restoreHitlMetaFromToolHistory = toolHistory => {
     if (!Array.isArray(toolHistory)) {
@@ -294,6 +403,7 @@ const mapMessageFromApi = (m, effectiveDefaultModel, activeConversation) => {
     researchPlan,
     deepResearch: isDeepResearch,
     related: relatedQuestions,
+    turnSummary,
     tool_calls: m.tool_calls || undefined,
     toolCallHistory,
     thoughtHistory: undefined,
@@ -333,6 +443,24 @@ const mapMessageFromApi = (m, effectiveDefaultModel, activeConversation) => {
   return mappedMessage
 }
 
+const mapMessageFromApiWithContext = (
+  m,
+  effectiveDefaultModel,
+  activeConversation,
+  isDeepResearchConversation = false,
+) => {
+  const mapped = mapMessageFromApi(m, effectiveDefaultModel, activeConversation)
+  if (
+    isDeepResearchConversation &&
+    mapped?.role === 'user' &&
+    typeof mapped.content === 'string' &&
+    mapped.content.trim()
+  ) {
+    mapped.deepResearch = true
+  }
+  return mapped
+}
+
 /**
  * useChatHistory Hook
  * Manages conversation history loading, message mapping, and loading state
@@ -354,6 +482,7 @@ const useChatHistory = ({
   conversationId,
   effectiveDefaultModel,
   isSwitchingConversation,
+  isDeepResearchConversation = false,
 }) => {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
   const [showHistoryLoader, setShowHistoryLoader] = useState(false)
@@ -404,7 +533,12 @@ const useChatHistory = ({
         const { data, error } = await listMessages(convId)
         if (!error && data) {
           const mapped = data.map(m =>
-            mapMessageFromApi(m, effectiveDefaultModel, activeConversation),
+            mapMessageFromApiWithContext(
+              m,
+              effectiveDefaultModel,
+              activeConversation,
+              isDeepResearchConversation,
+            ),
           )
           loadedMessagesRef.current.add(convId)
           lastLoadedConversationIdRef.current = convId
@@ -419,7 +553,7 @@ const useChatHistory = ({
         return { data: null, error: err }
       }
     },
-    [effectiveDefaultModel, activeConversation],
+    [effectiveDefaultModel, activeConversation, isDeepResearchConversation],
   )
 
   /**

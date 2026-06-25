@@ -297,6 +297,76 @@ AGENT_TOOLS: list[dict[str, Any]] = [
         },
     },
     {
+        "id": "excel_generator",
+        "name": "excel_generator",
+        "category": "visualization",
+        "description": (
+            "Generate a downloadable .xlsx Excel workbook from structured sheet data. "
+            "Use this canonical payload shape: { title, sheets: [{ name, columns, rows }] }. "
+            "ALWAYS put worksheet data inside sheets[].rows. "
+            "For a single-sheet workbook, still prefer the same sheets array format instead of top-level sheet_name/columns/rows. "
+            "If the user requests a summary sheet, calculate that summary first and include it as another item in sheets. "
+            "If the user asks for one workbook with multiple sheets, you MUST return that workbook in one excel_generator call and MUST NOT split sheets across multiple Excel files or repeated calls. "
+            "For multi-sheet workbooks, do not put row maps or any other sheet-specific data at the top level. "
+            "Top-level sheet_name/columns/rows and aliases like data are compatibility fallbacks only, not the preferred output format. "
+            "Returns {type: excel_file, filename, download_url, preview} on success."
+        ),
+        "parameters": {
+            "type": "object",
+            "required": [],
+            "properties": {
+                "title": {
+                    "type": "string",
+                    "description": "Workbook title and filename prefix.",
+                },
+                "sheet_name": {
+                    "type": "string",
+                    "description": "Legacy single-sheet compatibility field. Prefer sheets[].name instead.",
+                },
+                "columns": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Legacy single-sheet compatibility field. Prefer sheets[].columns instead.",
+                },
+                "rows": {
+                    "type": "array",
+                    "description": "Legacy single-sheet compatibility field. Prefer sheets[].rows instead. Some models may call this data; rows is preferred.",
+                    "items": {
+                        "anyOf": [
+                            {"type": "array", "items": {}},
+                            {"type": "object"},
+                        ]
+                    },
+                },
+                "sheets": {
+                    "type": "array",
+                    "description": "Canonical workbook payload. Prefer this for both single-sheet and multi-sheet workbooks. Each item represents one worksheet, including summary sheets.",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string", "description": "Worksheet name."},
+                            "columns": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "Column headers for this worksheet.",
+                            },
+                            "rows": {
+                                "type": "array",
+                                "description": "Row data for this worksheet. Can be arrays or objects. Some models may call this data; rows is preferred.",
+                                "items": {
+                                    "anyOf": [
+                                        {"type": "array", "items": {}},
+                                        {"type": "object"},
+                                    ]
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    },
+    {
         "id": "ppt_generator",
         "name": "ppt_generator",
         "category": "visualization",
@@ -306,7 +376,7 @@ AGENT_TOOLS: list[dict[str, Any]] = [
             "or provide a single HTML document with explicit slide wrappers like `.slide`. "
             "Design each slide for a 16:9 presentation canvas and use stable responsive layout so both the smaller preview viewport and the larger fidelity export viewport keep a similar structure. "
             "Prefer robust flex/grid layouts, avoid extreme viewport-dependent sizing that can cause overflow, and keep each slide self-contained. "
-            "Returns {type: pptx_file, slide_count, filename, download_url, expires_at} on success."
+            "Returns {type: pptx_file, slide_count, filename, download_url} on success."
         ),
         "parameters": {
             "type": "object",

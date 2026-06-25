@@ -1,3 +1,9 @@
+/**
+ * SettingsModal — Global settings panel (model providers, API keys, tools, database, theme, etc.)
+ * Props: isOpen (visibility), onClose (close callback), onOpenDatabaseSetup (navigate to DB setup)
+ * Internally manages ~50+ state variables for each setting field.
+ * Sections: General, Model, Tools (search APIs), Database, Advanced, About
+ */
 import clsx from 'clsx'
 import {
   Brain,
@@ -55,8 +61,6 @@ const ENV_VARS = {
   openAIKey: getPublicEnv('PUBLIC_OPENAI_API_KEY'),
   openAIBaseUrl: getPublicEnv('PUBLIC_OPENAI_BASE_URL'),
   openRouterKey: getPublicEnv('PUBLIC_OPENROUTER_API_KEY'),
-  liteLLMKey: getPublicEnv('PUBLIC_LITELLM_API_KEY'),
-  liteLLMBaseUrl: getPublicEnv('PUBLIC_LITELLM_BASE_URL'),
   huggingFaceKey: getPublicEnv('PUBLIC_HUGGINGFACE_API_KEY'),
   googleApiKey: getPublicEnv('PUBLIC_GOOGLE_API_KEY'),
   siliconFlowKey: getPublicEnv('PUBLIC_SILICONFLOW_API_KEY'),
@@ -124,12 +128,6 @@ const getEnvManagedSettingKeys = () => {
   if (ENV_VARS.openRouterKey) {
     keys.push('OpenRouterKey')
   }
-  if (ENV_VARS.liteLLMKey) {
-    keys.push('LiteLLMKey')
-  }
-  if (ENV_VARS.liteLLMBaseUrl) {
-    keys.push('LiteLLMUrl')
-  }
   if (ENV_VARS.huggingFaceKey) {
     keys.push('HuggingFaceKey')
   }
@@ -180,12 +178,13 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       </p>
     ) : null
 
+  // Active settings tab
   const [activeTab, setActiveTab] = useState('general')
+
+  // API Keys for each model provider
   const [OpenAICompatibilityKey, setOpenAICompatibilityKey] = useState('')
   const [OpenAICompatibilityUrl, setOpenAICompatibilityUrl] = useState('')
   const [OpenRouterKey, setOpenRouterKey] = useState('')
-  const [LiteLLMKey, setLiteLLMKey] = useState('')
-  const [LiteLLMUrl, setLiteLLMUrl] = useState('')
   const [HuggingFaceKey, setHuggingFaceKey] = useState('')
   const [SiliconFlowKey, setSiliconFlowKey] = useState('')
   const [NvidiaKey, setNvidiaKey] = useState('')
@@ -197,22 +196,30 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
   const [KimiKey, setKimiKey] = useState('')
   const [apiProvider, setApiProvider] = useState('gemini')
   const [googleApiKey, setGoogleApiKey] = useState('')
+
+  // Search / tools API provider selection and keys
   const [searchProvider, setSearchProvider] = useState('tavily')
   const [toolsApiProvider, setToolsApiProvider] = useState('tavily')
 
   const [tavilyApiKey, setTavilyApiKey] = useState('')
   const [serpapiApiKey, setSerpapiApiKey] = useState('')
   const [exaApiKey, setExaApiKey] = useState('')
+
+  // Backend and database configuration
   const [backendUrl, setBackendUrl] = useState(ENV_VARS.backendUrl || '')
   const [databaseProvider, setDatabaseProvider] = useState('')
   const [dbProviders, setDbProviders] = useState([])
   const [dbAccessKey, setDbAccessKey] = useState('')
   const initialDbConfigRef = useRef({ provider: '', accessKey: '' })
 
+  // Backend connection health check state
   const [backendHealthState, setBackendHealthState] = useState({
     status: 'idle',
     message: '',
   })
+
+  // DEPRECATED: Custom dropdown open states and refs — replaced by shadcn/ui <Select>,
+  // these are never set to true and the useEffect below is dead code.
   const [isProviderDropdownOpen, setIsProviderDropdownOpen] = useState(false)
   const providerDropdownRef = useRef(null)
   const [isSearchProviderDropdownOpen, setIsSearchProviderDropdownOpen] = useState(false)
@@ -221,6 +228,8 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
   const interfaceLanguageDropdownRef = useRef(null)
   const [isOcrProviderDropdownOpen, setIsOcrProviderDropdownOpen] = useState(false)
   const ocrProviderDropdownRef = useRef(null)
+
+  // UI preferences
   const [contextTurns, setContextTurns] = useState(6)
   const [themeColor, setThemeColor] = useState('midnight')
   const [fontSize, setFontSize] = useState('medium')
@@ -229,6 +238,8 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
   const [interfaceLanguage, setInterfaceLanguage] = useState('en')
   const [followInterfaceLanguage, setFollowInterfaceLanguage] = useState(false)
   const [enableLongTermMemory, setEnableLongTermMemory] = useState(false)
+
+  // Chat model selection (default + lite providers)
   const [defaultModel, setDefaultModel] = useState('')
   const [liteModel, setLiteModel] = useState('')
   const [defaultModelProvider, setDefaultModelProvider] = useState('')
@@ -241,6 +252,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
   const [defaultTestAction, setDefaultTestAction] = useState({ status: 'idle', message: '' })
   const [liteTestAction, setLiteTestAction] = useState({ status: 'idle', message: '' })
 
+  // OCR (PDF/image text extraction) model settings
   const [ocrProvider, setOcrProvider] = useState('')
   const [ocrModel, setOcrModel] = useState('')
   const [chatGroupedModels, setChatGroupedModels] = useState({})
@@ -264,7 +276,8 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
   const [retestingDb, setRetestingDb] = useState(false)
   const initialSelfIntroRef = useRef('')
 
-  // Handle click outside provider dropdown
+  // DEPRECATED: click-outside logic is dead code — refs are never bound to DOM elements
+  // and dropdown states are never set to true (replaced by shadcn/ui Select)
   useEffect(() => {
     const handleClickOutside = event => {
       if (providerDropdownRef.current && !providerDropdownRef.current.contains(event.target)) {
@@ -349,7 +362,6 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       gemini: Boolean((googleApiKey || '').trim() || ENV_VARS.googleApiKey),
       openai_compatibility: Boolean((OpenAICompatibilityKey || '').trim() || ENV_VARS.openAIKey),
       openrouter: Boolean((OpenRouterKey || '').trim() || ENV_VARS.openRouterKey),
-      litellm_openai: Boolean((LiteLLMKey || '').trim() || ENV_VARS.liteLLMKey),
       huggingface: Boolean((HuggingFaceKey || '').trim() || ENV_VARS.huggingFaceKey),
       siliconflow: Boolean((SiliconFlowKey || '').trim() || ENV_VARS.siliconFlowKey),
       nvidia: Boolean((NvidiaKey || '').trim()),
@@ -364,7 +376,6 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       googleApiKey,
       OpenAICompatibilityKey,
       OpenRouterKey,
-      LiteLLMKey,
       HuggingFaceKey,
       SiliconFlowKey,
       NvidiaKey,
@@ -447,6 +458,11 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       }
     }
 
+    // Phase 1 (sync): loadSettings() merges API keys, database config, model selection,
+    //   search provider, chat behavior, UI preferences, OCR, scrapbook style, etc.
+    //   from multiple local sources (see /lib/settings.js for merge priority per field).
+    // Phase 2 (async, below): fetchRemoteSettings() overrides these with DB values
+    // so cross-device changes (e.g. API key set on another machine) take precedence.
     if (isOpen) {
       const settings = loadSettings()
       if (settings.databaseProvider) setDatabaseProvider(settings.databaseProvider)
@@ -460,8 +476,6 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       if (settings.OpenAICompatibilityUrl)
         setOpenAICompatibilityUrl(settings.OpenAICompatibilityUrl)
       if (settings.OpenRouterKey) setOpenRouterKey(settings.OpenRouterKey)
-      if (settings.LiteLLMKey) setLiteLLMKey(settings.LiteLLMKey)
-      if (settings.LiteLLMUrl) setLiteLLMUrl(settings.LiteLLMUrl)
       if (settings.HuggingFaceKey) setHuggingFaceKey(settings.HuggingFaceKey)
       if (settings.SiliconFlowKey) setSiliconFlowKey(settings.SiliconFlowKey)
       if (settings.NvidiaKey) setNvidiaKey(settings.NvidiaKey)
@@ -529,17 +543,16 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       // Initialize interfaceLanguage from i18n.language (which reads from localStorage)
       setInterfaceLanguage(i18n.language)
 
-      // Fetch Remote (Async Update)
+      // Async: fetch settings from DB (user_settings table) to override local values
+      // e.g. user changed API key on another device → remote value wins
       if (settings.databaseProvider) {
         fetchRemoteSettings().then(({ data }) => {
           if (data) {
-          if (data.OpenAICompatibilityKey) setOpenAICompatibilityKey(data.OpenAICompatibilityKey)
-          if (data.OpenAICompatibilityUrl) setOpenAICompatibilityUrl(data.OpenAICompatibilityUrl)
-          if (data.OpenRouterKey) setOpenRouterKey(data.OpenRouterKey)
-          if (data.LiteLLMKey) setLiteLLMKey(data.LiteLLMKey)
-          if (data.LiteLLMUrl) setLiteLLMUrl(data.LiteLLMUrl)
-          if (data.HuggingFaceKey) setHuggingFaceKey(data.HuggingFaceKey)
-          if (data.SiliconFlowKey) setSiliconFlowKey(data.SiliconFlowKey)
+            if (data.OpenAICompatibilityKey) setOpenAICompatibilityKey(data.OpenAICompatibilityKey)
+            if (data.OpenAICompatibilityUrl) setOpenAICompatibilityUrl(data.OpenAICompatibilityUrl)
+            if (data.OpenRouterKey) setOpenRouterKey(data.OpenRouterKey)
+            if (data.HuggingFaceKey) setHuggingFaceKey(data.HuggingFaceKey)
+            if (data.SiliconFlowKey) setSiliconFlowKey(data.SiliconFlowKey)
             if (data.NvidiaKey) setNvidiaKey(data.NvidiaKey)
             if (data.MinimaxKey) setMinimaxKey(data.MinimaxKey)
             if (data.GlmKey) setGlmKey(data.GlmKey)
@@ -596,6 +609,8 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
     }
   }, [isOpen, i18n, dbAccessKey, databaseProvider])
 
+  // Listen for database config changes from other components (e.g. DatabaseSetupModal)
+  // and re-read databaseProvider + dbAccessKey from local settings
   useEffect(() => {
     if (!isOpen) return
     const handleDatabaseSettingsChanged = () => {
@@ -609,8 +624,9 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
     }
   }, [isOpen])
 
-  useScrollLock(isOpen)
+  useScrollLock(isOpen) // Prevent background scrolling when modal is open
 
+  // Find display label for an OCR model ID; falls back to raw value if not found
   const getOcrModelLabel = value => {
     if (!value) return ''
     const models = ocrGroupedModels[ocrProvider] || []
@@ -618,6 +634,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
     return match?.label || value
   }
 
+  // Fetch available models from each configured provider and filter for OCR-capable ones
   const loadOcrModels = async () => {
     setOcrModelsLoading(true)
     setOcrModelsError('')
@@ -626,8 +643,6 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       openai_compatibility: OpenAICompatibilityKey || ENV_VARS.openAIKey,
       openai_compatibility_url: OpenAICompatibilityUrl || ENV_VARS.openAIBaseUrl,
       openrouter: OpenRouterKey || ENV_VARS.openRouterKey,
-      litellm_openai: LiteLLMKey || ENV_VARS.liteLLMKey,
-      litellm_openai_url: LiteLLMUrl || ENV_VARS.liteLLMBaseUrl,
       huggingface: HuggingFaceKey || ENV_VARS.huggingFaceKey,
       siliconflow: SiliconFlowKey || ENV_VARS.siliconFlowKey,
       nvidia: NvidiaKey,
@@ -647,8 +662,6 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       if (key === 'gemini') credentials = { apiKey: keys.gemini }
       else if (key === 'openrouter')
         credentials = { apiKey: keys.openrouter, baseUrl: 'https://openrouter.ai/api/v1' }
-      else if (key === 'litellm_openai')
-        credentials = { apiKey: keys.litellm_openai, baseUrl: keys.litellm_openai_url }
       else if (key === 'huggingface') credentials = { apiKey: keys.huggingface }
       else if (key === 'siliconflow')
         credentials = { apiKey: keys.siliconflow, baseUrl: SILICONFLOW_BASE_URL }
@@ -704,6 +717,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
     setOcrModelsLoading(false)
   }
 
+  // Find which provider a chat model belongs to; returns provider key or ''
   const findProviderForModel = modelId => {
     if (!modelId) return ''
     for (const [pKey, models] of Object.entries(chatGroupedModels)) {
@@ -712,6 +726,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
     return ''
   }
 
+  // Find display label for a chat model ID; returns i18n fallback if not found
   const getModelLabel = modelId => {
     if (!modelId) return t('agents.model.notSelected')
     const match = Object.values(chatGroupedModels)
@@ -721,6 +736,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
     return t('agents.model.notFound')
   }
 
+  // Resolve which provider to use for a model: explicit > inferred from model list > fallback
   const resolveProvider = (modelId, fallback, modelSource, explicitProvider) => {
     if (!modelId) return fallback || ''
     if (explicitProvider) return explicitProvider
@@ -729,6 +745,11 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
     return derived || fallback || ''
   }
 
+  // Extract JSON from LLM text output with multiple fallback strategies:
+  //   1. Strip markdown code fences, then JSON.parse
+  //   2. Regex-extract {…} or […] from surrounding text, then JSON.parse
+  //   3. Normalize Python-style True/False/None/single-quotes, then JSON.parse
+  //   Returns parsed object or null on failure
   const parseJsonFromText = text => {
     if (!text || typeof text !== 'string') return null
     const trimmed = text.trim()
@@ -761,6 +782,9 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
     }
   }
 
+  // Test if a model can respond: sends a simple prompt and verifies connectivity.
+  // structured=true → ask for JSON output (used by lite model test to verify structured output).
+  // Returns the model's text response, or throws on error/timeout (20s).
   const runModelTest = async ({ modelId, providerKey, structured }) => {
     if (!modelId) {
       throw new Error(t('agents.model.testMissingModel'))
@@ -811,6 +835,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
     })
   }
 
+  // Test default model connectivity (simple ping only, no structured output check)
   const handleDefaultModelTest = async () => {
     const modelToTest = defaultModelSource === 'list' ? defaultModel : defaultCustomModel
     const resolvedProvider = resolveProvider(
@@ -835,6 +860,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
     }
   }
 
+  // Test lite model: first connectivity (pong), then structured JSON output
   const handleLiteModelTest = async () => {
     const modelToTest = liteModelSource === 'list' ? liteModel : liteCustomModel
     const resolvedProvider = resolveProvider(
@@ -871,6 +897,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
     }
   }
 
+  // Reusable model picker: provider selector + model dropdown/custom input + test button
   const renderModelPicker = ({
     label,
     hint,
@@ -899,7 +926,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
     return (
       <div className="space-y-3">
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
-          <div className="flex w-full flex-col gap-2 sm:w-auto">
+          <div className="flex w-full min-w-0 flex-col gap-2 sm:w-auto">
             <div className="flex w-full flex-wrap items-center gap-3">
               <label className="shrink-0 text-sm font-medium text-gray-700 dark:text-gray-300">
                 {label}
@@ -947,7 +974,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                   type="button"
                   onClick={testAction.onClick}
                   disabled={testAction.status === 'loading'}
-                  className="bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 border-primary-200 dark:border-primary-800 hover:bg-primary-100 dark:hover:bg-primary-900/40 ml-auto flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-60 sm:ml-0"
+                  className="bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 border-primary-200 dark:border-primary-800 hover:bg-primary-100 dark:hover:bg-primary-900/40 ml-auto flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors disabled:opacity-60 sm:ml-0"
                 >
                   {testAction.status === 'loading' && (
                     <RefreshCw size={12} className="animate-spin" />
@@ -1014,7 +1041,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
           </div>
           <span
             title={displayLabel}
-            className="mt-1 w-full text-left text-xs break-all text-gray-500 sm:mt-0 sm:w-auto sm:max-w-[320px] sm:text-right dark:text-gray-400"
+            className="mt-1 w-full min-w-0 truncate text-left text-xs text-gray-500 sm:mt-0 sm:w-auto sm:max-w-[320px] sm:text-right dark:text-gray-400"
           >
             {displayLabel}
           </span>
@@ -1026,10 +1053,12 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                 <span className="text-xs font-semibold tracking-wide text-gray-400 uppercase">
                   {t('agents.model.providers')}
                 </span>
+                {/* Provider dropdown: Select=root controller, SelectTrigger=clickable button, SelectValue=displayed text, SelectContent=popup panel, SelectItem=each option */}
                 <Select
                   value={resolvedProvider}
                   onValueChange={val => {
                     onProviderChange(val)
+                    // Reset model selection when switching providers (only in list mode)
                     if (modelSource === 'list' && val !== activeProvider) {
                       onChange('')
                     }
@@ -1063,11 +1092,13 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                 </Select>
               </div>
             )}
+            {/* Model selector: dropdown list mode or free-text input mode */}
             <div className="flex flex-col gap-2">
               <span className="text-xs font-semibold tracking-wide text-gray-400 uppercase">
                 {t('agents.model.models')}
               </span>
               {showList ? (
+                // List mode: Radix Select dropdown for picking from activeModels
                 <Select
                   value={value || (allowEmpty ? '__none__' : undefined)}
                   onValueChange={val => onChange(val === '__none__' ? '' : val)}
@@ -1075,6 +1106,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                 >
                   <SelectTrigger className="h-10 w-full">
                     <SelectValue placeholder={t('agents.model.notSelected')}>
+                      {/* Display selected model: icon + label, with fallback chain */}
                       <div className="flex items-center gap-2 truncate">
                         {getModelIcon(value) && (
                           <img
@@ -1094,6 +1126,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
+                    {/* "None" option when allowEmpty is true */}
                     {allowEmpty && (
                       <SelectItem value="__none__">
                         <span className="text-gray-500">{t('agents.model.none')}</span>
@@ -1115,6 +1148,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                         </SelectItem>
                       ))
                     ) : (
+                      // Empty state when no models available
                       <div className="px-2 py-2 text-center text-sm text-gray-500 dark:text-gray-400">
                         {t('agents.model.noModels')}
                       </div>
@@ -1122,6 +1156,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                   </SelectContent>
                 </Select>
               ) : (
+                // Custom mode: free-text input for manually entering a model name
                 <input
                   value={customValue}
                   onChange={e => {
@@ -1140,15 +1175,16 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
     )
   }
 
+  // Fetch available models for each configured chat provider in parallel,
+  // group results by provider key, and auto-fix provider selection if current selection is invalid
   const loadChatModels = async () => {
     setIsChatModelsLoading(true)
+    // Build credentials lookup: local state || env var fallback for each provider
     const keys = {
       gemini: googleApiKey || ENV_VARS.googleApiKey,
       openai_compatibility: OpenAICompatibilityKey || ENV_VARS.openAIKey,
       openai_compatibility_url: OpenAICompatibilityUrl || ENV_VARS.openAIBaseUrl,
       openrouter: OpenRouterKey || ENV_VARS.openRouterKey,
-      litellm_openai: LiteLLMKey || ENV_VARS.liteLLMKey,
-      litellm_openai_url: LiteLLMUrl || ENV_VARS.liteLLMBaseUrl,
       huggingface: HuggingFaceKey || ENV_VARS.huggingFaceKey,
       siliconflow: SiliconFlowKey || ENV_VARS.siliconFlowKey,
       nvidia: NvidiaKey,
@@ -1162,13 +1198,12 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
 
     const grouped = {}
     const enabledProviders = []
+    // Fetch models from each provider concurrently
     const promises = configuredChatProviders.map(async key => {
       let credentials = {}
       if (key === 'gemini') credentials = { apiKey: keys.gemini }
       else if (key === 'openrouter')
         credentials = { apiKey: keys.openrouter, baseUrl: 'https://openrouter.ai/api/v1' }
-      else if (key === 'litellm_openai')
-        credentials = { apiKey: keys.litellm_openai, baseUrl: keys.litellm_openai_url }
       else if (key === 'huggingface') credentials = { apiKey: keys.huggingface }
       else if (key === 'siliconflow')
         credentials = { apiKey: keys.siliconflow, baseUrl: SILICONFLOW_BASE_URL }
@@ -1187,6 +1222,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       try {
         const models = await getModelsForProvider(key, credentials)
         enabledProviders.push(key)
+        // Ensure models is always an array, fallback to static options if API returns nothing
         const normalizedModels = Array.isArray(models) ? models : []
         return {
           key,
@@ -1200,6 +1236,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       }
     })
 
+    // Wait for all provider fetches to complete
     const results = (await Promise.all(promises)).filter(Boolean)
     results.forEach(({ key, models }) => {
       if (models.length > 0) {
@@ -1208,6 +1245,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
     })
 
     setChatGroupedModels(grouped)
+    // Deduplicate provider list and auto-fix stale provider selections
     const uniqueProviders = Array.from(new Set(enabledProviders))
     if (uniqueProviders.length === 0) {
       setDefaultModelProvider('')
@@ -1224,6 +1262,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
     setIsChatModelsLoading(false)
   }
 
+  // Reload OCR and chat models when model tab is opened
   useEffect(() => {
     if (isOpen && activeTab === 'model') {
       loadOcrModels()
@@ -1231,6 +1270,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
     }
   }, [isOpen, activeTab])
 
+  // Auto-clear OCR model if current selection no longer exists in the provider's model list
   useEffect(() => {
     if (ocrModelSource !== 'list') return
     const activeModels = ocrGroupedModels[ocrProvider] || []
@@ -1242,6 +1282,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
     }
   }, [ocrModel, ocrModelSource, ocrGroupedModels, ocrProvider])
 
+  // Required database tables for Qurio to function
   const requiredTables = [
     'spaces',
     'agents',
@@ -1250,11 +1291,13 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
     'conversation_messages',
   ]
 
+  // Compare result.tables against requiredTables, return which ones are missing
   const getMissingTables = result => {
     if (!result?.tables) return requiredTables
     return requiredTables.filter(table => !result.tables[table])
   }
 
+  // Copy INIT_SQL_SCRIPT to clipboard for manual database setup
   const copyInitSql = async () => {
     try {
       await navigator.clipboard.writeText(INIT_SQL_SCRIPT)
@@ -1265,6 +1308,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
     }
   }
 
+  // User manually ran SQL → click "retest" → verify tables now exist, close modal on success
   const handleRetestAfterInit = async () => {
     if (!isSupabaseProvider) return
     setRetestingDb(true)
@@ -1277,6 +1321,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
     }
   }
 
+  // User clicks "test connection" in database settings → if fails, open init modal
   const handleTestConnection = async () => {
     setRetestingDb(true)
     const result = await testConnection()
@@ -1287,6 +1332,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
     }
   }
 
+  // Derived values for OCR section
   const activeOcrModels = ocrGroupedModels[ocrProvider] || []
   const ocrDisplayLabel = ocrModel ? getOcrModelLabel(ocrModel) : t('agents.model.notSelected')
   const ocrProviderLabel = ocrProvider
@@ -1296,10 +1342,12 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
   const canEnablePdfOcr = Boolean(
     ocrProvider && resolvedOcrModel && providerConfiguredMap[ocrProvider],
   )
+  // Derived values for database section
   const selectedDbProvider =
     dbProviders.find(provider => provider.type === databaseProvider) || dbProviders[0]
   const isSupabaseProvider = selectedDbProvider?.type === 'supabase'
 
+  // Auto-disable PDF OCR when prerequisites are no longer met (provider/model/key missing)
   useEffect(() => {
     if (enablePdfOcr && !canEnablePdfOcr) {
       setEnablePdfOcr(false)
@@ -1308,10 +1356,12 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
 
   if (!isOpen) return null
 
+  // Resolve backend URL with fallback chain: env var → local state → global getter
   const resolveBackendUrlForHealthCheck = () => {
     return ENV_VARS.backendUrl || backendUrl || getBackendUrl()
   }
 
+  // Ping backend /api/health endpoint to verify backend is reachable
   const handleBackendHealthCheck = async () => {
     const baseUrl = resolveBackendUrlForHealthCheck()
     if (!baseUrl) return
@@ -1337,10 +1387,12 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
     }
   }
 
+  // Collect all ~50 state values into one object, save to local + remote, handle db changes
   const handleSave = async () => {
     setIsSaving(true)
     try {
       const resolvedDatabaseProvider = selectedDbProvider?.type || databaseProvider || ''
+      // Detect if database config changed since modal opened (stored in ref at mount time)
       const dbChanged =
         resolvedDatabaseProvider !== initialDbConfigRef.current.provider ||
         dbAccessKey !== initialDbConfigRef.current.accessKey
@@ -1356,8 +1408,6 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
         OpenAICompatibilityKey,
         OpenAICompatibilityUrl,
         OpenRouterKey,
-        LiteLLMKey,
-        LiteLLMUrl,
         HuggingFaceKey,
         GoogleApiKey: googleApiKey,
         SiliconFlowKey,
@@ -1391,6 +1441,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
         ocrModel: ocrModel,
         ocrModelSource: ocrModelSource,
         enablePdfOcr,
+        // Model: pick list value or custom input based on modelSource
         defaultModel: defaultModelSource === 'list' ? defaultModel : defaultCustomModel,
         liteModel: liteModelSource === 'list' ? liteModel : liteCustomModel,
         defaultModelProvider,
@@ -1402,34 +1453,33 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
         ocrCustomModel,
       }
 
-      // If a field is managed by environment variables, keep it runtime-readonly:
-      // do not persist it to local/remote settings.
+      // Remove keys that are managed by env vars — they should not be persisted
       const envManagedKeys = getEnvManagedSettingKeys()
       envManagedKeys.forEach(key => {
         delete settingsToSave[key]
       })
 
+      // Validate before saving (e.g. required fields)
       const didPassValidation = validateSettingsForSave(settingsToSave)
       if (!didPassValidation) {
         // Validation failed (toast/alert would handle it inside validate or UI)
         return
       }
 
-      // Save to local storage
+      // Save to storage: sensitive keys → sessionStorage, others → localStorage + memory cache
       await saveSettings(settingsToSave)
 
-      // Prevent accidental overwrite of remote keys with empty local keys
+      // Remote merge: prevent accidentally overwriting remote values with empty local values
+      // e.g. user didn't fill an API key locally, but remote DB has it → keep remote value
       if (resolvedDatabaseProvider) {
         try {
           const { data: remoteData } = await fetchRemoteSettings()
           if (remoteData) {
-            // Keys to keep on sync mismatch
+            // Keys eligible for sync mismatch resolution
             const SYNC_KEYS = [
               'OpenAICompatibilityKey',
               'OpenAICompatibilityUrl',
               'OpenRouterKey',
-              'LiteLLMKey',
-              'LiteLLMUrl',
               'HuggingFaceKey',
               'SiliconFlowKey',
               'GlmKey',
@@ -1473,13 +1523,14 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
         }
       }
 
-      // Save Remote (if connected)
+      // Save to remote DB (if database provider is configured)
       if (resolvedDatabaseProvider) {
         await saveRemoteSettings(settingsToSave)
       }
 
       initialSelfIntroRef.current = userSelfIntro
       onClose()
+      // Navigate to new chat if database config changed (forces fresh state)
       if (dbChanged) {
         navigate({ to: '/new_chat' })
       }
@@ -1807,56 +1858,6 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                           />
                         </div>
                         {renderEnvHint(Boolean(ENV_VARS.openRouterKey))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* LiteLLM OpenAI Settings */}
-                  {apiProvider === 'litellm_openai' && (
-                    <div className="animate-in fade-in slide-in-from-top-2 flex flex-col gap-4 duration-200">
-                      <div className="flex flex-col gap-2">
-                        <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                          {t('settings.litellmApiKey')}
-                        </label>
-                        <div className="relative">
-                          <div className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400">
-                            <Key size={16} />
-                          </div>
-                          <input
-                            type="password"
-                            value={LiteLLMKey}
-                            onChange={e => setLiteLLMKey(e.target.value)}
-                            placeholder={t('settings.litellmApiKeyPlaceholder')}
-                            disabled={Boolean(ENV_VARS.liteLLMKey)}
-                            className={clsx(
-                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border-none bg-black/5 py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-100/50 disabled:text-gray-500 dark:bg-white/5 dark:text-gray-100 dark:placeholder-zinc-600',
-                              ENV_VARS.liteLLMKey && 'cursor-not-allowed opacity-70',
-                            )}
-                          />
-                        </div>
-                        {renderEnvHint(Boolean(ENV_VARS.liteLLMKey))}
-                      </div>
-                      <div className="flex flex-col gap-2">
-                        <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                          {t('settings.litellmBaseUrl')}
-                        </label>
-                        <div className="relative">
-                          <div className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400">
-                            <Link size={16} />
-                          </div>
-                          <input
-                            type="text"
-                            value={LiteLLMUrl}
-                            onChange={e => setLiteLLMUrl(e.target.value)}
-                            placeholder={t('settings.litellmBaseUrlPlaceholder')}
-                            disabled={Boolean(ENV_VARS.liteLLMBaseUrl)}
-                            className={clsx(
-                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border-none bg-black/5 py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-100/50 disabled:text-gray-500 dark:bg-white/5 dark:text-gray-100 dark:placeholder-zinc-600',
-                              ENV_VARS.liteLLMBaseUrl && 'cursor-not-allowed opacity-70',
-                            )}
-                          />
-                        </div>
-                        {renderEnvHint(Boolean(ENV_VARS.liteLLMBaseUrl))}
                       </div>
                     </div>
                   )}
@@ -2468,7 +2469,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                       <button
                         type="button"
                         onClick={loadChatModels}
-                        className="text-primary-600 hover:text-primary-700 dark:text-primary-400 flex items-center gap-1 text-xs font-medium"
+                        className="text-primary-600 hover:text-primary-700 dark:text-primary-400 flex shrink-0 items-center gap-1 text-xs font-medium whitespace-nowrap"
                       >
                         <RefreshCw
                           size={14}
@@ -3148,7 +3149,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                           )}
                         >
                           {exists ? t('settings.initModal.ready') : t('settings.initModal.missing')}{' '}
-                          鐠?{table}
+                          {table}
                         </span>
                       )
                     })}

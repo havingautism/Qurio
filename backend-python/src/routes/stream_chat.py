@@ -26,7 +26,7 @@ async def stream_chat(request: Request) -> Response:
 
     Request body:
     {
-        "provider": "gemini" | "openai" | "openai_compatibility" | "siliconflow" | "glm" | "deepseek" | "volcengine" | "modelscope" | "kimi" | "nvidia" | "minimax",
+        "provider": "gemini" | "openai" | "openai_compatibility" | "openrouter" | "huggingface" | "siliconflow" | "glm" | "deepseek" | "volcengine" | "modelscope" | "kimi" | "nvidia" | "minimax",
         "baseUrl": "Custom base URL (optional)",
         "model": "model-name" (optional),
         "messages": [...],

@@ -535,6 +535,7 @@ const ChatInterface = ({
     conversationId,
     effectiveDefaultModel: defaultAgent?.model || 'gpt-4o',
     isSwitchingConversation,
+    isDeepResearchConversation: false,
   })
 
   const hasResolvedTitle =

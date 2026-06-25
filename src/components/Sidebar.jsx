@@ -1,9 +1,14 @@
+// Sidebar component: main navigation panel with tabs for Library, Deep Research,
+// Expert, Scrapbook, and Spaces. Manages conversation lists with cursor-based pagination,
+// pub/sub event listeners for real-time updates, and responsive mobile/desktop layouts.
 import clsx from 'clsx'
 import {
   Bookmark,
   ChevronDown,
   ChevronUp,
   Coffee,
+  FileSpreadsheet,
+  FileType2,
   Laptop,
   Moon,
   Pin,
@@ -21,6 +26,7 @@ import {
   Flask as FlaskIcon,
   Gear as GearIcon,
   Notebook as NotebookIcon,
+  FolderOpen as FolderOpenIcon,
   Robot as RobotIcon,
   SquaresFour as SquaresFourIcon,
   Student as StudentIcon,
@@ -43,6 +49,7 @@ import {
   toggleFavorite,
 } from '../lib/conversationsService'
 import { getSpaceDisplayLabel } from '../lib/spaceDisplay'
+import { listGeneratedFiles } from '../lib/generatedFilesService'
 import { listScrapbookEntries } from '../lib/scrapbookService'
 import { SCRAPBOOK_AGENT_ID } from '../lib/systemAgents'
 import { deleteConversation } from '../lib/supabase'
@@ -55,6 +62,8 @@ import { useDeepResearchGuide } from '../contexts/DeepResearchGuideContext'
 
 const SIDEBAR_FETCH_LIMIT = 20
 
+// Sidebar: receives control callbacks and external data from App.jsx,
+// manages its own state for each tab's conversation list with pagination.
 const Sidebar = ({
   isOpen = false, // Mobile state
   onClose, // Mobile state
@@ -67,9 +76,9 @@ const Sidebar = ({
   onCreateSpace,
   onEditSpace,
   onOpenConversation,
-  spaces,
+  spaces, // Space list from App.jsx
   spacesLoading = false,
-  agents = [],
+  agents = [], // Agent list from App.jsx
   agentsLoading = false,
   onCreateAgent,
   onEditAgent,
@@ -90,22 +99,26 @@ const Sidebar = ({
       window.navigator?.standalone === true)
   useScrollLock(isOpen && !isStandalone)
 
+  // UI interaction state
   const [isHovered, setIsHovered] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
+  // Pin state persisted to localStorage; pinned sidebar stays open on desktop
   const [isPinned, setIsPinned] = useState(() => {
     const saved = localStorage.getItem('sidebar-pinned')
-    // Default to false on mobile if using simple logic, but here relying on isOpen for mobile
     return saved === 'true'
   })
-  const [activeTab, setActiveTab] = useState('library') // 'library', 'deepResearch', 'discover', 'spaces'
+  // Active tab: library | bookmarks | deepResearch | expert | scrapbook | files | agents | spaces
+  const [activeTab, setActiveTab] = useState('library')
   const [hoveredTab, setHoveredTab] = useState(null)
+
+  // Library tab: regular conversation list with cursor-based pagination
   const [conversations, setConversations] = useState([])
   const [nextCursor, setNextCursor] = useState(null)
   const [hasMore, setHasMore] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   // const [emojiTick, setEmojiTick] = useState(0)
 
-  // Dedicated Bookmarks State
+  // Bookmarks tab: favorited conversations with cursor-based pagination
   const [bookmarkedConversations, setBookmarkedConversations] = useState([])
   const [bookmarkNextCursor, setBookmarkNextCursor] = useState(null)
   const [bookmarkHasMore, setBookmarkHasMore] = useState(true)
@@ -114,7 +127,7 @@ const Sidebar = ({
   const [bookmarksDirty, setBookmarksDirty] = useState(false)
   const [expandedActionId, setExpandedActionId] = useState(null)
 
-  // Deep Research conversations
+  // Deep Research tab: same pagination pattern
   const [deepResearchConversations, setDeepResearchConversations] = useState([])
   const [deepResearchNextCursor, setDeepResearchNextCursor] = useState(null)
   const [deepResearchHasMore, setDeepResearchHasMore] = useState(true)
@@ -122,13 +135,15 @@ const Sidebar = ({
   const [deepResearchLoadingMore, setDeepResearchLoadingMore] = useState(false)
   const [deepResearchDirty, setDeepResearchDirty] = useState(false)
 
-  // Expert conversations
+  // Expert tab: same pagination pattern
   const [expertConversations, setExpertConversations] = useState([])
   const [expertNextCursor, setExpertNextCursor] = useState(null)
   const [expertHasMore, setExpertHasMore] = useState(true)
   const [isExpertLoading, setIsExpertLoading] = useState(false)
   const [expertLoadingMore, setExpertLoadingMore] = useState(false)
   const [expertDirty, setExpertDirty] = useState(false)
+
+  // Scrapbook tab: same pagination pattern
   const [scrapbookEntries, setScrapbookEntries] = useState([])
   const [scrapbookNextCursor, setScrapbookNextCursor] = useState(null)
   const [scrapbookHasMore, setScrapbookHasMore] = useState(true)
@@ -136,7 +151,14 @@ const Sidebar = ({
   const [scrapbookLoadingMore, setScrapbookLoadingMore] = useState(false)
   const [scrapbookDirty, setScrapbookDirty] = useState(false)
 
-  // Spaces interaction state
+  // Generated files: PPT/Excel files from conversations
+  const [generatedFiles, setGeneratedFiles] = useState([])
+  const [generatedFilesLimit, setGeneratedFilesLimit] = useState(SIDEBAR_FETCH_LIMIT)
+  const [isGeneratedFilesLoading, setIsGeneratedFilesLoading] = useState(false)
+  const [generatedFilesLoadingMore, setGeneratedFilesLoadingMore] = useState(false)
+  const [generatedFilesDirty, setGeneratedFilesDirty] = useState(false)
+
+  // Spaces tab: expanded spaces and their conversation lists
   const [expandedSpaces, setExpandedSpaces] = useState(new Set())
   const [spaceConversations, setSpaceConversations] = useState({}) // { [spaceId]: { items: [], nextCursor: null, hasMore: true, loading: false } }
   const [spacesLimit, setSpacesLimit] = useState(SIDEBAR_FETCH_LIMIT)
@@ -182,6 +204,7 @@ const Sidebar = ({
     )
   }
 
+  // Build a Map from spaces array for O(1) lookup by id
   const spaceById = useMemo(() => {
     const map = new Map()
     for (const space of spaces || []) {
@@ -192,6 +215,7 @@ const Sidebar = ({
     return map
   }, [spaces])
 
+  // Collect all Deep Research space IDs (normally just one, but handles legacy data)
   const deepResearchSpaceIds = useMemo(() => {
     const ids = new Set()
     if (deepResearchSpace?.id) ids.add(String(deepResearchSpace.id))
@@ -204,12 +228,14 @@ const Sidebar = ({
   }, [deepResearchSpace?.id, spaces])
   const deepResearchSpaceId = deepResearchSpaceIds[0] || null
 
+  // Get the space object for a conversation via O(1) Map lookup
   const getConversationSpace = conv => {
     const spaceId = conv?.space_id
     if (!spaceId) return null
     return spaceById.get(String(spaceId)) || null
   }
 
+  // Normalize title_emojis to an array (handles both array and JSON string formats)
   const normalizeTitleEmojis = value => {
     if (Array.isArray(value)) {
       return value
@@ -233,6 +259,7 @@ const Sidebar = ({
     return []
   }
 
+  // Resolve display emoji for a conversation: prefer title_emojis, then fallback, else default '💬'
   const resolveConversationEmoji = (conv, fallbackEmoji) => {
     const emojiList = normalizeTitleEmojis(conv?.title_emojis ?? conv?.titleEmojis)
     const resolvedList = emojiList.length > 0 ? emojiList : fallbackEmoji ? [fallbackEmoji] : []
@@ -247,12 +274,14 @@ const Sidebar = ({
     // return resolvedList[index]
   }
 
+  // Remove leading '# ' prefix from auto-generated titles
   const stripGeneratedTitlePrefix = value => {
     const raw = String(value || '').trim()
     if (!raw) return ''
     return raw.replace(/^#\s*/u, '').trim()
   }
 
+  // Format datetime string according to current i18n locale
   const formatDateTime = value => {
     if (!value) return t('sidebar.recently')
     // Use current language for date formatting
@@ -269,12 +298,15 @@ const Sidebar = ({
 
   const closeActions = () => setExpandedActionId(null)
 
+  // displayTab: use hovered tab if hovering, otherwise active tab
   const displayTab = hoveredTab || activeTab
+  // Filter out Scrapbook agent from visible agents list
   const visibleAgents = useMemo(
     () => (agents || []).filter(agent => String(agent?.id || '') !== SCRAPBOOK_AGENT_ID),
     [agents],
   )
   const isMobileFastSidebar = isMobile
+  // Resolve dark mode: explicit theme setting takes priority, then check CSS class
   const readResolvedSidebarDark = () => {
     if (theme === 'dark') return true
     if (theme === 'light') return false
@@ -285,8 +317,10 @@ const Sidebar = ({
   }
   const [isSidebarDarkMode, setIsSidebarDarkMode] = useState(readResolvedSidebarDark)
   const isScrapbookSidebarTheme = true
+  // Utility to toggle CSS classes based on sidebar dark mode
   const glassTone = (darkClasses, lightClasses) => (isSidebarDarkMode ? darkClasses : lightClasses)
 
+  // Responsive breakpoint detection (same pattern as useIsMobile hook)
   useEffect(() => {
     if (typeof window === 'undefined' || !window.matchMedia) return undefined
     const mediaQuery = window.matchMedia('(max-width: 768px)')
@@ -299,7 +333,10 @@ const Sidebar = ({
     mediaQuery.addListener(update)
     return () => mediaQuery.removeListener(update)
   }, [])
+
+  // Sidebar is expanded when: mobile drawer open, or desktop pinned, or mouse hovered
   const isExpanded = isOpen || isPinned || isHovered
+  // Expanded panel shows for all tabs except 'discover' (legacy, no longer triggered)
   const shouldShowExpandedPanel = isExpanded && displayTab !== 'discover'
   const shouldShowPanelShadow = shouldShowExpandedPanel && (!isMobile || isOpen)
 
@@ -350,6 +387,7 @@ const Sidebar = ({
   //   return () => clearInterval(intervalId)
   // }, [])
 
+  // Load more library conversations (cursor-based, appends to existing list)
   const fetchMoreConversations = async () => {
     try {
       setLoadingMore(true)
@@ -379,6 +417,7 @@ const Sidebar = ({
     }
   }
 
+  // Load bookmarked conversations: isInitial=true replaces list, false appends (load more)
   const fetchBookmarkedConversations = async (isInitial = true) => {
     try {
       if (isInitial) {
@@ -416,6 +455,7 @@ const Sidebar = ({
     }
   }
 
+  // Load Deep Research conversations from the dedicated space
   const fetchDeepResearchConversations = async (isInitial = true) => {
     if (!deepResearchSpaceId) {
       setDeepResearchConversations([])
@@ -462,6 +502,7 @@ const Sidebar = ({
     }
   }
 
+  // Load Expert conversations via conversation_events lookup + two-step query
   const fetchExpertConversations = async (isInitial = true) => {
     try {
       if (isInitial) {
@@ -499,6 +540,7 @@ const Sidebar = ({
     }
   }
 
+  // Load Scrapbook entries (uses loadMore flag instead of isInitial)
   const fetchScrapbookEntries = async (loadMore = false) => {
     if (loadMore && !scrapbookHasMore) return
     const currentCursor = loadMore ? scrapbookNextCursor : null
@@ -535,6 +577,28 @@ const Sidebar = ({
     }
   }
 
+  // Load generated files (PPT/Excel); uses limit-based pagination instead of cursor
+  const fetchGeneratedFiles = async (loadMore = false) => {
+    try {
+      if (loadMore) {
+        setGeneratedFilesLoadingMore(true)
+        setGeneratedFilesLimit(prev => prev + SIDEBAR_FETCH_LIMIT)
+        return
+      }
+      setIsGeneratedFilesLoading(true)
+      const result = await listGeneratedFiles({ sort: 'desc' })
+      setGeneratedFiles(Array.isArray(result?.items) ? result.items : [])
+      setGeneratedFilesLimit(SIDEBAR_FETCH_LIMIT)
+    } catch (err) {
+      console.error('Error loading generated files:', err)
+    } finally {
+      setIsGeneratedFilesLoading(false)
+      setGeneratedFilesLoadingMore(false)
+    }
+  }
+
+  // Sync appConversations from App context to Sidebar's local state,
+  // filtering out Deep Research space conversations
   useEffect(() => {
     const filtered = (appConversations || []).filter(
       conv => !deepResearchSpaceIds.includes(String(conv.space_id)),
@@ -545,7 +609,10 @@ const Sidebar = ({
     setLoadingMore(false)
   }, [appConversations, deepResearchSpaceIds])
 
+  // Pub/sub event listeners: conversations-changed and conversation-patched
+  // This is the core real-time update mechanism for sidebar conversation lists
   useEffect(() => {
+    // Patch a single conversation in a list by merging updated fields
     const patchConversationList = (items, patch) => {
       if (!Array.isArray(items) || items.length === 0) return items
       const id = patch?.id ? String(patch.id) : ''
@@ -615,6 +682,7 @@ const Sidebar = ({
     }
   }, [activeTab, deepResearchSpaceId])
 
+  // Listen for scrapbook-changed events (local update: delete filter or merge patch)
   useEffect(() => {
     const handleScrapbookChanged = event => {
       const detail = event?.detail || {}
@@ -648,8 +716,10 @@ const Sidebar = ({
     return () => window.removeEventListener('scrapbook-changed', handleScrapbookChanged)
   }, [])
 
+  // sidebarLoadTab: on mobile use activeTab (only one visible), on desktop use displayTab (hover preview)
   const sidebarLoadTab = isMobile ? activeTab : displayTab
 
+  // Lazy-load tab data: fetch when tab becomes active, data is dirty, or list is empty
   useEffect(() => {
     if (sidebarLoadTab === 'bookmarks') {
       if (
@@ -685,17 +755,27 @@ const Sidebar = ({
         fetchScrapbookEntries().finally(() => setScrapbookDirty(false))
       }
     }
+    if (sidebarLoadTab === 'files') {
+      if (
+        generatedFilesDirty ||
+        (!isGeneratedFilesLoading && !generatedFilesLoadingMore && generatedFiles.length === 0)
+      ) {
+        fetchGeneratedFiles().finally(() => setGeneratedFilesDirty(false))
+      }
+    }
   }, [
     sidebarLoadTab,
     bookmarksDirty,
     deepResearchDirty,
     expertDirty,
     scrapbookDirty,
+    generatedFilesDirty,
     deepResearchSpaceId,
     bookmarkedConversations.length,
     deepResearchConversations.length,
     expertConversations.length,
     scrapbookEntries.length,
+    generatedFiles.length,
     isBookmarksLoading,
     bookmarksLoadingMore,
     isDeepResearchLoading,
@@ -704,6 +784,8 @@ const Sidebar = ({
     expertLoadingMore,
     isScrapbookLoading,
     scrapbookLoadingMore,
+    isGeneratedFilesLoading,
+    generatedFilesLoadingMore,
   ])
 
   // Close dropdown when sidebar collapses (mouse leaves)
@@ -730,6 +812,10 @@ const Sidebar = ({
     }
     if (path.startsWith('/bookmarks')) {
       setActiveTab(prev => (prev === 'bookmarks' ? prev : 'bookmarks'))
+      return
+    }
+    if (path.startsWith('/files')) {
+      setActiveTab(prev => (prev === 'files' ? prev : 'files'))
       return
     }
     if (path.startsWith('/agents')) {
@@ -766,6 +852,7 @@ const Sidebar = ({
     { id: 'spaces', icon: SquaresFourIcon },
     { id: 'agents', icon: RobotIcon },
     { id: 'bookmarks', icon: BookmarkSimpleIcon },
+    { id: 'files', icon: FolderOpenIcon },
     { id: 'scrapbook', icon: NotebookIcon },
   ]
 
@@ -785,6 +872,12 @@ const Sidebar = ({
   const activeScrapbookEntryId = useMemo(() => {
     const match = String(location?.pathname || '').match(/^\/scrapbook\/([^/]+)/)
     return match?.[1] || null
+  }, [location?.pathname])
+
+  const activeGeneratedFileKey = useMemo(() => {
+    const match = String(location?.pathname || '').match(/^\/files\/([^/]+)\/([^/]+)/)
+    if (!match?.[1] || !match?.[2]) return null
+    return `${match[1]}:${match[2]}`
   }, [location?.pathname])
 
   const getThemeIcon = () => {
@@ -1053,6 +1146,26 @@ const Sidebar = ({
     }))
   }, [scrapbookEntries])
 
+  const visibleGeneratedFiles = useMemo(
+    () => generatedFiles.slice(0, generatedFilesLimit),
+    [generatedFiles, generatedFilesLimit],
+  )
+
+  const generatedFilesHasMore = useMemo(
+    () => generatedFiles.length > generatedFilesLimit,
+    [generatedFiles.length, generatedFilesLimit],
+  )
+
+  const groupedGeneratedFiles = useMemo(() => {
+    const groups = groupConversationsByDate(visibleGeneratedFiles)
+    return groups.map(section => ({
+      ...section,
+      items: section.items.slice(0, MAX_CONVERSATIONS_PER_SECTION),
+      hasMore: section.items.length > MAX_CONVERSATIONS_PER_SECTION,
+      totalCount: section.items.length,
+    }))
+  }, [visibleGeneratedFiles])
+
   // Spaces list pagination inside sidebar
   const visibleSpaces = useMemo(() => {
     if (displayTab !== 'spaces') return []
@@ -1184,6 +1297,11 @@ const Sidebar = ({
                     if (!isOpen) onNavigate('scrapbook')
                     return
                   }
+                  if (item.id === 'files') {
+                    setActiveTab('files')
+                    if (!isOpen) onNavigate('files')
+                    return
+                  }
                   setActiveTab(item.id)
                   // On mobile (isOpen), only switch tab, don't navigate full page
                   if (!isOpen) {
@@ -1192,6 +1310,7 @@ const Sidebar = ({
                     else if (item.id === 'expert') onNavigate('expert')
                     else if (item.id === 'spaces') onNavigate('spaces')
                     else if (item.id === 'bookmarks') onNavigate('bookmarks')
+                    else if (item.id === 'files') onNavigate('files')
                     else if (item.id === 'agents') onNavigate('agents')
                   }
                 }}
@@ -1376,6 +1495,8 @@ const Sidebar = ({
                             ? t('sidebar.spaces')
                             : displayTab === 'agents'
                               ? t('sidebar.agents')
+                              : displayTab === 'files'
+                                ? t('sidebar.files')
                               : displayTab === 'scrapbook'
                                 ? t('sidebar.scrapbook')
                                 : ''}
@@ -1433,6 +1554,7 @@ const Sidebar = ({
               displayTab === 'bookmarks' ||
               displayTab === 'expert' ||
               displayTab === 'deepResearch' ||
+              displayTab === 'files' ||
               displayTab === 'scrapbook') && (
               <div className="no-scrollbar flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-2">
                 {!isConversationsLoading &&
@@ -1722,6 +1844,216 @@ const Sidebar = ({
                         />
                       </div>
                     )}
+                  </div>
+                )}
+
+                {displayTab === 'files' && (
+                  <div className="flex h-full min-h-0 flex-col">
+                    <div className="shrink-0 px-2 pb-2">
+                      <button
+                        onClick={() => onNavigate('files')}
+                        className={clsx(
+                          'relative flex w-full cursor-pointer items-center gap-3 rounded-xl p-2.5 text-left transition-all',
+                          isScrapbookSidebarTheme
+                            ? glassTone(
+                                'border border-white/8 bg-white/3 text-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] hover:scale-[1.01] hover:border-white/12 hover:bg-white/6',
+                                'border border-white/80 bg-white/52 text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] hover:scale-[1.01] hover:border-white hover:bg-white/74',
+                              )
+                            : 'bg-user-bubble/50 hover:bg-user-bubble dark:hover:bg-user-bubble/10 text-gray-600 transition-transform hover:scale-105 dark:bg-zinc-800 dark:text-gray-300',
+                        )}
+                      >
+                        <div
+                          className={clsx(
+                            'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-base',
+                            isScrapbookSidebarTheme
+                              ? glassTone(
+                                  'border border-white/12 bg-linear-to-br from-emerald-400/20 via-cyan-400/10 to-blue-300/20 text-white',
+                                  'border border-white/80 bg-linear-to-br from-emerald-100/90 via-cyan-50/90 to-blue-100/90 text-slate-700',
+                                )
+                              : 'bg-primary-100/70 dark:bg-primary-900/30 text-gray-700 dark:text-gray-100',
+                          )}
+                        >
+                          <FolderOpenIcon size={16} weight="duotone" />
+                        </div>
+                        <span
+                          className={clsx(
+                            'text-sm font-medium',
+                            isScrapbookSidebarTheme
+                              ? glassTone('text-white', 'text-slate-800')
+                              : 'text-gray-700 dark:text-gray-300',
+                          )}
+                        >
+                          {t('sidebar.files')}
+                        </span>
+                      </button>
+                      <div
+                        className={clsx(
+                          'mt-2 h-px',
+                          isScrapbookSidebarTheme
+                            ? glassTone('bg-white/8', 'bg-slate-200/70')
+                            : 'bg-gray-200 dark:bg-zinc-800',
+                        )}
+                      />
+                    </div>
+
+                    <div className="no-scrollbar flex flex-1 flex-col gap-2 overflow-y-auto overscroll-contain px-2">
+                      {isGeneratedFilesLoading && generatedFiles.length === 0 && (
+                        <div className="flex justify-center py-2">
+                          <DotLoader />
+                        </div>
+                      )}
+
+                      {!isGeneratedFilesLoading && generatedFiles.length === 0 && (
+                        <div className="flex flex-col items-center gap-2 px-2 py-3 text-xs text-gray-500 dark:text-gray-400">
+                          <FolderOpenIcon size={24} weight="duotone" className="text-black dark:text-white" />
+                          <div>{t('sidebar.noFiles')}</div>
+                        </div>
+                      )}
+
+                      {groupedGeneratedFiles.map(section => (
+                        <div key={section.title} className="flex flex-col gap-1">
+                          <div
+                            className={clsx(
+                              'mt-1 flex justify-center px-2 text-[10px] tracking-wide uppercase',
+                              isScrapbookSidebarTheme
+                                ? glassTone('text-white/40', 'text-slate-400')
+                                : 'text-gray-400',
+                            )}
+                          >
+                            {translateDateTitle(section.title)}
+                          </div>
+                          {section.items.map(file => {
+                            const fileId = String(file?.file_id || '')
+                            const fileKind = String(file?.kind || 'excel')
+                            const isActive = activeGeneratedFileKey === `${fileKind}:${fileId}`
+                            const title = String(file?.title || file?.filename || '').trim() || fileId
+                            const KindIcon = fileKind === 'pptx' ? FileType2 : FileSpreadsheet
+
+                            return (
+                              <div
+                                key={`${fileKind}:${fileId}`}
+                                onClick={() => {
+                                  if (!fileId) return
+                                  navigate({
+                                    to: '/files/$kind/$fileId',
+                                    params: { kind: fileKind, fileId },
+                                  })
+                                  if (isMobile && onClose) onClose()
+                                }}
+                                className={clsx(
+                                  'group relative cursor-pointer truncate rounded-xl px-1 py-2.5 text-sm transition-all duration-200 md:p-2.5',
+                                  isActive
+                                    ? isScrapbookSidebarTheme
+                                      ? glassTone(
+                                          'border border-white/12 bg-white/8 text-white shadow-[0_8px_20px_rgba(37,99,235,0.12)]',
+                                          'border border-white/80 bg-white/68 text-slate-900 shadow-[0_8px_20px_rgba(37,99,235,0.08)]',
+                                        )
+                                      : 'bg-primary-500/10 text-primary-500 dark:bg-primary-500/20 dark:text-primary-400'
+                                    : isScrapbookSidebarTheme
+                                      ? glassTone(
+                                          'border border-transparent text-white/88 hover:border-white/8 hover:bg-white/4',
+                                          'border border-transparent text-slate-700 hover:border-slate-200/90 hover:bg-white/85 hover:shadow-[0_4px_14px_rgba(15,23,42,0.05)]',
+                                        )
+                                      : 'hover:bg-primary-50 text-gray-700 dark:text-gray-300 dark:hover:bg-zinc-800',
+                                )}
+                                title={title}
+                              >
+                                <div className="relative z-10 flex w-full items-center gap-3 overflow-hidden">
+                                  <div
+                                    className={clsx(
+                                      'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg',
+                                      isScrapbookSidebarTheme
+                                        ? isActive
+                                          ? glassTone(
+                                              'border border-white/15 bg-linear-to-br from-emerald-400/25 to-cyan-400/20',
+                                              'border border-white/80 bg-linear-to-br from-emerald-100/90 to-cyan-100/90',
+                                            )
+                                          : glassTone(
+                                              'border border-white/8 bg-white/3',
+                                              'border border-white/75 bg-white/42',
+                                            )
+                                        : 'bg-primary-100 dark:bg-primary-900/30',
+                                    )}
+                                  >
+                                    <KindIcon size={18} className="shrink-0" />
+                                  </div>
+                                  <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+                                    <span className="truncate font-medium">{title}</span>
+                                    <span
+                                      className={clsx(
+                                        'mt-0.5 text-[11px]',
+                                        isActive
+                                          ? isScrapbookSidebarTheme
+                                            ? glassTone('text-white/70', 'text-slate-500')
+                                            : 'text-primary-600 dark:text-primary-400'
+                                          : isScrapbookSidebarTheme
+                                            ? glassTone('text-white/45', 'text-slate-400')
+                                            : 'text-gray-400',
+                                      )}
+                                    >
+                                      {t(`views.filesView.kind${fileKind === 'pptx' ? 'Pptx' : 'Excel'}`)} ·{' '}
+                                      {formatDateTime(file?.created_at)}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      ))}
+
+                      {generatedFiles.length > 0 && (
+                        <div className="px-2 py-2">
+                          {generatedFilesHasMore ? (
+                            <button
+                              onClick={e => {
+                                e.stopPropagation()
+                                fetchGeneratedFiles(true)
+                              }}
+                              disabled={generatedFilesLoadingMore}
+                              className={clsx(
+                                'flex w-full items-center justify-center gap-2 rounded-xl py-2 text-xs font-medium transition-colors',
+                                isScrapbookSidebarTheme
+                                  ? glassTone(
+                                      'border border-white/8 bg-white/3 text-white/80 hover:bg-white/6',
+                                      'border border-white/75 bg-white/45 text-slate-700 hover:bg-white/70',
+                                    )
+                                  : 'bg-user-bubble hover:bg-user-bubble/10 text-gray-700 dark:bg-zinc-800 dark:text-gray-200 dark:hover:bg-zinc-700',
+                              )}
+                            >
+                              {generatedFilesLoadingMore ? <DotLoader /> : t('sidebar.loadMore')}
+                            </button>
+                          ) : (
+                            <div
+                              className={clsx(
+                                'flex items-center gap-2 py-2 text-[10px]',
+                                isScrapbookSidebarTheme
+                                  ? glassTone('text-white/40', 'text-slate-400')
+                                  : 'text-gray-400',
+                              )}
+                            >
+                              <span
+                                className={clsx(
+                                  'h-px flex-1',
+                                  isScrapbookSidebarTheme
+                                    ? glassTone('bg-white/8', 'bg-slate-200/70')
+                                    : 'bg-gray-200 dark:bg-zinc-800',
+                                )}
+                              />
+                              <span className="whitespace-nowrap">{t('sidebar.noMoreFiles')}</span>
+                              <span
+                                className={clsx(
+                                  'h-px flex-1',
+                                  isScrapbookSidebarTheme
+                                    ? glassTone('bg-white/8', 'bg-slate-200/70')
+                                    : 'bg-gray-200 dark:bg-zinc-800',
+                                )}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
 

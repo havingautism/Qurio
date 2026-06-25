@@ -1,3 +1,6 @@
+// All conversations library page — lists all non-expert, non-deep-research conversations
+// Route: /library — sidebar Library tab entry
+// Same template as ExpertView: server-side pagination, 4-option sort, search with manual confirm, ConversationCard grid
 import { useNavigate } from '@tanstack/react-router'
 import clsx from 'clsx'
 import {

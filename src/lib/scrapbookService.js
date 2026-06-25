@@ -18,8 +18,6 @@ import { buildScrapbookSystemAgentPayload, SCRAPBOOK_AGENT_ID } from './systemAg
 const ENV_VARS = {
   openAIKey: getPublicEnv('PUBLIC_OPENAI_API_KEY'),
   openRouterKey: getPublicEnv('PUBLIC_OPENROUTER_API_KEY'),
-  liteLLMKey: getPublicEnv('PUBLIC_LITELLM_API_KEY'),
-  liteLLMBaseUrl: getPublicEnv('PUBLIC_LITELLM_BASE_URL'),
   huggingFaceKey: getPublicEnv('PUBLIC_HUGGINGFACE_API_KEY'),
   googleApiKey: getPublicEnv('PUBLIC_GOOGLE_API_KEY'),
   siliconflowKey: getPublicEnv('PUBLIC_SILICONFLOW_API_KEY'),
@@ -158,7 +156,6 @@ const _getApiKey = (provider, settings) => {
     gemini: settings.googleApiKey || ENV_VARS.googleApiKey,
     openai_compatibility: settings.OpenAICompatibilityKey || ENV_VARS.openAIKey,
     openrouter: settings.OpenRouterKey || ENV_VARS.openRouterKey,
-    litellm_openai: settings.LiteLLMKey || ENV_VARS.liteLLMKey,
     huggingface: settings.HuggingFaceKey || ENV_VARS.huggingFaceKey,
     siliconflow: settings.SiliconFlowKey || ENV_VARS.siliconflowKey,
     glm: settings.GlmKey || ENV_VARS.glmKey,
@@ -175,9 +172,6 @@ const _getApiKey = (provider, settings) => {
 const _getBaseUrl = (provider, settings) => {
   if (provider === 'openai_compatibility') {
     return settings.OpenAICompatibilityUrl || ENV_VARS.openAIBase || ''
-  }
-  if (provider === 'litellm_openai') {
-    return settings.LiteLLMUrl || ENV_VARS.liteLLMBaseUrl || ''
   }
   return ''
 }

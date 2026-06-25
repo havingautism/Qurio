@@ -1,3 +1,8 @@
+// Share image generation page — renders a single message as a styled share card, exports as PNG
+// Route: /share — accessed from share button in ChatInterface
+// Reads messageId/messageIndex from URL search params, NOT from route params
+// Uses html2canvas to screenshot the ShareCanvas component at 2x scale
+// Temporarily disables external stylesheets during capture to avoid CSS interference
 import { useNavigate } from '@tanstack/react-router'
 import { useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'

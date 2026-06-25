@@ -1,9 +1,14 @@
+/**
+ * Public environment variables accessor.
+ * Reads values injected at build time from .env (import.meta.env.PUBLIC_*).
+ * Electron runtime always returns undefined (backend URL comes from bridge).
+ */
+
+// Static map of build-time env vars (injected by RSBuild/Vite)
 const PUBLIC_ENV = {
   PUBLIC_OPENAI_API_KEY: import.meta.env.PUBLIC_OPENAI_API_KEY,
   PUBLIC_OPENAI_BASE_URL: import.meta.env.PUBLIC_OPENAI_BASE_URL,
   PUBLIC_OPENROUTER_API_KEY: import.meta.env.PUBLIC_OPENROUTER_API_KEY,
-  PUBLIC_LITELLM_API_KEY: import.meta.env.PUBLIC_LITELLM_API_KEY,
-  PUBLIC_LITELLM_BASE_URL: import.meta.env.PUBLIC_LITELLM_BASE_URL,
   PUBLIC_HUGGINGFACE_API_KEY: import.meta.env.PUBLIC_HUGGINGFACE_API_KEY,
   PUBLIC_SILICONFLOW_API_KEY: import.meta.env.PUBLIC_SILICONFLOW_API_KEY,
   PUBLIC_SILICONFLOW_BASE_URL: import.meta.env.PUBLIC_SILICONFLOW_BASE_URL,
@@ -36,6 +41,7 @@ const isElectronRuntime = () => {
   )
 }
 
+// Look up an env var by key. Returns undefined if not set, empty, or Electron runtime.
 export const getPublicEnv = key => {
   if (key === 'PUBLIC_BACKEND_URL' && isElectronRuntime()) {
     return undefined
